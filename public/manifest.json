@@ -1,0 +1,24 @@
+{
+  "name": "UnReceipt",
+  "short_name": "UnReceipt",
+  "description": "Automatic expense receipt capture for businesses",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#27BE7B",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

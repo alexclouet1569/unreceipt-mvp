@@ -75,6 +75,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#27BE7B" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="UnReceipt" />
+        <link rel="apple-touch-icon" href="/icons/icon-192" />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         <script
           type="application/ld+json"
