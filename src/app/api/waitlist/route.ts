@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "UnReceipt <hello@unreceipt.com>",
+          from: "UnReceipt <onboarding@resend.dev>",
           to: email.toLowerCase().trim(),
           subject: "Welcome to UnReceipt — You're on the list!",
           html: getWelcomeEmailHtml(),
