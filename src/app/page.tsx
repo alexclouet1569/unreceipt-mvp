@@ -26,13 +26,27 @@ import {
 export default function LandingPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleWaitlist = (e: React.FormEvent) => {
+  const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      setSubmitted(true);
-      setEmail("");
+    if (!email) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        setSubmitted(true);
+        setEmail("");
+      }
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -467,8 +481,9 @@ export default function LandingPage() {
                 required
                 className="flex-1"
               />
-              <Button type="submit" className="gap-2">
-                Join Waitlist <ArrowRight className="w-4 h-4" />
+              <Button type="submit" className="gap-2" disabled={submitting}>
+                {submitting ? "Joining..." : "Join Waitlist"}{" "}
+                {!submitting && <ArrowRight className="w-4 h-4" />}
               </Button>
             </form>
           )}

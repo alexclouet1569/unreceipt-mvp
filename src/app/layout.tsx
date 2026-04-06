@@ -9,9 +9,63 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "UnReceipt — Paper is Past",
+  title: {
+    default: "UnReceipt — Paper is Past",
+    template: "%s | UnReceipt",
+  },
   description:
-    "Automatic expense receipt capture for businesses. Your employees will never lose a receipt again.",
+    "Automatic expense receipt capture for businesses. Your employees will never lose a receipt again. Works with your existing corporate cards.",
+  metadataBase: new URL("https://unreceipt.com"),
+  keywords: [
+    "expense management",
+    "receipt capture",
+    "expense report",
+    "corporate expenses",
+    "receipt scanning",
+    "business expenses",
+    "expense tracking",
+    "digital receipts",
+    "expense automation",
+    "gestion des notes de frais",
+    "justificatifs de paiement",
+  ],
+  authors: [{ name: "UnReceipt" }],
+  creator: "UnReceipt",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://unreceipt.com",
+    siteName: "UnReceipt",
+    title: "UnReceipt — Paper is Past",
+    description:
+      "Automatic expense receipt capture for businesses. Works with your existing corporate cards — no migration needed.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "UnReceipt — The cleanest way to track spending",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "UnReceipt — Paper is Past",
+    description:
+      "Automatic expense receipt capture for businesses. Works with your existing corporate cards.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({
@@ -22,6 +76,28 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "UnReceipt",
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Web",
+              description:
+                "Automatic expense receipt capture for businesses. Works with your existing corporate cards.",
+              url: "https://unreceipt.com",
+              offers: {
+                "@type": "AggregateOffer",
+                lowPrice: "6",
+                highPrice: "12",
+                priceCurrency: "EUR",
+                offerCount: "3",
+              },
+            }),
+          }}
+        />
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
