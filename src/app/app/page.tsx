@@ -28,68 +28,20 @@ import {
 } from "lucide-react";
 import { supabaseClient } from "@/lib/supabase-client";
 
-// Mock transactions for now (will be replaced by real bank data)
-const mockTransactions = [
-  {
-    id: "1",
-    merchant_name: "Restaurant Le Comptoir",
-    merchant_address: "12 Rue de Rivoli, 75001 Paris",
-    merchant_category: "meals",
-    amount: 47.80,
-    currency: "EUR",
-    date: "2026-04-06",
-    time: "12:45",
-    payment_method: "Visa •••• 4821",
-    status: "receipt_needed",
-  },
-  {
-    id: "2",
-    merchant_name: "SNCF Voyages",
-    merchant_address: "Gare de Lyon, Paris",
-    merchant_category: "travel",
-    amount: 156.00,
-    currency: "EUR",
-    date: "2026-04-05",
-    time: "08:22",
-    payment_method: "Mastercard •••• 1234",
-    status: "receipt_needed",
-  },
-  {
-    id: "3",
-    merchant_name: "Uber",
-    merchant_category: "transport",
-    amount: 18.50,
-    currency: "EUR",
-    date: "2026-04-05",
-    time: "19:05",
-    payment_method: "Visa •••• 4821",
-    status: "receipt_needed",
-  },
-  {
-    id: "4",
-    merchant_name: "Amazon Business",
-    merchant_address: "Online",
-    merchant_category: "office_supplies",
-    amount: 89.99,
-    currency: "EUR",
-    date: "2026-04-04",
-    time: "14:30",
-    payment_method: "Visa •••• 4821",
-    status: "complete",
-  },
-  {
-    id: "5",
-    merchant_name: "Figma",
-    merchant_category: "software",
-    amount: 15.00,
-    currency: "EUR",
-    date: "2026-04-01",
-    time: "00:00",
-    payment_method: "Visa •••• 4821",
-    status: "complete",
-    auto: true,
-  },
-];
+// Transaction type
+type Transaction = {
+  id: string;
+  merchant_name: string;
+  merchant_address?: string;
+  merchant_category: string;
+  amount: number;
+  currency: string;
+  date: string;
+  time: string;
+  payment_method: string;
+  status: string;
+  auto?: boolean;
+};
 
 type CategoryKey = "meals" | "transport" | "accommodation" | "office_supplies" | "software" | "client_entertainment" | "travel" | "other";
 
@@ -116,7 +68,7 @@ const categoryLabels: Record<CategoryKey, string> = {
 };
 
 // Simulated OCR result for receipt data
-function simulateOCR(transaction: typeof mockTransactions[0]) {
+function simulateOCR(transaction: Transaction) {
   // Generate realistic receipt line items based on category
   const itemSets: Record<string, Array<{ description: string; quantity: number; unit_price: number }>> = {
     meals: [
@@ -181,8 +133,8 @@ export default function AppDashboard() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userEmail, setUserEmail] = useState("");
-  const [transactions, setTransactions] = useState(mockTransactions);
-  const [selectedTxn, setSelectedTxn] = useState<typeof mockTransactions[0] | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [receiptData, setReceiptData] = useState<ReturnType<typeof simulateOCR> | null>(null);
@@ -194,7 +146,7 @@ export default function AppDashboard() {
     });
   }, []);
 
-  const handleCapture = (txn: typeof mockTransactions[0]) => {
+  const handleCapture = (txn: Transaction) => {
     setSelectedTxn(txn);
     setReceiptData(null);
     setCapturedImage(null);
@@ -267,110 +219,147 @@ export default function AppDashboard() {
           <p className="text-sm text-muted-foreground">{userEmail}</p>
         </div>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <Card>
-            <CardContent className="py-3 px-4 text-center">
-              <div className="text-2xl font-bold text-primary">{completed}</div>
-              <div className="text-xs text-muted-foreground">Captured</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-3 px-4 text-center">
-              <div className="text-2xl font-bold text-amber-600">{needsAction}</div>
-              <div className="text-xs text-muted-foreground">Pending</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-3 px-4 text-center">
-              <div className="text-2xl font-bold">
-                {transactions.reduce((sum, t) => sum + t.amount, 0).toFixed(0)}&euro;
+        {/* Content */}
+        {transactions.length === 0 ? (
+          /* Empty state for new users */
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Receipt className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="font-semibold text-lg mb-2">No expenses yet</h2>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
+              Your expenses will appear here once your corporate card is connected. You&apos;ll be able to capture receipts and generate digital proofs of payment.
+            </p>
+            <div className="rounded-lg bg-muted/50 border border-border p-4 max-w-xs mx-auto text-left space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Coming soon</p>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <Camera className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Receipt Capture</p>
+                  <p className="text-xs text-muted-foreground">Snap a photo, get a digital proof of payment</p>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">This month</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Alert banner */}
-        {needsAction > 0 && (
-          <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-900">
-                {needsAction} receipt{needsAction > 1 ? "s" : ""} needed
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Tap a transaction to capture the receipt
-              </p>
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Auto-matching</p>
+                  <p className="text-xs text-muted-foreground">Receipts matched to card transactions automatically</p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Transaction list */}
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">
-            Recent transactions
-          </h2>
-          {transactions.map((txn) => {
-            const Icon = categoryIcons[txn.merchant_category as CategoryKey] || MapPin;
-            const isActionable = txn.status === "receipt_needed";
-
-            return (
-              <Card
-                key={txn.id}
-                className={`transition-all ${isActionable ? "cursor-pointer hover:border-primary/30" : ""}`}
-                onClick={() => isActionable && handleCapture(txn)}
-              >
-                <CardContent className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium text-sm truncate">
-                          {txn.merchant_name}
-                        </p>
-                        <p className="font-semibold text-sm tabular-nums shrink-0">
-                          {txn.amount.toFixed(2)}&euro;
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {txn.date} &middot; {txn.time}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className={`text-xs px-2 py-0.5 ${
-                            txn.status === "complete"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {txn.status === "complete" ? (
-                            <span className="flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Captured
-                            </span>
-                          ) : (
-                            "Receipt Needed"
-                          )}
-                        </Badge>
-                      </div>
-                    </div>
-                    {isActionable && (
-                      <div className="shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Camera className="w-4 h-4 text-primary" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+        ) : (
+          <>
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <Card>
+                <CardContent className="py-3 px-4 text-center">
+                  <div className="text-2xl font-bold text-primary">{completed}</div>
+                  <div className="text-xs text-muted-foreground">Captured</div>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
+              <Card>
+                <CardContent className="py-3 px-4 text-center">
+                  <div className="text-2xl font-bold text-amber-600">{needsAction}</div>
+                  <div className="text-xs text-muted-foreground">Pending</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="py-3 px-4 text-center">
+                  <div className="text-2xl font-bold">
+                    {transactions.reduce((sum, t) => sum + t.amount, 0).toFixed(0)}&euro;
+                  </div>
+                  <div className="text-xs text-muted-foreground">This month</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Alert banner */}
+            {needsAction > 0 && (
+              <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900">
+                    {needsAction} receipt{needsAction > 1 ? "s" : ""} needed
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Tap a transaction to capture the receipt
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Transaction list */}
+            <div className="space-y-2">
+              <h2 className="text-sm font-medium text-muted-foreground mb-3">
+                Recent transactions
+              </h2>
+              {transactions.map((txn) => {
+                const Icon = categoryIcons[txn.merchant_category as CategoryKey] || MapPin;
+                const isActionable = txn.status === "receipt_needed";
+
+                return (
+                  <Card
+                    key={txn.id}
+                    className={`transition-all ${isActionable ? "cursor-pointer hover:border-primary/30" : ""}`}
+                    onClick={() => isActionable && handleCapture(txn)}
+                  >
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-sm truncate">
+                              {txn.merchant_name}
+                            </p>
+                            <p className="font-semibold text-sm tabular-nums shrink-0">
+                              {txn.amount.toFixed(2)}&euro;
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground">
+                              {txn.date} &middot; {txn.time}
+                            </span>
+                            <Badge
+                              variant="secondary"
+                              className={`text-xs px-2 py-0.5 ${
+                                txn.status === "complete"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {txn.status === "complete" ? (
+                                <span className="flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Captured
+                                </span>
+                              ) : (
+                                "Receipt Needed"
+                              )}
+                            </Badge>
+                          </div>
+                        </div>
+                        {isActionable && (
+                          <div className="shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Camera className="w-4 h-4 text-primary" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Capture dialog */}
