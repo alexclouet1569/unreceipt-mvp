@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
-export const alt = "UnReceipt — The cleanest way to track spending";
+export const alt =
+  "UnReceipt — Automatic expense receipt capture. From Chaos to Clarity.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -17,7 +17,6 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "Inter, sans-serif",
           padding: "60px",
         }}
       >
@@ -41,6 +40,7 @@ export default async function Image() {
               justifyContent: "center",
               fontSize: "28px",
               color: "white",
+              fontWeight: 800,
             }}
           >
             U
@@ -59,6 +59,9 @@ export default async function Image() {
         {/* Tagline */}
         <div
           style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             fontSize: "56px",
             fontWeight: 800,
             color: "white",
@@ -67,9 +70,8 @@ export default async function Image() {
             marginBottom: "24px",
           }}
         >
-          The Cleanest Way to
-          <br />
-          Track Spending
+          <span>From Chaos to Clarity</span>
+          <span style={{ color: "#27BE7B" }}>Automatically.</span>
         </div>
 
         {/* Subtitle */}
@@ -80,10 +82,10 @@ export default async function Image() {
             textAlign: "center",
           }}
         >
-          Automatic expense receipt capture for businesses
+          Automatic expense receipt capture for businesses — Paper is Past
         </div>
 
-        {/* Badge */}
+        {/* Badges */}
         <div
           style={{
             display: "flex",
@@ -91,24 +93,45 @@ export default async function Image() {
             marginTop: "48px",
           }}
         >
-          {["< 5 min capture", "94% compliance", "No card switch"].map(
-            (stat) => (
-              <div
-                key={stat}
-                style={{
-                  background: "rgba(39, 190, 123, 0.15)",
-                  border: "1px solid rgba(39, 190, 123, 0.3)",
-                  borderRadius: "999px",
-                  padding: "10px 24px",
-                  color: "#27BE7B",
-                  fontSize: "18px",
-                  fontWeight: 600,
-                }}
-              >
-                {stat}
-              </div>
-            )
-          )}
+            <div
+            style={{
+              background: "rgba(39, 190, 123, 0.15)",
+              border: "1px solid rgba(39, 190, 123, 0.3)",
+              borderRadius: "999px",
+              padding: "10px 24px",
+              color: "#27BE7B",
+              fontSize: "18px",
+              fontWeight: 600,
+            }}
+          >
+            Free for small teams
+          </div>
+          <div
+            style={{
+              background: "rgba(39, 190, 123, 0.15)",
+              border: "1px solid rgba(39, 190, 123, 0.3)",
+              borderRadius: "999px",
+              padding: "10px 24px",
+              color: "#27BE7B",
+              fontSize: "18px",
+              fontWeight: 600,
+            }}
+          >
+            Any card works
+          </div>
+          <div
+            style={{
+              background: "rgba(39, 190, 123, 0.15)",
+              border: "1px solid rgba(39, 190, 123, 0.3)",
+              borderRadius: "999px",
+              padding: "10px 24px",
+              color: "#27BE7B",
+              fontSize: "18px",
+              fontWeight: 600,
+            }}
+          >
+            Zero employee effort
+          </div>
         </div>
       </div>
     ),

@@ -17,50 +17,59 @@ const figtree = Figtree({
 
 export const metadata: Metadata = {
   title: {
-    default: "UnReceipt — Paper is Past",
+    default: "UnReceipt — Automatic Expense Receipt Capture for Businesses",
     template: "%s | UnReceipt",
   },
   description:
-    "Automatic expense receipt capture for businesses. Your employees will never lose a receipt again. Works with your existing corporate cards.",
+    "Stop losing receipts. UnReceipt captures expense receipts automatically at the moment of payment — no photos, no forms, no effort. Free for teams up to 10. Works with any corporate card.",
   metadataBase: new URL("https://unreceipt.com"),
   keywords: [
-    "expense management",
-    "receipt capture",
-    "expense report",
-    "corporate expenses",
-    "receipt scanning",
-    "business expenses",
-    "expense tracking",
-    "digital receipts",
-    "expense automation",
+    "automatic receipt capture",
+    "expense management software",
+    "expense report automation",
+    "digital receipt management",
+    "corporate expense tracking",
+    "receipt scanning app",
+    "business expense software",
+    "expense receipt capture",
+    "automated expense reports",
+    "no more lost receipts",
+    "corporate card expense tracking",
+    "real-time expense tracking",
+    "employee expense management",
+    "SME expense software",
+    "gestion automatique des reçus",
     "gestion des notes de frais",
-    "justificatifs de paiement",
+    "justificatifs de paiement automatiques",
+    "logiciel notes de frais",
+    "capture automatique ticket de caisse",
   ],
   authors: [{ name: "UnReceipt" }],
   creator: "UnReceipt",
   openGraph: {
     type: "website",
     locale: "en_US",
+    alternateLocale: "fr_FR",
     url: "https://unreceipt.com",
     siteName: "UnReceipt",
-    title: "UnReceipt — Paper is Past",
+    title: "UnReceipt — From Chaos to Clarity, Automatically",
     description:
-      "Automatic expense receipt capture for businesses. Works with your existing corporate cards — no migration needed.",
+      "Automatic expense receipt capture for businesses. No photos, no forms — receipts appear instantly when your employees pay. Free for small teams.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "UnReceipt — The cleanest way to track spending",
+        alt: "UnReceipt — Automatic expense receipt capture. From Chaos to Clarity, Automatically.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "UnReceipt — Paper is Past",
+    title: "UnReceipt — From Chaos to Clarity, Automatically",
     description:
-      "Automatic expense receipt capture for businesses. Works with your existing corporate cards.",
-    images: ["/og-image.png"],
+      "Stop losing receipts. Automatic expense capture at the moment of payment. Free for teams up to 10.",
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
@@ -71,6 +80,13 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
       "max-image-preview": "large",
       "max-snippet": -1,
+    },
+  },
+  alternates: {
+    languages: {
+      "en": "https://unreceipt.com",
+      "fr": "https://unreceipt.com",
+      "x-default": "https://unreceipt.com",
     },
   },
 };
@@ -101,15 +117,40 @@ export default function RootLayout({
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               description:
-                "Automatic expense receipt capture for businesses. Works with your existing corporate cards.",
+                "Automatic expense receipt capture for businesses. Receipts are captured at the moment of payment — no photos, no forms, no effort. Works with any existing corporate card.",
               url: "https://unreceipt.com",
-              offers: {
-                "@type": "AggregateOffer",
-                lowPrice: "6",
-                highPrice: "12",
-                priceCurrency: "EUR",
-                offerCount: "3",
-              },
+              offers: [
+                {
+                  "@type": "Offer",
+                  name: "Free",
+                  description: "For small teams up to 10 employees",
+                  price: "0",
+                  priceCurrency: "EUR",
+                },
+                {
+                  "@type": "Offer",
+                  name: "Pro",
+                  description: "For growing companies — unlimited employees, approval workflows, integrations",
+                  price: "9",
+                  priceCurrency: "EUR",
+                  unitText: "per user per month",
+                },
+                {
+                  "@type": "Offer",
+                  name: "Enterprise",
+                  description: "For large organizations — SSO, multi-entity, dedicated support",
+                  price: "0",
+                  priceCurrency: "EUR",
+                  priceSpecification: {
+                    "@type": "PriceSpecification",
+                    priceCurrency: "EUR",
+                    eligibleQuantity: {
+                      "@type": "QuantitativeValue",
+                      unitText: "custom pricing",
+                    },
+                  },
+                },
+              ],
             }),
           }}
         />

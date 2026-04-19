@@ -200,10 +200,11 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
           <Image
             src="/logo-dark.png"
-            alt="UnReceipt"
+            alt="UnReceipt — automatic expense receipt capture"
             width={180}
             height={50}
             className="h-10 sm:h-11 w-auto"
+            priority
           />
           <div className="hidden md:flex items-center gap-8">
             {[
@@ -215,7 +216,7 @@ export default function LandingPage() {
               <a
                 key={link.label}
                 href={link.href}
-                className={`text-sm font-medium transition-colors ${scrolled ? "text-[#303568]/70 hover:text-[#303568]" : "text-[#303568]/70 hover:text-[#303568]"}`}
+                className="text-sm font-medium transition-colors text-[#303568]/70 hover:text-[#303568]"
               >
                 {link.label}
               </a>
@@ -816,7 +817,7 @@ export default function LandingPage() {
             <div>
               <Image
                 src="/logo-light.png"
-                alt="UnReceipt"
+                alt="UnReceipt — automatic expense receipt capture for businesses"
                 width={180}
                 height={50}
                 className="h-10 w-auto mb-4"
