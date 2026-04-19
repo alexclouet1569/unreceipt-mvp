@@ -199,7 +199,7 @@ export default function LandingPage() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-transparent"}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
           <Image
-            src={scrolled ? "/logo-dark.png" : "/logo-light.png"}
+            src="/logo-dark.png"
             alt="UnReceipt"
             width={180}
             height={50}
@@ -215,7 +215,7 @@ export default function LandingPage() {
               <a
                 key={link.label}
                 href={link.href}
-                className={`text-sm font-medium transition-colors ${scrolled ? "text-[#303568]/70 hover:text-[#303568]" : "text-white/80 hover:text-white"}`}
+                className={`text-sm font-medium transition-colors ${scrolled ? "text-[#303568]/70 hover:text-[#303568]" : "text-[#303568]/70 hover:text-[#303568]"}`}
               >
                 {link.label}
               </a>
@@ -227,7 +227,7 @@ export default function LandingPage() {
             </a>
           </div>
           <button
-            className={`md:hidden p-2 ${scrolled ? "text-[#303568]" : "text-white"}`}
+            className={`md:hidden p-2 text-[#303568]`}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
