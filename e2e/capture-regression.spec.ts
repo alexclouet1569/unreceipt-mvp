@@ -21,34 +21,50 @@ const stubSupabase = async (
   const user = opts.user ?? null;
   const otpOk = opts.otpOk ?? true;
 
-  await page.route("**/auth/v1/user**", (route) => {
-    if (user) {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          id: user.id,
-          aud: "authenticated",
-          email: user.email,
-          app_metadata: {},
-          user_metadata: {},
-          created_at: new Date().toISOString(),
-        }),
-      });
-    } else {
-      route.fulfill({
+  // Match every Supabase auth endpoint under the test host — supabase-js
+  // hits more than one path during signInWithOtp / getUser, and the exact
+  // set drifts between SDK minor versions. A single permissive handler
+  // dispatches by URL so we don't have to chase the SDK.
+  await page.route("**/auth/v1/**", async (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname;
+
+    if (path.endsWith("/auth/v1/user")) {
+      if (user) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: user.id,
+            aud: "authenticated",
+            email: user.email,
+            app_metadata: {},
+            user_metadata: {},
+            created_at: new Date().toISOString(),
+          }),
+        });
+      }
+      return route.fulfill({
         status: 401,
         contentType: "application/json",
         body: JSON.stringify({ message: "Auth session missing" }),
       });
     }
-  });
 
-  await page.route("**/auth/v1/otp**", (route) => {
-    route.fulfill({
-      status: otpOk ? 200 : 400,
+    if (path.endsWith("/auth/v1/otp") || path.endsWith("/auth/v1/magiclink")) {
+      return route.fulfill({
+        status: otpOk ? 200 : 400,
+        contentType: "application/json",
+        body: otpOk ? "{}" : JSON.stringify({ error: "boom" }),
+      });
+    }
+
+    // Default: empty 200. Keeps any unanticipated auth request from leaking
+    // out to the real internet and stalling the test.
+    return route.fulfill({
+      status: 200,
       contentType: "application/json",
-      body: otpOk ? "{}" : JSON.stringify({ error: "boom" }),
+      body: "{}",
     });
   });
 };
