@@ -18,3 +18,20 @@ Conventions for this file:
 Row types live in `src/lib/types.ts` and must be kept aligned with the schema by hand.
 
 Switch to a real migration tool (Supabase CLI under `supabase/migrations/`) once the file crosses ~30 schema-change blocks or two people are editing it concurrently.
+
+# Admin auth
+
+Defense in depth (plan decision A2):
+
+1. **`proxy.ts`** at the project root gates `/admin/:path*` and `/api/admin/:path*` — this is the optimistic check the Vercel CDN can run cheaply. Non-admin browsers are redirected to `/app`; non-admin API callers get a 403 JSON.
+2. **`requireAdmin()`** from `src/lib/require-admin.ts` is the real authorization gate. Every admin server action and every `/api/admin/*` route handler must call it before doing anything else. It re-reads the session cookie and re-checks the allowlist. Throws `AdminAuthError` on failure.
+
+`src/lib/auth-admin.ts` exports the pure `isAdminEmail()` matcher. Both the proxy and `requireAdmin()` share it so the policy is defined once.
+
+`src/lib/supabase-admin.ts` exposes `getSupabaseAdmin()` — a Supabase client built with the **service-role** key. This bypasses RLS and is god-mode for the database. Rules:
+
+- Never import this file from a `"use client"` component, page, or hook.
+- Never reference `SUPABASE_SERVICE_ROLE_KEY` from a `NEXT_PUBLIC_*` variable or anywhere it could end up in the client bundle.
+- The file is guarded by filename + a top-of-file comment + the fact that the env var is not `NEXT_PUBLIC_*` (so an accidental client import would fail fast at runtime instead of leaking the key).
+
+Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_ADMIN_EMAILS`.
