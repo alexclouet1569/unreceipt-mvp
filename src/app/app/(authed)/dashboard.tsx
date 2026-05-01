@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -129,22 +129,19 @@ function simulateOCR(transaction: Transaction) {
   };
 }
 
-export default function AppDashboard() {
+type DashboardProps = {
+  userEmail: string;
+};
+
+export function Dashboard({ userEmail }: DashboardProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [userEmail, setUserEmail] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [receiptData, setReceiptData] = useState<ReturnType<typeof simulateOCR> | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabaseClient.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserEmail(user.email || "");
-    });
-  }, []);
 
   const handleCapture = (txn: Transaction) => {
     setSelectedTxn(txn);
