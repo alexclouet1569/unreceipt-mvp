@@ -26,7 +26,7 @@ import {
   MapPin,
   Loader2,
 } from "lucide-react";
-import { supabaseClient } from "@/lib/supabase-client";
+import { getSupabaseClient } from "@/lib/supabase-client";
 
 // Transaction type
 type Transaction = {
@@ -141,7 +141,7 @@ export default function AppDashboard() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    supabaseClient.auth.getUser().then(({ data: { user } }) => {
+    getSupabaseClient().auth.getUser().then(({ data: { user } }) => {
       if (user) setUserEmail(user.email || "");
     });
   }, []);
@@ -182,7 +182,7 @@ export default function AppDashboard() {
   };
 
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+    await getSupabaseClient().auth.signOut();
     router.replace("/app/login");
   };
 
