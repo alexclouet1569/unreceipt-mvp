@@ -26,7 +26,7 @@ import {
   MapPin,
   Loader2,
 } from "lucide-react";
-import { supabaseClient } from "@/lib/supabase-client";
+import { getSupabaseClient } from "@/lib/supabase-client";
 
 // Transaction type
 type Transaction = {
@@ -179,7 +179,7 @@ export function Dashboard({ userEmail }: DashboardProps) {
   };
 
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+    await getSupabaseClient().auth.signOut();
     router.replace("/app/login");
   };
 

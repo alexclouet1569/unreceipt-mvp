@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { supabaseClient } from "@/lib/supabase-client";
+import { getSupabaseClient } from "@/lib/supabase-client";
 
 /**
  * Browser-only shell mounted by /app/layout.tsx so it wraps both the
@@ -29,7 +29,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+    } = getSupabaseClient().auth.onAuthStateChange((_event, session) => {
       if (!session?.user && pathname !== "/app/login") {
         router.replace("/app/login");
       }
