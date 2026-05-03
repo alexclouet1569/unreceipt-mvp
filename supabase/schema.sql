@@ -249,3 +249,46 @@ CREATE TABLE IF NOT EXISTS public.waitlist (
   source TEXT DEFAULT 'landing_page',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- =============================================================================
+-- WOZ Concierge — admin paste-form fields on receipts
+-- =============================================================================
+
+-- The admin/concierge flow inserts a receipt for a customer who forwarded an
+-- email — there's no bank transaction, so transaction_id has to be optional.
+-- All previous self-service rows already have a transaction_id, so dropping
+-- NOT NULL is non-destructive.
+ALTER TABLE public.receipts
+  ALTER COLUMN transaction_id DROP NOT NULL;
+
+-- Categorization, currency, and a free-text notes field — none of which
+-- existed in the pre-WOZ schema. Defaults are picked so existing rows
+-- backfill safely.
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'other';
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'EUR';
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS notes TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_category_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_category_check
+      CHECK (category IN (
+        'meals', 'transport', 'accommodation', 'office_supplies',
+        'software', 'client_entertainment', 'travel', 'other'
+      ));
+  END IF;
+END $$;
+
+-- Index used by the admin dashboard's "most recent receipts per customer"
+-- queries. Sort key is created_at (insertion time) so a freshly pasted
+-- back-dated receipt still rises to the top of the founder's list.
+CREATE INDEX IF NOT EXISTS receipts_user_id_created_at_idx
+  ON public.receipts(user_id, created_at DESC);
