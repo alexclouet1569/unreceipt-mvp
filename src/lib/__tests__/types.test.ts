@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type {
   Receipt,
+  ReceiptCategory,
   ReceiptSource,
   Subscription,
   SubscriptionStatus,
@@ -14,18 +15,37 @@ describe("Receipt type", () => {
     >();
   });
 
-  it("required identity columns are non-nullable strings", () => {
+  it("category covers every value the admin paste form can pick", () => {
+    expectTypeOf<Receipt["category"]>().toEqualTypeOf<ReceiptCategory>();
+    expectTypeOf<ReceiptCategory>().toEqualTypeOf<
+      | "meals"
+      | "transport"
+      | "accommodation"
+      | "office_supplies"
+      | "software"
+      | "client_entertainment"
+      | "travel"
+      | "other"
+    >();
+  });
+
+  it("required identity + denormalized columns are non-nullable strings", () => {
     expectTypeOf<Receipt["id"]>().toEqualTypeOf<string>();
     expectTypeOf<Receipt["user_id"]>().toEqualTypeOf<string>();
-    expectTypeOf<Receipt["transaction_id"]>().toEqualTypeOf<string>();
+    expectTypeOf<Receipt["currency"]>().toEqualTypeOf<string>();
     expectTypeOf<Receipt["created_at"]>().toEqualTypeOf<string>();
     expectTypeOf<Receipt["updated_at"]>().toEqualTypeOf<string>();
+  });
+
+  it("transaction_id is nullable so forwarded-email receipts can omit it", () => {
+    expectTypeOf<Receipt["transaction_id"]>().toEqualTypeOf<string | null>();
   });
 
   it("nullable extracted fields match the schema", () => {
     expectTypeOf<Receipt["merchant_name"]>().toEqualTypeOf<string | null>();
     expectTypeOf<Receipt["total"]>().toEqualTypeOf<number | null>();
     expectTypeOf<Receipt["image_url"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<Receipt["notes"]>().toEqualTypeOf<string | null>();
   });
 });
 

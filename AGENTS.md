@@ -35,3 +35,21 @@ Defense in depth (plan decision A2):
 - The file is guarded by filename + a top-of-file comment + the fact that the env var is not `NEXT_PUBLIC_*` (so an accidental client import would fail fast at runtime instead of leaking the key).
 
 Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_ADMIN_EMAILS`.
+
+# Stripe local dev
+
+Required env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (see `.env.example`).
+
+Webhook signature verification needs the *raw* request body, so `src/app/api/webhooks/stripe/route.ts` reads `await request.text()` before any JSON parsing. Don't refactor that route to parse JSON eagerly — it will break verification.
+
+To exercise the webhook locally:
+
+1. Install once: `brew install stripe/stripe-cli/stripe`
+2. Authenticate once: `stripe login`
+3. Forward live events to your dev server: `stripe listen --forward-to http://localhost:3000/api/webhooks/stripe`
+4. The CLI prints `Ready! Your webhook signing secret is whsec_xxx` — paste that into `.env.local` as `STRIPE_WEBHOOK_SECRET` (this value is different from the production webhook secret).
+5. Trigger fake events: `stripe trigger checkout.session.completed`, `stripe trigger customer.subscription.deleted`, etc.
+
+Production webhook: Stripe Dashboard → Developers → Webhooks → Add endpoint at `https://<domain>/api/webhooks/stripe`. Subscribe to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`. Copy that endpoint's signing secret into Vercel env as `STRIPE_WEBHOOK_SECRET` (separate from the local one).
+
+`getStripe()` from `src/lib/stripe.ts` is a server-only singleton. Like `supabase-admin.ts`, never import it from a `"use client"` file — `STRIPE_SECRET_KEY` is not `NEXT_PUBLIC_*`, so a stray client import resolves the env to `undefined` and `getStripe()` throws fast rather than silently misbehaving.

@@ -8,9 +8,21 @@
 
 export type ReceiptSource = "captured" | "forwarded" | "uploaded";
 
+export type ReceiptCategory =
+  | "meals"
+  | "transport"
+  | "accommodation"
+  | "office_supplies"
+  | "software"
+  | "client_entertainment"
+  | "travel"
+  | "other";
+
 export interface Receipt {
   id: string;
-  transaction_id: string;
+  // Nullable since the WOZ admin/concierge slice — forwarded-email receipts
+  // have no bank transaction. Self-service rows still set this.
+  transaction_id: string | null;
   user_id: string;
   source: ReceiptSource;
 
@@ -19,6 +31,10 @@ export interface Receipt {
   merchant_phone: string | null;
   merchant_vat_number: string | null;
   merchant_siret: string | null;
+
+  category: ReceiptCategory;
+  currency: string;
+  notes: string | null;
 
   receipt_number: string | null;
   receipt_date: string | null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Receipt, Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 
+// useSearchParams() forces a CSR bailout; Next 16 requires it to live
+// inside a Suspense boundary so the page can still be statically
+// prerendered. Without the wrapper the build aborts on /app/login.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
