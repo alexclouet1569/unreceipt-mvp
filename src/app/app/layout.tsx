@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { supabaseClient } from "@/lib/supabase-client";
+import { getSupabaseClient } from "@/lib/supabase-client";
 import type { User } from "@supabase/supabase-js";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
 
     // Check current session
-    supabaseClient.auth.getUser().then(({ data: { user } }) => {
+    const supabase = getSupabaseClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
       setLoading(false);
       if (!user && pathname !== "/app/login") {
@@ -29,7 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (!session?.user && pathname !== "/app/login") {
         router.replace("/app/login");
