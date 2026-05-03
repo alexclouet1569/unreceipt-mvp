@@ -292,3 +292,19 @@ END $$;
 -- back-dated receipt still rises to the top of the founder's list.
 CREATE INDEX IF NOT EXISTS receipts_user_id_created_at_idx
   ON public.receipts(user_id, created_at DESC);
+
+-- =============================================================================
+-- Customer-side receipt management — DELETE policies for both the row and
+-- the storage object. The original schema only granted SELECT/INSERT/UPDATE
+-- to authenticated users, so the customer dashboard couldn't delete its
+-- own receipts via the anon client. Add idempotently.
+-- =============================================================================
+
+DROP POLICY IF EXISTS "Users can delete own receipts" ON public.receipts;
+CREATE POLICY "Users can delete own receipts"
+  ON public.receipts FOR DELETE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own receipt images" ON storage.objects;
+CREATE POLICY "Users can delete own receipt images"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
