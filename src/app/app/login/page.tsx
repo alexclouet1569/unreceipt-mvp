@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,11 +9,36 @@ import { Input } from "@/components/ui/input";
 import { Receipt, Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 
+// useSearchParams() forces a CSR bailout; Next 16 requires it to live
+// inside a Suspense boundary so the page can still be statically
+// prerendered. Without the wrapper the build aborts on /app/login.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // /auth/callback bounces here with ?error=… when the magic link is bad
+  // (expired, already used, signature mismatch, missing code). Show it so
+  // the user understands why they're back on /app/login instead of the
+  // dashboard they were trying to reach.
+  useEffect(() => {
+    const callbackError = searchParams.get("error");
+    if (callbackError) {
+      setError(
+        "That sign-in link didn't work. Magic links expire after one click and after one hour — request a new one below."
+      );
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +49,10 @@ export default function LoginPage() {
     const { error } = await getSupabaseClient().auth.signInWithOtp({
       email: email.toLowerCase().trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/app`,
+        // Route through /auth/callback so the session cookie gets set
+        // server-side before /app's gate sees the request. Without this
+        // hop, the cookie never gets written and /app bounces back here.
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/app`,
       },
     });
 
