@@ -35,7 +35,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 
 import { POST } from "@/app/api/admin/receipts/route";
 
-const ADMIN_USER = { id: "admin-1", email: "founder@unreceipt.io" };
+const ADMIN_USER = { id: "admin-1", email: "founder@unreceipt.com" };
 // Valid v4 UUID (the variant nibble must be in [89abAB] for zod's strict
 // uuid validator). gen_random_uuid() rows from Postgres always conform.
 const TARGET_USER_ID = "11111111-1111-4111-8111-111111111111";

@@ -79,16 +79,16 @@ function ReceiptEdge({ color = "#27BE7B", flip = false }: { color?: string; flip
 /* ── Scrolling receipt ticker ── */
 function ReceiptTicker() {
   const receipts = [
-    { merchant: "Restaurant Le Comptoir", amount: "42.50 \u20ac", category: "Meals", status: "matched" },
-    { merchant: "Uber Stockholm", amount: "189 kr", category: "Transport", status: "auto" },
-    { merchant: "Hotel Scandic", amount: "1,250 kr", category: "Travel", status: "matched" },
-    { merchant: "Starbucks", amount: "6.50 \u20ac", category: "Meals", status: "auto" },
-    { merchant: "Office Depot", amount: "124.00 \u20ac", category: "Supplies", status: "matched" },
+    { merchant: "ICA Maxi", amount: "342 kr", category: "Meals", status: "matched" },
+    { merchant: "Spotify", amount: "129 kr", category: "Software", status: "auto" },
+    { merchant: "Klarna", amount: "1,450 kr", category: "Software", status: "matched" },
+    { merchant: "SJ", amount: "895 kr", category: "Travel", status: "auto" },
+    { merchant: "Apoteket", amount: "212 kr", category: "Supplies", status: "matched" },
     { merchant: "SAS Airlines", amount: "2,340 kr", category: "Travel", status: "auto" },
-    { merchant: "Taxi Kurir", amount: "285 kr", category: "Transport", status: "matched" },
+    { merchant: "Uber Stockholm", amount: "189 kr", category: "Transport", status: "matched" },
+    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: "Meals", status: "auto" },
+    { merchant: "Hotel Scandic", amount: "1,250 kr", category: "Travel", status: "matched" },
     { merchant: "Coop Konferens", amount: "890 kr", category: "Catering", status: "auto" },
-    { merchant: "BP Fuel", amount: "52.30 \u20ac", category: "Fuel", status: "matched" },
-    { merchant: "Amazon Business", amount: "199.00 \u20ac", category: "Supplies", status: "auto" },
   ];
 
   const doubled = [...receipts, ...receipts];
@@ -221,9 +221,15 @@ export default function LandingPage() {
                 {link.label}
               </a>
             ))}
-            <a href="#waitlist">
+            <a
+              href="/app/login"
+              className="text-sm font-medium text-[#303568]/70 hover:text-[#303568]"
+            >
+              Sign in
+            </a>
+            <a href="/app/login">
               <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full px-6 shadow-md shadow-[#27BE7B]/25">
-                Join Waitlist
+                Start free
               </Button>
             </a>
           </div>
@@ -246,9 +252,16 @@ export default function LandingPage() {
                 {link.label}
               </a>
             ))}
-            <a href="#waitlist" onClick={() => setMobileMenuOpen(false)}>
+            <a
+              href="/app/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm text-[#303568] py-2 font-medium border-t border-gray-100 pt-3"
+            >
+              Sign in
+            </a>
+            <a href="/app/login" onClick={() => setMobileMenuOpen(false)}>
               <Button className="w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full">
-                Join Waitlist
+                Start free
               </Button>
             </a>
           </div>
@@ -273,12 +286,14 @@ export default function LandingPage() {
                 <span className="text-[#303568]">Automatically.</span>
               </h1>
               <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
-                We catch the receipt at the moment of payment — not weeks later. Your employees never touch an expense report again.
+                Built for Swedish SMBs who hate chasing receipts. Forward any
+                receipt — email or photo — and get a VAT-ready record in
+                your dashboard within 24 hours.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <a href="#waitlist">
-                  <Button size="lg" className="bg-[#303568] text-white hover:bg-[#404580] rounded-full px-8 text-base font-semibold shadow-lg shadow-[#303568]/30 h-12">
-                    Get Started Free
+                <a href="/app/login">
+                  <Button size="lg" className="bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12">
+                    Start your free week
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </a>
@@ -288,7 +303,9 @@ export default function LandingPage() {
                   </Button>
                 </a>
               </div>
-              <p className="text-white/60 text-sm mt-4">Free forever for small teams. No credit card required.</p>
+              <p className="text-white/80 text-sm mt-4">
+                €49/month + VAT after the trial. Cancel anytime.
+              </p>
             </div>
 
             {/* Right — Phone mockup */}
@@ -579,119 +596,55 @@ export default function LandingPage() {
 
       {/* ─── PRICING ─── */}
       <Section id="pricing" className="py-20 px-4 sm:px-6 bg-[#ECF7E7]">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+        <div className="max-w-md mx-auto">
+          <div className="text-center mb-12">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-              Start Free. Scale When Ready.
+              One simple plan
             </h2>
-            <p className="text-[#303568]/50 text-lg">
-              No credit card required. Upgrade when your team grows.
+            <p className="text-[#303568]/60 text-base">
+              No tiers. No per-seat math. No surprises.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                tier: "Free",
-                subtitle: "For small teams",
-                price: "0",
-                priceLabel: "forever",
-                features: [
-                  "Up to 10 employees",
-                  "Bank account connection",
-                  "Smart receipt notifications",
-                  "OCR receipt scanning",
-                  "Basic expense dashboard",
-                ],
-                cta: "Get Started Free",
-              },
-              {
-                tier: "Pro",
-                subtitle: "For growing companies",
-                price: "9",
-                priceLabel: "/user/month",
-                popular: true,
-                features: [
-                  "Unlimited employees",
-                  "Everything in Free",
-                  "Approval workflows",
-                  "Expense policy engine",
-                  "Accounting integrations",
-                  "Analytics & reporting",
-                ],
-                cta: "Join Waitlist",
-              },
-              {
-                tier: "Enterprise",
-                subtitle: "For large organizations",
-                price: "Custom",
-                priceLabel: "",
-                features: [
-                  "Everything in Pro",
-                  "SSO / SAML",
-                  "Multi-entity support",
-                  "Dedicated account manager",
-                  "Custom integrations",
-                  "SLA & priority support",
-                ],
-                cta: "Contact Us",
-              },
-            ].map((plan) => (
-              <Card
-                key={plan.tier}
-                className={`border-0 rounded-3xl relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
-                  plan.popular
-                    ? "bg-[#303568] text-white shadow-xl shadow-[#303568]/25 ring-0 md:scale-[1.04]"
-                    : "bg-white text-[#303568] shadow-sm"
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute top-0 left-0 right-0 bg-[#27BE7B] text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-[0.2em]">
-                    Most Popular
-                  </div>
-                )}
-                <CardContent className={`pb-8 px-7 ${plan.popular ? "pt-12" : "pt-8"}`}>
-                  <h3 className="font-bold text-xl">{plan.tier}</h3>
-                  <p className={`text-sm mb-5 ${plan.popular ? "text-white/60" : "text-[#303568]/50"}`}>
-                    {plan.subtitle}
-                  </p>
-                  <div className="mb-7">
-                    {plan.price === "Custom" ? (
-                      <span className="text-4xl font-extrabold">Custom</span>
-                    ) : (
-                      <>
-                        <span className="text-5xl font-extrabold">{plan.price}{plan.price !== "0" && "\u20ac"}</span>
-                        <span className={`text-sm ml-1 ${plan.popular ? "text-white/50" : "text-[#303568]/40"}`}>
-                          {plan.priceLabel}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-sm">
-                        <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#27BE7B]" />
-                        <span className={plan.popular ? "text-white/80" : ""}>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <a href="#waitlist">
-                    <Button
-                      className={`w-full rounded-full font-semibold h-11 ${
-                        plan.popular
-                          ? "bg-[#27BE7B] text-white hover:bg-[#1fa568]"
-                          : plan.price === "0"
-                            ? "bg-[#27BE7B] text-white hover:bg-[#1fa568]"
-                            : "bg-[#303568] text-white hover:bg-[#404580]"
-                      }`}
-                    >
-                      {plan.cta}
-                    </Button>
-                  </a>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card className="border-0 rounded-3xl bg-[#303568] text-white shadow-xl shadow-[#303568]/25 overflow-hidden relative">
+            <div className="absolute top-0 left-0 right-0 bg-[#27BE7B] text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-[0.2em]">
+              First week free
+            </div>
+            <CardContent className="pt-12 pb-8 px-8">
+              <h3 className="font-bold text-xl">UnReceipt Concierge</h3>
+              <p className="text-sm text-white/60 mb-5">
+                For Swedish SMBs in the WOZ pilot
+              </p>
+              <div className="mb-1">
+                <span className="text-5xl font-extrabold">{"\u20ac"}49</span>
+                <span className="text-sm text-white/50 ml-1">/ month</span>
+              </div>
+              <p className="text-xs text-white/40 mb-7">+ VAT</p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  "Forward receipts to your concierge inbox",
+                  "VAT-ready records in your dashboard within 24 hours",
+                  "Weekly CSV export for your accountant",
+                  "Swedish + English support",
+                  "Cancel anytime, no questions asked",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm">
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#27BE7B]" />
+                    <span className="text-white/85">{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/app/login">
+                <Button className="w-full rounded-full font-semibold h-11 bg-[#27BE7B] text-white hover:bg-[#1fa568]">
+                  Start your free week
+                  <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+              </a>
+              <p className="text-[11px] text-white/40 text-center mt-3">
+                {"\u20ac"}49 + VAT charged on day 8 unless you cancel.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </Section>
 
@@ -771,13 +724,14 @@ export default function LandingPage() {
         <div className="max-w-xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-[#27BE7B]/20 rounded-full px-4 py-1.5 mb-6">
             <Sparkles className="w-3.5 h-3.5 text-[#27BE7B]" />
-            <span className="text-[#27BE7B] text-xs font-semibold tracking-wide uppercase">Free to start</span>
+            <span className="text-[#27BE7B] text-xs font-semibold tracking-wide uppercase">Not in Sweden yet?</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold mb-4 text-white">
-            Ready to Skip the Slip?
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 text-white">
+            Get notified when we launch in your country
           </h2>
-          <p className="text-white/70 text-lg mb-10">
-            Join the waitlist. Be among the first companies to eliminate expense report friction — completely free.
+          <p className="text-white/70 text-base mb-10">
+            UnReceipt Concierge is in pilot in Sweden today. Drop your email
+            and we&apos;ll let you know the moment we open in your market.
           </p>
           {submitted ? (
             <div className="flex items-center justify-center gap-2 text-[#27BE7B] font-semibold text-lg">
@@ -799,13 +753,17 @@ export default function LandingPage() {
                 className="bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
                 disabled={submitting}
               >
-                {submitting ? "Joining..." : "Join Waitlist"}
+                {submitting ? "Joining..." : "Notify me"}
                 {!submitting && <ArrowRight className="w-4 h-4 ml-1.5" />}
               </Button>
             </form>
           )}
           <p className="text-xs text-white/40 mt-5">
-            Free forever for teams up to 10. No credit card required.
+            In Sweden? Skip the list and{" "}
+            <a href="/app/login" className="underline hover:text-white">
+              start your free week
+            </a>
+            .
           </p>
         </div>
       </section>

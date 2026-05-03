@@ -35,7 +35,7 @@ describe("requireAdmin", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
-    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.io";
+    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.com";
     mocks.getUser.mockReset();
   });
 
@@ -71,16 +71,16 @@ describe("requireAdmin", () => {
   });
 
   it("returns the user when they are on the allowlist", async () => {
-    const adminUser = { id: "user-2", email: "founder@unreceipt.io" };
+    const adminUser = { id: "user-2", email: "founder@unreceipt.com" };
     mocks.getUser.mockResolvedValue({ data: { user: adminUser } });
 
     await expect(requireAdmin()).resolves.toEqual(adminUser);
   });
 
   it("matches the allowlist case-insensitively (defense against email casing)", async () => {
-    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.io";
+    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.com";
     mocks.getUser.mockResolvedValue({
-      data: { user: { id: "user-3", email: "Founder@UnReceipt.IO" } },
+      data: { user: { id: "user-3", email: "Founder@UnReceipt.COM" } },
     });
 
     await expect(requireAdmin()).resolves.toMatchObject({ id: "user-3" });

@@ -25,7 +25,7 @@ vi.mock("@/lib/stripe", () => ({
 
 import { POST } from "@/app/api/checkout/route";
 
-const adminUser = { id: "user-1", email: "founder@unreceipt.io" };
+const adminUser = { id: "user-1", email: "founder@unreceipt.com" };
 
 const buildRequest = () =>
   new NextRequest("http://localhost:3000/api/checkout", { method: "POST" });
