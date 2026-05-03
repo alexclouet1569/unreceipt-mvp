@@ -119,12 +119,20 @@ function getWelcomeEmailHtml(): string {
 
       <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
 
-      <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: #555;">
-        We'll reach out as soon as early access is ready. In the meantime, you can explore the interactive demo:
+      <p style="margin: 0 0 12px; font-size: 15px; line-height: 1.6; color: #555;">
+        Want to skip the line? UnReceipt Concierge is live for Swedish SMBs today &mdash; &euro;49/month + VAT, 7-day free trial:
+      </p>
+
+      <div style="text-align: center; margin-bottom: 16px;">
+        <a href="https://unreceipt.com/app/login" style="display: inline-block; background-color: #303568; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600;">Start your free week</a>
+      </div>
+
+      <p style="margin: 16px 0 12px; font-size: 14px; line-height: 1.6; color: #777;">
+        Prefer to look around first? Explore the interactive demo:
       </p>
 
       <div style="text-align: center;">
-        <a href="https://unreceipt.com/demo/employee" style="display: inline-block; background-color: #27BE7B; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600;">Try the Demo</a>
+        <a href="https://unreceipt.com/demo/employee" style="display: inline-block; background-color: #27BE7B; color: white; padding: 10px 22px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600;">Try the Demo</a>
       </div>
     </div>
 

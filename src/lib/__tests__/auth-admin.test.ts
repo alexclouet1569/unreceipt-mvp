@@ -30,43 +30,43 @@ describe("isAdminEmail", () => {
   });
 
   it("returns true for an exact match in the allowlist", () => {
-    process.env[ENV_KEY] = "founder@unreceipt.io,alex@example.com";
-    expect(isAdminEmail("founder@unreceipt.io")).toBe(true);
+    process.env[ENV_KEY] = "founder@unreceipt.com,alex@example.com";
+    expect(isAdminEmail("founder@unreceipt.com")).toBe(true);
   });
 
   it("returns false for an email not in the allowlist", () => {
-    process.env[ENV_KEY] = "founder@unreceipt.io";
+    process.env[ENV_KEY] = "founder@unreceipt.com";
     expect(isAdminEmail("intruder@example.com")).toBe(false);
   });
 
   it("matches case-insensitively when input is uppercased", () => {
-    process.env[ENV_KEY] = "founder@unreceipt.io";
-    expect(isAdminEmail("Founder@UnReceipt.IO")).toBe(true);
+    process.env[ENV_KEY] = "founder@unreceipt.com";
+    expect(isAdminEmail("Founder@UnReceipt.COM")).toBe(true);
   });
 
   it("matches case-insensitively when allowlist is uppercased", () => {
-    process.env[ENV_KEY] = "FOUNDER@UNRECEIPT.IO";
-    expect(isAdminEmail("founder@unreceipt.io")).toBe(true);
+    process.env[ENV_KEY] = "FOUNDER@UNRECEIPT.COM";
+    expect(isAdminEmail("founder@unreceipt.com")).toBe(true);
   });
 
   it("tolerates surrounding whitespace in the env value", () => {
-    process.env[ENV_KEY] = "  founder@unreceipt.io  ,  alex@example.com  ";
+    process.env[ENV_KEY] = "  founder@unreceipt.com  ,  alex@example.com  ";
     expect(isAdminEmail("alex@example.com")).toBe(true);
   });
 
   it("ignores empty entries from a trailing or duplicate comma", () => {
-    process.env[ENV_KEY] = "founder@unreceipt.io,,";
-    expect(isAdminEmail("founder@unreceipt.io")).toBe(true);
+    process.env[ENV_KEY] = "founder@unreceipt.com,,";
+    expect(isAdminEmail("founder@unreceipt.com")).toBe(true);
     expect(isAdminEmail("")).toBe(false);
   });
 
   it("returns false for null input", () => {
-    process.env[ENV_KEY] = "founder@unreceipt.io";
+    process.env[ENV_KEY] = "founder@unreceipt.com";
     expect(isAdminEmail(null)).toBe(false);
   });
 
   it("returns false for undefined input", () => {
-    process.env[ENV_KEY] = "founder@unreceipt.io";
+    process.env[ENV_KEY] = "founder@unreceipt.com";
     expect(isAdminEmail(undefined)).toBe(false);
   });
 });

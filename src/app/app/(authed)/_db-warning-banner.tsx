@@ -22,10 +22,10 @@ export function DbWarningBanner() {
           We&apos;re having trouble verifying your account status right now.
           You can keep using the dashboard — if you see anything off, email{" "}
           <a
-            href="mailto:support@unreceipt.io"
+            href="mailto:support@unreceipt.com"
             className="font-medium underline underline-offset-2"
           >
-            support@unreceipt.io
+            support@unreceipt.com
           </a>
           .
         </p>
