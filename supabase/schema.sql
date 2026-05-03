@@ -159,3 +159,93 @@ CREATE POLICY "Users can upload receipt images"
 CREATE POLICY "Users can view own receipt images"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =============================================================================
+-- WOZ Concierge Beta — schema additions (idempotent, safe to re-run)
+-- All changes below use IF NOT EXISTS / DROP-then-CREATE so re-running this
+-- block in the Supabase SQL Editor does not error on a populated database.
+-- =============================================================================
+
+-- updated_at helper (used by subscriptions, available for future tables)
+CREATE OR REPLACE FUNCTION public.update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- receipts.source — distinguishes self-service capture vs forwarded email vs
+-- direct upload. Default 'captured' so existing rows backfill cleanly.
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'captured';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_source_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_source_check
+      CHECK (source IN ('captured', 'forwarded', 'uploaded'));
+  END IF;
+END $$;
+
+-- subscriptions — Stripe subscription lifecycle, keyed by user_id
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  stripe_customer_id TEXT NOT NULL,
+  stripe_subscription_id TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL,
+  current_period_end TIMESTAMPTZ,
+  trial_end TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'subscriptions_status_check'
+      AND conrelid = 'public.subscriptions'::regclass
+  ) THEN
+    ALTER TABLE public.subscriptions
+      ADD CONSTRAINT subscriptions_status_check
+      CHECK (status IN ('trialing', 'active', 'past_due', 'canceled', 'incomplete', 'unpaid'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS subscriptions_user_id_idx
+  ON public.subscriptions(user_id);
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.subscriptions;
+CREATE POLICY "Users can view own subscription"
+  ON public.subscriptions FOR SELECT USING (auth.uid() = user_id);
+
+-- No INSERT/UPDATE/DELETE policies on purpose. Only the service-role key
+-- writes here — from the /api/webhooks/stripe handler. Customers should
+-- never write to their own subscription row.
+
+DROP TRIGGER IF EXISTS subscriptions_set_updated_at ON public.subscriptions;
+CREATE TRIGGER subscriptions_set_updated_at
+  BEFORE UPDATE ON public.subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+-- waitlist — already exists in production, codified here so the schema file
+-- matches reality. Columns reverse-engineered from src/app/api/waitlist/route.ts.
+-- Intentionally NO RLS: the route uses the anon key from getSupabase() and
+-- inserts directly. If abuse becomes a concern, switch the route to a
+-- service-role client and add an INSERT-only policy.
+CREATE TABLE IF NOT EXISTS public.waitlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  signed_up_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  source TEXT DEFAULT 'landing_page',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
