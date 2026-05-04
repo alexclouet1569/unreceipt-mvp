@@ -83,6 +83,11 @@ describe("POST /api/checkout", () => {
       subscription_data: { trial_period_days: 7 }, // CMT1 — 7, not 30
       client_reference_id: adminUser.id, // A3 — sign-in-first, link to auth user
       customer_email: adminUser.email,
+      // Step 10 / CMT2 — Stripe Tax wired in. Stripe collects VAT
+      // automatically when our Tax registrations are configured in the
+      // Dashboard; harmless no-op for jurisdictions where we're not
+      // registered yet.
+      automatic_tax: { enabled: true },
       allow_promotion_codes: true,
     });
     // A4 — success_url MUST contain the literal Stripe placeholder so /app
