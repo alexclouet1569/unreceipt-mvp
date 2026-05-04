@@ -28,6 +28,15 @@ export async function POST(request: NextRequest) {
       subscription_data: { trial_period_days: 7 },
       client_reference_id: user.id,
       customer_email: user.email,
+      // Stripe Tax: charge VAT automatically based on the customer's
+      // billing address. Requires F-tax / VAT registration in the
+      // Stripe Dashboard (Tax → Registrations) for the relevant
+      // jurisdictions; until that's configured Stripe simply doesn't
+      // collect tax for non-registered regions, which is fine.
+      automatic_tax: { enabled: true },
+      // billing_address_collection: "required" is implied when
+      // automatic_tax is enabled — Stripe needs the address to compute
+      // the correct rate.
       // {CHECKOUT_SESSION_ID} is a Stripe placeholder — substituted at
       // redirect time so /app can self-heal the subscription record (plan A4).
       success_url: `${origin}/app?session_id={CHECKOUT_SESSION_ID}`,

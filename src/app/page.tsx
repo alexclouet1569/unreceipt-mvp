@@ -798,6 +798,7 @@ export default function LandingPage() {
                 <div className="flex flex-col gap-2.5">
                   <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors">About</a>
                   <a href="#waitlist" className="text-sm text-white/40 hover:text-white transition-colors">Contact</a>
+                  <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors">Privacy</a>
                 </div>
               </div>
             </div>
