@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Manrope, Figtree } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
+
+const APP_HOST = "app.unreceipt.com";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -91,20 +94,37 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // PWA assets (manifest, apple-touch-icon, mobile-web-app meta) only
+  // ship on the product host. The marketing apex stays a pure website
+  // — no install prompts, no service-worker scope, browsers won't
+  // suggest "Add to Home Screen" from there. Localhost / Vercel
+  // previews see the PWA assets too so dev still works.
+  const headerList = await headers();
+  const host = (headerList.get("host") ?? "").toLowerCase();
+  const isAppHost =
+    host === APP_HOST ||
+    host.startsWith("localhost") ||
+    host.endsWith(".vercel.app") ||
+    host.startsWith("127.0.0.1");
+
   return (
     <html lang="en" className={`${manrope.variable} ${figtree.variable} h-full antialiased`}>
       <head>
-        <link rel="manifest" href="/manifest.json" />
+        {isAppHost ? (
+          <>
+            <link rel="manifest" href="/manifest.json" />
+            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+            <meta name="apple-mobile-web-app-title" content="UnReceipt" />
+            <link rel="apple-touch-icon" href="/icons/icon-192" />
+          </>
+        ) : null}
         <meta name="theme-color" content="#27BE7B" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="UnReceipt" />
-        <link rel="apple-touch-icon" href="/icons/icon-192" />
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <script

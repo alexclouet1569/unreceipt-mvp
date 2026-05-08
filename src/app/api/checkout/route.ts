@@ -19,7 +19,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const origin = request.nextUrl.origin;
+  // Prefer NEXT_PUBLIC_APP_URL so success/cancel always land on the
+  // canonical product host (app.unreceipt.com) regardless of which
+  // host received the POST. Falls back to the request origin for
+  // local dev where the env var is unset.
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.length > 0
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : request.nextUrl.origin;
 
   try {
     const session = await getStripe().checkout.sessions.create({

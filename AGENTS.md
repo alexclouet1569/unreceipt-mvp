@@ -69,3 +69,19 @@ Production webhook: Stripe Dashboard → Developers → Webhooks → Add endpoin
 When `PILOT_MODE` is unset or set to anything other than the literal string `"true"`, the app behaves as paid (current state). `src/lib/pilot.ts` exposes `isPilotMode()` — server-only; the literal-`"true"` compare is intentional so a typo defaults safely to charging.
 
 To flip back to paid: in Vercel → Settings → Environment Variables, remove `PILOT_MODE` (or set to `false`) and redeploy. Existing pilot users without subscription rows will hit the gate's `redirect_subscribe` branch and need a separate "pilot ended, here's your subscribe link" email.
+
+# Hosts
+
+Two hosts, one Next.js app:
+
+- `unreceipt.com` (apex) — marketing only: `/`, `/privacy`, `/demo/*`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
+- `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/webhooks/*`, `/api/admin/*`. PWA-installable.
+- `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
+
+`proxy.ts` enforces the split with 308 redirects when a request lands on the wrong host. Local dev (`localhost`, `127.*`) and Vercel previews (`*.vercel.app`) sit outside the apex/app split, so both surfaces remain reachable on the same origin.
+
+Cross-host links from marketing to product use `appUrl(path)` from `src/lib/app-url.ts`. Server callers respect `NEXT_PUBLIC_APP_URL` (set on Vercel for Production AND Preview); browser callers detect dev/preview origins and fall back to a relative path so localhost still works without the env var.
+
+PWA assets (manifest, apple-touch-icon, mobile-web-app meta) only render in `app/layout.tsx` when the host matches the product subdomain or a dev/preview origin. Service-worker registration in `_client-shell.tsx` follows the same rule.
+
+Stripe Checkout `success_url` / `cancel_url` use `NEXT_PUBLIC_APP_URL` so the customer always returns to the product host regardless of which host received the POST.
