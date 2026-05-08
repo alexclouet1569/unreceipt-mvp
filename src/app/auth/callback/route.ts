@@ -76,12 +76,29 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error("[auth/callback] exchangeCodeForSession failed", error);
-    return NextResponse.redirect(
+    // Exchange most often fails because the magic-link's user was
+    // deleted between issue and click — and the exchange request itself
+    // carries any pre-existing sb-* cookies that pointed at the now-
+    // gone user. Clear them on the bounce response so /app/login
+    // doesn't re-trigger the redirect loop with the same stale state.
+    const failResponse = NextResponse.redirect(
       new URL(
         `/app/login?error=${encodeURIComponent(error.message ?? "auth_failed")}`,
         request.url
       )
     );
+    const failSupabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (toSet) => {
+          for (const { name, value, options } of toSet) {
+            failResponse.cookies.set({ name, value, ...options });
+          }
+        },
+      },
+    });
+    await failSupabase.auth.signOut().catch(() => {});
+    return failResponse;
   }
 
   // Mirror the user's signup metadata (full_name, company_name) into

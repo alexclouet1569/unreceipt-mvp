@@ -17,6 +17,14 @@ import { getSupabaseClient } from "@/lib/supabase-client";
  *
  * The first-paint authorization gate now lives server-side (see
  * src/app/app/(authed)/page.tsx). This shell never blocks render.
+ *
+ * Stale-session caveat (do NOT trust onAuthStateChange's session.user
+ * payload directly): a Supabase JWT decodes to a user payload as long
+ * as its signature checks — even if that user has been deleted server-
+ * side. Trusting `session?.user` and replace()-ing to /app would loop
+ * with the server gate which DOES validate against the API and
+ * redirects back to /app/login. Validate via getUser() before any
+ * redirect, and signOut() to clear cookies on validation failure.
  */
 export function ClientShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -27,13 +35,34 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
+    const supabase = getSupabaseClient();
     const {
       data: { subscription },
-    } = getSupabaseClient().auth.onAuthStateChange((_event, session) => {
-      if (!session?.user && pathname !== "/app/login") {
-        router.replace("/app/login");
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // No session at all → redirect off authed surfaces.
+      if (!session) {
+        if (pathname !== "/app/login") {
+          router.replace("/app/login");
+        }
+        return;
       }
-      if (session?.user && pathname === "/app/login") {
+
+      // Session present — validate against the API before trusting it.
+      // A deleted user still has a syntactically valid JWT in cookies;
+      // getUser() round-trips and returns null in that case.
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        // Stale cookie. Clear it locally so the next render is clean and
+        // we don't ping-pong with the server gate.
+        await supabase.auth.signOut().catch(() => {});
+        if (pathname !== "/app/login") {
+          router.replace("/app/login");
+        }
+        return;
+      }
+
+      // Real user — safe to drop them onto the dashboard from /app/login.
+      if (pathname === "/app/login") {
         router.replace("/app");
       }
     });
