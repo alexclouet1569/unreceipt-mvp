@@ -33,12 +33,22 @@ function useReveal() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const rect = el.getBoundingClientRect();
+    const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+    if (reduced || inViewport) {
+      setVisible(true);
+      return;
+    }
+
     const obs = new IntersectionObserver(
       ([e]) => { if (e.isIntersecting) setVisible(true); },
       { threshold: 0.15 }
     );
     obs.observe(el);
-    return () => obs.disconnect();
+    const fallback = window.setTimeout(() => setVisible(true), 1200);
+    return () => { obs.disconnect(); window.clearTimeout(fallback); };
   }, []);
   return { ref, visible };
 }
