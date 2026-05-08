@@ -25,6 +25,7 @@ import {
   Receipt,
   Sparkles,
 } from "lucide-react";
+import { appUrl } from "@/lib/app-url";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -236,12 +237,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </a>
             ))}
             <a
-              href="/app/login"
+              href={appUrl("/app/login")}
               className="text-sm font-medium text-[#303568]/70 hover:text-[#303568]"
             >
               Sign in
             </a>
-            <a href="/app/login">
+            <a href={appUrl("/app/login")}>
               <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full px-6 shadow-md shadow-[#27BE7B]/25">
                 {pilotMode ? "Join the pilot" : "Start free"}
               </Button>
@@ -267,13 +268,13 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </a>
             ))}
             <a
-              href="/app/login"
+              href={appUrl("/app/login")}
               onClick={() => setMobileMenuOpen(false)}
               className="text-sm text-[#303568] py-2 font-medium border-t border-gray-100 pt-3"
             >
               Sign in
             </a>
-            <a href="/app/login" onClick={() => setMobileMenuOpen(false)}>
+            <a href={appUrl("/app/login")} onClick={() => setMobileMenuOpen(false)}>
               <Button className="w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full">
                 {pilotMode ? "Join the pilot" : "Start free"}
               </Button>
@@ -305,7 +306,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 your dashboard within 24 hours.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <a href="/app/login">
+                <a href={appUrl("/app/login")}>
                   <Button size="lg" className="bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12">
                     {pilotMode ? "Join the pilot" : "Start your free week"}
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -650,7 +651,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                   </li>
                 ))}
               </ul>
-              <a href="/app/login">
+              <a href={appUrl("/app/login")}>
                 <Button className="w-full rounded-full font-semibold h-11 bg-[#27BE7B] text-white hover:bg-[#1fa568]">
                   {pilotMode ? "Join the pilot" : "Start your free week"}
                   <ArrowRight className="w-4 h-4 ml-1.5" />
@@ -778,7 +779,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           )}
           <p className="text-xs text-white/40 mt-5">
             In Sweden? Skip the list and{" "}
-            <a href="/app/login" className="underline hover:text-white">
+            <a href={appUrl("/app/login")} className="underline hover:text-white">
               {pilotMode ? "join the pilot" : "start your free week"}
             </a>
             .

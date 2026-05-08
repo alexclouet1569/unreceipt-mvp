@@ -31,7 +31,17 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    // Service-worker registration is gated to the product host so the
+    // marketing apex never enters a PWA-installable state. localhost +
+    // Vercel previews keep registration so dev still exercises the
+    // PWA path.
+    const hostname = window.location.hostname;
+    const isAppHost =
+      hostname === "app.unreceipt.com" ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.endsWith(".vercel.app");
+    if (isAppHost && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
