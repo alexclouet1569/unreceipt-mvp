@@ -549,7 +549,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               },
             ].map((item) => (
               <div key={item.step} className="text-center relative">
-                <div className="w-20 h-20 rounded-3xl bg-white flex items-center justify-center mx-auto mb-5 relative z-10 shadow-sm">
+                <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center mx-auto mb-5 relative z-10 shadow-sm">
                   <item.icon className="w-8 h-8 text-[#27BE7B]" />
                 </div>
                 <div className="text-xs font-bold text-[#27BE7B] mb-2 tracking-widest">
@@ -665,7 +665,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 ))}
               </ul>
               <a href={appUrl("/app/login")}>
-                <Button className="w-full rounded-full font-semibold h-11 bg-[#27BE7B] text-white hover:bg-[#1fa568]">
+                <Button className="w-full rounded-full font-semibold h-12 bg-[#27BE7B] text-white hover:bg-[#1fa568]">
                   {pilotMode ? "Join the pilot" : "Start your free week"}
                   <ArrowRight className="w-4 h-4 ml-1.5" />
                 </Button>
