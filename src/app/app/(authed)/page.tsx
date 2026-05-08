@@ -7,6 +7,7 @@ import type { Receipt } from "@/lib/types";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
 import { DbWarningBanner } from "./_db-warning-banner";
+import { PilotBanner } from "./_pilot-banner";
 
 // The gate reads cookies + DB on every request — never cache.
 export const dynamic = "force-dynamic";
@@ -68,9 +69,11 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   const receipts = await loadReceiptsForUser(user.id);
 
   if (result.kind === "allow_with_warning") {
+    const Banner =
+      result.reason === "pilot_mode" ? PilotBanner : DbWarningBanner;
     return (
       <>
-        <DbWarningBanner />
+        <Banner />
         <Dashboard userId={user.id} userEmail={userEmail} receipts={receipts} />
       </>
     );

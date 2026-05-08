@@ -1,4 +1,5 @@
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -122,6 +123,71 @@ describe("checkSubscriptionGate", () => {
     ).toEqual({
       kind: "allow_with_warning",
       reason: "db_error",
+    });
+  });
+});
+
+describe("checkSubscriptionGate — PILOT_MODE", () => {
+  const originalPilot = process.env.PILOT_MODE;
+
+  beforeEach(() => {
+    mocks.query.mockReset();
+  });
+
+  afterEach(() => {
+    if (originalPilot === undefined) delete process.env.PILOT_MODE;
+    else process.env.PILOT_MODE = originalPilot;
+  });
+
+  it("bypasses the DB query and returns pilot_mode when PILOT_MODE='true' with no subscription row", async () => {
+    process.env.PILOT_MODE = "true";
+    mocks.query.mockResolvedValue({ data: null, error: null });
+
+    expect(await checkSubscriptionGate(userId, null)).toEqual({
+      kind: "allow_with_warning",
+      reason: "pilot_mode",
+    });
+    // Pilot mode short-circuits — the gate should not even ask the DB.
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it("returns pilot_mode even when an active subscription row exists (pilot takes precedence)", async () => {
+    process.env.PILOT_MODE = "true";
+    mocks.query.mockResolvedValue({
+      data: { status: "active", current_period_end: null, trial_end: null },
+      error: null,
+    });
+
+    expect(await checkSubscriptionGate(userId, null)).toEqual({
+      kind: "allow_with_warning",
+      reason: "pilot_mode",
+    });
+  });
+
+  it("preserves existing behavior when PILOT_MODE is unset", async () => {
+    delete process.env.PILOT_MODE;
+    mocks.query.mockResolvedValue({ data: null, error: null });
+
+    expect(await checkSubscriptionGate(userId, null)).toEqual({
+      kind: "redirect_subscribe",
+    });
+  });
+
+  it("preserves existing behavior when PILOT_MODE='false' (string compare, not boolean coercion)", async () => {
+    process.env.PILOT_MODE = "false";
+    mocks.query.mockResolvedValue({ data: null, error: null });
+
+    expect(await checkSubscriptionGate(userId, null)).toEqual({
+      kind: "redirect_subscribe",
+    });
+  });
+
+  it("requires literal 'true' — values like '1' or 'TRUE' do NOT activate pilot mode", async () => {
+    process.env.PILOT_MODE = "1";
+    mocks.query.mockResolvedValue({ data: null, error: null });
+
+    expect(await checkSubscriptionGate(userId, null)).toEqual({
+      kind: "redirect_subscribe",
     });
   });
 });

@@ -53,3 +53,19 @@ To exercise the webhook locally:
 Production webhook: Stripe Dashboard → Developers → Webhooks → Add endpoint at `https://<domain>/api/webhooks/stripe`. Subscribe to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`. Copy that endpoint's signing secret into Vercel env as `STRIPE_WEBHOOK_SECRET` (separate from the local one).
 
 `getStripe()` from `src/lib/stripe.ts` is a server-only singleton. Like `supabase-admin.ts`, never import it from a `"use client"` file — `STRIPE_SECRET_KEY` is not `NEXT_PUBLIC_*`, so a stray client import resolves the env to `undefined` and `getStripe()` throws fast rather than silently misbehaving.
+
+# Operational toggles
+
+## PILOT_MODE
+
+`PILOT_MODE=true` flips the app into **free pilot mode**:
+
+- The subscription gate at `/app` returns `{ kind: "allow_with_warning", reason: "pilot_mode" }` — bypassing Stripe entirely. Any logged-in user reaches the dashboard regardless of subscription state.
+- A yellow `PilotBanner` is rendered above the dashboard explaining the pilot.
+- `/subscribe` hides the Subscribe button and shows a "Continue to dashboard →" link instead (the page itself remains so old links still resolve).
+- The landing page CTA copy switches from "Start your free week" / "First week free" to "Join the pilot" / "Free during pilot. €49/month after."
+- `/admin`, `/auth/callback`, `/api/webhooks/stripe`, `/api/checkout` are **unchanged**. Pilot mode only affects the customer-facing gate and copy.
+
+When `PILOT_MODE` is unset or set to anything other than the literal string `"true"`, the app behaves as paid (current state). `src/lib/pilot.ts` exposes `isPilotMode()` — server-only; the literal-`"true"` compare is intentional so a typo defaults safely to charging.
+
+To flip back to paid: in Vercel → Settings → Environment Variables, remove `PILOT_MODE` (or set to `false`) and redeploy. Existing pilot users without subscription rows will hit the gate's `redirect_subscribe` branch and need a separate "pilot ended, here's your subscribe link" email.
