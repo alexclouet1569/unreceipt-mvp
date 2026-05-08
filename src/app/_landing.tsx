@@ -33,12 +33,22 @@ function useReveal() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const rect = el.getBoundingClientRect();
+    const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+    if (reduced || inViewport) {
+      setVisible(true);
+      return;
+    }
+
     const obs = new IntersectionObserver(
       ([e]) => { if (e.isIntersecting) setVisible(true); },
       { threshold: 0.15 }
     );
     obs.observe(el);
-    return () => obs.disconnect();
+    const fallback = window.setTimeout(() => setVisible(true), 1200);
+    return () => { obs.disconnect(); window.clearTimeout(fallback); };
   }, []);
   return { ref, visible };
 }
@@ -470,7 +480,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                   }`}>
                     <feature.icon className={`w-7 h-7 ${feature.highlight ? "text-white" : "text-[#27BE7B]"}`} />
                   </div>
-                  <h3 className="font-extrabold text-lg mb-3">
+                  <h3 className="font-bold text-lg mb-3">
                     {feature.title}
                   </h3>
                   <p className={`text-sm leading-relaxed ${feature.highlight ? "text-white/85" : "text-[#303568]/60"}`}>
