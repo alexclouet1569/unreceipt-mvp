@@ -15,8 +15,12 @@ test.describe("landing → /app/login funnel", () => {
     await cta.click();
 
     await expect(page).toHaveURL(/\/app\/login$/);
+    // /app/login defaults to the password Sign-in tab; magic-link is the
+    // "Forgot password?" fallback. Assert the Sign in tab + button is the
+    // primary surface a redirected hero visitor sees.
+    await expect(page.getByRole("tab", { name: /Sign in/i })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Send Magic Link/i })
+      page.getByRole("button", { name: /^Sign in$/i })
     ).toBeVisible();
   });
 

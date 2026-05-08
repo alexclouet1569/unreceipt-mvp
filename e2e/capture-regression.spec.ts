@@ -76,38 +76,42 @@ test.describe("self-service capture regression", () => {
     await expect(page).toHaveURL(/\/app\/login$/);
   });
 
-  test("/app/login renders the magic-link form", async ({ page }) => {
+  test("/app/login renders the tabbed auth UI", async ({ page }) => {
     await stubSupabase(page);
     await page.goto("/app/login");
 
     await expect(page.getByRole("heading", { name: "UnReceipt" })).toBeVisible();
     await expect(page.getByText("Sign in to manage your receipts")).toBeVisible();
-    await expect(page.getByPlaceholder("you@company.com")).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Send Magic Link/i })
-    ).toBeVisible();
+    // Default Sign in tab — email + password fields visible.
+    await expect(page.getByLabel(/Email address/i).first()).toBeVisible();
+    await expect(page.getByLabel(/^Password$/i)).toBeVisible();
+    // The Sign up tab is reachable.
+    await expect(page.getByRole("tab", { name: /Sign up/i })).toBeVisible();
   });
 
-  test("magic-link submit shows the check-your-email state", async ({
+  test("magic-link fallback (Forgot password?) shows the check-your-email state", async ({
     page,
     browserName,
   }) => {
-    // Chromium-only: WebKit + Playwright route interception drops the
-    // supabase-js OTP POST to a real network call (status -1) on every
-    // attempt — confirmed via the request trace, despite both glob and
-    // regex matchers covering the URL. The Chromium run still proves the
-    // form's success state. A proper fix needs either a /__test/auth
-    // proxy in the dev server or a real test Supabase project; tracked
-    // as a follow-up.
+    // WebKit drops the supabase-js OTP POST to a real network call despite
+    // route interception — same gap as before. Chromium still proves the
+    // success state.
     test.skip(browserName === "webkit", "WebKit + Playwright route gap");
 
     await stubSupabase(page, { otpOk: true });
     await page.goto("/app/login");
 
+    await page.getByText(/Forgot password\?/i).click();
+    await expect(
+      page.getByRole("button", { name: /Send Magic Link/i })
+    ).toBeVisible();
+
     await page.getByPlaceholder("you@company.com").fill("test@unreceipt.io");
     await page.getByRole("button", { name: /Send Magic Link/i }).click();
 
-    await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Check your email" })
+    ).toBeVisible();
     await expect(page.getByText("test@unreceipt.io")).toBeVisible();
   });
 

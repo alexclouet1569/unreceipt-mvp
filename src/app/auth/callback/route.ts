@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { syncProfile } from "@/lib/profile-sync";
 
 // The magic-link / OAuth-callback handler. Supabase appends `?code=…` to
 // emailRedirectTo; this route exchanges that code for a session and writes
@@ -81,6 +82,19 @@ export async function GET(request: NextRequest) {
         request.url
       )
     );
+  }
+
+  // Mirror the user's signup metadata (full_name, company_name) into
+  // public.profiles. Magic-link users have no metadata and write nulls —
+  // harmless. Failure is logged but doesn't block the redirect: the
+  // session cookie is already on `response` and the gate will let them in.
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      await syncProfile(data.user.id, data.user.user_metadata ?? null);
+    }
+  } catch (err) {
+    console.error("[auth/callback] profile sync threw", err);
   }
 
   return response;
