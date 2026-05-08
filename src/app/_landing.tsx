@@ -187,6 +187,15 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileMenuOpen]);
+
   const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -231,51 +240,55 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium transition-colors text-[#303568]/70 hover:text-[#303568]"
+                className="text-sm font-medium transition-colors text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
               >
                 {link.label}
               </a>
             ))}
             <a
               href={appUrl("/app/login")}
-              className="text-sm font-medium text-[#303568]/70 hover:text-[#303568]"
+              className="text-sm font-medium text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
             >
               Sign in
             </a>
             <a href={appUrl("/app/login")}>
-              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full px-6 shadow-md shadow-[#27BE7B]/25">
+              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full px-6 h-11 shadow-md shadow-[#27BE7B]/25">
                 {pilotMode ? "Join the pilot" : "Start free"}
               </Button>
             </a>
           </div>
           <button
-            className={`md:hidden p-2 text-[#303568]`}
+            type="button"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu"
+            className={`md:hidden p-3 -mr-1 text-[#303568]`}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 flex flex-col gap-3 shadow-lg">
+          <div id="mobile-menu" className="md:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
             {[
               { label: "Solutions", href: "#features" },
               { label: "How it Works", href: "#how" },
               { label: "Pricing", href: "#pricing" },
               { label: "About", href: "#about" },
             ].map((link) => (
-              <a key={link.label} href={link.href} className="text-sm text-[#303568] py-2 font-medium" onClick={() => setMobileMenuOpen(false)}>
+              <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}
               </a>
             ))}
             <a
               href={appUrl("/app/login")}
               onClick={() => setMobileMenuOpen(false)}
-              className="text-sm text-[#303568] py-2 font-medium border-t border-gray-100 pt-3"
+              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center border-t border-gray-100 mt-2 pt-2"
             >
               Sign in
             </a>
-            <a href={appUrl("/app/login")} onClick={() => setMobileMenuOpen(false)}>
-              <Button className="w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full">
+            <a href={appUrl("/app/login")} onClick={() => setMobileMenuOpen(false)} className="mt-2">
+              <Button className="w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12">
                 {pilotMode ? "Join the pilot" : "Start free"}
               </Button>
             </a>
@@ -425,7 +438,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             ].map((stat) => (
               <div key={stat.label}>
                 <p className="text-2xl sm:text-3xl font-extrabold text-[#303568]">{stat.value}</p>
-                <p className="text-xs text-[#303568]/50 mt-1 leading-snug">{stat.label}</p>
+                <p className="text-sm text-[#303568]/70 mt-1 leading-snug">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -805,19 +818,19 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             </div>
             <div className="flex gap-16">
               <div>
-                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4">Product</p>
-                <div className="flex flex-col gap-2.5">
-                  <a href="#features" className="text-sm text-white/40 hover:text-white transition-colors">Solutions</a>
-                  <a href="#pricing" className="text-sm text-white/40 hover:text-white transition-colors">Pricing</a>
-                  <a href="#how" className="text-sm text-white/40 hover:text-white transition-colors">How it Works</a>
+                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Product</p>
+                <div className="flex flex-col">
+                  <a href="#features" className="text-sm text-white/40 hover:text-white transition-colors py-2">Solutions</a>
+                  <a href="#pricing" className="text-sm text-white/40 hover:text-white transition-colors py-2">Pricing</a>
+                  <a href="#how" className="text-sm text-white/40 hover:text-white transition-colors py-2">How it Works</a>
                 </div>
               </div>
               <div>
-                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-4">Company</p>
-                <div className="flex flex-col gap-2.5">
-                  <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors">About</a>
-                  <a href="#waitlist" className="text-sm text-white/40 hover:text-white transition-colors">Contact</a>
-                  <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors">Privacy</a>
+                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Company</p>
+                <div className="flex flex-col">
+                  <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors py-2">About</a>
+                  <a href="#waitlist" className="text-sm text-white/40 hover:text-white transition-colors py-2">Contact</a>
+                  <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors py-2">Privacy</a>
                 </div>
               </div>
             </div>
