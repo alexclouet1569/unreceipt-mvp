@@ -41,25 +41,38 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Send welcome email via Resend
+  // Send welcome email via Resend. Sender is hello@unreceipt.com — the
+  // founder verified the unreceipt.com domain in the Resend dashboard.
+  // If the domain ever loses verification Resend returns 403, which we
+  // log and swallow so the waitlist signup itself never fails.
   if (process.env.RESEND_API_KEY) {
     try {
-      await fetch("https://api.resend.com/emails", {
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "UnReceipt <onboarding@resend.dev>",
+          from: "UnReceipt <hello@unreceipt.com>",
           to: email.toLowerCase().trim(),
           subject: "Welcome to UnReceipt — You're on the list!",
           html: getWelcomeEmailHtml(),
         }),
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error(
+          "[resend] domain not verified or other failure:",
+          res.status,
+          body
+        );
+      }
     } catch (emailError) {
-      // Don't fail the waitlist signup if email fails
-      console.error("Welcome email error:", emailError);
+      console.error(
+        "[resend] domain not verified or other failure:",
+        emailError
+      );
     }
   }
 

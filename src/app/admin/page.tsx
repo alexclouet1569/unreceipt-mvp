@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 type CustomerRow = {
   user_id: string;
   email: string;
+  full_name: string | null;
+  company_name: string | null;
   status: string;
   receipt_count: number;
   last_activity_iso: string | null;
@@ -32,6 +34,23 @@ async function loadCustomers(): Promise<CustomerRow[]> {
   }
   if (!subs || subs.length === 0) return [];
 
+  const userIds = subs.map((s) => s.user_id as string);
+  const { data: profileRows } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, company_name")
+    .in("user_id", userIds);
+
+  const profilesByUser = new Map<
+    string,
+    { full_name: string | null; company_name: string | null }
+  >();
+  for (const p of profileRows ?? []) {
+    profilesByUser.set(p.user_id as string, {
+      full_name: (p.full_name as string | null) ?? null,
+      company_name: (p.company_name as string | null) ?? null,
+    });
+  }
+
   const rows = await Promise.all(
     subs.map(async (sub) => {
       const userId = sub.user_id as string;
@@ -52,10 +71,13 @@ async function loadCustomers(): Promise<CustomerRow[]> {
       const latest = receiptsRes.data?.[0] as
         | { created_at: string | null }
         | undefined;
+      const profile = profilesByUser.get(userId);
 
       return {
         user_id: userId,
         email,
+        full_name: profile?.full_name ?? null,
+        company_name: profile?.company_name ?? null,
         status,
         receipt_count: receiptCount,
         last_activity_iso: latest?.created_at ?? null,
@@ -107,7 +129,11 @@ export default async function AdminCustomerListPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm truncate">
-                          {c.email}
+                          {c.company_name
+                            ? `${c.company_name} — ${c.email}`
+                            : c.full_name
+                              ? `${c.full_name} — ${c.email}`
+                              : c.email}
                         </p>
                         <span
                           className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${

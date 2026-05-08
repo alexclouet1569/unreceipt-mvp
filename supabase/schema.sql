@@ -308,3 +308,41 @@ DROP POLICY IF EXISTS "Users can delete own receipt images" ON storage.objects;
 CREATE POLICY "Users can delete own receipt images"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'receipts' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =============================================================================
+-- 2026-05-08 — public.profiles
+--
+-- Step 11.5 / email+password auth: when users sign up via email/password
+-- we collect full name + company name. auth.users.raw_user_meta_data is
+-- awkward to query/join, so mirror the editable bits into a thin
+-- public.profiles table, keyed 1:1 on auth.users(id).
+--
+-- Rows are upserted by /auth/callback after exchangeCodeForSession via
+-- the user's own session (RLS-allowed for SELECT/UPDATE on own row) and
+-- INSERT happens via the service-role client during the callback handler
+-- (so we don't need a client-side INSERT policy).
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT,
+  company_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile"
+  ON public.profiles FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
+
+-- Reuse the shared updated_at trigger (defined once at top of this file).
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();

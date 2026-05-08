@@ -81,3 +81,11 @@ export interface Subscription {
   created_at: string;
   updated_at: string;
 }
+
+export interface Profile {
+  user_id: string;
+  full_name: string | null;
+  company_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
