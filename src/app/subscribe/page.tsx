@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Receipt, Check } from "lucide-react";
+import { Receipt, Check, ArrowRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
+import { isPilotMode } from "@/lib/pilot";
 import { SubscribeButton } from "./SubscribeButton";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function SubscribePage({
   }
 
   const { canceled } = await searchParams;
+  const pilot = isPilotMode();
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -53,13 +55,29 @@ export default async function SubscribePage({
               ))}
             </ul>
 
-            {canceled ? (
+            {canceled && !pilot ? (
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
                 Checkout canceled. Pick it back up anytime.
               </p>
             ) : null}
 
-            <SubscribeButton />
+            {pilot ? (
+              <div className="space-y-3">
+                <p className="text-sm text-foreground bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5">
+                  We&apos;re running a free pilot right now — no subscription
+                  needed.
+                </p>
+                <Link
+                  href="/app"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                >
+                  Continue to dashboard
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : (
+              <SubscribeButton />
+            )}
 
             <p className="text-[11px] text-muted-foreground text-center">
               Signed in as{" "}

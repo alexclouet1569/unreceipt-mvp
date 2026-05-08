@@ -7,10 +7,11 @@
 // in step 11.
 
 import { getSupabaseAdmin } from "./supabase-admin";
+import { isPilotMode } from "./pilot";
 
 export type GateResult =
   | { kind: "allow" }
-  | { kind: "allow_with_warning"; reason: "db_error" }
+  | { kind: "allow_with_warning"; reason: "db_error" | "pilot_mode" }
   | { kind: "redirect_subscribe" }
   | { kind: "self_heal"; sessionId: string };
 
@@ -20,6 +21,12 @@ export async function checkSubscriptionGate(
   userId: string,
   sessionIdFromUrl: string | null
 ): Promise<GateResult> {
+  // Pilot mode bypass: takes precedence over everything else (including
+  // active subs) so the gate's behavior matches the env var unambiguously.
+  if (isPilotMode()) {
+    return { kind: "allow_with_warning", reason: "pilot_mode" };
+  }
+
   try {
     const { data, error } = await getSupabaseAdmin()
       .from("subscriptions")
