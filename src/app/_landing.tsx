@@ -459,49 +459,35 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               Focus on What Matters
             </h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-12 md:gap-8">
             {[
               {
                 icon: Infinity,
                 title: "Simplicity Stays",
                 desc: "Every receipt turns into a smart, categorized record instantly. Clean, effortless expense management — so you can focus on what truly matters.",
-                highlight: false,
               },
               {
                 icon: FileX2,
                 title: "Zero Paperwork",
                 desc: "Simply pay and forget. Your data is saved, organized, and ready for your report without any manual action. Less paper, more power.",
-                highlight: true,
               },
               {
                 icon: Search,
                 title: "Pure Clarity",
                 desc: "Access a detailed spending history in seconds. The information you need is always safe at your fingertips, giving you control and peace of mind.",
-                highlight: false,
               },
             ].map((feature) => (
-              <Card
-                key={feature.title}
-                className={`border-0 shadow-sm rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
-                  feature.highlight
-                    ? "bg-[#27BE7B] text-white shadow-lg shadow-[#27BE7B]/20"
-                    : "bg-[#ECF7E7] text-[#303568]"
-                }`}
-              >
-                <CardContent className="pt-10 pb-10 px-8 text-center">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${
-                    feature.highlight ? "bg-white/20" : "bg-white"
-                  }`}>
-                    <feature.icon className={`w-7 h-7 ${feature.highlight ? "text-white" : "text-[#27BE7B]"}`} />
-                  </div>
-                  <h3 className="font-bold text-lg mb-3">
-                    {feature.title}
-                  </h3>
-                  <p className={`text-sm leading-relaxed ${feature.highlight ? "text-white/85" : "text-[#303568]/60"}`}>
-                    {feature.desc}
-                  </p>
-                </CardContent>
-              </Card>
+              <div key={feature.title} className="text-center px-2">
+                <div className="w-16 h-16 rounded-2xl bg-[#27BE7B]/10 flex items-center justify-center mx-auto mb-6">
+                  <feature.icon className="w-7 h-7 text-[#27BE7B]" />
+                </div>
+                <h3 className="font-bold text-lg mb-3 text-[#303568]">
+                  {feature.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-[#303568]/70 max-w-xs mx-auto">
+                  {feature.desc}
+                </p>
+              </div>
             ))}
           </div>
         </div>
@@ -689,7 +675,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               Built for Teams That Move Fast
             </h2>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-10 md:gap-8">
             {[
               {
                 icon: Smartphone,
@@ -707,12 +693,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 desc: "Instant spend analytics. Policy enforcement. Know exactly where your money goes — without waiting for monthly reports.",
               },
             ].map((item) => (
-              <div key={item.title} className="bg-[#ECF7E7] rounded-3xl p-8 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+              <div key={item.title}>
                 <div className="w-14 h-14 rounded-2xl bg-[#27BE7B]/10 flex items-center justify-center mb-5">
                   <item.icon className="w-6 h-6 text-[#27BE7B]" />
                 </div>
                 <h3 className="font-bold text-[#303568] text-lg mb-3">{item.title}</h3>
-                <p className="text-sm text-[#303568]/55 leading-relaxed">
+                <p className="text-sm text-[#303568]/70 leading-relaxed">
                   {item.desc}
                 </p>
               </div>
