@@ -480,7 +480,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                   }`}>
                     <feature.icon className={`w-7 h-7 ${feature.highlight ? "text-white" : "text-[#27BE7B]"}`} />
                   </div>
-                  <h3 className="font-extrabold text-lg mb-3">
+                  <h3 className="font-bold text-lg mb-3">
                     {feature.title}
                   </h3>
                   <p className={`text-sm leading-relaxed ${feature.highlight ? "text-white/85" : "text-[#303568]/60"}`}>
