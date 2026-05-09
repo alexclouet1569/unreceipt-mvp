@@ -47,7 +47,6 @@ const signInSchema = z.object({
 function LoginPageInner() {
   const searchParams = useSearchParams();
   const [topError, setTopError] = useState("");
-  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     const callbackError = searchParams.get("error");
@@ -57,40 +56,6 @@ function LoginPageInner() {
       );
     }
   }, [searchParams]);
-
-  // Self-heal stuck sessions. If the visitor lands here with sb-* cookies
-  // but the user behind them no longer validates (deleted user, rotated
-  // JWT, chunked-cookie residue), supabase-js can wedge subsequent
-  // browser calls — including signInWithPassword and any /rest/v1/*
-  // query — without surfacing an error. Detect that case and POST to
-  // /api/auth/clear, which writes proper clearing Set-Cookie headers
-  // that the supabase-js client-side signOut() can miss.
-  useEffect(() => {
-    const hasSbCookie = document.cookie
-      .split(";")
-      .some((c) => c.trim().startsWith("sb-"));
-    if (!hasSbCookie) return;
-
-    let cancelled = false;
-    (async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.auth.getUser();
-      if (cancelled) return;
-      if (error || !data.user) {
-        await fetch("/api/auth/clear", { method: "POST" }).catch(() => {});
-        if (!cancelled) window.location.reload();
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleResetSession = async () => {
-    setResetting(true);
-    await fetch("/api/auth/clear", { method: "POST" }).catch(() => {});
-    window.location.reload();
-  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
@@ -106,20 +71,12 @@ function LoginPageInner() {
         </div>
 
         {topError && (
-          <div
+          <p
             role="alert"
             className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2 mb-4"
           >
-            <p>{topError}</p>
-            <button
-              type="button"
-              onClick={handleResetSession}
-              disabled={resetting}
-              className="mt-1 text-xs underline hover:no-underline disabled:opacity-50"
-            >
-              {resetting ? "Resetting…" : "Sign-in stuck? Reset session"}
-            </button>
-          </div>
+            {topError}
+          </p>
         )}
 
         <Card>
