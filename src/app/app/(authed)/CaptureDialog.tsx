@@ -59,57 +59,6 @@ const fileExt = (name: string) => {
   return /^[a-z0-9]{1,5}$/.test(ext) ? ext : "jpg";
 };
 
-const STEP_TIMEOUT_MS = 12_000;
-
-// Each step of the save flow is wrapped in this so a hung supabase-js
-// call or stalled fetch surfaces as an actionable error in the dialog
-// instead of a forever spinner. Intentionally does not abort the
-// underlying promise — supabase-js doesn't take an AbortSignal here —
-// so the original call may eventually settle in the background; that's
-// fine, the user has already seen the error and moved on.
-async function withTimeout<T>(
-  label: string,
-  promise: PromiseLike<T>,
-  ms = STEP_TIMEOUT_MS
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`timeout:${label}`)),
-      ms
-    );
-  });
-  try {
-    return await Promise.race([Promise.resolve(promise), timeout]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
-// Pulls the most useful identifier out of a Supabase / Postgres error
-// shape so the dialog can show e.g. "42501: new row violates row-level
-// security policy" instead of the generic "Could not save receipt".
-function describeError(err: unknown): string {
-  if (err instanceof Error && err.message.startsWith("timeout:")) {
-    return `timed out at ${err.message.slice("timeout:".length)}`;
-  }
-  if (err && typeof err === "object") {
-    const e = err as {
-      code?: string;
-      status?: number;
-      statusCode?: number | string;
-      message?: string;
-      error?: string;
-    };
-    const code = e.code ?? e.statusCode ?? e.status;
-    const msg = e.message ?? e.error ?? "";
-    if (code && msg) return `${code}: ${msg}`;
-    if (msg) return msg;
-    if (code) return String(code);
-  }
-  return err instanceof Error ? err.message : "unknown error";
-}
-
 export function CaptureDialog({
   userId,
   open,
@@ -163,58 +112,36 @@ export function CaptureDialog({
 
     const supabase = getSupabaseClient();
     let uploadedPath: string | null = null;
-    let currentStep: "session" | "upload" | "insert" = "session";
 
     try {
-      // getSession explicitly so a wedged auth lock surfaces here as a
-      // timeout instead of silently stalling inside .insert().
-      console.log("[capture] step 1: getSession");
-      const sessionRes = await withTimeout(
-        "session",
-        supabase.auth.getSession()
-      );
-      console.log("[capture] step 1 ok", {
-        hasSession: Boolean(sessionRes.data.session),
-      });
-
       if (imageFile) {
-        currentStep = "upload";
         const path = `${userId}/${crypto.randomUUID()}.${fileExt(imageFile.name)}`;
-        console.log("[capture] step 2: upload", { path, size: imageFile.size });
-        const { error: uploadError } = await withTimeout(
-          "upload",
-          supabase.storage.from("receipts").upload(path, imageFile, {
+        const { error: uploadError } = await supabase.storage
+          .from("receipts")
+          .upload(path, imageFile, {
             cacheControl: "3600",
             upsert: false,
             contentType: imageFile.type || undefined,
-          })
-        );
+          });
         if (uploadError) {
+          // Storage failure: nothing to clean up. Surface the error and bail.
           throw uploadError;
         }
         uploadedPath = path;
-        console.log("[capture] step 2 ok");
       }
 
-      currentStep = "insert";
-      console.log("[capture] step 3: insert");
-      const { error: insertError } = await withTimeout(
-        "insert",
-        supabase.from("receipts").insert({
-          user_id: userId,
-          transaction_id: null,
-          merchant_name: form.merchant.trim(),
-          category: form.category,
-          currency: form.currency,
-          total: Number(form.amount),
-          receipt_date: form.date,
-          notes: form.notes.trim() || null,
-          image_url: uploadedPath,
-          image_captured_at: uploadedPath ? new Date().toISOString() : null,
-          source: "captured",
-        })
-      );
-      console.log("[capture] step 3 ok");
+      const { error: insertError } = await supabase.from("receipts").insert({
+        user_id: userId,
+        merchant_name: form.merchant.trim(),
+        category: form.category,
+        currency: form.currency,
+        total: Number(form.amount),
+        receipt_date: form.date,
+        notes: form.notes.trim() || null,
+        image_url: uploadedPath,
+        image_captured_at: uploadedPath ? new Date().toISOString() : null,
+        source: "captured",
+      });
 
       if (insertError) {
         // CQ2 atomicity: storage upload succeeded, DB insert failed. Best-effort
@@ -233,8 +160,8 @@ export function CaptureDialog({
       router.refresh();
     } catch (err) {
       // TODO(step-11): Sentry.captureException(err, { tags: { area: "/app save" } });
-      console.error(`[capture] failed at step ${currentStep}`, err);
-      setSaveError(`Save failed (${currentStep}): ${describeError(err)}`);
+      console.error("[/app] save failed", err);
+      setSaveError("Could not save receipt. Check your connection and try again.");
       setSaving(false);
     }
   };
