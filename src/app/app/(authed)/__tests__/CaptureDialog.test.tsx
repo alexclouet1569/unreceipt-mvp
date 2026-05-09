@@ -15,6 +15,9 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/supabase-client", () => ({
   getSupabaseClient: () => ({
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: { user: { id: "u" } } }, error: null }),
+    },
     storage: {
       from: () => ({
         upload: mocks.upload,
@@ -91,7 +94,7 @@ describe("CaptureDialog (CQ2)", () => {
     await user.click(screen.getByRole("button", { name: /Save receipt/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not save receipt/i
+      /Save failed/i
     );
     // Dialog must NOT close on failure.
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -144,7 +147,7 @@ describe("CaptureDialog (CQ2)", () => {
     expect(mocks.remove.mock.calls[0][0]).toEqual([uploadedPath]);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not save receipt/i
+      /Save failed/i
     );
   });
 
@@ -169,7 +172,7 @@ describe("CaptureDialog (CQ2)", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not save receipt/i
+      /Save failed/i
     );
   });
 });
