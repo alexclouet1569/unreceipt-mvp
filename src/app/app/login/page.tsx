@@ -44,6 +44,24 @@ const signInSchema = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
+const AUTH_TIMEOUT_MS = 12_000;
+
+// Fails loud if a supabase-js auth call hangs (network, locked SDK,
+// paused project). Without this the login form spins forever with no
+// feedback, which is the exact symptom we just hit in production.
+function withAuthTimeout<T>(label: string, p: PromiseLike<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`auth timed out at ${label}`)),
+      AUTH_TIMEOUT_MS
+    );
+  });
+  return Promise.race([Promise.resolve(p), timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  }) as Promise<T>;
+}
+
 function LoginPageInner() {
   const searchParams = useSearchParams();
   const [topError, setTopError] = useState("");
@@ -134,14 +152,30 @@ function SignInPanel() {
     }
 
     setLoading(true);
-    const { error: authError } = await getSupabaseClient().auth.signInWithPassword({
-      email: parsed.data.email,
-      password: parsed.data.password,
-    });
+    let authError: { message?: string } | null = null;
+    try {
+      const res = await withAuthTimeout(
+        "signInWithPassword",
+        getSupabaseClient().auth.signInWithPassword({
+          email: parsed.data.email,
+          password: parsed.data.password,
+        })
+      );
+      authError = res.error;
+    } catch (e) {
+      authError = { message: e instanceof Error ? e.message : "request failed" };
+    }
     setLoading(false);
 
     if (authError) {
-      setError("Email or password is wrong, try again.");
+      const msg = (authError.message ?? "").toLowerCase();
+      if (msg.includes("timed out")) {
+        setError(
+          "Sign-in is taking too long. Reload the page and try again."
+        );
+      } else {
+        setError("Email or password is wrong, try again.");
+      }
       return;
     }
 
@@ -164,12 +198,21 @@ function SignInPanel() {
     }
 
     setLoading(true);
-    const { error: authError } = await getSupabaseClient().auth.signInWithOtp({
-      email: parsed.data.email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/app`,
-      },
-    });
+    let authError: { message?: string } | null = null;
+    try {
+      const res = await withAuthTimeout(
+        "signInWithOtp",
+        getSupabaseClient().auth.signInWithOtp({
+          email: parsed.data.email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/app`,
+          },
+        })
+      );
+      authError = res.error;
+    } catch (e) {
+      authError = { message: e instanceof Error ? e.message : "request failed" };
+    }
     setLoading(false);
 
     if (authError) {

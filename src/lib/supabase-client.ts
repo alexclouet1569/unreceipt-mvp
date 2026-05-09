@@ -35,6 +35,23 @@ export function getSupabaseClient(): SupabaseClient {
     throw new Error("Supabase env vars missing");
   }
 
-  client = createBrowserClient(url, anonKey);
+  // Pass a no-op lock to disable supabase-js's navigator.locks-based
+  // cross-tab session coordination. The default lock can wedge in the
+  // browser when a prior tab/page didn't release it (force-close, crash,
+  // extension interference) — every subsequent supabase.auth.* and
+  // supabase.from(...) call then hangs forever with no error and no
+  // network request, because the SDK awaits getSession() which awaits
+  // the lock that never releases. The trade-off (concurrent token
+  // refreshes from multiple tabs) is acceptable: the auth API tolerates
+  // it; the worst case is one redundant refresh.
+  const noOpLock = async <R,>(
+    _name: string,
+    _acquireTimeout: number,
+    fn: () => Promise<R>
+  ): Promise<R> => fn();
+
+  client = createBrowserClient(url, anonKey, {
+    auth: { lock: noOpLock },
+  });
   return client;
 }
