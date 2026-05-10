@@ -13,12 +13,11 @@ import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 
 type DashboardProps = {
-  userId: string;
   userEmail: string;
   receipts: Receipt[];
 };
 
-export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
+export function Dashboard({ userEmail, receipts }: DashboardProps) {
   const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
@@ -119,7 +118,6 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
       </div>
 
       <CaptureDialog
-        userId={userId}
         open={captureOpen}
         onOpenChange={setCaptureOpen}
       />
