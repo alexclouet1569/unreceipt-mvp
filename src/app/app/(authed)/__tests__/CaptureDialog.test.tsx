@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
   router: { refresh: vi.fn(), replace: vi.fn(), push: vi.fn() },
+  getSession: vi.fn(),
   upload: vi.fn(),
   remove: vi.fn(),
   insert: vi.fn(),
@@ -15,6 +16,9 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/supabase-client", () => ({
   getSupabaseClient: () => ({
+    auth: {
+      getSession: mocks.getSession,
+    },
     storage: {
       from: () => ({
         upload: mocks.upload,
@@ -27,7 +31,8 @@ vi.mock("@/lib/supabase-client", () => ({
   }),
 }));
 
-import { CaptureDialog } from "@/app/app/(authed)/CaptureDialog";
+import { CaptureDialog, describeCaptureError } from "@/app/app/(authed)/CaptureDialog";
+import { TimeoutError } from "@/lib/with-timeout";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -48,6 +53,9 @@ const renderDialog = async () => {
 describe("CaptureDialog (CQ2)", () => {
   beforeEach(() => {
     mocks.router.refresh.mockReset();
+    mocks.getSession
+      .mockReset()
+      .mockResolvedValue({ data: { session: { user: { id: USER_ID } } }, error: null });
     mocks.upload.mockReset();
     mocks.remove.mockReset().mockResolvedValue({ error: null });
     mocks.insert.mockReset();
@@ -80,18 +88,19 @@ describe("CaptureDialog (CQ2)", () => {
     expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a visible error and keeps the dialog open when the DB insert fails", async () => {
+  it("shows a descriptive error and keeps the dialog open when the DB insert fails", async () => {
     const user = userEvent.setup();
     mocks.insert.mockResolvedValue({
-      error: { message: "duplicate key" },
+      error: { code: "23505", message: "duplicate key" },
     });
     const { onOpenChange } = await renderDialog();
 
     await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: /Save receipt/i }));
 
+    // The new descriptive format includes the postgrest code + message.
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not save receipt/i
+      /Save failed \(23505\): duplicate key/i
     );
     // Dialog must NOT close on failure.
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -113,7 +122,7 @@ describe("CaptureDialog (CQ2)", () => {
     const user = userEvent.setup();
     mocks.upload.mockResolvedValue({ error: null });
     mocks.insert.mockResolvedValue({
-      error: { message: "constraint violation" },
+      error: { code: "23514", message: "constraint violation" },
     });
 
     await renderDialog();
@@ -144,14 +153,29 @@ describe("CaptureDialog (CQ2)", () => {
     expect(mocks.remove.mock.calls[0][0]).toEqual([uploadedPath]);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not save receipt/i
+      /Save failed \(23514\): constraint violation/i
     );
+  });
+
+  it("renders a step-labelled message when a save step rejects with TimeoutError", async () => {
+    const user = userEvent.setup();
+    mocks.getSession.mockRejectedValue(new TimeoutError("preflight-session", 12_000));
+
+    await renderDialog();
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Saving took too long at: preflight-session/i
+    );
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("shows the error and skips the orphan cleanup when storage upload itself fails", async () => {
     const user = userEvent.setup();
     mocks.upload.mockResolvedValue({
-      error: { message: "storage quota" },
+      error: { statusCode: 413, message: "storage quota" },
     });
 
     await renderDialog();
@@ -169,7 +193,46 @@ describe("CaptureDialog (CQ2)", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not save receipt/i
+      /Storage upload failed \(HTTP 413\): storage quota/i
     );
+  });
+
+});
+
+describe("describeCaptureError", () => {
+  it("formats TimeoutError with the failing step label", () => {
+    expect(describeCaptureError(new TimeoutError("db-insert", 12_000))).toMatch(
+      /Saving took too long at: db-insert/
+    );
+  });
+
+  it("formats Postgrest errors with code + message", () => {
+    expect(
+      describeCaptureError({ code: "23505", message: "duplicate key" })
+    ).toBe("Save failed (23505): duplicate key");
+  });
+
+  it("falls back to 'unknown' when Postgrest code is missing", () => {
+    expect(describeCaptureError({ code: undefined, message: "boom" })).toBe(
+      "Save failed (unknown): boom"
+    );
+  });
+
+  it("formats storage errors with HTTP status + message", () => {
+    expect(
+      describeCaptureError({ statusCode: 413, message: "Payload too large" })
+    ).toBe("Storage upload failed (HTTP 413): Payload too large");
+  });
+
+  it("formats native Errors with their message", () => {
+    expect(describeCaptureError(new Error("network down"))).toBe(
+      "Save failed: network down"
+    );
+  });
+
+  it("returns a generic message for fully opaque errors", () => {
+    expect(describeCaptureError(undefined)).toMatch(/unknown reason/i);
+    expect(describeCaptureError(null)).toMatch(/unknown reason/i);
+    expect(describeCaptureError("oops")).toMatch(/unknown reason/i);
   });
 });
