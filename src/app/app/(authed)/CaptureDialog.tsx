@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Camera, Loader2, X } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { TimeoutError, withTimeout } from "@/lib/with-timeout";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -58,6 +59,26 @@ const fileExt = (name: string) => {
   const ext = name.slice(i + 1).toLowerCase();
   return /^[a-z0-9]{1,5}$/.test(ext) ? ext : "jpg";
 };
+
+export function describeCaptureError(err: unknown): string {
+  if (err instanceof TimeoutError) {
+    return `Saving took too long at: ${err.label}. Reload the page and try again.`;
+  }
+  // Supabase PostgrestError has shape { code, message, details, hint }
+  if (err && typeof err === "object" && "code" in err && "message" in err) {
+    const e = err as { code?: string; message?: string };
+    return `Save failed (${e.code ?? "unknown"}): ${e.message ?? "no detail"}`;
+  }
+  // Storage error has shape { error, message, statusCode }
+  if (err && typeof err === "object" && "statusCode" in err) {
+    const e = err as { statusCode?: number; message?: string };
+    return `Storage upload failed (HTTP ${e.statusCode ?? "?"}): ${
+      e.message ?? "no detail"
+    }`;
+  }
+  if (err instanceof Error) return `Save failed: ${err.message}`;
+  return "Save failed for an unknown reason. Reload and try again.";
+}
 
 export function CaptureDialog({
   userId,
@@ -112,17 +133,36 @@ export function CaptureDialog({
 
     const supabase = getSupabaseClient();
     let uploadedPath: string | null = null;
+    const STEP_TIMEOUT_MS = 12_000;
 
     try {
+      // Pre-flight session check — surfaces auth-lock hangs early if the
+      // SDK is wedged at the auth layer, which is the most common cause
+      // of the silent capture-submit hang we saw in production.
+      console.log("[capture] step=preflight-session");
+      await withTimeout(
+        "preflight-session",
+        STEP_TIMEOUT_MS,
+        supabase.auth.getSession()
+      );
+
       if (imageFile) {
         const path = `${userId}/${crypto.randomUUID()}.${fileExt(imageFile.name)}`;
-        const { error: uploadError } = await supabase.storage
-          .from("receipts")
-          .upload(path, imageFile, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: imageFile.type || undefined,
-          });
+        console.log("[capture] step=upload", {
+          size: imageFile.size,
+          type: imageFile.type,
+        });
+        const { error: uploadError } = await withTimeout(
+          "storage-upload",
+          STEP_TIMEOUT_MS,
+          supabase.storage
+            .from("receipts")
+            .upload(path, imageFile, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: imageFile.type || undefined,
+            })
+        );
         if (uploadError) {
           // Storage failure: nothing to clean up. Surface the error and bail.
           throw uploadError;
@@ -130,18 +170,23 @@ export function CaptureDialog({
         uploadedPath = path;
       }
 
-      const { error: insertError } = await supabase.from("receipts").insert({
-        user_id: userId,
-        merchant_name: form.merchant.trim(),
-        category: form.category,
-        currency: form.currency,
-        total: Number(form.amount),
-        receipt_date: form.date,
-        notes: form.notes.trim() || null,
-        image_url: uploadedPath,
-        image_captured_at: uploadedPath ? new Date().toISOString() : null,
-        source: "captured",
-      });
+      console.log("[capture] step=insert");
+      const { error: insertError } = await withTimeout(
+        "db-insert",
+        STEP_TIMEOUT_MS,
+        supabase.from("receipts").insert({
+          user_id: userId,
+          merchant_name: form.merchant.trim(),
+          category: form.category,
+          currency: form.currency,
+          total: Number(form.amount),
+          receipt_date: form.date,
+          notes: form.notes.trim() || null,
+          image_url: uploadedPath,
+          image_captured_at: uploadedPath ? new Date().toISOString() : null,
+          source: "captured",
+        })
+      );
 
       if (insertError) {
         // CQ2 atomicity: storage upload succeeded, DB insert failed. Best-effort
@@ -156,12 +201,13 @@ export function CaptureDialog({
         throw insertError;
       }
 
+      console.log("[capture] step=success");
       onOpenChange(false);
       router.refresh();
     } catch (err) {
       // TODO(step-11): Sentry.captureException(err, { tags: { area: "/app save" } });
-      console.error("[/app] save failed", err);
-      setSaveError("Could not save receipt. Check your connection and try again.");
+      console.error("[/app] save failed:", err);
+      setSaveError(describeCaptureError(err));
       setSaving(false);
     }
   };
