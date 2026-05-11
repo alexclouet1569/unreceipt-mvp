@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
@@ -149,5 +149,82 @@ describe("CaptureDialog", () => {
     await user.click(screen.getByRole("button", { name: /Save receipt/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/network down/i);
+  });
+
+  it("auto-fills empty fields with OCR result but preserves user-typed merchant", async () => {
+    const user = userEvent.setup();
+    let releaseOcr: (() => void) | null = null;
+    const ocrDeferred = new Promise<void>((resolve) => {
+      releaseOcr = resolve;
+    });
+    mocks.fetch.mockImplementation((url: string) => {
+      if (url === "/api/ocr") {
+        return ocrDeferred.then(() =>
+          okResponse({
+            merchant: "Stripe",
+            amount: 49.5,
+            currency: "SEK",
+            receipt_date: "2026-04-12",
+            category: "software",
+          })
+        );
+      }
+      return Promise.resolve(okResponse({ ok: true, id: "rec-1" }));
+    });
+
+    renderDialog();
+    // User types into Merchant BEFORE selecting the image — OCR must not
+    // overwrite this value.
+    await user.type(screen.getByLabelText(/Merchant/i), "My typed name");
+
+    const file = new File(["fake"], "ica.jpg", { type: "image/jpeg" });
+    const input = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    await user.upload(input, file);
+
+    // Loading microcopy appears while OCR is in flight.
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /Reading your receipt/i
+    );
+
+    // Resolve the deferred fetch — now the OCR result should apply.
+    releaseOcr!();
+
+    // After OCR resolves, empty fields get populated, merchant stays typed.
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Amount/i)).toHaveValue(49.5);
+    });
+    expect(screen.getByLabelText(/Merchant/i)).toHaveValue("My typed name");
+    expect(screen.getByLabelText(/Currency/i)).toHaveValue("SEK");
+    expect(screen.getByLabelText(/Date/i)).toHaveValue("2026-04-12");
+    expect(screen.getByLabelText(/Category/i)).toHaveValue("software");
+
+    // The /api/ocr fetch fired with the image attached.
+    const ocrCall = mocks.fetch.mock.calls.find(
+      ([url]) => url === "/api/ocr"
+    ) as [string, RequestInit] | undefined;
+    expect(ocrCall).toBeDefined();
+    expect((ocrCall![1].body as FormData).get("image")).toBeInstanceOf(File);
+  });
+
+  it("falls back silently when OCR returns not_a_receipt", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(okResponse({ not_a_receipt: true }));
+    renderDialog();
+
+    const file = new File(["fake"], "cat.jpg", { type: "image/jpeg" });
+    const input = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    await user.upload(input, file);
+
+    // No fields get filled, no scary error, user can still type.
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/Merchant/i)).toHaveValue("");
+    expect(screen.getByLabelText(/Amount/i)).toHaveValue(null);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

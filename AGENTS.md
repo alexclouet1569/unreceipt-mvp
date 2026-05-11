@@ -70,6 +70,16 @@ When `PILOT_MODE` is unset or set to anything other than the literal string `"tr
 
 To flip back to paid: in Vercel → Settings → Environment Variables, remove `PILOT_MODE` (or set to `false`) and redeploy. Existing pilot users without subscription rows will hit the gate's `redirect_subscribe` branch and need a separate "pilot ended, here's your subscribe link" email.
 
+## OCR (Claude vision auto-extract)
+
+`/api/ocr` accepts a receipt image and returns extracted fields (merchant, amount, currency, date, category, etc.) via Claude vision. The customer-side `CaptureDialog` and the founder-side `/admin/[userId]` paste form both POST to it on photo pick and pre-fill empty form fields with the result.
+
+- `src/lib/ocr.ts` exposes `extractReceipt(imageBase64, mediaType)`. Server-only; never import from `"use client"`. Uses prompt caching on the system message — the JSON schema is reused across every call so cached tokens are ~90% cheaper.
+- `/api/ocr` is auth-gated via `getServerUser()`, capped at 5 MB, restricted to `image/jpeg|png|webp`, runs on Node.js with `maxDuration = 30`.
+- The OCR step runs BEFORE `/api/capture` and is best-effort — failures fall back silently to manual entry. OCR never persists anything; the existing capture/admin-receipts routes still handle saves.
+
+Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.
+
 # Hosts
 
 Two hosts, one Next.js app:

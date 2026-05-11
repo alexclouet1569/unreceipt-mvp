@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Camera, Loader2, X } from "lucide-react";
+import { Camera, Loader2, Sparkles, X } from "lucide-react";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -24,6 +24,7 @@ import {
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
+import type { OcrResult } from "@/lib/ocr";
 
 type CaptureDialogProps = {
   open: boolean;
@@ -50,6 +51,8 @@ const blankForm = (): FormState => ({
   notes: "",
 });
 
+type OcrFilledFields = Partial<Record<keyof FormState, true>>;
+
 export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +61,8 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrFilled, setOcrFilled] = useState<OcrFilledFields>({});
 
   // Reset everything when the dialog closes so the next open is fresh.
   useEffect(() => {
@@ -67,26 +72,92 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       setImagePreview(null);
       setSaving(false);
       setSaveError(null);
+      setOcrLoading(false);
+      setOcrFilled({});
     }
   }, [open]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    // User typing into a field overrides the "auto-filled" badge.
+    setOcrFilled((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const runOcr = async (file: File) => {
+    setOcrLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch("/api/ocr", { method: "POST", body: fd });
+      if (!res.ok) return;
+      const data = (await res.json()) as OcrResult;
+      if (data.not_a_receipt) return;
+
+      const filled: OcrFilledFields = {};
+      setForm((prev) => {
+        const next: FormState = { ...prev };
+        if (!prev.merchant && typeof data.merchant === "string") {
+          next.merchant = data.merchant;
+          filled.merchant = true;
+        }
+        if (!prev.amount && typeof data.amount === "number" && Number.isFinite(data.amount)) {
+          next.amount = String(data.amount);
+          filled.amount = true;
+        }
+        if (
+          typeof data.currency === "string" &&
+          (CURRENCY_OPTIONS as readonly string[]).includes(data.currency)
+        ) {
+          next.currency = data.currency as CurrencyCode;
+          filled.currency = true;
+        }
+        if (
+          typeof data.receipt_date === "string" &&
+          /^\d{4}-\d{2}-\d{2}$/.test(data.receipt_date)
+        ) {
+          next.date = data.receipt_date;
+          filled.date = true;
+        }
+        if (
+          typeof data.category === "string" &&
+          (CATEGORY_KEYS as readonly string[]).includes(data.category)
+        ) {
+          next.category = data.category as CategoryKey;
+          filled.category = true;
+        }
+        return next;
+      });
+      setOcrFilled(filled);
+    } catch (err) {
+      console.error("[capture] ocr failed:", err);
+      // silent fallback — user can still type fields manually
+    } finally {
+      setOcrLoading(false);
+    }
   };
 
   const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     setImageFile(f);
     setImagePreview(null);
+    setOcrFilled({});
     if (!f) return;
     const reader = new FileReader();
     reader.onload = (ev) => setImagePreview((ev.target?.result as string) ?? null);
     reader.readAsDataURL(f);
+    void runOcr(f);
   };
 
   const clearImage = () => {
     setImageFile(null);
     setImagePreview(null);
+    setOcrFilled({});
+    setOcrLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -171,9 +242,28 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
               className="hidden"
               onChange={onPickFile}
             />
+            {ocrLoading ? (
+              <p
+                role="status"
+                className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+              >
+                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                Reading your receipt…
+              </p>
+            ) : Object.keys(ocrFilled).length > 0 ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                Auto-filled — review and save
+              </p>
+            ) : null}
           </div>
 
-          <Field label="Merchant" htmlFor="cd-merchant" required>
+          <Field
+            label="Merchant"
+            htmlFor="cd-merchant"
+            required
+            autoFilled={ocrFilled.merchant}
+          >
             <Input
               id="cd-merchant"
               value={form.merchant}
@@ -185,7 +275,12 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Amount" htmlFor="cd-amount" required>
+            <Field
+              label="Amount"
+              htmlFor="cd-amount"
+              required
+              autoFilled={ocrFilled.amount}
+            >
               <Input
                 id="cd-amount"
                 type="number"
@@ -198,7 +293,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
                 required
               />
             </Field>
-            <Field label="Currency" htmlFor="cd-currency">
+            <Field
+              label="Currency"
+              htmlFor="cd-currency"
+              autoFilled={ocrFilled.currency}
+            >
               <select
                 id="cd-currency"
                 className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
@@ -217,7 +316,12 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Date" htmlFor="cd-date" required>
+            <Field
+              label="Date"
+              htmlFor="cd-date"
+              required
+              autoFilled={ocrFilled.date}
+            >
               <Input
                 id="cd-date"
                 type="date"
@@ -226,7 +330,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
                 required
               />
             </Field>
-            <Field label="Category" htmlFor="cd-category">
+            <Field
+              label="Category"
+              htmlFor="cd-category"
+              autoFilled={ocrFilled.category}
+            >
               <select
                 id="cd-category"
                 className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
@@ -278,21 +386,31 @@ function Field({
   label,
   htmlFor,
   required,
+  autoFilled,
   children,
 }: {
   label: string;
   htmlFor: string;
   required?: boolean;
+  autoFilled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
       <label
         htmlFor={htmlFor}
-        className="text-xs font-medium text-muted-foreground"
+        className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
       >
-        {label}
-        {required ? <span className="text-destructive ml-0.5">*</span> : null}
+        <span>
+          {label}
+          {required ? <span className="text-destructive ml-0.5">*</span> : null}
+        </span>
+        {autoFilled ? (
+          <Sparkles
+            className="h-3 w-3 text-emerald-600"
+            aria-label="Auto-filled"
+          />
+        ) : null}
       </label>
       {children}
     </div>
