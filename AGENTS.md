@@ -95,3 +95,17 @@ Cross-host links from marketing to product use `appUrl(path)` from `src/lib/app-
 PWA assets (manifest, apple-touch-icon, mobile-web-app meta) only render in `app/layout.tsx` when the host matches the product subdomain or a dev/preview origin. Service-worker registration in `_client-shell.tsx` follows the same rule.
 
 Stripe Checkout `success_url` / `cancel_url` use `NEXT_PUBLIC_APP_URL` so the customer always returns to the product host regardless of which host received the POST.
+
+# Design System
+
+`DESIGN.md` at the repo root is the source of truth for the product surface (`app.unreceipt.com` + Capacitor wrapper). Read it before any visual / UI work.
+
+Rules:
+
+- All color tokens, typography choices, spacing, motion, border radius, and component-level specs live in `DESIGN.md`. Do not introduce new tokens, fonts, or one-off colors without updating `DESIGN.md` first.
+- The font stack is **Manrope (display) + Figtree (body) + Geist Mono (amounts only)**. Mono is reserved for monetary values; never use it for body or labels.
+- The page background is `--surface: #FAFAF7` (cream, paper-feel). The mint `--brand-tint: #ECF7E7` is reserved for empty-state hero, pilot banner, and the VAT-summary panel — never the page background.
+- Cards have a `1px --hairline` border and no drop shadow. The FAB is the only place a drop shadow exists.
+- The signature elements are the `Un` wordmark (mono `Un` tag + Manrope `Receipt`) and the perforated edge motif at the top of receipt detail views. Reuse the shared `Wordmark` and `PerfEdge` components rather than re-implementing.
+- `/admin/*`, `/subscribe`, Stripe Checkout, and the marketing landing at `unreceipt.com/` are out of scope for the design system. Token changes will ripple to them but do not redesign their layouts.
+- In QA / design-review mode, flag any code that violates `DESIGN.md` (off-token colors, wrong fonts on amounts, shadows on cards, mint backgrounds outside the allowed surfaces).
