@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, LogOut, Plus, Receipt as ReceiptIcon } from "lucide-react";
+import { Camera, LogOut, Plus } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { formatAmount } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
@@ -47,12 +48,7 @@ export function Dashboard({ userEmail, receipts }: DashboardProps) {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <ReceiptIcon className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm">UnReceipt</span>
-          </div>
+          <Wordmark />
           <Button
             variant="ghost"
             size="sm"
