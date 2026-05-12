@@ -26,6 +26,11 @@ import {
 } from "@/lib/receipt-format";
 import type { OcrResult } from "@/lib/ocr";
 
+// Response shape of /api/ocr after step 5 — adds parse_confidence atop
+// the legacy OcrResult fields. The dialog stashes it and forwards it to
+// /api/capture so the row carries the parser signal end-to-end.
+type OcrResponse = OcrResult & { parse_confidence?: number };
+
 type CaptureDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +65,10 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  // Parser confidence (0..1) from the last OCR pre-fill. Threaded into
+  // the save POST so the row carries the intake signal end-to-end. Reset
+  // whenever the photo is cleared or the dialog closes.
+  const [parseConfidence, setParseConfidence] = useState<number | null>(null);
 
   // Reset everything when the dialog closes so the next open is fresh.
   useEffect(() => {
@@ -70,6 +79,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       setSaving(false);
       setSaveError(null);
       setOcrLoading(false);
+      setParseConfidence(null);
     }
   }, [open]);
 
@@ -84,8 +94,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       fd.append("image", file);
       const res = await fetch("/api/ocr", { method: "POST", body: fd });
       if (!res.ok) return;
-      const data = (await res.json()) as OcrResult;
+      const data = (await res.json()) as OcrResponse;
       if (data.not_a_receipt) return;
+      if (typeof data.parse_confidence === "number") {
+        setParseConfidence(data.parse_confidence);
+      }
 
       setForm((prev) => {
         const next: FormState = { ...prev };
@@ -138,6 +151,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     setImageFile(null);
     setImagePreview(null);
     setOcrLoading(false);
+    setParseConfidence(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -155,6 +169,12 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       fd.append("category", form.category);
       if (form.notes.trim()) fd.append("notes", form.notes.trim());
       if (imageFile) fd.append("image", imageFile);
+      // Forward the parser signal only when we actually ran OCR on a
+      // photo. Manual entries omit it so the row's parse_confidence stays
+      // NULL (not 0) — distinguishing "no signal" from "low signal".
+      if (imageFile && parseConfidence !== null) {
+        fd.append("parse_confidence", String(parseConfidence));
+      }
 
       const res = await fetch("/api/capture", {
         method: "POST",

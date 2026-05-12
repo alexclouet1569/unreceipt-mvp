@@ -81,12 +81,15 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 200 with the extracted JSON on success", async () => {
+  it("returns 200 with parser-canonicalized JSON + parse_confidence on success", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     mocks.extractReceipt.mockResolvedValue({
       merchant: "ICA",
       amount: 49.5,
       currency: "SEK",
+      receipt_date: "2026-05-03",
+      category: "office_supplies",
+      confidence: 0.9,
     });
     const fd = new FormData();
     fd.append("image", imageBlob("image/jpeg"), "r.jpg");
@@ -94,10 +97,31 @@ describe("POST /api/ocr", () => {
     const res = await POST(buildRequest(fd));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ merchant: "ICA", amount: 49.5, currency: "SEK" });
+    expect(body).toMatchObject({
+      not_a_receipt: false,
+      merchant: "ICA",
+      amount: 49.5,
+      currency: "SEK",
+      receipt_date: "2026-05-03",
+      category: "office_supplies",
+    });
+    expect(body.parse_confidence).toBeCloseTo(0.9, 2);
     expect(mocks.extractReceipt).toHaveBeenCalledTimes(1);
     const [, mediaType] = mocks.extractReceipt.mock.calls[0];
     expect(mediaType).toBe("image/jpeg");
+  });
+
+  it("returns 200 with not_a_receipt=true when the parser says so", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    mocks.extractReceipt.mockResolvedValue({ not_a_receipt: true });
+    const fd = new FormData();
+    fd.append("image", imageBlob("image/jpeg"), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.not_a_receipt).toBe(true);
+    expect(body.parse_confidence).toBe(0);
   });
 
   it("returns 500 when the OCR call throws", async () => {

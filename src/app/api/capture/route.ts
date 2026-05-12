@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -16,7 +17,19 @@ const CaptureSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "receipt_date must be YYYY-MM-DD"),
   category: z.enum(CATEGORY_KEYS as [string, ...string[]]),
   notes: z.string().max(2000).optional(),
+  // Parser confidence (0..1) from the client-side OCR pre-fill. Persisted
+  // so the inbox can surface "needs review" badges (step 9). Manual entries
+  // omit this field entirely.
+  parse_confidence: z.number().min(0).max(1).optional(),
 });
+
+// Accepted MIME types for paper-receipt uploads. Mirrors the receipts CHECK
+// constraint added in step 3 (`receipts_original_source_kind_check`).
+const ALLOWED_IMAGE_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 const fileExt = (name: string): string => {
   const i = name.lastIndexOf(".");
@@ -40,6 +53,7 @@ export async function POST(request: NextRequest) {
 
   const amountRaw = form.get("amount");
   const notesRaw = form.get("notes");
+  const confidenceRaw = form.get("parse_confidence");
   const parsed = CaptureSchema.safeParse({
     merchant: typeof form.get("merchant") === "string" ? form.get("merchant") : undefined,
     amount: typeof amountRaw === "string" && amountRaw !== "" ? Number(amountRaw) : NaN,
@@ -48,6 +62,10 @@ export async function POST(request: NextRequest) {
       typeof form.get("receipt_date") === "string" ? form.get("receipt_date") : undefined,
     category: typeof form.get("category") === "string" ? form.get("category") : undefined,
     notes: typeof notesRaw === "string" && notesRaw.length > 0 ? notesRaw : undefined,
+    parse_confidence:
+      typeof confidenceRaw === "string" && confidenceRaw !== ""
+        ? Number(confidenceRaw)
+        : undefined,
   });
 
   if (!parsed.success) {
@@ -66,20 +84,41 @@ export async function POST(request: NextRequest) {
   const data = parsed.data;
   const supabase = getSupabaseAdmin();
 
+  // Intake-path metadata (step 3 schema). Populated only when an image
+  // was attached (paper source). For manual entries every field is null
+  // — the user's own form submission is the canonical artifact.
   let uploadedPath: string | null = null;
+  let intakeRef: string | null = null;
+  let originalSourceKind: string | null = null;
+
   const image = form.get("image");
   // FormDataEntryValue is `string | File`; everything non-string is a file
   // entry (Blob with optional filename). Avoid `instanceof File` because
   // the global File can differ across runtimes (jsdom vs undici in tests).
   if (image && typeof image !== "string" && image.size > 0) {
+    const mime = image.type || "image/jpeg";
+    if (!ALLOWED_IMAGE_MIME.has(mime)) {
+      return NextResponse.json(
+        { error: `Unsupported image type: ${mime}` },
+        { status: 400 }
+      );
+    }
+    originalSourceKind = mime;
+
+    // Read once, hash, then upload the same buffer. Streaming the upload
+    // and then re-streaming for the hash would double-read the request
+    // and break — the Blob is single-use under undici.
+    const bytes = new Uint8Array(await image.arrayBuffer());
+    intakeRef = createHash("sha256").update(bytes).digest("hex");
+
     const filename = "name" in image && typeof image.name === "string" ? image.name : "upload";
     const path = `${user.id}/${crypto.randomUUID()}.${fileExt(filename)}`;
     const { error: uploadError } = await supabase.storage
       .from("receipts")
-      .upload(path, image as Blob, {
+      .upload(path, bytes, {
         cacheControl: "3600",
         upsert: false,
-        contentType: image.type || undefined,
+        contentType: mime,
       });
     if (uploadError) {
       console.error("[/api/capture] upload failed:", uploadError);
@@ -117,6 +156,12 @@ export async function POST(request: NextRequest) {
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
       source,
+      // Paper-intake metadata. Step 6/7 will write equivalent fields with
+      // source='email'/'sms' and an eml/txt original_source_kind.
+      original_source_url: uploadedPath,
+      original_source_kind: originalSourceKind,
+      intake_ref: intakeRef,
+      parse_confidence: source === "paper" ? data.parse_confidence ?? null : null,
     })
     .select("id")
     .single();

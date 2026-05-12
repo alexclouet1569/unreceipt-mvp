@@ -127,7 +127,7 @@ describe("POST /api/capture", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
-  it("returns 200 and inserts source='manual' + purchased_at when no image is attached", async () => {
+  it("returns 200 and inserts source='manual' with null intake metadata when no image is attached", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
 
     const res = await POST(
@@ -152,14 +152,23 @@ describe("POST /api/capture", () => {
       source: "manual",
       image_url: null,
       image_captured_at: null,
+      original_source_url: null,
+      original_source_kind: null,
+      intake_ref: null,
+      parse_confidence: null,
     });
   });
 
-  it("returns 200 and inserts source='paper' when an image is attached", async () => {
+  it("returns 200 and inserts source='paper' with intake metadata when an image is attached", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
 
     const res = await POST(
-      buildRequest(buildFormData({ image: imageBlob("ica.jpg") }))
+      buildRequest(
+        buildFormData({
+          image: imageBlob("ica.jpg"),
+          parse_confidence: "0.87",
+        })
+      )
     );
 
     expect(res.status).toBe(200);
@@ -171,9 +180,44 @@ describe("POST /api/capture", () => {
       source: "paper",
       receipt_date: "2026-05-03",
       purchased_at: "2026-05-03T12:00:00.000Z",
+      original_source_kind: "image/jpeg",
+      parse_confidence: 0.87,
     });
     expect(row.image_url).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]+\\.jpg$`));
+    expect(row.original_source_url).toBe(row.image_url);
     expect(row.image_captured_at).toEqual(expect.any(String));
+    // intake_ref = sha256 of "fake" (the blob bytes from imageBlob helper).
+    expect(row.intake_ref).toBe(
+      "b5d54c39e66671c9731b9f471e585d8262cd4f54963f0c93082d8dcf334d4c78"
+    );
+  });
+
+  it("rejects an unsupported image MIME type with 400", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(
+        buildFormData({ image: imageBlob("doc.heic", "image/heic") })
+      )
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("ignores parse_confidence on manual entries (no image)", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ parse_confidence: "0.9" }))
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({
+      source: "manual",
+      parse_confidence: null,
+    });
   });
 
   it("returns 500 + clean error and skips orphan cleanup when DB insert fails (no image)", async () => {
