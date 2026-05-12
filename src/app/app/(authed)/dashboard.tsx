@@ -8,7 +8,7 @@ import { Camera, LogOut, Plus } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
-import { formatAmount } from "@/lib/receipt-format";
+import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
@@ -42,6 +42,26 @@ export function Dashboard({ userEmail, receipts }: DashboardProps) {
     const pending = receipts.length - verified;
 
     return { baseCurrency, monthTotal, verified, pending };
+  }, [receipts]);
+
+  const groupedReceipts = useMemo(() => {
+    const order = ["Today", "Yesterday", "This week"];
+    const groups = new Map<string, typeof receipts>();
+    for (const r of receipts) {
+      const label = relativeDayGroup(r.receipt_date);
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label)!.push(r);
+    }
+    const keys = Array.from(groups.keys());
+    keys.sort((a, b) => {
+      const ai = order.indexOf(a);
+      const bi = order.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b);
+    });
+    return keys.map((label) => ({ label, items: groups.get(label)! }));
   }, [receipts]);
 
   return (
@@ -97,18 +117,30 @@ export function Dashboard({ userEmail, receipts }: DashboardProps) {
               </p>
             ) : null}
 
-            <h2 className="text-sm font-medium text-muted-foreground mb-3">
-              Recent
-            </h2>
-            <div className="space-y-2">
-              {receipts.map((r) => (
-                <ReceiptListItem
-                  key={r.id}
-                  receipt={r}
-                  onClick={() => setOpenReceipt(r)}
-                />
-              ))}
-            </div>
+            {groupedReceipts.map(({ label, items }) => (
+              <section key={label} className="mb-5">
+                <h2
+                  className="mb-2 text-[var(--ink-faint)]"
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {label}
+                </h2>
+                <div className="space-y-2">
+                  {items.map((r) => (
+                    <ReceiptListItem
+                      key={r.id}
+                      receipt={r}
+                      onClick={() => setOpenReceipt(r)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </>
         )}
       </div>
