@@ -24,10 +24,12 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
     receipt.total,
     receipt.currency,
   );
+  const pending = receipt.status === "pending_review";
 
   return (
     <div
       data-day-group={relativeDayGroup(receipt.receipt_date)}
+      data-status={receipt.status}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={onClick}
@@ -38,6 +40,14 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
                 e.preventDefault();
                 onClick?.();
               }
+            }
+          : undefined
+      }
+      style={
+        pending
+          ? {
+              borderLeft: "3px solid var(--attention)",
+              paddingLeft: "12px",
             }
           : undefined
       }
@@ -95,6 +105,22 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
             ·
           </span>
           {formatRelative(receipt.receipt_date)}
+          {pending ? (
+            <>
+              <span style={{ margin: "0 6px" }} aria-hidden="true">
+                ·
+              </span>
+              <span
+                className="font-accent italic"
+                style={{
+                  color: "var(--attention-mint)",
+                  fontWeight: 500,
+                }}
+              >
+                needs review
+              </span>
+            </>
+          ) : null}
         </p>
       </div>
     </div>

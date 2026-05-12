@@ -30,6 +30,7 @@ import {
   parseAliasFromTo,
 } from "@/lib/email-alias";
 import { parseReceipt } from "@/lib/receipts/parser";
+import { computeReceiptStatus } from "@/lib/receipts/status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -246,12 +247,18 @@ export async function POST(request: NextRequest) {
           card_last_four: parseResult.fields.card_last_four ?? null,
           category: parseResult.fields.category ?? "other",
           parse_confidence: parseResult.fields.parse_confidence,
+          status: computeReceiptStatus({
+            merchant_name: parseResult.fields.merchant_name,
+            purchased_at: parseResult.fields.purchased_at,
+            total: parseResult.fields.total,
+            parse_confidence: parseResult.fields.parse_confidence,
+          }),
           notes:
             parseResult.fields.notes && parseResult.fields.notes.length > 0
               ? parseResult.fields.notes
               : baseFields.notes,
         }
-      : baseFields;
+      : { ...baseFields, status: "pending_review" as const };
 
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")

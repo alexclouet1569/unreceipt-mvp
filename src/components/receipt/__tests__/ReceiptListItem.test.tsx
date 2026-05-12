@@ -37,6 +37,7 @@ const baseReceipt: Receipt = {
   capture_time_seconds: null,
   ocr_confidence: null,
   is_verified: false,
+  status: "verified",
   original_source_url: null,
   original_source_kind: null,
   intake_ref: null,

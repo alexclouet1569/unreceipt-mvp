@@ -10,6 +10,7 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { CaptureFab } from "@/components/CaptureFab";
+import { cn } from "@/lib/utils";
 import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
@@ -22,17 +23,40 @@ type DashboardProps = {
   // Server-component minted/fetched in page.tsx so we never block on the
   // round-trip here.
   forwardingEmail: string;
+  // Shared SMS/WhatsApp intake number (step 7). Null when unset so the
+  // empty-state degrades to email-only without rendering a dangling label.
+  intakeSmsNumber: string | null;
 };
 
-export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardProps) {
+type Filter = "all" | "review";
+
+export function Dashboard({
+  userEmail,
+  receipts,
+  forwardingEmail,
+  intakeSmsNumber,
+}: DashboardProps) {
   const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
 
   const handleLogout = async () => {
     await getSupabaseClient().auth.signOut();
     router.replace("/app/login");
   };
+
+  const reviewCount = useMemo(
+    () => receipts.filter((r) => r.status === "pending_review").length,
+    [receipts],
+  );
+
+  const visibleReceipts = useMemo(() => {
+    if (filter === "review") {
+      return receipts.filter((r) => r.status === "pending_review");
+    }
+    return receipts;
+  }, [receipts, filter]);
 
   const stats = useMemo(() => {
     const monthStart = new Date();
@@ -44,16 +68,15 @@ export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardPro
     const monthTotal = receipts
       .filter((r) => (r.purchased_at ?? r.receipt_date ?? "") >= monthIso)
       .reduce((sum, r) => sum + (r.total ?? 0), 0);
-    const verified = receipts.filter((r) => r.is_verified).length;
-    const pending = receipts.length - verified;
+    const verified = receipts.filter((r) => r.status === "verified").length;
 
-    return { baseCurrency, monthTotal, verified, pending };
+    return { baseCurrency, monthTotal, verified };
   }, [receipts]);
 
   const groupedReceipts = useMemo(() => {
     const order = ["Today", "Yesterday", "This week"];
     const groups = new Map<string, typeof receipts>();
-    for (const r of receipts) {
+    for (const r of visibleReceipts) {
       const label = relativeDayGroup(r.purchased_at ?? r.receipt_date);
       if (!groups.has(label)) groups.set(label, []);
       groups.get(label)!.push(r);
@@ -68,7 +91,7 @@ export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardPro
       return a.localeCompare(b);
     });
     return keys.map((label) => ({ label, items: groups.get(label)! }));
-  }, [receipts]);
+  }, [visibleReceipts]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,6 +129,7 @@ export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardPro
         {receipts.length === 0 ? (
           <EmptyState
             forwardingEmail={forwardingEmail}
+            intakeSmsNumber={intakeSmsNumber}
             onCapture={() => setCaptureOpen(true)}
           />
         ) : (
@@ -119,10 +143,34 @@ export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardPro
               />
             </div>
 
-            {stats.pending > 0 ? (
-              <p className="text-xs text-muted-foreground mb-3">
-                {stats.pending} receipt{stats.pending === 1 ? "" : "s"} awaiting
-                verification by your concierge.
+            <div
+              role="tablist"
+              aria-label="Filter receipts"
+              className="flex gap-2 mb-4"
+            >
+              <FilterChip
+                active={filter === "all"}
+                onClick={() => setFilter("all")}
+                label="All"
+                count={receipts.length}
+              />
+              {reviewCount > 0 ? (
+                <FilterChip
+                  active={filter === "review"}
+                  onClick={() => setFilter("review")}
+                  label="Review needed"
+                  count={reviewCount}
+                  attention
+                />
+              ) : null}
+            </div>
+
+            {filter === "review" && visibleReceipts.length === 0 ? (
+              <p
+                className="text-[var(--ink-muted)] py-8 text-center"
+                style={{ fontSize: "13px" }}
+              >
+                Nothing to review — every receipt has the fields it needs.
               </p>
             ) : null}
 
@@ -172,24 +220,13 @@ export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardPro
 
 function EmptyState({
   forwardingEmail,
+  intakeSmsNumber,
   onCapture,
 }: {
   forwardingEmail: string;
+  intakeSmsNumber: string | null;
   onCapture: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(forwardingEmail);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Some browsers block clipboard without a secure context — fall back
-      // to text selection on the address so the user can long-press copy.
-    }
-  }, [forwardingEmail]);
-
   return (
     <div className="flex flex-col items-center text-center py-10 px-2">
       <div
@@ -215,24 +252,94 @@ function EmptyState({
         className="font-accent italic text-[var(--ink-muted)] max-w-[280px]"
         style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
       >
-        Forward your email receipts to your private inbox address. We&apos;ll
-        have them VAT-ready in minutes.
+        Forward email receipts or text us a photo. We&apos;ll have them
+        VAT-ready in minutes.
       </p>
 
+      <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "20px" }}>
+        <IntakeRow
+          callout="Forward email receipts to"
+          value={forwardingEmail}
+          mono
+          copyLabel="Copy concierge email"
+        />
+        {intakeSmsNumber ? (
+          <IntakeRow
+            callout="Or text a photo to"
+            value={intakeSmsNumber}
+            mono
+            copyLabel="Copy concierge SMS number"
+          />
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onCapture}
+        className="inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+        style={{ fontSize: "13px", fontWeight: 500 }}
+      >
+        <Plus className="w-4 h-4" />
+        Or capture a paper receipt
+      </button>
+
+      <p
+        className="font-accent italic text-[var(--ink-faint)]"
+        style={{ fontSize: "12px", marginTop: "32px", letterSpacing: "0.02em" }}
+      >
+        Paper is past.
+      </p>
+    </div>
+  );
+}
+
+function IntakeRow({
+  callout,
+  value,
+  mono,
+  copyLabel,
+}: {
+  callout: string;
+  value: string;
+  mono: boolean;
+  copyLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* secure-context fallback: user can long-press to select */
+    }
+  }, [value]);
+
+  return (
+    <div className="text-left">
+      <p
+        className="font-accent italic text-[var(--ink-muted)]"
+        style={{ fontSize: "12px", marginBottom: "6px" }}
+      >
+        {callout}
+      </p>
       <div
-        className="w-full max-w-[340px] flex items-center gap-3 bg-card"
+        className="flex items-center gap-3 bg-card"
         style={{
           border: "1px solid var(--hairline)",
           borderRadius: "12px",
-          padding: "14px 16px",
-          marginBottom: "20px",
+          padding: "12px 14px",
         }}
       >
         <span
-          className="font-mono flex-1 min-w-0 text-[var(--ink)] truncate"
+          className={cn(
+            "flex-1 min-w-0 text-[var(--ink)] truncate",
+            mono ? "font-mono" : "",
+          )}
           style={{ fontSize: "14px", fontWeight: 500 }}
         >
-          {forwardingEmail}
+          {value}
         </span>
         <button
           type="button"
@@ -248,7 +355,7 @@ function EmptyState({
             fontWeight: 600,
             transition: "background 160ms ease-out",
           }}
-          aria-label="Copy concierge email"
+          aria-label={copyLabel}
         >
           {copied ? (
             <>
@@ -261,17 +368,66 @@ function EmptyState({
           )}
         </button>
       </div>
-
-      <button
-        type="button"
-        onClick={onCapture}
-        className="inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
-        style={{ fontSize: "13px", fontWeight: 500 }}
-      >
-        <Plus className="w-4 h-4" />
-        Or capture a paper receipt
-      </button>
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  label,
+  count,
+  attention = false,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+  attention?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      aria-current={active ? "true" : undefined}
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 transition-colors"
+      style={{
+        height: "32px",
+        padding: "0 12px",
+        borderRadius: "999px",
+        fontSize: "12px",
+        fontWeight: 600,
+        letterSpacing: "0.02em",
+        border: active
+          ? attention
+            ? "1px solid var(--attention)"
+            : "1px solid var(--primary)"
+          : "1px solid var(--hairline)",
+        background: active
+          ? attention
+            ? "var(--attention-tint)"
+            : "var(--brand-tint, #ECF7E7)"
+          : "transparent",
+        color: active
+          ? attention
+            ? "var(--attention-deep)"
+            : "var(--ink)"
+          : "var(--ink-muted)",
+      }}
+    >
+      <span>{label}</span>
+      <span
+        className="font-mono tabular-nums"
+        style={{
+          fontSize: "11px",
+          opacity: 0.7,
+        }}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 

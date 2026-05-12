@@ -3,6 +3,7 @@ import type {
   Receipt,
   ReceiptCategory,
   ReceiptSource,
+  ReceiptStatus,
   Subscription,
   SubscriptionStatus,
 } from "@/lib/types";
@@ -46,6 +47,11 @@ describe("Receipt type", () => {
     expectTypeOf<Receipt["total"]>().toEqualTypeOf<number | null>();
     expectTypeOf<Receipt["image_url"]>().toEqualTypeOf<string | null>();
     expectTypeOf<Receipt["notes"]>().toEqualTypeOf<string | null>();
+  });
+
+  it("status is the trust slice union — verified | pending_review", () => {
+    expectTypeOf<Receipt["status"]>().toEqualTypeOf<ReceiptStatus>();
+    expectTypeOf<ReceiptStatus>().toEqualTypeOf<"verified" | "pending_review">();
   });
 
   it("intake-path metadata is nullable on legacy rows but typed", () => {
