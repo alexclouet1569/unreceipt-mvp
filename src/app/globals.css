@@ -72,6 +72,15 @@
   --ink-muted: var(--foreground-muted);
   --ink-faint: var(--foreground-muted);
   --hairline: rgba(48, 53, 104, 0.12);
+  /* "Review needed" attention slice — warm honey paired with a
+     desaturated mint badge. Chosen so the cue reads as friendly
+     rather than alarming (no red), and sits inside the brand-book
+     palette of cream + mint + navy + carbon. AA-contrast against
+     White Mist (#FAFAF7) verified. */
+  --attention: #C99440;
+  --attention-tint: #FBF1DE;
+  --attention-deep: #8C6320;
+  --attention-mint: #6B9778;
   /* shadcn token mapping */
   --background: #ECF7E7;
   --foreground: #303568;

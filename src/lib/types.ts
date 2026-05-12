@@ -19,6 +19,12 @@ export type ReceiptOriginalKind =
   | "image/webp"
   | "application/pdf";
 
+// 'verified' is the trustworthy default — all required fields filled and
+// parser confidence high enough to download as PDF. 'pending_review'
+// rows surface in the "Review needed" slice on /app until the user
+// completes them. See src/lib/receipts/status.ts for the rule.
+export type ReceiptStatus = "verified" | "pending_review";
+
 export type ReceiptCategory =
   | "meals"
   | "transport"
@@ -67,6 +73,10 @@ export interface Receipt {
 
   image_url: string | null;
   image_captured_at: string | null;
+
+  // Trust slice. 'pending_review' rows are hidden from PDF download and
+  // surfaced in the "Review needed" filter on /app. See plan step 9.
+  status: ReceiptStatus;
 
   verification_code: string | null;
   capture_time_seconds: number | null;

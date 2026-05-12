@@ -89,6 +89,11 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     ? buildForwardingAddress(aliasHash)
     : getConciergeEmail(user.id);
 
+  // Shared concierge SMS/WhatsApp line (step 7). When unset, the empty
+  // state degrades to email-only — production should set this once the
+  // Twilio number is provisioned.
+  const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER ?? null;
+
   if (result.kind === "allow_with_warning") {
     const Banner =
       result.reason === "pilot_mode" ? PilotBanner : DbWarningBanner;
@@ -99,6 +104,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           userEmail={userEmail}
           receipts={receipts}
           forwardingEmail={forwardingEmail}
+          intakeSmsNumber={intakeSmsNumber}
         />
       </>
     );
@@ -109,6 +115,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       userEmail={userEmail}
       receipts={receipts}
       forwardingEmail={forwardingEmail}
+      intakeSmsNumber={intakeSmsNumber}
     />
   );
 }

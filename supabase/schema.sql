@@ -511,3 +511,53 @@ CREATE UNIQUE INDEX IF NOT EXISTS profiles_email_alias_hash_unique
   ON public.profiles(email_alias_hash)
   WHERE email_alias_hash IS NOT NULL;
 
+-- =============================================================================
+-- 2026-05-12 — receipts.status: 'verified' | 'pending_review' (plan step 9)
+--
+-- A receipt is `pending_review` when the parser's confidence is below the
+-- trustworthy threshold (0.75) OR when any required canonical field
+-- (merchant_name, purchased_at, total) is null. The customer dashboard
+-- surfaces these in a "Review needed" slice so the user fills the gaps
+-- before the receipt is downloadable as a PDF.
+--
+-- New rows compute this in the intake handlers (src/lib/receipts/status.ts);
+-- the column has a server-side default of 'verified' so a hand-written
+-- INSERT without the column lands cleanly for self-service captures with
+-- complete fields. The customer-side UPDATE policy already covers the
+-- transition from pending_review → verified — no new RLS rules needed.
+-- =============================================================================
+
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'verified';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_status_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_status_check
+      CHECK (status IN ('verified', 'pending_review'));
+  END IF;
+END $$;
+
+-- One-time backfill — older rows pre-date the column. Flip to
+-- pending_review only when the same rule the helper applies would fire
+-- (low parser confidence OR a missing required field).
+UPDATE public.receipts
+   SET status = 'pending_review'
+ WHERE status = 'verified'
+   AND (
+        merchant_name IS NULL
+     OR total IS NULL
+     OR COALESCE(purchased_at::text, receipt_date::text) IS NULL
+     OR (parse_confidence IS NOT NULL AND parse_confidence < 0.75)
+   );
+
+-- List-filter index — the "Review needed" chip on /app reads
+-- (user_id, status) on every paint.
+CREATE INDEX IF NOT EXISTS receipts_user_id_status_idx
+  ON public.receipts(user_id, status);
+

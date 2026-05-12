@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { computeReceiptStatus } from "@/lib/receipts/status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,6 +104,14 @@ export async function POST(request: NextRequest) {
   // and SMS intake paths land here too in steps 6–7 with their own values.
   const source = uploadedPath ? "paper" : "manual";
 
+  const status = computeReceiptStatus({
+    merchant_name: data.merchant.trim(),
+    purchased_at: purchasedAt,
+    total: data.amount,
+    // No parse confidence — manual entry is user-attested. Don't penalise.
+    parse_confidence: null,
+  });
+
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")
     .insert({
@@ -117,6 +126,7 @@ export async function POST(request: NextRequest) {
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
       source,
+      status,
     })
     .select("id")
     .single();
