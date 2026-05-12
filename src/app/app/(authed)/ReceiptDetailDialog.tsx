@@ -88,15 +88,16 @@ export function ReceiptDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm mx-auto max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-sm mx-auto max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogHeader className="sr-only">
           <DialogTitle>Receipt</DialogTitle>
         </DialogHeader>
 
         {receipt ? (
-          <div className="space-y-4">
+          <div>
             <ReceiptDetailCard receipt={receipt} />
 
+            <div className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]">
             {deleteError ? (
               <p
                 role="alert"
@@ -145,6 +146,7 @@ export function ReceiptDetailDialog({
                 Delete receipt
               </Button>
             )}
+            </div>
           </div>
         ) : null}
       </DialogContent>
