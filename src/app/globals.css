@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -47,7 +45,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  /* Unreceipt brand colors — DESIGN.md "Nordic-Quiet Premium" */
+  /* Unreceipt brand colors — brand book pp. 12 (Green Mint, Deep Space, White Mist, Carbon) */
   --color-brand: #27BE7B;
   --color-brand-deep: #1F9D63;
   --color-brand-light: #ECF7E7;
@@ -56,21 +54,25 @@
   --color-navy: #303568;
   --color-carbon: #191919;
   --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-ink-faint: var(--ink-faint);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-ink-muted: var(--foreground-muted);
+  --color-ink-faint: var(--foreground-muted);
   --color-hairline: var(--hairline);
   --color-surface: var(--surface);
 }
 
 :root {
-  /* DESIGN.md token layer — `--ink` is the brand book "Deep Space" navy. */
-  --surface: #FAFAF7;
+  /* Brand book pp. 12 — Green Mint, Deep Space, White Mist, Carbon. */
+  --surface: #ECF7E7;
   --ink: #303568;
-  --ink-muted: #5A5F7A;
-  --ink-faint: #9CA0B8;
-  --hairline: #E8E5DD;
-  /* shadcn token mapping per DESIGN.md */
-  --background: #FAFAF7;
+  /* Single muted variant derived from Deep Space — replaces the prior
+     Nordic-Quiet --ink-muted / --ink-faint pair. */
+  --foreground-muted: rgba(48, 53, 104, 0.65);
+  --ink-muted: var(--foreground-muted);
+  --ink-faint: var(--foreground-muted);
+  --hairline: rgba(48, 53, 104, 0.12);
+  /* shadcn token mapping */
+  --background: #ECF7E7;
   --foreground: #303568;
   --card: #ffffff;
   --card-foreground: #303568;
@@ -81,67 +83,26 @@
   --secondary: #ECF7E7;
   --secondary-foreground: #303568;
   --muted: #ECF7E7;
-  --muted-foreground: #5A5F7A;
+  --muted-foreground: var(--foreground-muted);
   --accent: #ECF7E7;
   --accent-foreground: #303568;
   --destructive: #C73E4E;
-  --border: #E8E5DD;
-  --input: #E8E5DD;
+  --border: var(--hairline);
+  --input: var(--hairline);
   --ring: #27BE7B;
   --chart-1: #27BE7B;
   --chart-2: #1F9D63;
-  --chart-3: #171A2E;
+  --chart-3: #303568;
   --chart-4: #6dd4a0;
-  --chart-5: #404375;
+  --chart-5: #1F9D63;
   --radius: 0.75rem;
-  --sidebar: #FAFAF7;
-  --sidebar-foreground: #171A2E;
+  --sidebar: #ECF7E7;
+  --sidebar-foreground: #303568;
   --sidebar-primary: #27BE7B;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ECF7E7;
-  --sidebar-accent-foreground: #171A2E;
-  --sidebar-border: #E8E5DD;
-  --sidebar-ring: #27BE7B;
-}
-
-.dark {
-  /* DESIGN.md dark-mode token layer */
-  --surface: #0F1124;
-  --ink: #EFE8DA;
-  --ink-muted: #A4A8C0;
-  --ink-faint: #6A6E88;
-  --hairline: #2A2D45;
-  /* shadcn token mapping (dark) */
-  --background: #0F1124;
-  --foreground: #EFE8DA;
-  --card: #1A1D33;
-  --card-foreground: #EFE8DA;
-  --popover: #1A1D33;
-  --popover-foreground: #EFE8DA;
-  --primary: #27BE7B;
-  --primary-foreground: #ffffff;
-  --secondary: #1A3A2A;
-  --secondary-foreground: #EFE8DA;
-  --muted: #1A3A2A;
-  --muted-foreground: #A4A8C0;
-  --accent: #1A3A2A;
-  --accent-foreground: #EFE8DA;
-  --destructive: #C73E4E;
-  --border: #2A2D45;
-  --input: #2A2D45;
-  --ring: #27BE7B;
-  --chart-1: #27BE7B;
-  --chart-2: #1F9D63;
-  --chart-3: #EFE8DA;
-  --chart-4: #6dd4a0;
-  --chart-5: #404375;
-  --sidebar: #1A1D33;
-  --sidebar-foreground: #EFE8DA;
-  --sidebar-primary: #27BE7B;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1A3A2A;
-  --sidebar-accent-foreground: #EFE8DA;
-  --sidebar-border: #2A2D45;
+  --sidebar-accent-foreground: #303568;
+  --sidebar-border: var(--hairline);
   --sidebar-ring: #27BE7B;
 }
 

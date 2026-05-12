@@ -7,8 +7,7 @@
 const PALETTE = [
   "#27BE7B", // brand green
   "#1F9D63", // brand deep
-  "#404375", // navy
-  "#5A5F7A", // ink muted
+  "#303568", // deep space
   "#5b8def",
   "#c08be0",
   "#e08b8b",
