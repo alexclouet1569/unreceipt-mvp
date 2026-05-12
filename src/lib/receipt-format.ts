@@ -124,3 +124,55 @@ export function formatDate(dateStr: string | null | undefined): string {
 export function categoryLabel(key: string): string {
   return CATEGORY_CONFIG[key as CategoryKey]?.label ?? "Other";
 }
+
+/**
+ * Bucket a receipt date into a relative-day group label for the inbox.
+ * Returns "Today", "Yesterday", "This week", or "Earlier in {Month}".
+ * Caller can override `now` for deterministic tests.
+ */
+export function relativeDayGroup(
+  dateStr: string | null | undefined,
+  now: Date = new Date()
+): string {
+  if (!dateStr) return "Earlier";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "Earlier";
+
+  const startOfDay = (dt: Date) => {
+    const x = new Date(dt);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+  const today = startOfDay(now);
+  const target = startOfDay(d);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diffDays = Math.round((today.getTime() - target.getTime()) / dayMs);
+
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return "This week";
+  const sameYear = target.getFullYear() === now.getFullYear();
+  const monthLabel = target.toLocaleDateString("en-US", { month: "long" });
+  return sameYear
+    ? `Earlier in ${monthLabel}`
+    : `Earlier in ${monthLabel} ${target.getFullYear()}`;
+}
+
+/**
+ * Render the same amount the inbox card splits visually: a primary
+ * numeric value and a smaller currency suffix. Used by ReceiptListItem.
+ */
+export function splitFormattedAmount(
+  amount: number | null | undefined,
+  currency: string
+): { value: string; suffix: string } {
+  const full = formatAmount(amount, currency);
+  if (full === "—") return { value: full, suffix: "" };
+  const symbol = CURRENCY_SYMBOLS[currency as CurrencyCode] ?? currency;
+  if (symbol.length > 1) {
+    // suffix-style: "12.34 kr"
+    return { value: full.slice(0, full.length - symbol.length - 1), suffix: symbol };
+  }
+  // prefix-style: "$12.34" — keep the glyph attached, no separate suffix
+  return { value: full, suffix: "" };
+}
