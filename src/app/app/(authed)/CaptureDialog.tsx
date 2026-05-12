@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Camera, Loader2, Sparkles, X } from "lucide-react";
+import { Camera, Loader2, X } from "lucide-react";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -51,8 +51,6 @@ const blankForm = (): FormState => ({
   notes: "",
 });
 
-type OcrFilledFields = Partial<Record<keyof FormState, true>>;
-
 export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +60,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
-  const [ocrFilled, setOcrFilled] = useState<OcrFilledFields>({});
 
   // Reset everything when the dialog closes so the next open is fresh.
   useEffect(() => {
@@ -73,19 +70,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       setSaving(false);
       setSaveError(null);
       setOcrLoading(false);
-      setOcrFilled({});
     }
   }, [open]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    // User typing into a field overrides the "auto-filled" badge.
-    setOcrFilled((prev) => {
-      if (!prev[key]) return prev;
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
   };
 
   const runOcr = async (file: File) => {
@@ -98,41 +87,34 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       const data = (await res.json()) as OcrResult;
       if (data.not_a_receipt) return;
 
-      const filled: OcrFilledFields = {};
       setForm((prev) => {
         const next: FormState = { ...prev };
         if (!prev.merchant && typeof data.merchant === "string") {
           next.merchant = data.merchant;
-          filled.merchant = true;
         }
         if (!prev.amount && typeof data.amount === "number" && Number.isFinite(data.amount)) {
           next.amount = String(data.amount);
-          filled.amount = true;
         }
         if (
           typeof data.currency === "string" &&
           (CURRENCY_OPTIONS as readonly string[]).includes(data.currency)
         ) {
           next.currency = data.currency as CurrencyCode;
-          filled.currency = true;
         }
         if (
           typeof data.receipt_date === "string" &&
           /^\d{4}-\d{2}-\d{2}$/.test(data.receipt_date)
         ) {
           next.date = data.receipt_date;
-          filled.date = true;
         }
         if (
           typeof data.category === "string" &&
           (CATEGORY_KEYS as readonly string[]).includes(data.category)
         ) {
           next.category = data.category as CategoryKey;
-          filled.category = true;
         }
         return next;
       });
-      setOcrFilled(filled);
     } catch (err) {
       console.error("[capture] ocr failed:", err);
       // silent fallback — user can still type fields manually
@@ -145,7 +127,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     const f = e.target.files?.[0] ?? null;
     setImageFile(f);
     setImagePreview(null);
-    setOcrFilled({});
     if (!f) return;
     const reader = new FileReader();
     reader.onload = (ev) => setImagePreview((ev.target?.result as string) ?? null);
@@ -156,7 +137,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const clearImage = () => {
     setImageFile(null);
     setImagePreview(null);
-    setOcrFilled({});
     setOcrLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -225,11 +205,16 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                className="w-full border border-dashed border-[var(--hairline)] rounded-[12px] p-6 text-center hover:border-[color-mix(in_srgb,var(--brand)_50%,var(--hairline))] hover:bg-[var(--brand-tint,#ECF7E7)]/30 transition-colors"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle 1px at 1px 1px, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1.5px)",
+                  backgroundSize: "8px 8px",
+                }}
               >
-                <Camera className="w-7 h-7 text-muted-foreground mx-auto mb-1" />
-                <p className="text-sm font-medium">Add a photo (optional)</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <Camera className="w-7 h-7 text-[var(--ink-faint)] mx-auto mb-1" />
+                <p className="text-[14px] font-medium text-[var(--ink)]">Add a photo (optional)</p>
+                <p className="text-[12px] text-[var(--ink-muted)] mt-1">
                   Tap to take or choose
                 </p>
               </button>
@@ -245,24 +230,32 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             {ocrLoading ? (
               <p
                 role="status"
-                className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+                className="mt-3 flex items-center gap-2 text-[13px] text-[var(--ink-muted)]"
               >
-                <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                <span
+                  className="inline-block rounded-full animate-pulse"
+                  style={{ width: "8px", height: "8px", background: "var(--primary)" }}
+                  aria-hidden="true"
+                />
                 Reading your receipt…
-              </p>
-            ) : Object.keys(ocrFilled).length > 0 ? (
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700">
-                <Sparkles className="h-3.5 w-3.5" />
-                Auto-filled — review and save
               </p>
             ) : null}
           </div>
 
+          {ocrLoading ? (
+            <OcrSkeletons />
+          ) : (
+            <div
+              key="ocr-fields"
+              style={{
+                animation: "ocr-reveal 480ms cubic-bezier(0.32, 0.72, 0, 1) both",
+              }}
+              className="space-y-3"
+            >
           <Field
             label="Merchant"
             htmlFor="cd-merchant"
             required
-            autoFilled={ocrFilled.merchant}
           >
             <Input
               id="cd-merchant"
@@ -279,7 +272,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
               label="Amount"
               htmlFor="cd-amount"
               required
-              autoFilled={ocrFilled.amount}
             >
               <Input
                 id="cd-amount"
@@ -297,7 +289,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             <Field
               label="Currency"
               htmlFor="cd-currency"
-              autoFilled={ocrFilled.currency}
             >
               <select
                 id="cd-currency"
@@ -321,7 +312,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
               label="Date"
               htmlFor="cd-date"
               required
-              autoFilled={ocrFilled.date}
             >
               <Input
                 id="cd-date"
@@ -334,7 +324,6 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             <Field
               label="Category"
               htmlFor="cd-category"
-              autoFilled={ocrFilled.category}
             >
               <select
                 id="cd-category"
@@ -352,6 +341,9 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
               </select>
             </Field>
           </div>
+
+          </div>
+          )}
 
           <Field label="Notes" htmlFor="cd-notes">
             <textarea
@@ -373,7 +365,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             </p>
           ) : null}
 
-          <Button type="submit" className="w-full gap-1.5" disabled={saving}>
+          <Button type="submit" className="w-full gap-1.5" disabled={saving || ocrLoading}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {saving ? "Saving…" : saveError ? "Try again" : "Save receipt"}
           </Button>
@@ -387,33 +379,44 @@ function Field({
   label,
   htmlFor,
   required,
-  autoFilled,
   children,
 }: {
   label: string;
   htmlFor: string;
   required?: boolean;
-  autoFilled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1">
       <label
         htmlFor={htmlFor}
-        className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
+        className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
       >
         <span>
           {label}
           {required ? <span className="text-destructive ml-0.5">*</span> : null}
         </span>
-        {autoFilled ? (
-          <Sparkles
-            className="h-3 w-3 text-emerald-600"
-            aria-label="Auto-filled"
-          />
-        ) : null}
       </label>
       {children}
+    </div>
+  );
+}
+
+
+function OcrSkeletons() {
+  // Five varied-width skeleton bars per DESIGN.md — collective reveal happens
+  // when ocrLoading flips false and the real fields mount in their place.
+  const widths = ["65%", "35%", "50%", "40%", "30%"];
+  return (
+    <div className="space-y-3" aria-hidden="true">
+      {widths.map((w, i) => (
+        <div
+          key={i}
+          className="rounded-[6px] bg-[var(--hairline)] animate-pulse"
+          style={{ height: "36px", width: w }}
+          aria-hidden="true"
+        />
+      ))}
     </div>
   );
 }
