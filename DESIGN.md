@@ -23,20 +23,21 @@
 3. **Mono amounts everywhere.** Every monetary value in the product renders in Geist Mono — list cards, detail totals, line items, VAT panel. Vertically aligns amounts across the inbox. This is the typographic identity.
 4. **Tighter density than Kivra.** 12px card radius, 12×14 padding, 8px between cards. Signals "finance pro tool," not "consumer doc storage."
 
-## Typography (per brand book)
+## Typography (per brand book pp. 15–16)
 
-- **Display:** **Manrope** — weights 600, 700, 800. App titles, screen titles, merchant names on cards.
-- **Body:** **Figtree** — weights 400, 500, 600. Body text, captions, labels, form inputs, buttons.
+- **Primary (body + headings):** **Manrope** — weights 600, 700, 800. App titles, screen titles, merchant names on cards, and all default body text. Manrope is the face of the product.
+- **Italic accent:** **Figtree** — weights 400, 500, 600. Reserved for short punchy callouts, pull quotes, and brief descriptive notes (e.g. the empty-state inbox subtitle). Always paired with `italic`. Never the body default, never on headings, never on monetary amounts.
 - **Monetary amounts only:** **Geist Mono** — weights 500, 600. Loaded via `next/font/google`.
-- **Loading:** all three via `next/font/google` (already configured for Manrope + Figtree in `src/app/layout.tsx`).
+- **Loading:** all three via `next/font/google` (configured in `src/app/layout.tsx`).
 
-### CSS variable mapping (proposed rename for clarity)
+### CSS variable mapping
 
-| Variable | Font | Current state |
+| Variable | Font | Tailwind utility |
 |---|---|---|
-| `--font-display` | Manrope | rename from `--font-sans` |
-| `--font-sans` | Figtree | rename from `--font-accent` (this becomes the new body default) |
-| `--font-mono` | Geist Mono | already wired; only change is the family (Geist Mono replaces the geist-mono variable) |
+| `--font-sans` | Manrope | `font-sans` (default body) |
+| `--font-display` | Manrope (alias of `--font-sans`) | `font-display` (kept so existing heading utilities resolve to Manrope) |
+| `--font-accent` | Figtree | `font-accent` — pair with `italic` |
+| `--font-mono` | Geist Mono | `font-mono` (monetary amounts only) |
 
 ### Type scale (mobile-first, 4px-grid friendly)
 
@@ -45,10 +46,11 @@
 | `display-2xl` | 44 / 1.05 / -0.03em | Manrope | 800 | Hero / rare |
 | `display-xl` | 32 / 1.10 / -0.02em | Manrope | 700 | Screen titles, large numbers |
 | `display-lg` | 24 / 1.15 / -0.02em | Manrope | 700 | App header `UnReceipt` wordmark |
-| `body-lg` | 18 / 1.45 / -0.01em | Figtree | 600 | Merchant name (detail view) |
-| `body` | 15 / 1.50 / 0 | Figtree | 400 | Default body |
-| `caption` | 13 / 1.40 / 0 | Figtree | 500 | Dates, meta, secondary labels |
-| `micro` | 11 / 1.30 / 0.06em UPPER | Figtree | 600 | Section labels, badges |
+| `body-lg` | 18 / 1.45 / -0.01em | Manrope | 600 | Merchant name (detail view) |
+| `body` | 15 / 1.50 / 0 | Manrope | 400 | Default body |
+| `caption` | 13 / 1.40 / 0 | Manrope | 500 | Dates, meta, secondary labels |
+| `micro` | 11 / 1.30 / 0.06em UPPER | Manrope | 600 | Section labels, badges |
+| `accent` | 14 / 1.50 / 0 | Figtree (italic) | 400–500 | Callouts, pull quotes, brief descriptive notes |
 | `merchant-name` (card) | 15 / 1.2 / -0.01em | Manrope | 700 | Merchant name on inbox card |
 | `amount-xl` | 18 / 1.10 / -0.01em | Geist Mono | 500 | Card amount |
 | `amount-lg` | 22 / 1.10 / -0.01em | Geist Mono | 500 | Detail-view header amount |
