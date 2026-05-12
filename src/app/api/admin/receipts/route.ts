@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     payment_method: data.payment_method ?? null,
     receipt_number: data.receipt_number ?? null,
     notes: data.notes ?? null,
-    source: "forwarded",
+    source: "manual",
     is_verified: true,
   });
 

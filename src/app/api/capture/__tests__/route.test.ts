@@ -148,7 +148,7 @@ describe("POST /api/capture", () => {
       category: "other",
       receipt_date: "2026-05-03",
       notes: "lunch with client",
-      source: "captured",
+      source: "paper",
       image_url: null,
       image_captured_at: null,
     });

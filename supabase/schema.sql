@@ -346,3 +346,139 @@ DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- =============================================================================
+-- 2026-05-12 — digital-receipt canonicalization (plan step 3)
+--
+-- Every receipt the user submits — email forward, SMS forward, paper photo,
+-- or manual entry — becomes one canonical row in public.receipts. The
+-- existing schema is extended in place (per AGENTS.md conventions) so no
+-- data migration on the UI side is required. New columns:
+--
+--   * `source`               — aligned to the canonical enum the intake
+--                              handlers (steps 5–7) will produce. Existing
+--                              values are migrated below.
+--   * `purchased_at`         — when the purchase happened (timestamptz).
+--                              Replaces the receipt_date/receipt_time split
+--                              for sorting / intake. Old columns kept for
+--                              backward compat; new code prefers this.
+--   * `original_source_url`  — pointer to the raw artifact in storage
+--                              (.eml, .txt, .pdf, image).
+--   * `original_source_kind` — MIME-ish discriminator on that artifact.
+--   * `intake_ref`           — idempotency key. Email Message-Id, Twilio
+--                              MessageSid, or sha256 of a paper upload.
+--                              Re-forwarded emails do not double-create.
+--   * `parse_confidence`     — 0..1 — parser self-report × schema-validation
+--                              pass-rate. Distinct from `ocr_confidence`
+--                              which only covers the OCR step (does not
+--                              apply to email/SMS intake).
+--
+-- Storage: a new `receipt-originals` bucket holds the raw artifacts. The
+-- existing `receipts` bucket still holds the user-facing display image.
+-- =============================================================================
+
+-- 1. Migrate `source` enum from the WOZ values to the canonical four.
+--    captured → paper   (in-app photo capture + OCR)
+--    forwarded → manual (admin paste form — manual entry triggered by an
+--                        email forward; when step 6 ships the auto-email
+--                        intake, *new* rows will use source='email')
+--    uploaded → paper   (legacy alias; no rows in practice)
+--    Existing default 'captured' becomes 'manual' so a no-source insert
+--    from the admin paste form lands correctly even if the call site
+--    forgets to set it.
+ALTER TABLE public.receipts
+  DROP CONSTRAINT IF EXISTS receipts_source_check;
+
+UPDATE public.receipts SET source = 'paper'  WHERE source = 'captured';
+UPDATE public.receipts SET source = 'manual' WHERE source = 'forwarded';
+UPDATE public.receipts SET source = 'paper'  WHERE source = 'uploaded';
+
+ALTER TABLE public.receipts
+  ALTER COLUMN source SET DEFAULT 'manual';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_source_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_source_check
+      CHECK (source IN ('email', 'sms', 'paper', 'manual'));
+  END IF;
+END $$;
+
+-- 2. purchased_at — timestamptz of the actual purchase. Nullable on
+--    existing rows; new code falls back to receipt_date when null.
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS purchased_at TIMESTAMPTZ;
+
+-- 3. Raw-artifact pointer + MIME-ish kind.
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS original_source_url TEXT;
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS original_source_kind TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_original_source_kind_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_original_source_kind_check
+      CHECK (original_source_kind IS NULL OR original_source_kind IN (
+        'eml', 'txt', 'image/jpeg', 'image/png', 'image/webp', 'application/pdf'
+      ));
+  END IF;
+END $$;
+
+-- 4. Idempotency key. Unique only when present so manual entries (NULL)
+--    don't collide. Email Message-Id, Twilio MessageSid, or sha256 of
+--    a paper upload all flow into this column.
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS intake_ref TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS receipts_intake_ref_unique
+  ON public.receipts(intake_ref)
+  WHERE intake_ref IS NOT NULL;
+
+-- 5. Parser confidence on the 0..1 scale.
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS parse_confidence NUMERIC(3,2);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_parse_confidence_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_parse_confidence_check
+      CHECK (parse_confidence IS NULL OR (parse_confidence >= 0 AND parse_confidence <= 1));
+  END IF;
+END $$;
+
+-- 6. Inbox-sort index. Customer dashboard sorts by purchased_at desc
+--    when present, falling back to created_at — matches the COALESCE
+--    expression used by the list query in step 4.
+CREATE INDEX IF NOT EXISTS receipts_user_id_purchased_at_idx
+  ON public.receipts(user_id, COALESCE(purchased_at, created_at) DESC);
+
+-- 7. Storage bucket for raw intake artifacts.
+--    Writes are server-only (intake handlers run with the service-role
+--    key, bypassing RLS), so only a SELECT policy for the owner exists.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('receipt-originals', 'receipt-originals', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Users can view own receipt originals" ON storage.objects;
+CREATE POLICY "Users can view own receipt originals"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'receipt-originals'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
