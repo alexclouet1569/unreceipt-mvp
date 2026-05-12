@@ -4,21 +4,24 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, LogOut, Plus } from "lucide-react";
+import { Check, Copy, LogOut, Plus, Receipt as ReceiptIcon } from "lucide-react";
+import { useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
+import { getConciergeEmail } from "@/lib/concierge-email";
 import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 
 type DashboardProps = {
+  userId: string;
   userEmail: string;
   receipts: Receipt[];
 };
 
-export function Dashboard({ userEmail, receipts }: DashboardProps) {
+export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
   const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
@@ -98,7 +101,7 @@ export function Dashboard({ userEmail, receipts }: DashboardProps) {
         </div>
 
         {receipts.length === 0 ? (
-          <EmptyState onCapture={() => setCaptureOpen(true)} />
+          <EmptyState userId={userId} onCapture={() => setCaptureOpen(true)} />
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 mb-6">
@@ -159,25 +162,109 @@ export function Dashboard({ userEmail, receipts }: DashboardProps) {
   );
 }
 
-function EmptyState({ onCapture }: { onCapture: () => void }) {
+function EmptyState({
+  userId,
+  onCapture,
+}: {
+  userId: string;
+  onCapture: () => void;
+}) {
+  const conciergeEmail = getConciergeEmail(userId);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(conciergeEmail);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Some browsers block clipboard without a secure context — fall back
+      // to text selection on the address so the user can long-press copy.
+    }
+  }, [conciergeEmail]);
+
   return (
-    <Card>
-      <CardContent className="py-12 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Camera className="w-6 h-6 text-primary" />
-        </div>
-        <h2 className="font-semibold text-base mb-1">No receipts yet</h2>
-        <p className="text-sm text-muted-foreground max-w-xs mx-auto mb-6">
-          Forward a receipt to your concierge inbox, or capture one
-          here. We&apos;ll have a VAT-ready record in your dashboard
-          within 24 hours.
-        </p>
-        <Button onClick={onCapture} className="gap-1.5">
-          <Plus className="w-4 h-4" />
-          Capture your first
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center text-center py-10 px-2">
+      <div
+        className="flex items-center justify-center"
+        style={{
+          width: "64px",
+          height: "64px",
+          borderRadius: "20px",
+          background: "var(--brand-tint, #ECF7E7)",
+          marginBottom: "20px",
+        }}
+        aria-hidden="true"
+      >
+        <ReceiptIcon className="w-7 h-7 text-[var(--primary)]" />
+      </div>
+      <h2
+        className="font-display font-bold text-[var(--ink)]"
+        style={{ fontSize: "22px", letterSpacing: "-0.02em", marginBottom: "8px" }}
+      >
+        Your inbox is empty
+      </h2>
+      <p
+        className="text-[var(--ink-muted)] max-w-[280px]"
+        style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
+      >
+        Forward your email receipts to your private inbox address. We&apos;ll
+        have them VAT-ready in minutes.
+      </p>
+
+      <div
+        className="w-full max-w-[340px] flex items-center gap-3 bg-card"
+        style={{
+          border: "1px solid var(--hairline)",
+          borderRadius: "12px",
+          padding: "14px 16px",
+          marginBottom: "20px",
+        }}
+      >
+        <span
+          className="font-mono flex-1 min-w-0 text-[var(--ink)] truncate"
+          style={{ fontSize: "14px", fontWeight: 500 }}
+        >
+          {conciergeEmail}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="shrink-0 inline-flex items-center gap-1.5 text-white"
+          style={{
+            background: copied
+              ? "var(--brand-deep, #1F9D63)"
+              : "var(--primary)",
+            padding: "6px 10px",
+            borderRadius: "9px",
+            fontSize: "13px",
+            fontWeight: 600,
+            transition: "background 160ms ease-out",
+          }}
+          aria-label="Copy concierge email"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5" /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" /> Copy
+            </>
+          )}
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={onCapture}
+        className="inline-flex items-center gap-1.5 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+        style={{ fontSize: "13px", fontWeight: 500 }}
+      >
+        <Plus className="w-4 h-4" />
+        Or capture a paper receipt
+      </button>
+    </div>
   );
 }
 
