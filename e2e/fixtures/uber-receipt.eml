@@ -1,0 +1,15 @@
+From: Uber Receipts <receipts@uber.com>
+To: receipts+abc12345mn@in.unreceipt.com
+Subject: Your Tuesday morning trip with Uber
+Date: Tue, 12 May 2026 08:34:00 +0000
+Message-Id: <fixture-uber-step-6@uber.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Thanks for riding, Alex.
+
+Total: EUR 12.40
+Payment: Visa •• 4242
+Trip: 8 min · 2.4 km · Stockholm
+
+UberX · ride completed at 08:30 UTC on 12 May 2026.

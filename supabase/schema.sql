@@ -482,3 +482,32 @@ CREATE POLICY "Users can view own receipt originals"
     bucket_id = 'receipt-originals'
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- =============================================================================
+-- 2026-05-12 — email forwarding alias (plan step 6 / Part 2 §B1)
+--
+-- Each user gets a unique forwarding address `receipts+<hash>@in.unreceipt.com`.
+-- The hash is the routing key for the Resend Inbound webhook at
+-- /api/intake/email — the handler extracts the +tag from the To: address and
+-- looks the user up by `email_alias_hash`. Per-user aliases avoid maintaining
+-- a from-address whitelist (see plan Q1) and let us rotate a single user's
+-- intake address without touching anyone else.
+--
+-- Properties of the column:
+--   * 10-char Crockford base32 — case-insensitive, no I/L/O/U ambiguity.
+--     ~50 bits of entropy is far more than enough for the address space we'll
+--     ever care about, and short enough that the alias is still type-able.
+--   * Nullable to let the app backfill lazily on the first profile read for
+--     accounts that pre-date this column (no one-off data migration script).
+--     The unique index ignores NULLs.
+--   * Unique partial index — once minted, the alias is the routing key, so
+--     a collision would silently mis-route a receipt to the wrong account.
+-- =============================================================================
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS email_alias_hash TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_email_alias_hash_unique
+  ON public.profiles(email_alias_hash)
+  WHERE email_alias_hash IS NOT NULL;
+
