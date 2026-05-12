@@ -118,7 +118,11 @@ function LoginPageInner() {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-6">
+        <div className="text-center mt-5">
+          <ResetSessionLink />
+        </div>
+
+        <div className="text-center mt-4">
           <Link
             href="/"
             className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
@@ -539,5 +543,34 @@ function SignUpPanel() {
         {loading ? "Creating account..." : "Create account"}
       </Button>
     </form>
+  );
+}
+
+// Escape hatch for users with stale supabase-js cookies (deleted user,
+// rotated JWT secret, half-finished retries). Visible but quiet — the
+// people who need it are already searching for a way out, and a louder
+// affordance would just confuse first-time visitors.
+function ResetSessionLink() {
+  const [busy, setBusy] = useState(false);
+
+  const handleReset = async () => {
+    setBusy(true);
+    try {
+      await fetch("/api/auth/clear", { method: "POST" });
+    } catch {
+      /* ignore — we're going to reload regardless */
+    }
+    window.location.reload();
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleReset}
+      disabled={busy}
+      className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+    >
+      {busy ? "Resetting…" : "Sign-in stuck? Reset your session"}
+    </button>
   );
 }
