@@ -290,6 +290,7 @@ export function PasteForm({ userId }: PasteFormProps) {
                 onChange={(e) => update("amount", e.target.value)}
                 placeholder="49.00"
                 required
+                className="font-mono tabular-nums"
               />
             </FieldRow>
             <FieldRow
@@ -391,6 +392,7 @@ export function PasteForm({ userId }: PasteFormProps) {
                   value={form.tax_amount}
                   onChange={(e) => update("tax_amount", e.target.value)}
                   placeholder="0.00"
+                  className="font-mono tabular-nums"
                 />
               </FieldRow>
               <FieldRow

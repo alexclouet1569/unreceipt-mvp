@@ -8,19 +8,24 @@ import "./globals.css";
 
 const APP_HOST = "app.unreceipt.com";
 
+// Manrope — display / heading face (h1–h3, app titles, merchant names).
+// Exposed as `--font-display` so the Tailwind `font-display` utility
+// resolves to Manrope wherever a heading lives.
 const manrope = Manrope({
+  variable: "--font-display",
+  subsets: ["latin"],
+});
+
+// Figtree — body / default face. Exposed as `--font-sans` (the default
+// `font-sans` Tailwind utility), so plain text everywhere reads as Figtree.
+const figtree = Figtree({
   variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const figtree = Figtree({
-  variable: "--font-accent",
-  subsets: ["latin"],
-});
-
-// Geist Mono — used for monetary amounts only (DESIGN.md typography spec).
+// Geist Mono — monetary amounts only (DESIGN.md typography spec).
 // Wired as `--font-mono` so the Tailwind `font-mono` utility resolves to
-// Geist Mono throughout the product surface.
+// Geist Mono. Never use this face for body or labels.
 const geistMono = Geist_Mono({
   variable: "--font-mono",
   subsets: ["latin"],

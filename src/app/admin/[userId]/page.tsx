@@ -115,7 +115,7 @@ export default async function AdminCustomerDetailPage({ params }: PageProps) {
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
               This month
             </p>
-            <p className="font-semibold text-sm mt-1 tabular-nums">
+            <p className="font-mono font-medium text-sm mt-1 tabular-nums">
               {formatAmount(customer.monthTotal, baseCurrency)}
             </p>
           </CardContent>

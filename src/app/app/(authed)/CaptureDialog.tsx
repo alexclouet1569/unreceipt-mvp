@@ -291,6 +291,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
                 onChange={(e) => update("amount", e.target.value)}
                 placeholder="49.00"
                 required
+                className="font-mono tabular-nums"
               />
             </Field>
             <Field

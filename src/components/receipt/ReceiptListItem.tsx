@@ -56,7 +56,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
               <p className="font-medium text-sm truncate">
                 {receipt.merchant_name ?? "Unknown merchant"}
               </p>
-              <p className="font-semibold text-sm tabular-nums shrink-0">
+              <p className="font-mono font-medium text-sm tabular-nums shrink-0">
                 {formatAmount(receipt.total, receipt.currency)}
               </p>
             </div>

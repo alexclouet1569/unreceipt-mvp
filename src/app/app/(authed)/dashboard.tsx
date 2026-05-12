@@ -157,7 +157,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <Card>
       <CardContent className="py-3 px-4 text-center">
-        <div className="text-base font-semibold">{value}</div>
+        <div className="text-base font-mono font-medium tabular-nums">{value}</div>
         <div className="text-xs text-muted-foreground">{label}</div>
       </CardContent>
     </Card>
