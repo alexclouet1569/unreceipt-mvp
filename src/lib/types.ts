@@ -6,7 +6,18 @@
  * call site rather than maintaining a parallel Insert/Update tree.
  */
 
-export type ReceiptSource = "captured" | "forwarded" | "uploaded";
+// Canonical intake source — every receipt that lands in the app comes
+// from one of these four paths. See plan step 3 + supabase/schema.sql
+// "digital-receipt canonicalization" section.
+export type ReceiptSource = "email" | "sms" | "paper" | "manual";
+
+export type ReceiptOriginalKind =
+  | "eml"
+  | "txt"
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "application/pdf";
 
 export type ReceiptCategory =
   | "meals"
@@ -37,8 +48,12 @@ export interface Receipt {
   notes: string | null;
 
   receipt_number: string | null;
+  // Legacy DATE + TIME — populated by the WOZ admin paste form. New code
+  // should prefer purchased_at (set by the intake parser in steps 5–7).
   receipt_date: string | null;
   receipt_time: string | null;
+  // Canonical purchase timestamp. NULL on rows created before step 3.
+  purchased_at: string | null;
 
   subtotal: number | null;
   tax_amount: number | null;
@@ -55,8 +70,23 @@ export interface Receipt {
 
   verification_code: string | null;
   capture_time_seconds: number | null;
+  // Raw-OCR confidence (0-100), populated by the Claude-vision step. Only
+  // meaningful for source='paper'. See `parse_confidence` for the cross-
+  // intake-path signal.
   ocr_confidence: number | null;
   is_verified: boolean;
+
+  // Intake-path metadata (added in plan step 3). Populated by the email /
+  // SMS / paper intake handlers in steps 5–7.
+  original_source_url: string | null;
+  original_source_kind: ReceiptOriginalKind | null;
+  // Idempotency key — email Message-Id, Twilio MessageSid, or sha256 of
+  // a paper upload. Re-forwarding the same email is a no-op.
+  intake_ref: string | null;
+  // 0..1 parser confidence. Distinct from ocr_confidence — covers regex
+  // match quality and LLM schema-validation pass-rate too, so it applies
+  // to email/SMS intake where there is no OCR step.
+  parse_confidence: number | null;
 
   created_at: string;
   updated_at: string;

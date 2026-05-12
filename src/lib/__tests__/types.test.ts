@@ -8,10 +8,10 @@ import type {
 } from "@/lib/types";
 
 describe("Receipt type", () => {
-  it("source is the captured | forwarded | uploaded union", () => {
+  it("source is the canonical intake union — email | sms | paper | manual", () => {
     expectTypeOf<Receipt["source"]>().toEqualTypeOf<ReceiptSource>();
     expectTypeOf<ReceiptSource>().toEqualTypeOf<
-      "captured" | "forwarded" | "uploaded"
+      "email" | "sms" | "paper" | "manual"
     >();
   });
 
@@ -46,6 +46,13 @@ describe("Receipt type", () => {
     expectTypeOf<Receipt["total"]>().toEqualTypeOf<number | null>();
     expectTypeOf<Receipt["image_url"]>().toEqualTypeOf<string | null>();
     expectTypeOf<Receipt["notes"]>().toEqualTypeOf<string | null>();
+  });
+
+  it("intake-path metadata is nullable on legacy rows but typed", () => {
+    expectTypeOf<Receipt["purchased_at"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<Receipt["original_source_url"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<Receipt["intake_ref"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<Receipt["parse_confidence"]>().toEqualTypeOf<number | null>();
   });
 });
 

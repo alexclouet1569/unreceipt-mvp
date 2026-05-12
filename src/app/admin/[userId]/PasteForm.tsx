@@ -211,7 +211,7 @@ export function PasteForm({ userId }: PasteFormProps) {
           <div>
             <h2 className="font-semibold text-base">Paste receipt</h2>
             <p className="text-xs text-muted-foreground">
-              Inserts as <span className="font-mono">source=forwarded</span>.
+              Inserts as <span className="font-mono">source=manual</span>.
               Tab through the fields — Cmd+Enter saves.
             </p>
           </div>

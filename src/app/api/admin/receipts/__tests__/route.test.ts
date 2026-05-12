@@ -85,7 +85,7 @@ describe("POST /api/admin/receipts", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
-  it("returns 200 and inserts with status='captured' source='forwarded' on a valid body", async () => {
+  it("returns 200 and inserts with source='manual' on a valid body", async () => {
     mocks.requireAdmin.mockResolvedValue(ADMIN_USER);
 
     const res = await POST(
@@ -115,7 +115,7 @@ describe("POST /api/admin/receipts", () => {
       payment_method: "Visa •••• 4242",
       receipt_number: "INV-7",
       notes: "Forwarded from accountant.",
-      source: "forwarded",
+      source: "manual",
     });
   });
 

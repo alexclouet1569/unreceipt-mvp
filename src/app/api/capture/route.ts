@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       notes: data.notes?.trim() || null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
-      source: "captured",
+      source: "paper",
     })
     .select("id")
     .single();
