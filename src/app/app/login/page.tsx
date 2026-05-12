@@ -9,13 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Receipt,
   Mail,
   ArrowLeft,
   CheckCircle2,
   Eye,
   EyeOff,
 } from "lucide-react";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { getSupabaseClient } from "@/lib/supabase-client";
 
 // useSearchParams() forces a CSR bailout; Next 16 requires it to live
@@ -79,11 +79,12 @@ function LoginPageInner() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mx-auto mb-3">
-            <Receipt className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <h1 className="text-xl font-bold">UnReceipt</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <Wordmark
+            variant="stacked"
+            className="mx-auto"
+            style={{ fontSize: "22px" }}
+          />
+          <p className="text-sm text-muted-foreground mt-3">
             Sign in to manage your receipts
           </p>
         </div>
