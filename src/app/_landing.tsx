@@ -25,6 +25,7 @@ import {
   Receipt,
   Sparkles,
 } from "lucide-react";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 
 /* ── Scroll-reveal hook ── */
@@ -222,13 +223,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       {/* ─── NAV ─── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-transparent"}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
-          <Image
-            src="/logo-dark.png"
-            alt="UnReceipt — automatic expense receipt capture"
-            width={180}
-            height={50}
-            className="h-10 sm:h-11 w-auto"
-            priority
+          {/* Brand book "on Green Mint" variant (single-color navy) — works on
+              both the green hero (unscrolled) and the white-95 backdrop (scrolled). */}
+          <Wordmark
+            variant="horizontal"
+            on="mint"
+            className="text-[22px] sm:text-[26px]"
           />
           <div className="hidden md:flex items-center gap-8">
             {[
