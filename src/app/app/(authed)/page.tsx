@@ -22,10 +22,15 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
   // Use the service-role client so the customer's first paint doesn't
   // wait on an extra cookie round-trip just to satisfy RLS we already
   // know is satisfied (the gate above proved this is the right user).
+  // Sort matches the receipts_user_id_purchased_at_idx index:
+  // purchased_at DESC with NULLs last, falling back to created_at DESC.
+  // Rows created before step 3 have NULL purchased_at and slot into the
+  // bottom of the list by their creation time, which is the right UX.
   const { data, error } = await getSupabaseAdmin()
     .from("receipts")
     .select("*")
     .eq("user_id", userId)
+    .order("purchased_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(RECENT_RECEIPTS_LIMIT);
 

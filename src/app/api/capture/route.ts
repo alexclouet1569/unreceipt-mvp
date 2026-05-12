@@ -91,6 +91,18 @@ export async function POST(request: NextRequest) {
     uploadedPath = path;
   }
 
+  // `purchased_at` is the canonical purchase timestamp introduced in step 3.
+  // The form only collects YYYY-MM-DD, so we pin to noon UTC of that date —
+  // close enough to "mid-day on the receipt day" regardless of the user's
+  // timezone, and keeps the new inbox sort (purchased_at DESC) stable even
+  // when several receipts share the same calendar day.
+  const purchasedAt = `${data.receipt_date}T12:00:00.000Z`;
+
+  // Source discriminator: `paper` when a photo was attached (with or
+  // without OCR), `manual` when the user filled the form blank. Email
+  // and SMS intake paths land here too in steps 6–7 with their own values.
+  const source = uploadedPath ? "paper" : "manual";
+
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")
     .insert({
@@ -100,10 +112,11 @@ export async function POST(request: NextRequest) {
       currency: data.currency,
       total: data.amount,
       receipt_date: data.receipt_date,
+      purchased_at: purchasedAt,
       notes: data.notes?.trim() || null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
-      source: "paper",
+      source,
     })
     .select("id")
     .single();
