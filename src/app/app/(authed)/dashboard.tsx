@@ -10,19 +10,21 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { CaptureFab } from "@/components/CaptureFab";
-import { getConciergeEmail } from "@/lib/concierge-email";
 import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 
 type DashboardProps = {
-  userId: string;
   userEmail: string;
   receipts: Receipt[];
+  // The user's `receipts+<hash>@in.unreceipt.com` forwarding address.
+  // Server-component minted/fetched in page.tsx so we never block on the
+  // round-trip here.
+  forwardingEmail: string;
 };
 
-export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
+export function Dashboard({ userEmail, receipts, forwardingEmail }: DashboardProps) {
   const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
@@ -102,7 +104,10 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
         </div>
 
         {receipts.length === 0 ? (
-          <EmptyState userId={userId} onCapture={() => setCaptureOpen(true)} />
+          <EmptyState
+            forwardingEmail={forwardingEmail}
+            onCapture={() => setCaptureOpen(true)}
+          />
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 mb-6">
@@ -166,25 +171,24 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
 }
 
 function EmptyState({
-  userId,
+  forwardingEmail,
   onCapture,
 }: {
-  userId: string;
+  forwardingEmail: string;
   onCapture: () => void;
 }) {
-  const conciergeEmail = getConciergeEmail(userId);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(conciergeEmail);
+      await navigator.clipboard.writeText(forwardingEmail);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
       // Some browsers block clipboard without a secure context — fall back
       // to text selection on the address so the user can long-press copy.
     }
-  }, [conciergeEmail]);
+  }, [forwardingEmail]);
 
   return (
     <div className="flex flex-col items-center text-center py-10 px-2">
@@ -228,7 +232,7 @@ function EmptyState({
           className="font-mono flex-1 min-w-0 text-[var(--ink)] truncate"
           style={{ fontSize: "14px", fontWeight: 500 }}
         >
-          {conciergeEmail}
+          {forwardingEmail}
         </span>
         <button
           type="button"

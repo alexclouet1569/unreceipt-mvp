@@ -3,6 +3,11 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkSubscriptionGate } from "@/lib/subscription-gate";
 import { handleSelfHeal } from "@/lib/self-heal";
+import {
+  buildForwardingAddress,
+  getOrCreateAliasForUser,
+} from "@/lib/email-alias";
+import { getConciergeEmail } from "@/lib/concierge-email";
 import type { Receipt } from "@/lib/types";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
@@ -73,18 +78,37 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   const userEmail = user.email ?? "";
   const receipts = await loadReceiptsForUser(user.id);
 
+  // Mint (or fetch) the user's forwarding alias. This is the live MX
+  // address that routes to the /api/intake/email webhook — surfaced on
+  // the empty state so first-time users have somewhere to forward to.
+  // Falls back to the legacy getConciergeEmail derivation if the profile
+  // row is missing (shouldn't happen post-signup, but the gate runs
+  // before profile-sync in a few edge cases).
+  const aliasHash = await getOrCreateAliasForUser(user.id);
+  const forwardingEmail = aliasHash
+    ? buildForwardingAddress(aliasHash)
+    : getConciergeEmail(user.id);
+
   if (result.kind === "allow_with_warning") {
     const Banner =
       result.reason === "pilot_mode" ? PilotBanner : DbWarningBanner;
     return (
       <>
         <Banner />
-        <Dashboard userId={user.id} userEmail={userEmail} receipts={receipts} />
+        <Dashboard
+          userEmail={userEmail}
+          receipts={receipts}
+          forwardingEmail={forwardingEmail}
+        />
       </>
     );
   }
 
   return (
-    <Dashboard userId={user.id} userEmail={userEmail} receipts={receipts} />
+    <Dashboard
+      userEmail={userEmail}
+      receipts={receipts}
+      forwardingEmail={forwardingEmail}
+    />
   );
 }
