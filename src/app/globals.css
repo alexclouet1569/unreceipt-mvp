@@ -63,27 +63,27 @@
 }
 
 :root {
-  /* DESIGN.md token layer */
+  /* DESIGN.md token layer — `--ink` is the brand book "Deep Space" navy. */
   --surface: #FAFAF7;
-  --ink: #171A2E;
+  --ink: #303568;
   --ink-muted: #5A5F7A;
   --ink-faint: #9CA0B8;
   --hairline: #E8E5DD;
   /* shadcn token mapping per DESIGN.md */
   --background: #FAFAF7;
-  --foreground: #171A2E;
+  --foreground: #303568;
   --card: #ffffff;
-  --card-foreground: #171A2E;
+  --card-foreground: #303568;
   --popover: #ffffff;
-  --popover-foreground: #171A2E;
+  --popover-foreground: #303568;
   --primary: #27BE7B;
   --primary-foreground: #ffffff;
   --secondary: #ECF7E7;
-  --secondary-foreground: #171A2E;
+  --secondary-foreground: #303568;
   --muted: #ECF7E7;
   --muted-foreground: #5A5F7A;
   --accent: #ECF7E7;
-  --accent-foreground: #171A2E;
+  --accent-foreground: #303568;
   --destructive: #C73E4E;
   --border: #E8E5DD;
   --input: #E8E5DD;

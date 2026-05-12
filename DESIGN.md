@@ -18,7 +18,7 @@
 
 ## Signature elements (UnReceipt's own face)
 
-1. **The `Un` wordmark.** `Un` set in Geist Mono on a near-black `ink` pill, butted against `Receipt` in Manrope 700. Used in the app header on every screen.
+1. **The brand wordmark.** Brand-book primary mark: receipt-glyph isotype (rounded receipt with serrated bottom + circular arrow wrapping the top-left) paired with the bespoke wordmark `Un` in **Deep Space** + `Receipt` in **Green Mint**, set in **Manrope ExtraBold (800)**. Used in the app header on every screen. The shared component is `src/components/brand/Wordmark.tsx`; render `<Wordmark variant="horizontal" />` in headers, `variant="stacked"` for centered hero placements (e.g. /app/login), `variant="icon"` for the isotype-only PWA / favicon surfaces.
 2. **The perforated edge.** 8×8 dot-mask repeating along the top of receipt detail views. Reinforced by `1px dashed hairline` dividers between detail sections.
 3. **Mono amounts everywhere.** Every monetary value in the product renders in Geist Mono — list cards, detail totals, line items, VAT panel. Vertically aligns amounts across the inbox. This is the typographic identity.
 4. **Tighter density than Kivra.** 12px card radius, 12×14 padding, 8px between cards. Signals "finance pro tool," not "consumer doc storage."
@@ -70,7 +70,7 @@ Restrained palette. Brand green is an accent, not a background.
 | `--brand-tint` | `#ECF7E7` | Empty-state hero card, pilot banner, VAT-summary panel. **Never the page background.** |
 | `--surface` | `#FAFAF7` | Page background — Nordic cream, evokes paper |
 | `--card` | `#FFFFFF` | Receipt cards, sheets, popovers |
-| `--ink` | `#171A2E` | Primary text (replaces the current `#303568`) |
+| `--ink` | `#303568` | Primary text — brand-book "Deep Space" |
 | `--ink-muted` | `#5A5F7A` | Body, secondary labels |
 | `--ink-faint` | `#9CA0B8` | Dates, meta, micro caps |
 | `--hairline` | `#E8E5DD` | 1px borders and dividers — warm gray to match the cream |
@@ -223,16 +223,22 @@ full 9999   FAB, avatars, pill badges
 
 ### Wordmark (`UnReceipt`)
 
-A reusable component:
+Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand book (pp. 9–11):
 
-```tsx
-<span className="un-mark">
-  <span className="un">Un</span>Receipt
-</span>
-```
+| Variant | Use |
+|---|---|
+| `horizontal` (default) | App header, footer, primary lockup |
+| `stacked` | Centered narrow placements (e.g. /app/login hero) |
+| `wordmark` | Text-only — when the icon is already established on the page |
+| `icon` | Isotype-only — PWA icon, favicon, social profile |
 
-- Outer: `font-display`, `font-weight: 700`, `letter-spacing: -0.02em`, `display: inline-flex`, `align-items: baseline`, `gap: 1px`.
-- `.un`: `font-mono`, `font-weight: 500`, `font-size: 0.78em`, `letter-spacing: 0`, `padding: 1px 3px 1px 4px`, `border-radius: 5px`, `background: var(--ink)`, `color: var(--surface)`, `margin-right: 3px`, `transform: translateY(-1px)`.
+- The wordmark text is **Manrope ExtraBold (800)** with `letter-spacing: -0.02em`. `Un` renders in `#303568` (Deep Space) and `Receipt` in `#27BE7B` (Green Mint) on light surfaces — the brand-book two-color split.
+- The receipt-glyph isotype is rendered inline as SVG so it scales cleanly without an asset round-trip.
+- The `on` prop switches the color set for non-default surfaces:
+  - `on="light"` (default) — green receipt body, navy arrow, two-color wordmark
+  - `on="dark"` — cream receipt body, green arrow, single-color cream wordmark (for navy backgrounds)
+  - `on="mint"` — cream receipt body, navy arrow, single-color navy wordmark (for the brand-tint hero / VAT panel)
+- Size via `style={{ fontSize: "Npx" }}` or a Tailwind `text-*` utility — the isotype scales relative to the wordmark cap-height.
 
 ## Decisions Log
 
@@ -246,6 +252,7 @@ A reusable component:
 | 2026-05-12 | Perforated-edge motif introduced (detail view top, dashed section dividers) | Receipt metaphor as visual signature; differentiates from Kivra's generic doc-mailbox look. |
 | 2026-05-12 | `UnReceipt` wordmark with mono `Un` tag added to app header | Brand mark visible on every screen; distinctly UnReceipt. |
 | 2026-05-12 | OCR moment dialed down to single `Reading…` state + collective field reveal | Founder preference: calm, not theatrical. |
+| 2026-05-12 | **Wordmark realigned to brand book**: two-color Manrope ExtraBold (`Un` Deep Space + `Receipt` Green Mint) with the receipt-glyph isotype. Replaces the mono `Un` pill. | Brand book is source of truth for identity; the mono pill was an internal-design choice that diverged from the brand book and was overruled when both surfaces (marketing + product) needed to share one mark. The 2026-05-12 ink-deepening decision is reverted on the same grounds — `--ink` returns to `#303568` (brand-book Deep Space). Contrast on cream stays AAA (8.99:1) for normal text. |
 
 ---
 
