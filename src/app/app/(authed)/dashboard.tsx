@@ -40,7 +40,7 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
 
     const baseCurrency = receipts[0]?.currency ?? "EUR";
     const monthTotal = receipts
-      .filter((r) => (r.receipt_date ?? "") >= monthIso)
+      .filter((r) => (r.purchased_at ?? r.receipt_date ?? "") >= monthIso)
       .reduce((sum, r) => sum + (r.total ?? 0), 0);
     const verified = receipts.filter((r) => r.is_verified).length;
     const pending = receipts.length - verified;
@@ -52,7 +52,7 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
     const order = ["Today", "Yesterday", "This week"];
     const groups = new Map<string, typeof receipts>();
     for (const r of receipts) {
-      const label = relativeDayGroup(r.receipt_date);
+      const label = relativeDayGroup(r.purchased_at ?? r.receipt_date);
       if (!groups.has(label)) groups.set(label, []);
       groups.get(label)!.push(r);
     }

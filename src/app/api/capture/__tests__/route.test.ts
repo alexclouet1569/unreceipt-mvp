@@ -127,7 +127,7 @@ describe("POST /api/capture", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
-  it("returns 200 + receipt id on success and inserts a 'captured' row", async () => {
+  it("returns 200 and inserts source='manual' + purchased_at when no image is attached", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
 
     const res = await POST(
@@ -147,11 +147,33 @@ describe("POST /api/capture", () => {
       currency: "EUR",
       category: "other",
       receipt_date: "2026-05-03",
+      purchased_at: "2026-05-03T12:00:00.000Z",
       notes: "lunch with client",
-      source: "paper",
+      source: "manual",
       image_url: null,
       image_captured_at: null,
     });
+  });
+
+  it("returns 200 and inserts source='paper' when an image is attached", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ image: imageBlob("ica.jpg") }))
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.upload).toHaveBeenCalledTimes(1);
+    expect(mocks.insert).toHaveBeenCalledTimes(1);
+    const row = mocks.insert.mock.calls[0][0];
+    expect(row).toMatchObject({
+      user_id: USER_ID,
+      source: "paper",
+      receipt_date: "2026-05-03",
+      purchased_at: "2026-05-03T12:00:00.000Z",
+    });
+    expect(row.image_url).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]+\\.jpg$`));
+    expect(row.image_captured_at).toEqual(expect.any(String));
   });
 
   it("returns 500 + clean error and skips orphan cleanup when DB insert fails (no image)", async () => {
