@@ -159,3 +159,16 @@
     font-family: var(--font-display), system-ui, sans-serif;
   }
 }
+
+/* OCR collective reveal — DESIGN.md "long" duration (480ms), Apple-spring-out easing.
+   Used by CaptureDialog when OCR completes and the five fields appear together. */
+@keyframes ocr-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
