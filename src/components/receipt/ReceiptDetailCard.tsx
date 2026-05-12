@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Download } from "lucide-react";
 import { PerfEdge } from "@/components/brand/PerfEdge";
 import {
   CATEGORY_CONFIG,
@@ -209,6 +209,31 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           </div>
         </>
       ) : null}
+
+      {/* Download — issues an HTTP GET to the PDF route. Plain anchor with
+          `download` attr so the browser routes it through its native
+          download manager (works on iOS Safari, which ignores fetch+blob
+          downloads triggered from JS). */}
+      <PerfEdge variant="divider" />
+      <div className="px-5 py-4">
+        <a
+          href={`/api/receipts/${receipt.id}/pdf`}
+          download
+          data-testid="receipt-download-link"
+          className="w-full inline-flex items-center justify-center gap-2 text-white"
+          style={{
+            background: "var(--primary)",
+            padding: "10px 14px",
+            borderRadius: "10px",
+            fontSize: "14px",
+            fontWeight: 600,
+            transition: "background 160ms ease-out",
+          }}
+        >
+          <Download className="w-4 h-4" />
+          Download PDF
+        </a>
+      </div>
 
       {/* Verification footer */}
       <PerfEdge variant="divider" />
