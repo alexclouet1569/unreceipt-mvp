@@ -74,12 +74,12 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     return (
       <>
         <Banner />
-        <Dashboard userEmail={userEmail} receipts={receipts} />
+        <Dashboard userId={user.id} userEmail={userEmail} receipts={receipts} />
       </>
     );
   }
 
   return (
-    <Dashboard userEmail={userEmail} receipts={receipts} />
+    <Dashboard userId={user.id} userEmail={userEmail} receipts={receipts} />
   );
 }
