@@ -8,18 +8,21 @@ import "./globals.css";
 
 const APP_HOST = "app.unreceipt.com";
 
-// Manrope — display / heading face (h1–h3, app titles, merchant names).
-// Exposed as `--font-display` so the Tailwind `font-display` utility
-// resolves to Manrope wherever a heading lives.
+// Manrope — primary face per brand book pp. 15–16. Body, headings, and
+// app titles all resolve to Manrope. Exposed as `--font-sans` (the default
+// Tailwind `font-sans` utility) so plain text reads as Manrope everywhere.
+// `--font-display` in globals.css aliases this so the `font-display`
+// utility on existing headings keeps resolving to Manrope.
 const manrope = Manrope({
-  variable: "--font-display",
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
-// Figtree — body / default face. Exposed as `--font-sans` (the default
-// `font-sans` Tailwind utility), so plain text everywhere reads as Figtree.
+// Figtree — italic accent face per brand book p. 16. Reserved for short
+// punchy callouts, pull quotes, and brief descriptive notes via the
+// `font-accent italic` utility pair. Never the body default.
 const figtree = Figtree({
-  variable: "--font-sans",
+  variable: "--font-accent",
   subsets: ["latin"],
 });
 

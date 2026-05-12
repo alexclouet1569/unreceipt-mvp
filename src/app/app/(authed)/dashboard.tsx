@@ -208,7 +208,7 @@ function EmptyState({
         Your inbox is empty
       </h2>
       <p
-        className="text-[var(--ink-muted)] max-w-[280px]"
+        className="font-accent italic text-[var(--ink-muted)] max-w-[280px]"
         style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
       >
         Forward your email receipts to your private inbox address. We&apos;ll
