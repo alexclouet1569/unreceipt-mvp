@@ -67,7 +67,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           {receipt.subtotal != null ? (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="tabular-nums">
+              <span className="font-mono tabular-nums">
                 {formatAmount(receipt.subtotal, receipt.currency)}
               </span>
             </div>
@@ -77,7 +77,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
               <span className="text-muted-foreground">
                 {taxRate != null ? `VAT (${taxRate}%)` : "VAT"}
               </span>
-              <span className="tabular-nums">
+              <span className="font-mono tabular-nums">
                 {formatAmount(receipt.tax_amount, receipt.currency)}
               </span>
             </div>
@@ -85,7 +85,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           {showTip ? (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Tip</span>
-              <span className="tabular-nums">
+              <span className="font-mono tabular-nums">
                 {formatAmount(receipt.tip_amount, receipt.currency)}
               </span>
             </div>
@@ -93,7 +93,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           <Separator />
           <div className="flex justify-between text-base font-bold pt-1">
             <span>Total</span>
-            <span className="tabular-nums">
+            <span className="font-mono tabular-nums">
               {formatAmount(receipt.total, receipt.currency)}
             </span>
           </div>
