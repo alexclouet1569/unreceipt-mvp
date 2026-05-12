@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Manrope, Figtree } from "next/font/google";
+import { Manrope, Figtree, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +15,14 @@ const manrope = Manrope({
 
 const figtree = Figtree({
   variable: "--font-accent",
+  subsets: ["latin"],
+});
+
+// Geist Mono — used for monetary amounts only (DESIGN.md typography spec).
+// Wired as `--font-mono` so the Tailwind `font-mono` utility resolves to
+// Geist Mono throughout the product surface.
+const geistMono = Geist_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
@@ -113,7 +121,7 @@ export default async function RootLayout({
     host.startsWith("127.0.0.1");
 
   return (
-    <html lang="en" className={`${manrope.variable} ${figtree.variable} h-full antialiased`}>
+    <html lang="en" className={`${manrope.variable} ${figtree.variable} ${geistMono.variable} h-full antialiased`}>
       <head>
         {isAppHost ? (
           <>
