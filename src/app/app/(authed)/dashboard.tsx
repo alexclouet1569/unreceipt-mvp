@@ -9,6 +9,7 @@ import { useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
+import { CaptureFab } from "@/components/CaptureFab";
 import { getConciergeEmail } from "@/lib/concierge-email";
 import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
@@ -84,20 +85,20 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="mb-6 flex items-end justify-between gap-3">
-          <div>
-            <h1 className="font-semibold text-lg">Your receipts</h1>
-            <p className="text-sm text-muted-foreground">{userEmail}</p>
-          </div>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setCaptureOpen(true)}
+      <div className="max-w-2xl mx-auto px-4 py-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 120px)" }}>
+        <div className="mb-6">
+          <h1
+            className="font-display font-bold text-[var(--ink)]"
+            style={{ fontSize: "24px", letterSpacing: "-0.02em" }}
           >
-            <Plus className="w-4 h-4" />
-            Capture
-          </Button>
+            Your receipts
+          </h1>
+          <p
+            className="text-[var(--ink-muted)]"
+            style={{ fontSize: "13px", fontWeight: 500, marginTop: "2px" }}
+          >
+            {userEmail}
+          </p>
         </div>
 
         {receipts.length === 0 ? (
@@ -147,6 +148,8 @@ export function Dashboard({ userId, userEmail, receipts }: DashboardProps) {
           </>
         )}
       </div>
+
+      <CaptureFab onClick={() => setCaptureOpen(true)} />
 
       <CaptureDialog
         open={captureOpen}
