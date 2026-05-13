@@ -1,6 +1,6 @@
 # UnReceipt — Gap-fix prompts
 
-Three prompts to close the holes found during the post-ship audit.
+Four prompts to close the holes found during the post-ship audit.
 Paste one at a time into a Conductor workspace pointed at `unreceipt-mvp`.
 
 Order matters:
@@ -8,7 +8,11 @@ Order matters:
    guarantees PDF downloads stop being flaky.
 2. **gap-1 (parser body)** — biggest UX impact. Email forwards become
    real digital receipts instead of empty placeholders.
-3. **gap-3 (SMS intake)** — feature parity with email. Lower urgency
+3. **gap-4 (original-source viewer)** — the "click a receipt → see the
+   digital copy AND a button to view the original paper/email/SMS"
+   feature. Visual fix. Depends on gap-1 to feel complete (without
+   the parser body, the digital copy renders empty).
+4. **gap-3 (SMS intake)** — feature parity with email. Lower urgency
    if email + paper cover the dominant flows.
 
 ---
@@ -178,6 +182,162 @@ Acceptance:
 Out of scope: support for non-Swedish bank SMS patterns
 (separate PR per bank), expense categorization (separate
 feature).
+```
+
+---
+
+## gap-4 — Original-source viewer ("View original receipt" toggle)
+
+```
+You are working in unreceipt-mvp on `main`.
+
+Problem: when the customer clicks a receipt on /app, the
+ReceiptDetailDialog opens and shows the canonical fields (merchant,
+total, VAT, etc.) in a "digital receipt" card. Two things are
+broken in this UX:
+
+  (a) For receipts intaken from email/SMS/paper, the canonical
+      fields are often null (because the parser is a stub today —
+      see gap-1). The card looks empty. Real fix is gap-1; this
+      prompt addresses the *viewer*, not the parser. Both need to
+      land for the UX to feel complete.
+
+  (b) There is NO affordance to see the ORIGINAL artifact — the
+      raw email .eml, the SMS text, or the paper-receipt photo /
+      PDF. The plan §D2 specified an "Original source" toggle but
+      the implementation skipped it. The customer cannot prove the
+      digital receipt corresponds to a real purchase. This is the
+      blocker the founder is asking us to fix.
+
+Goal: when the customer opens a receipt detail, the dialog shows
+the digital receipt (existing ReceiptDetailCard) AND a clearly
+labeled "View original receipt" affordance that reveals the
+source artifact inline (or in a second tab, or in a modal — see
+implementation note). Available for email / SMS / paper sources;
+hidden for `manual` source (no original exists for manual entry).
+
+Reference (the original plan §D2):
+  /Users/alexandreclouet/conductor/workspaces/gstack-ai-agent/
+  warsaw/.context/plans/unreceipt-brand-and-digital-receipt.md
+  (section "D. UI — /app (the receipts list + detail)")
+
+The schema already supports this. `Receipt` type has:
+  source: 'email' | 'sms' | 'paper' | 'manual'
+  original_source_kind: 'eml' | 'txt' | 'image/jpeg' | 'image/png' |
+                        'application/pdf' | null
+  original_source_url: text (storage pointer, in the
+                       receipt-originals bucket, RLS-keyed by user)
+
+(Verify exact column names by reading src/lib/types.ts and the
+migrations in supabase/migrations/. Older `image_url` may still
+exist on legacy paper rows — handle both.)
+
+Implementation:
+
+1. Add a signed-URL endpoint:
+     GET /api/receipts/[id]/original
+   - Auth via getServerUser. 401 if anon.
+   - Load the receipt by id, RLS-checked.
+   - 404 if not owned, or if original_source_url is null (manual
+     source), or if the storage object is missing.
+   - Mint a Supabase Storage signed URL valid for ~5 minutes from
+     the `receipt-originals` (or whichever) bucket.
+   - Return JSON: { url, kind } where kind is the
+     original_source_kind so the client can pick the renderer.
+   - Vitest: 401 anon, 404 wrong-owner, 404 manual, 200 + signed
+     url for owned.
+
+2. Add an OriginalSourceViewer component at
+   src/components/receipt/OriginalSourceViewer.tsx:
+   - Props: { receiptId, kind }.
+   - Fetches the signed URL on mount via SWR / native fetch.
+   - Renders based on `kind`:
+       'image/jpeg' | 'image/png' → <img> with object-fit:contain,
+         max-h-[70vh], rounded, with the brand-book PerfEdge if
+         visually appropriate.
+       'application/pdf' → <iframe src={signedUrl} class="w-full
+         h-[70vh]"> or a "Open PDF in new tab" link if iframe is
+         blocked.
+       'eml' → fetch the .eml text, parse with `mailparser` (already
+         used server-side in step 6 if I recall — else add it as a
+         dep), render the From/To/Subject/Date header line and the
+         body. Prefer text/plain part; if html only, sanitize with
+         DOMPurify before dangerouslySetInnerHTML. Show inline
+         attachments as a small list below.
+       'txt' (SMS) → render the text body in a chat-bubble UI: From
+         line, then the body in a Figtree-italic block on a White
+         Mist tint. Plus MessageSid / sent-at metadata in small
+         Manrope Regular below.
+     Loading state: spinner with "Loading original…".
+     Error state: "Couldn't load the original. <Retry>" with a
+     retry button + Sentry breadcrumb.
+
+3. Wire it into ReceiptDetailDialog
+   (src/app/app/(authed)/ReceiptDetailDialog.tsx):
+   - Add a section header below the existing ReceiptDetailCard:
+       "Original receipt"
+       (Manrope Bold, brand Deep Space color, with a small "verified"
+       checkmark icon if status === 'verified', otherwise a
+       "needs review" badge in Figtree italic).
+   - Below the header, two presentation choices — pick one and
+     justify in the PR body:
+       (i)  Inline expand/collapse — default-collapsed disclosure
+            with a "View original receipt" button that expands the
+            OriginalSourceViewer below the card. Cleaner for paper
+            (one image) but cramped for email.
+       (ii) Tabs inside the dialog — "Digital" tab (default) +
+            "Original" tab. Both always reachable; preserves
+            scroll position. Better for email previews.
+     Recommendation: tabs (option ii). Use shadcn/ui Tabs primitive.
+   - For source === 'manual', do NOT render the tab — manual rows
+     are entered by hand, there is no source artifact.
+
+4. Empty-state copy when an artifact is missing on a non-manual
+   row (e.g. a legacy row from before the intake plumbing):
+     "We didn't store an original for this receipt."
+   Hide retry. Surface a one-shot Sentry breadcrumb so we know
+   how often this happens in prod.
+
+5. Edit-view interaction:
+   - The existing edit form continues to live on the Digital tab.
+   - The Original tab is read-only.
+   - Saving a field on the Digital tab does NOT refetch the
+     original (it's the same artifact).
+
+6. Tests:
+   - Vitest: OriginalSourceViewer renders correct sub-component
+     for each kind (snapshot the JSX tree, not the binary
+     response).
+   - Vitest: API route returns 200 + signed url, 401, 404 manual.
+   - Playwright e2e:
+       Seed a paper receipt with a fixture image → open detail →
+         click "Original" tab → asserts an <img> with the signed
+         URL renders.
+       Seed an email receipt with a fixture .eml → open detail →
+         Original tab → asserts the parsed subject line is in
+         the DOM.
+       Manual row → Original tab is not present in the DOM.
+
+Acceptance:
+- Open /app → click a paper receipt → see the digital card (with
+  whatever fields are filled, or "needs review" if pending) +
+  click "Original" → see the photo of the paper receipt.
+- Same for an email receipt → Original tab shows the parsed .eml.
+- Manual receipt → no Original tab. Card only.
+- Lighthouse a11y on the dialog stays >= 90.
+- next build clean, vitest + playwright green.
+- PR title: `feat(detail): view-original tab on receipt detail dialog`
+
+Out of scope: editing the original (read-only by design), bulk
+re-OCR from the original (separate feature), printing the
+original (deferred).
+
+Critical UX dependency: this fix lands best AFTER gap-1 (parser
+body) so the Digital tab actually has fields filled in for
+intaken receipts. If gap-1 isn't merged yet, the Original tab
+still works in isolation, but the Digital tab will keep showing
+empty fields for email/SMS rows. Communicate this in the PR body
+so the founder doesn't think the viewer is broken.
 ```
 
 ---
