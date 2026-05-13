@@ -8,10 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Loader2, Trash2 } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
+import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import {
   CATEGORY_CONFIG,
@@ -44,6 +46,10 @@ export function ReceiptDetailDialog({
 
   const open = receipt !== null;
   const pending = receipt?.status === "pending_review";
+  // Manual rows are user-typed and have no source artifact — hide the
+  // Original tab entirely. Every other intake path stores a raw
+  // artifact (paper photo, email .eml, SMS .txt) we can show.
+  const hasOriginal = receipt != null && receipt.source !== "manual";
 
   const handleDelete = async () => {
     if (!receipt) return;
@@ -89,17 +95,44 @@ export function ReceiptDetailDialog({
 
         {receipt ? (
           <div>
-            <ReceiptDetailCard receipt={receipt} />
-
-            {pending ? (
-              <CompleteForm
-                receipt={receipt}
-                onSaved={() => {
-                  onOpenChange(false);
-                  router.refresh();
-                }}
-              />
-            ) : null}
+            {hasOriginal ? (
+              <Tabs defaultValue="digital" className="gap-0">
+                <div className="px-4 pt-3 pb-2 border-b border-[var(--hairline)]">
+                  <TabsList className="w-full" variant="line">
+                    <TabsTrigger value="digital">Digital</TabsTrigger>
+                    <TabsTrigger value="original">Original</TabsTrigger>
+                  </TabsList>
+                </div>
+                <TabsContent value="digital">
+                  <ReceiptDetailCard receipt={receipt} />
+                  {pending ? (
+                    <CompleteForm
+                      receipt={receipt}
+                      onSaved={() => {
+                        onOpenChange(false);
+                        router.refresh();
+                      }}
+                    />
+                  ) : null}
+                </TabsContent>
+                <TabsContent value="original">
+                  <OriginalSourceViewer receiptId={receipt.id} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <>
+                <ReceiptDetailCard receipt={receipt} />
+                {pending ? (
+                  <CompleteForm
+                    receipt={receipt}
+                    onSaved={() => {
+                      onOpenChange(false);
+                      router.refresh();
+                    }}
+                  />
+                ) : null}
+              </>
+            )}
 
             <div className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]">
               {pending ? (
