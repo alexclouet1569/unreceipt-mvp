@@ -107,6 +107,16 @@ export function formatAmount(
 }
 
 /**
+ * Format an item quantity. Whole numbers render as integers ("2");
+ * fractional quantities (weight-priced produce, half portions) render
+ * with up to 3 decimals trimmed of trailing zeros ("0.5", "1.25").
+ */
+export function formatQty(qty: number): string {
+  if (Number.isInteger(qty)) return String(qty);
+  return qty.toFixed(3).replace(/\.?0+$/, "");
+}
+
+/**
  * Format an ISO date string as `MMM D, YYYY`. Forwarded receipts only
  * carry a day-level granularity, so the time component is dropped.
  */

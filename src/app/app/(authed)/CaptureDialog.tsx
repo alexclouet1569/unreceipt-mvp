@@ -24,7 +24,7 @@ import {
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
-import type { OcrResult } from "@/lib/ocr";
+import type { OcrItem, OcrResult } from "@/lib/ocr";
 
 type CaptureDialogProps = {
   open: boolean;
@@ -60,6 +60,10 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  // Line items extracted by OCR (or pre-set later via the edit flow).
+  // Forwarded to /api/capture so the digital receipt renders the full
+  // line breakdown.
+  const [items, setItems] = useState<OcrItem[] | null>(null);
 
   // Reset everything when the dialog closes so the next open is fresh.
   useEffect(() => {
@@ -70,6 +74,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       setSaving(false);
       setSaveError(null);
       setOcrLoading(false);
+      setItems(null);
     }
   }, [open]);
 
@@ -115,6 +120,9 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
         }
         return next;
       });
+      if (Array.isArray(data.items) && data.items.length > 0) {
+        setItems(data.items);
+      }
     } catch (err) {
       console.error("[capture] ocr failed:", err);
       // silent fallback — user can still type fields manually
@@ -155,6 +163,9 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       fd.append("category", form.category);
       if (form.notes.trim()) fd.append("notes", form.notes.trim());
       if (imageFile) fd.append("image", imageFile);
+      if (items && items.length > 0) {
+        fd.append("items", JSON.stringify(items));
+      }
 
       const res = await fetch("/api/capture", {
         method: "POST",

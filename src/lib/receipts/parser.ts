@@ -46,6 +46,13 @@ const TEMPLATE_PARTIAL_CONFIDENCE = 0.7;
 // Zod for the LLM output. Mirrors LlmExtractResult but stricter so a
 // hallucinated invalid currency lands as pending_review rather than
 // breaking the row insert.
+const ItemSchema = z.object({
+  label: z.string().min(1).max(200),
+  qty: z.number().positive().max(10_000).nullable().optional(),
+  unit_amount: z.number().nonnegative().max(1_000_000).nullable().optional(),
+  total_amount: z.number().nonnegative().max(1_000_000),
+});
+
 const LlmResultSchema = z
   .object({
     merchant: z.string().min(1).max(200).optional(),
@@ -59,6 +66,9 @@ const LlmResultSchema = z
     payment_method: z.string().max(50).optional(),
     card_last_four: z.string().regex(/^\d{4}$/).optional(),
     notes: z.string().max(500).optional(),
+    // Cap at 200 items — a single receipt with more than 200 lines is
+    // almost certainly an LLM hallucinating from noise.
+    items: z.array(ItemSchema).max(200).optional(),
     confidence: z.number().min(0).max(1).optional(),
     not_a_receipt: z.boolean().optional(),
   })
@@ -222,6 +232,14 @@ function mergeAndFinalize(
   if (llm.receipt_date) {
     merged.purchased_at = `${llm.receipt_date}T${llm.receipt_time ?? "12:00"}:00.000Z`;
   }
+  if (llm.items && llm.items.length > 0) {
+    merged.items = llm.items.map((it) => ({
+      label: it.label,
+      qty: it.qty ?? null,
+      unit_amount: it.unit_amount ?? null,
+      total_amount: it.total_amount,
+    }));
+  }
 
   if (templatePartial.merchant_name) merged.merchant_name = templatePartial.merchant_name;
   if (templatePartial.total != null) merged.total = templatePartial.total;
@@ -277,6 +295,7 @@ function finalize(
     payment_method: fields.payment_method ?? null,
     card_last_four: fields.card_last_four ?? null,
     notes: fields.notes ?? null,
+    items: fields.items ?? null,
     parse_confidence: clamp01(confidence),
   };
   return { status: "ok", fields: canonical };

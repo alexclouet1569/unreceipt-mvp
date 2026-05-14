@@ -16,7 +16,12 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
-import { CATEGORY_CONFIG, formatAmount, formatDate } from "@/lib/receipt-format";
+import {
+  CATEGORY_CONFIG,
+  formatAmount,
+  formatDate,
+  formatQty,
+} from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 
 // Bundled font registration. Done once per process — Font.register guards
@@ -141,6 +146,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 5,
     borderBottom: `0.5pt solid ${COLOR.hairline}`,
+  },
+  itemsBlock: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTop: `0.5pt dashed ${COLOR.hairline}`,
+  },
+  itemsHeader: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLOR.inkMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  itemLine: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 3,
+  },
+  itemLabel: {
+    flex: 1,
+    fontSize: 10,
+    color: COLOR.ink,
+    paddingRight: 8,
+  },
+  itemSubLabel: {
+    fontSize: 9,
+    color: COLOR.inkMuted,
+  },
+  itemAmount: {
+    fontSize: 10,
+    color: COLOR.ink,
+    fontFamily: "Manrope",
+    fontWeight: 500,
+    // @react-pdf doesn't honor `font-variant-numeric: tabular-nums`,
+    // so totals already render with a near-monospaced cadence at the
+    // sizes we use. Acceptable for receipt line items.
   },
   // Totals block — TOTAL is the visual hero.
   totals: {
@@ -309,6 +351,27 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
               />
             ) : null}
           </View>
+
+          {receipt.items && receipt.items.length > 0 ? (
+            <View style={styles.itemsBlock}>
+              <Text style={styles.itemsHeader}>Items</Text>
+              {receipt.items.map((item, idx) => (
+                <View key={idx} style={styles.itemLine}>
+                  <Text style={styles.itemLabel}>
+                    {item.label}
+                    {item.qty != null && item.qty !== 1 ? (
+                      <Text style={styles.itemSubLabel}>
+                        {`  × ${formatQty(item.qty)}${item.unit_amount != null ? ` @ ${formatAmount(item.unit_amount, receipt.currency)}` : ""}`}
+                      </Text>
+                    ) : null}
+                  </Text>
+                  <Text style={styles.itemAmount}>
+                    {formatAmount(item.total_amount, receipt.currency)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.totals}>
             {showSubtotal ? (

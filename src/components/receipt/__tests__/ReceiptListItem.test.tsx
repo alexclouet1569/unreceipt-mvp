@@ -42,6 +42,7 @@ const baseReceipt: Receipt = {
   original_source_kind: null,
   intake_ref: null,
   parse_confidence: null,
+  items: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };

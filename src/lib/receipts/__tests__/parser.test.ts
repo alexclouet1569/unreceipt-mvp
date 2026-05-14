@@ -261,4 +261,49 @@ describe("parseReceipt — paper", () => {
     expect(mockLlmExtract).not.toHaveBeenCalled();
     expect(result.status).toBe("pending_review");
   });
+
+  it("plumbs line items from the LLM into the canonical fields", async () => {
+    mockLlmExtract.mockResolvedValue({
+      merchant: "ICA Maxi",
+      amount: 194,
+      currency: "SEK",
+      receipt_date: "2026-05-10",
+      items: [
+        { label: "Red Bull 250ml", qty: 2, unit_amount: 19.5, total_amount: 39 },
+        { label: "Tomater Cherry 250g", qty: null, unit_amount: null, total_amount: 24.9 },
+        { label: "Mjölk 1L", qty: 1, unit_amount: 15.5, total_amount: 15.5 },
+      ],
+      confidence: 0.92,
+    });
+
+    const result = await parseReceipt({
+      kind: "paper",
+      raw: { ocrText: "ICA MAXI ... Red Bull ... Tomater ... Mjölk ... TOTAL 194,00 kr" },
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.items).toHaveLength(3);
+    expect(result.fields.items?.[0].label).toBe("Red Bull 250ml");
+    expect(result.fields.items?.[0].qty).toBe(2);
+    expect(result.fields.items?.[1].qty).toBeNull();
+  });
+
+  it("drops malformed items via Zod (missing total_amount) without breaking parse", async () => {
+    mockLlmExtract.mockResolvedValue({
+      merchant: "ICA",
+      amount: 100,
+      currency: "SEK",
+      receipt_date: "2026-05-10",
+      items: [{ label: "X" }],
+      confidence: 0.9,
+    });
+    const result = await parseReceipt({
+      kind: "paper",
+      raw: { ocrText: "X" },
+    });
+    // Schema validation fails on the items array → entire LLM result
+    // is treated as invalid and we fall back to pending_review.
+    expect(result.status).toBe("pending_review");
+  });
 });

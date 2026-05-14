@@ -8,6 +8,13 @@ import { computeReceiptStatus } from "@/lib/receipts/status";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const ItemSchema = z.object({
+  label: z.string().min(1).max(200),
+  qty: z.number().positive().max(10_000).nullable().optional(),
+  unit_amount: z.number().nonnegative().max(1_000_000).nullable().optional(),
+  total_amount: z.number().nonnegative().max(1_000_000),
+});
+
 const CaptureSchema = z.object({
   merchant: z.string().trim().min(1).max(200),
   amount: z.number().positive().max(1_000_000),
@@ -17,6 +24,9 @@ const CaptureSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "receipt_date must be YYYY-MM-DD"),
   category: z.enum(CATEGORY_KEYS as [string, ...string[]]),
   notes: z.string().max(2000).optional(),
+  // Line items extracted by OCR on the client. Optional — manual
+  // entries skip this, supermarket scans include the full list.
+  items: z.array(ItemSchema).max(200).optional(),
 });
 
 const fileExt = (name: string): string => {
@@ -41,6 +51,20 @@ export async function POST(request: NextRequest) {
 
   const amountRaw = form.get("amount");
   const notesRaw = form.get("notes");
+  // Items arrive as a single JSON-encoded string from the client (the
+  // form is multipart so we can't send a nested array natively).
+  const itemsRaw = form.get("items");
+  let itemsJson: unknown = undefined;
+  if (typeof itemsRaw === "string" && itemsRaw.length > 0) {
+    try {
+      itemsJson = JSON.parse(itemsRaw);
+    } catch {
+      return NextResponse.json(
+        { error: "items must be a JSON array" },
+        { status: 400 }
+      );
+    }
+  }
   const parsed = CaptureSchema.safeParse({
     merchant: typeof form.get("merchant") === "string" ? form.get("merchant") : undefined,
     amount: typeof amountRaw === "string" && amountRaw !== "" ? Number(amountRaw) : NaN,
@@ -49,6 +73,7 @@ export async function POST(request: NextRequest) {
       typeof form.get("receipt_date") === "string" ? form.get("receipt_date") : undefined,
     category: typeof form.get("category") === "string" ? form.get("category") : undefined,
     notes: typeof notesRaw === "string" && notesRaw.length > 0 ? notesRaw : undefined,
+    items: itemsJson,
   });
 
   if (!parsed.success) {
@@ -125,6 +150,7 @@ export async function POST(request: NextRequest) {
       notes: data.notes?.trim() || null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
+      items: data.items && data.items.length > 0 ? data.items : null,
       source,
       status,
     })

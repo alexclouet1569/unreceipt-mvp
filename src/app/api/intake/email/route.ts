@@ -246,6 +246,7 @@ export async function POST(request: NextRequest) {
           payment_method: parseResult.fields.payment_method ?? null,
           card_last_four: parseResult.fields.card_last_four ?? null,
           category: parseResult.fields.category ?? "other",
+          items: parseResult.fields.items ?? null,
           parse_confidence: parseResult.fields.parse_confidence,
           status: computeReceiptStatus({
             merchant_name: parseResult.fields.merchant_name,

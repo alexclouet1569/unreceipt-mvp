@@ -40,6 +40,7 @@ const baseReceipt = (overrides: Partial<Receipt> = {}): Receipt => ({
   original_source_kind: null,
   intake_ref: "msg_abc",
   parse_confidence: null,
+  items: null,
   created_at: "2026-05-03T12:00:00.000Z",
   updated_at: "2026-05-03T12:00:00.000Z",
   ...overrides,

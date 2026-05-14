@@ -18,8 +18,18 @@ export interface OcrResult {
   tax_amount?: number;
   tax_rate?: number;
   payment_method?: string;
+  // Every line item visible on the receipt — what makes the digital
+  // copy usable as proof of payment instead of just a summary.
+  items?: OcrItem[];
   confidence?: number;
   not_a_receipt?: boolean;
+}
+
+export interface OcrItem {
+  label: string;
+  qty?: number | null;
+  unit_amount?: number | null;
+  total_amount: number;
 }
 
 let client: Anthropic | null = null;
@@ -51,6 +61,14 @@ Extract fields from the user's receipt image and return ONLY valid JSON matching
   "tax_amount": <VAT/MOMS as a number, or omit if not visible>,
   "tax_rate": <VAT percentage as a number 0-100, or omit>,
   "payment_method": "<e.g. card, cash, klarna, swish, or omit>",
+  "items": [
+    {
+      "label": "<exact line label, preserve original language>",
+      "qty": <number or null when not visible>,
+      "unit_amount": <per-unit price or null>,
+      "total_amount": <line total — REQUIRED>
+    }
+  ],
   "confidence": <0-1, how confident you are in the extraction overall>
 }
 
@@ -59,7 +77,9 @@ Rules:
 - If the image is not a receipt, return only: {"not_a_receipt": true}
 - amount is the FINAL TOTAL paid, not subtotal.
 - currency: infer from currency symbol (€=EUR, kr=SEK, $=USD), or default to SEK for Swedish-looking receipts.
-- category: pick the closest match from the allowed list, default to "other" if unclear.`;
+- category: pick the closest match from the allowed list, default to "other" if unclear.
+- items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.
+- Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when the receipt doesn't print them.`;
 
 export async function extractReceipt(
   imageBase64: string,

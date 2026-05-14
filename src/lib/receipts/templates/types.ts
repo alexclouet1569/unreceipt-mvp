@@ -13,6 +13,14 @@ export type PartialFields = {
   payment_method?: string;
   card_last_four?: string;
   notes?: string;
+  items?: PartialItem[];
+};
+
+export type PartialItem = {
+  label: string;
+  qty: number | null;
+  unit_amount: number | null;
+  total_amount: number;
 };
 
 export interface EmailTemplate {
