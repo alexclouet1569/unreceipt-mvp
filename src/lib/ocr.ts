@@ -88,7 +88,11 @@ export async function extractReceipt(
   const c = getClient();
   const res = await c.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1024,
+    // Items are now part of the output — a long supermarket receipt
+    // with ~30 lines can push the JSON past 1024 tokens, which
+    // truncates the response and breaks JSON.parse. 4096 gives
+    // headroom for ~100 items without breaking the bank.
+    max_tokens: 4096,
     system: [
       {
         type: "text",

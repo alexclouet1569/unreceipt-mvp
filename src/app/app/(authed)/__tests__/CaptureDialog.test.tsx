@@ -208,7 +208,7 @@ describe("CaptureDialog", () => {
     expect((ocrCall![1].body as FormData).get("image")).toBeInstanceOf(File);
   });
 
-  it("falls back silently when OCR returns not_a_receipt", async () => {
+  it("surfaces a friendly message when OCR returns not_a_receipt so the user knows why fields are blank", async () => {
     const user = userEvent.setup();
     mocks.fetch.mockResolvedValue(okResponse({ not_a_receipt: true }));
     renderDialog();
@@ -219,12 +219,15 @@ describe("CaptureDialog", () => {
     ) as HTMLInputElement;
     await user.upload(input, file);
 
-    // No fields get filled, no scary error, user can still type.
+    // Fields stay empty (no invented data) and the user sees an explicit
+    // hint so they don't sit there wondering why nothing auto-filled.
     await waitFor(() => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
     expect(screen.getByLabelText(/Merchant/i)).toHaveValue("");
     expect(screen.getByLabelText(/Amount/i)).toHaveValue(null);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /couldn't recognise this image as a receipt/i
+    );
   });
 });
