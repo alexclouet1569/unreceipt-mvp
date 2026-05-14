@@ -60,6 +60,10 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  // Surface OCR failures to the user instead of silently bailing. Without
+  // this the form stays blank and the customer can't tell whether OCR
+  // ran, mis-identified the photo, or actually crashed server-side.
+  const [ocrError, setOcrError] = useState<string | null>(null);
   // Line items extracted by OCR (or pre-set later via the edit flow).
   // Forwarded to /api/capture so the digital receipt renders the full
   // line breakdown.
@@ -74,6 +78,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       setSaving(false);
       setSaveError(null);
       setOcrLoading(false);
+      setOcrError(null);
       setItems(null);
     }
   }, [open]);
@@ -84,13 +89,33 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
 
   const runOcr = async (file: File) => {
     setOcrLoading(true);
+    setOcrError(null);
     try {
       const fd = new FormData();
       fd.append("image", file);
       const res = await fetch("/api/ocr", { method: "POST", body: fd });
-      if (!res.ok) return;
+      if (!res.ok) {
+        // Try to surface the server-side error message so the customer
+        // (or the dev reading the screen) knows whether the image was
+        // too big, the API key is missing, etc. Common cases:
+        //   413/400 — image too large or wrong type
+        //   500    — Claude call threw (missing key, network)
+        const body = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        const reason = body?.error ?? `HTTP ${res.status}`;
+        setOcrError(
+          `Auto-fill failed: ${reason}. You can still type the fields manually.`
+        );
+        return;
+      }
       const data = (await res.json()) as OcrResult;
-      if (data.not_a_receipt) return;
+      if (data.not_a_receipt) {
+        setOcrError(
+          "We couldn't recognise this image as a receipt. Try a clearer photo, or type the fields below."
+        );
+        return;
+      }
 
       setForm((prev) => {
         const next: FormState = { ...prev };
@@ -125,7 +150,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       }
     } catch (err) {
       console.error("[capture] ocr failed:", err);
-      // silent fallback — user can still type fields manually
+      setOcrError(
+        err instanceof Error
+          ? `Auto-fill failed: ${err.message}. Type the fields manually.`
+          : "Auto-fill failed. Type the fields manually."
+      );
     } finally {
       setOcrLoading(false);
     }
@@ -146,6 +175,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     setImageFile(null);
     setImagePreview(null);
     setOcrLoading(false);
+    setOcrError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -249,6 +279,14 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
                   aria-hidden="true"
                 />
                 Reading your receipt…
+              </p>
+            ) : null}
+            {!ocrLoading && ocrError ? (
+              <p
+                role="alert"
+                className="mt-3 text-[13px] text-destructive bg-destructive/10 rounded-md px-3 py-2"
+              >
+                {ocrError}
               </p>
             ) : null}
           </div>
