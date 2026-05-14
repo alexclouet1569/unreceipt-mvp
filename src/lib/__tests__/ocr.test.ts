@@ -107,6 +107,37 @@ describe("extractReceipt", () => {
     );
   });
 
+  it("sends a document content block when the media_type is application/pdf", async () => {
+    mocks.create.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: '{"merchant":"Stripe","amount":29,"currency":"USD","receipt_date":"2026-05-10","category":"software"}',
+        },
+      ],
+    });
+
+    const { extractReceipt } = await importOcr();
+    const result = await extractReceipt("PDFBASE64", "application/pdf");
+
+    expect(result).toEqual({
+      merchant: "Stripe",
+      amount: 29,
+      currency: "USD",
+      receipt_date: "2026-05-10",
+      category: "software",
+    });
+
+    const call = mocks.create.mock.calls[0][0];
+    const block = call.messages[0].content[0];
+    expect(block.type).toBe("document");
+    expect(block.source).toEqual({
+      type: "base64",
+      media_type: "application/pdf",
+      data: "PDFBASE64",
+    });
+  });
+
   it("throws when the model response has no text block", async () => {
     mocks.create.mockResolvedValue({ content: [] });
     const { extractReceipt } = await importOcr();
