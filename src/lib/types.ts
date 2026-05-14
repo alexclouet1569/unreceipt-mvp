@@ -98,8 +98,29 @@ export interface Receipt {
   // to email/SMS intake where there is no OCR step.
   parse_confidence: number | null;
 
+  // Line items as a JSON array. Optional — many receipts (Uber rides,
+  // Stripe SaaS subscriptions) have no per-line breakdown. When the
+  // parser can pull individual items off a paper supermarket receipt
+  // or a Stripe line-itemed invoice they go here.
+  items: ReceiptItem[] | null;
+
   created_at: string;
   updated_at: string;
+}
+
+export interface ReceiptItem {
+  // The line label as it appears on the original receipt — e.g.
+  // "Red Bull 250ml", "Tomater Cherry 250g".
+  label: string;
+  // Item quantity. Often "1" for SKU-style items; can be 0.5, 2.5, etc.
+  // for weight-priced items. Null when the original receipt doesn't
+  // break it out.
+  qty: number | null;
+  // Per-unit price. Null when only the line total is shown.
+  unit_amount: number | null;
+  // The line total (qty * unit, including any line-specific tax). This
+  // is the only field guaranteed to be present.
+  total_amount: number;
 }
 
 export type SubscriptionStatus =

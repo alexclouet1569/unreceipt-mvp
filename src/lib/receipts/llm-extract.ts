@@ -25,8 +25,16 @@ export type LlmExtractResult = {
   payment_method?: string;
   card_last_four?: string;
   notes?: string;
+  items?: LlmExtractItem[];
   confidence?: number;
   not_a_receipt?: boolean;
+};
+
+export type LlmExtractItem = {
+  label: string;
+  qty?: number | null;
+  unit_amount?: number | null;
+  total_amount: number;
 };
 
 let client: Anthropic | null = null;
@@ -65,6 +73,14 @@ Return ONLY valid JSON matching this shape — no markdown, no prose, no code fe
   "payment_method": "<card | cash | klarna | swish | wire | apple_pay | google_pay, or omit>",
   "card_last_four": "<last 4 digits of card if mentioned, or omit>",
   "notes": "<one short line worth retaining, e.g. 'Trip from Hötorget to Arlanda', or omit>",
+  "items": [
+    {
+      "label": "<exact line label from the receipt, e.g. 'Red Bull 250ml' or 'Tomater Cherry 250g'>",
+      "qty": <number or null when not stated>,
+      "unit_amount": <per-unit price or null>,
+      "total_amount": <line total — required>
+    }
+  ],
   "confidence": <0.0-1.0 — how confident overall in the extraction>
 }
 
@@ -76,8 +92,11 @@ Rules:
 - receipt_date: convert relative dates ("today", "yesterday", "i går") using Stockholm timezone.
 - receipt_time: only include when explicitly stated.
 - category: pick the closest match from the allowed list; default "other" when unclear.
+- items: extract EVERY individual line item from the receipt when they appear — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment). For supermarket receipts that's every product (Red Bull, carrots, milk). For restaurant receipts that's every dish + drink. For SaaS receipts that's every line on the invoice. Use the EXACT label as printed (preserve language: "Tomater Cherry" not "Cherry Tomatoes"). Omit the array entirely when the receipt has no itemization (Uber rides, single-line transfers, bank SMS). Never invent items.
+- Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when not on the receipt.
+- The SUM of item totals should approximately equal the receipt subtotal (or total when there's no tax line). If it doesn't, prefer the printed subtotal/total — don't adjust items to match.
 - If the input is clearly NOT a receipt (newsletter, marketing email, conversation, ad), return ONLY: {"not_a_receipt": true}
-- For SMS inputs, the bank pattern is often: "Köp <amount> SEK/kr hos <MERCHANT> <date>" — the merchant is BETWEEN "hos" and the date.`;
+- For SMS inputs, the bank pattern is often: "Köp <amount> SEK/kr hos <MERCHANT> <date>" — the merchant is BETWEEN "hos" and the date. SMS receipts NEVER have items.`;
 
 function userTurnFor(kind: LlmExtractKind, body: string, hint?: string): string {
   const banner = (() => {

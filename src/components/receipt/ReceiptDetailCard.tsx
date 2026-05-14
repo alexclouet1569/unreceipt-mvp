@@ -6,6 +6,7 @@ import {
   CATEGORY_CONFIG,
   formatAmount,
   formatDate,
+  formatQty,
   splitFormattedAmount,
 } from "@/lib/receipt-format";
 import { getMerchantColor, getMerchantInitials } from "@/lib/merchant-display";
@@ -124,6 +125,53 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
       </div>
 
       <PerfEdge variant="divider" />
+
+      {/* Line items — the per-product breakdown that turns a digital
+          summary into a true copy of the paper receipt. Only renders
+          when the parser/OCR pulled them off the original. */}
+      {receipt.items && receipt.items.length > 0 ? (
+        <>
+          <div className="px-5 py-5">
+            <p
+              className="text-[var(--ink-faint)]"
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                marginBottom: "10px",
+              }}
+            >
+              Items
+            </p>
+            <ul className="space-y-1.5">
+              {receipt.items.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-baseline gap-3 text-[var(--ink)]"
+                  style={{ fontSize: "14px" }}
+                >
+                  <span className="flex-1 min-w-0 break-words">
+                    {item.label}
+                    {item.qty != null && item.qty !== 1 ? (
+                      <span className="text-[var(--ink-muted)]">
+                        {` × ${formatQty(item.qty)}`}
+                        {item.unit_amount != null
+                          ? ` @ ${formatAmount(item.unit_amount, receipt.currency)}`
+                          : ""}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="font-mono tabular-nums shrink-0">
+                    {formatAmount(item.total_amount, receipt.currency)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <PerfEdge variant="divider" />
+        </>
+      ) : null}
 
       {/* Totals breakdown */}
       <div className="px-5 py-5 space-y-2">
