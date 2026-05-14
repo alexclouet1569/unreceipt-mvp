@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Camera, Loader2, X } from "lucide-react";
+import { Camera, FileText, Loader2, Upload, X } from "lucide-react";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -53,7 +53,12 @@ const blankForm = (): FormState => ({
 
 export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Two hidden inputs so the picker UI is explicit: "Upload" opens the
+  // file/gallery picker (no camera bias) and "Take photo" opens the camera
+  // via `capture="environment"`. The old single-input + `capture` attr
+  // pushed iOS straight to the camera and buried the gallery path.
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<FormState>(blankForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -165,9 +170,16 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     setImageFile(f);
     setImagePreview(null);
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview((ev.target?.result as string) ?? null);
-    reader.readAsDataURL(f);
+    // PDFs can't be previewed with FileReader as a data URL inside an <img>
+    // — show a generic document badge instead. The Original tab on the
+    // detail dialog (PR #52) renders the real PDF after save.
+    if (f.type === "application/pdf") {
+      setImagePreview("__pdf__");
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview((ev.target?.result as string) ?? null);
+      reader.readAsDataURL(f);
+    }
     void runOcr(f);
   };
 
@@ -176,7 +188,8 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     setImagePreview(null);
     setOcrLoading(false);
     setOcrError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (uploadInputRef.current) uploadInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -227,41 +240,83 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
           <div>
             {imagePreview ? (
               <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt="Receipt preview"
-                  className="w-full rounded-lg border"
-                />
+                {imagePreview === "__pdf__" && imageFile ? (
+                  <div className="w-full rounded-lg border bg-[var(--brand-tint,#ECF7E7)]/30 p-6 flex items-center gap-3">
+                    <FileText className="w-8 h-8 text-[var(--ink-muted)] shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-medium text-[var(--ink)] truncate">
+                        {imageFile.name}
+                      </p>
+                      <p className="text-[12px] text-[var(--ink-muted)]">
+                        PDF · {(imageFile.size / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={imagePreview}
+                    alt="Receipt preview"
+                    className="w-full rounded-lg border"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={clearImage}
                   className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-full p-1 border border-border"
-                  aria-label="Remove image"
+                  aria-label="Remove file"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border border-dashed border-[var(--hairline)] rounded-[12px] p-6 text-center hover:border-[color-mix(in_srgb,var(--brand)_50%,var(--hairline))] hover:bg-[var(--brand-tint,#ECF7E7)]/30 transition-colors"
+              <div
+                className="w-full border border-dashed border-[var(--hairline)] rounded-[12px] p-5 text-center"
                 style={{
                   backgroundImage:
                     "radial-gradient(circle 1px at 1px 1px, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1.5px)",
                   backgroundSize: "8px 8px",
                 }}
               >
-                <Camera className="w-7 h-7 text-[var(--ink-faint)] mx-auto mb-1" />
-                <p className="text-[14px] font-medium text-[var(--ink)]">Add a photo (optional)</p>
-                <p className="text-[12px] text-[var(--ink-muted)] mt-1">
-                  Tap to take or choose
+                <p className="text-[14px] font-medium text-[var(--ink)] mb-1">
+                  Add a receipt (optional)
                 </p>
-              </button>
+                <p className="text-[12px] text-[var(--ink-muted)] mb-3">
+                  Photo, PDF, or screenshot
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => uploadInputRef.current?.click()}
+                    className="gap-1.5"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="gap-1.5"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Take photo
+                  </Button>
+                </div>
+              </div>
             )}
             <input
-              ref={fileInputRef}
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={onPickFile}
+            />
+            <input
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"

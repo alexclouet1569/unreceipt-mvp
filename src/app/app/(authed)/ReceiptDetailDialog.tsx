@@ -11,7 +11,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Trash2 } from "lucide-react";
+import { Download, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import { getSupabaseClient } from "@/lib/supabase-client";
@@ -37,11 +37,15 @@ export function ReceiptDetailDialog({
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [reprocessing, setReprocessing] = useState(false);
+  const [reprocessError, setReprocessError] = useState<string | null>(null);
 
   useEffect(() => {
     setConfirming(false);
     setDeleting(false);
     setDeleteError(null);
+    setReprocessing(false);
+    setReprocessError(null);
   }, [receipt?.id]);
 
   const open = receipt !== null;
@@ -50,6 +54,51 @@ export function ReceiptDetailDialog({
   // Original tab entirely. Every other intake path stores a raw
   // artifact (paper photo, email .eml, SMS .txt) we can show.
   const hasOriginal = receipt != null && receipt.source !== "manual";
+
+  // "Re-run extraction" makes sense when the row has an OCR-eligible
+  // artifact (image/PDF) AND the digital twin is still thin — either
+  // it never got line items, the parser flagged low confidence, or
+  // it's still pending_review. eml/txt artifacts go through the email
+  // parser, not /api/ocr, so they don't show this button.
+  const isOcrEligibleArtifact =
+    receipt != null &&
+    (receipt.image_url != null ||
+      (receipt.original_source_kind != null &&
+        receipt.original_source_kind.startsWith("image/")) ||
+      receipt.original_source_kind === "application/pdf");
+  const couldReprocess =
+    receipt != null &&
+    isOcrEligibleArtifact &&
+    ((receipt.items == null || receipt.items.length === 0) ||
+      (receipt.parse_confidence != null && receipt.parse_confidence < 0.75) ||
+      receipt.status === "pending_review");
+
+  const handleReprocess = async () => {
+    if (!receipt) return;
+    setReprocessError(null);
+    setReprocessing(true);
+    try {
+      const res = await fetch(`/api/receipts/${receipt.id}/reprocess`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(body?.error ?? `Re-run failed (HTTP ${res.status})`);
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("[/app] reprocess failed", err);
+      setReprocessError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't re-run extraction. Try again in a moment."
+      );
+    } finally {
+      setReprocessing(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!receipt) return;
@@ -135,6 +184,34 @@ export function ReceiptDetailDialog({
             )}
 
             <div className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]">
+              {couldReprocess ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-1.5"
+                    onClick={handleReprocess}
+                    disabled={reprocessing}
+                    data-testid="receipt-reprocess-button"
+                  >
+                    {reprocessing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    {reprocessing ? "Reading receipt…" : "Re-run extraction"}
+                  </Button>
+                  {reprocessError ? (
+                    <p
+                      role="alert"
+                      className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2"
+                    >
+                      {reprocessError}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+
               {pending ? (
                 <p
                   className="text-[var(--attention-deep)] font-accent italic text-center"

@@ -57,7 +57,7 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the image MIME type is unsupported", async () => {
+  it("returns 400 when the file MIME type is unsupported", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     const fd = new FormData();
     fd.append("image", imageBlob("image/heic"), "r.heic");
@@ -65,14 +65,18 @@ describe("POST /api/ocr", () => {
     const res = await POST(buildRequest(fd));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/unsupported image type/i);
+    expect(body.error).toMatch(/unsupported file type/i);
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the image exceeds 5MB", async () => {
+  it("returns 400 when the file exceeds 15MB", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     const fd = new FormData();
-    fd.append("image", imageBlob("image/jpeg", 5 * 1024 * 1024 + 1), "big.jpg");
+    fd.append(
+      "image",
+      imageBlob("image/jpeg", 15 * 1024 * 1024 + 1),
+      "big.jpg"
+    );
 
     const res = await POST(buildRequest(fd));
     expect(res.status).toBe(400);
@@ -98,6 +102,56 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).toHaveBeenCalledTimes(1);
     const [, mediaType] = mocks.extractReceipt.mock.calls[0];
     expect(mediaType).toBe("image/jpeg");
+  });
+
+  // ---------- PDF intake ----------
+
+  // Minimal one-page PDF binary — single `/Type /Page` occurrence so the
+  // page-count guard counts it as 1 page.
+  const ONE_PAGE_PDF = Buffer.from(
+    "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+      "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n" +
+      "3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n%%EOF",
+    "latin1"
+  );
+
+  const pdfBlob = (bytes: Buffer = ONE_PAGE_PDF) =>
+    new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+
+  it("accepts application/pdf and forwards to extractReceipt", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    mocks.extractReceipt.mockResolvedValue({
+      merchant: "Stripe",
+      amount: 29,
+      currency: "USD",
+    });
+    const fd = new FormData();
+    fd.append("image", pdfBlob(), "invoice.pdf");
+
+    const res = await POST(buildRequest(fd));
+    expect(res.status).toBe(200);
+    expect(mocks.extractReceipt).toHaveBeenCalledTimes(1);
+    const [, mediaType] = mocks.extractReceipt.mock.calls[0];
+    expect(mediaType).toBe("application/pdf");
+  });
+
+  it("rejects PDFs over the page-count cap", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    // 11 `/Type /Page` occurrences — one above the 10-page cap.
+    const manyPages = Buffer.from(
+      "%PDF-1.4\n" +
+        Array.from({ length: 11 }, (_, i) => `${i} 0 obj\n<< /Type /Page >>\nendobj\n`).join("") +
+        "%%EOF",
+      "latin1"
+    );
+    const fd = new FormData();
+    fd.append("image", pdfBlob(manyPages), "contract.pdf");
+
+    const res = await POST(buildRequest(fd));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/pages/i);
+    expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
   it("returns 500 when the OCR call throws", async () => {

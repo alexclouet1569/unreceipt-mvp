@@ -6,7 +6,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
-export type OcrMediaType = "image/jpeg" | "image/png" | "image/webp";
+// Image MIME types Claude vision accepts directly + application/pdf, which
+// goes through the SDK's `document` content block. PDFs are first-class
+// because half the receipts a Swedish SMB sees are already digital (Stripe,
+// Klarna, AWS, Apple invoices forwarded by hand).
+export type OcrMediaType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "application/pdf";
 
 export interface OcrResult {
   merchant?: string;
@@ -104,14 +112,23 @@ export async function extractReceipt(
       {
         role: "user",
         content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mediaType,
-              data: imageBase64,
-            },
-          },
+          mediaType === "application/pdf"
+            ? {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/pdf",
+                  data: imageBase64,
+                },
+              }
+            : {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: mediaType,
+                  data: imageBase64,
+                },
+              },
           {
             type: "text",
             text: `Extract fields as JSON. Today's date in Stockholm time is ${todayISO()} — use it for relative date inference when the receipt date is implicit.`,
