@@ -28,6 +28,14 @@ vi.mock("@supabase/ssr", () => ({
         }),
       }),
     }),
+  }),
+}));
+
+// Storage now goes through getSupabaseAdmin() (service-role) because the
+// `receipts` / `receipt-originals` buckets aren't wired for anon-key
+// reads — uploads happen via the admin client too, so downloads mirror.
+vi.mock("@/lib/supabase-admin", () => ({
+  getSupabaseAdmin: () => ({
     storage: {
       from: () => ({
         createSignedUrl: (...args: unknown[]) => mockCreateSignedUrl(...args),

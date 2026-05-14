@@ -18,6 +18,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/supabase-server";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { Receipt, ReceiptOriginalKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -215,9 +216,14 @@ export async function GET(
     return NextResponse.json({ error: "no_original" }, { status: 404 });
   }
 
-  // Mint the signed URL. RLS on storage objects enforces ownership a
-  // second time at this layer.
-  const { data: signed, error: signError } = await supabase.storage
+  // Mint the signed URL. The row lookup above is RLS-scoped via the
+  // user-cookie client (so we already verified ownership). The storage
+  // call uses the service-role admin client because storage RLS
+  // policies for the `receipts` and `receipt-originals` buckets were
+  // never wired for anon-key reads — the intake handlers upload via
+  // the admin client, and downloads must mirror that.
+  const admin = getSupabaseAdmin();
+  const { data: signed, error: signError } = await admin.storage
     .from(bucket)
     .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
 
@@ -241,7 +247,7 @@ export async function GET(
   // CORS / MIME quirks.
   if (kind === "eml" || kind === "txt") {
     try {
-      const dl = await supabase.storage.from(bucket).download(path);
+      const dl = await admin.storage.from(bucket).download(path);
       if (dl.data) {
         const raw = await dl.data.text();
         if (kind === "eml") {
