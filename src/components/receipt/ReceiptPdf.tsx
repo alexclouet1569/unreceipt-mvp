@@ -128,25 +128,6 @@ const styles = StyleSheet.create({
     fontWeight: 500,
     color: COLOR.ink,
   },
-  // Items table — only rendered if items[] has rows.
-  itemsHeader: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    borderBottom: `1pt solid ${COLOR.ink}`,
-    marginTop: 8,
-  },
-  itemsHeaderCell: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: COLOR.ink,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  itemRow: {
-    flexDirection: "row",
-    paddingVertical: 5,
-    borderBottom: `0.5pt solid ${COLOR.hairline}`,
-  },
   itemsBlock: {
     marginTop: 16,
     paddingTop: 12,
