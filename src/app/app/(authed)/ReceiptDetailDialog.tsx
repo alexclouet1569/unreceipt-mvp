@@ -88,7 +88,7 @@ export function ReceiptDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm mx-auto max-h-[90vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Receipt</DialogTitle>
         </DialogHeader>
