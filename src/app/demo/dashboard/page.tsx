@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
-  Receipt,
   ArrowLeft,
   TrendingUp,
   Clock,
@@ -22,6 +21,7 @@ import {
   Smartphone,
   X,
 } from "lucide-react";
+import { Wordmark } from "@/components/brand/Wordmark";
 import {
   transactions,
   employees,
@@ -49,10 +49,7 @@ export default function FinanceDashboardPage() {
             Back
           </Link>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Receipt className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm">UnReceipt</span>
+            <Wordmark variant="horizontal" className="text-[18px]" />
             <Badge variant="secondary" className="text-xs">
               Finance
             </Badge>
