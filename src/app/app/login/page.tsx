@@ -16,7 +16,10 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { getSupabaseClient } from "@/lib/supabase-client";
+import {
+  getSupabaseClient,
+  getSupabaseClientDebugId,
+} from "@/lib/supabase-client";
 
 // useSearchParams() forces a CSR bailout; Next 16 requires it to live
 // inside a Suspense boundary so the page can still be statically
@@ -183,11 +186,16 @@ function SignInPanel() {
     setLoading(true);
     const startedAt = Date.now(); // [auth-debug]
     authDebug("signInWithPassword:start", startedAt);
+    const supabase = getSupabaseClient();
+    console.log(
+      "[auth-debug] handlePasswordSignIn: client id before signInWithPassword",
+      getSupabaseClientDebugId()
+    );
     let authError: { message?: string } | null = null;
     try {
       const res = await withAuthTimeout(
         "signInWithPassword",
-        getSupabaseClient().auth.signInWithPassword({
+        supabase.auth.signInWithPassword({
           email: parsed.data.email,
           password: parsed.data.password,
         })

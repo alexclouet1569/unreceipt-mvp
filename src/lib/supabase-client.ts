@@ -5,6 +5,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null = null;
 
+// [auth-debug] TEMPORARY: unique id per created browser client so we can
+// correlate the instance across getSupabaseClient / ClientShell / the login
+// form and confirm they all share the same singleton. Grep "[auth-debug]" /
+// "clientId" to strip.
+let clientId: string | null = null;
+
+export function getSupabaseClientDebugId(): string | null {
+  return clientId;
+}
+
 /**
  * Lazily instantiate the browser Supabase client.
  *
@@ -27,7 +37,10 @@ let client: SupabaseClient | null = null;
  *      Defer until first call.
  */
 export function getSupabaseClient(): SupabaseClient {
-  if (client) return client;
+  if (client) {
+    console.log("[auth-debug] getSupabaseClient: returning cached instance", clientId);
+    return client;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -50,6 +63,8 @@ export function getSupabaseClient(): SupabaseClient {
     fn: () => Promise<R>
   ): Promise<R> => fn();
 
+  clientId = Math.random().toString(36).slice(2, 10);
+  console.log("[auth-debug] getSupabaseClient: creating new instance", clientId);
   client = createBrowserClient(url, anonKey, {
     auth: { lock: noOpLock },
   });

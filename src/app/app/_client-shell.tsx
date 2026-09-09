@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getSupabaseClient } from "@/lib/supabase-client";
+import {
+  getSupabaseClient,
+  getSupabaseClientDebugId,
+} from "@/lib/supabase-client";
 
 /**
  * Browser-only shell mounted by /app/layout.tsx so it wraps both the
@@ -58,6 +61,10 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     let subscription: { unsubscribe: () => void } | undefined;
     try {
       const supabase = getSupabaseClient();
+      console.log(
+        "[auth-debug] ClientShell: registering onAuthStateChange",
+        getSupabaseClientDebugId()
+      );
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         console.log("[auth-debug] cb:enter", event);
         // This callback MUST stay synchronous and MUST NOT await any
@@ -108,6 +115,10 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
 
         console.log("[auth-debug] cb:exit", event);
       });
+      console.log(
+        "[auth-debug] ClientShell: onAuthStateChange registered",
+        getSupabaseClientDebugId()
+      );
       subscription = data.subscription;
     } catch (err) {
       console.error("[client-shell] Supabase client unavailable", err);
