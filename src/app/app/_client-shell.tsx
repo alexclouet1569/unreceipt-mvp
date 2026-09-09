@@ -58,7 +58,8 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     let subscription: { unsubscribe: () => void } | undefined;
     try {
       const supabase = getSupabaseClient();
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log("[auth-debug] cb:enter", event);
         // This callback MUST stay synchronous and MUST NOT await any
         // supabase-js call. supabase-js awaits every onAuthStateChange
         // handler before signInWithPassword / getSession / etc. resolve, so
@@ -104,6 +105,8 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
             }
           })();
         }, 0);
+
+        console.log("[auth-debug] cb:exit", event);
       });
       subscription = data.subscription;
     } catch (err) {
