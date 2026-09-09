@@ -58,36 +58,53 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     let subscription: { unsubscribe: () => void } | undefined;
     try {
       const supabase = getSupabaseClient();
-      const { data } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          // No session at all → redirect off authed surfaces.
-          if (!session) {
-            if (pathname !== "/app/login") {
-              router.replace("/app/login");
-            }
-            return;
-          }
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        // This callback MUST stay synchronous and MUST NOT await any
+        // supabase-js call. supabase-js awaits every onAuthStateChange
+        // handler before signInWithPassword / getSession / etc. resolve, so
+        // an inline `await supabase.auth.getUser()` here deadlocks: the
+        // sign-in promise waits on this handler, this handler waits on
+        // getUser(), and getUser() waits behind the same in-flight auth call.
+        // The round-trip returns 200 and the session persists, but the
+        // promise never settles. So: do only synchronous navigation inline,
+        // and defer any Supabase work onto a fresh task with setTimeout(…, 0)
+        // so this handler returns immediately and the triggering call can
+        // resolve.
 
-          // Session present — validate against the API before trusting it.
-          // A deleted user still has a syntactically valid JWT in cookies;
-          // getUser() round-trips and returns null in that case.
-          const { data, error } = await supabase.auth.getUser();
-          if (error || !data.user) {
-            // Stale cookie. Clear it locally so the next render is clean and
-            // we don't ping-pong with the server gate.
-            await supabase.auth.signOut().catch(() => {});
-            if (pathname !== "/app/login") {
-              router.replace("/app/login");
-            }
-            return;
+        // No session at all → redirect off authed surfaces. Pure navigation,
+        // no Supabase call, so it's safe inline.
+        if (!session) {
+          if (pathname !== "/app/login") {
+            router.replace("/app/login");
           }
-
-          // Real user — safe to drop them onto the dashboard from /app/login.
-          if (pathname === "/app/login") {
-            router.replace("/app");
-          }
+          return;
         }
-      );
+
+        // Session present — validate out-of-band, on a later task, so we're
+        // no longer inside the auth call that emitted this event. The
+        // deleted-user guard still runs; it just doesn't block the callback.
+        setTimeout(() => {
+          void (async () => {
+            // A deleted user still has a syntactically valid JWT in cookies;
+            // getUser() round-trips and returns null in that case.
+            const { data: userData, error } = await supabase.auth.getUser();
+            if (error || !userData.user) {
+              // Stale cookie / deleted user. Clear it locally so the next
+              // render is clean and we don't ping-pong with the server gate.
+              await supabase.auth.signOut().catch(() => {});
+              if (pathname !== "/app/login") {
+                router.replace("/app/login");
+              }
+              return;
+            }
+
+            // Real user — safe to drop them onto the dashboard from /app/login.
+            if (pathname === "/app/login") {
+              router.replace("/app");
+            }
+          })();
+        }, 0);
+      });
       subscription = data.subscription;
     } catch (err) {
       console.error("[client-shell] Supabase client unavailable", err);
