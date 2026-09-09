@@ -62,6 +62,30 @@ function withAuthTimeout<T>(label: string, p: PromiseLike<T>): Promise<T> {
   }) as Promise<T>;
 }
 
+// ─── BEGIN [auth-debug] temporary sign-in instrumentation ───
+// Structured console logging around the password sign-in call to diagnose
+// the production hang. Every line is a single JSON object prefixed with
+// "[auth-debug] " and carries an ISO timestamp plus elapsed ms since the
+// call started. To strip later: delete this helper and grep the file for
+// `authDebug(` to remove the call sites.
+function authDebug(
+  event: string,
+  startedAt: number,
+  extra?: Record<string, unknown>
+) {
+  const now = Date.now();
+  console.log(
+    "[auth-debug] " +
+      JSON.stringify({
+        event,
+        at: new Date(now).toISOString(),
+        elapsedMs: now - startedAt,
+        ...extra,
+      })
+  );
+}
+// ─── END [auth-debug] ───
+
 function LoginPageInner() {
   const searchParams = useSearchParams();
   const [topError, setTopError] = useState("");
@@ -157,6 +181,8 @@ function SignInPanel() {
     }
 
     setLoading(true);
+    const startedAt = Date.now(); // [auth-debug]
+    authDebug("signInWithPassword:start", startedAt);
     let authError: { message?: string } | null = null;
     try {
       const res = await withAuthTimeout(
@@ -167,8 +193,23 @@ function SignInPanel() {
         })
       );
       authError = res.error;
+      if (authError) {
+        authDebug("signInWithPassword:error", startedAt, {
+          message: authError.message,
+        });
+      } else {
+        authDebug("signInWithPassword:success", startedAt);
+      }
     } catch (e) {
-      authError = { message: e instanceof Error ? e.message : "request failed" };
+      const message = e instanceof Error ? e.message : "request failed";
+      authError = { message };
+      authDebug(
+        message.toLowerCase().includes("timed out")
+          ? "signInWithPassword:timeout"
+          : "signInWithPassword:error",
+        startedAt,
+        { message }
+      );
     }
     setLoading(false);
 
@@ -402,24 +443,37 @@ function SignUpPanel() {
     }
 
     setLoading(true);
-    const { error: authError } = await getSupabaseClient().auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      options: {
-        // Land on /auth/callback so the session cookie is set server-side
-        // and public.profiles is upserted from this metadata.
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/app`,
-        data: {
-          full_name: parsed.data.full_name,
-          company_name: parsed.data.company_name || null,
-        },
-      },
-    });
+    let authError: { message?: string } | null = null;
+    try {
+      const res = await withAuthTimeout(
+        "signUp",
+        getSupabaseClient().auth.signUp({
+          email: parsed.data.email,
+          password: parsed.data.password,
+          options: {
+            // Land on /auth/callback so the session cookie is set server-side
+            // and public.profiles is upserted from this metadata.
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/app`,
+            data: {
+              full_name: parsed.data.full_name,
+              company_name: parsed.data.company_name || null,
+            },
+          },
+        })
+      );
+      authError = res.error;
+    } catch (e) {
+      authError = { message: e instanceof Error ? e.message : "request failed" };
+    }
     setLoading(false);
 
     if (authError) {
       const msg = (authError.message ?? "").toLowerCase();
-      if (msg.includes("already") || msg.includes("registered")) {
+      if (msg.includes("timed out")) {
+        // Same copy the sign-in path shows on timeout — a hang here now
+        // surfaces a message instead of spinning the button forever.
+        setError("Sign-in is taking too long. Reload the page and try again.");
+      } else if (msg.includes("already") || msg.includes("registered")) {
         setError(
           "That email is already registered. Try signing in, or use 'Forgot password?' to get a magic link."
         );

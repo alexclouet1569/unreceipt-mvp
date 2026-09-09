@@ -16,7 +16,7 @@
 // surfaces remain reachable on the same host.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { isAdminEmail } from "@/lib/auth-admin";
 
@@ -80,6 +80,31 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
+  // Official Supabase + Next.js App Router pattern: read the auth cookies
+  // off the request, call getUser() (which silently rotates an expiring
+  // access token using the refresh token), and replay any Set-Cookie the
+  // SDK emits onto whatever response we ultimately return. This runs BEFORE
+  // the host-routing and admin logic below but deliberately does NOT
+  // short-circuit them — it is refresh-only and adds no redirect or gate,
+  // so it cannot change who can reach what.
+  //
+  // Skipped for /admin + /api/admin: adminGate() already runs getUser() and
+  // writes refreshed cookies onto its own response, so refreshing here too
+  // would be a redundant second token rotation on the same request.
+  const isAdminPath =
+    path.startsWith("/admin") || path.startsWith("/api/admin");
+  const refreshedCookies = isAdminPath
+    ? []
+    : await refreshSessionCookies(request);
+  const withRefreshedCookies = (res: NextResponse): NextResponse => {
+    for (const { name, value, options } of refreshedCookies) {
+      res.cookies.set({ name, value, ...options });
+    }
+    return res;
+  };
+  // ─── END session refresh ───
+
   const host = (request.headers.get("host") ?? "").toLowerCase();
   const onApex = APEX_HOSTS.has(host);
   const onApp = host === APP_HOST;
@@ -88,26 +113,57 @@ export async function proxy(request: NextRequest) {
   // wrong host (e.g. a still-pointing-at-apex Stripe webhook) survives
   // the transition window while the founder updates the dashboard URLs.
   if (onApex && isAppOnly(path)) {
-    return NextResponse.redirect(
-      new URL(path + request.nextUrl.search, `https://${APP_HOST}`),
-      308
+    return withRefreshedCookies(
+      NextResponse.redirect(
+        new URL(path + request.nextUrl.search, `https://${APP_HOST}`),
+        308
+      )
     );
   }
   if (onApp && isApexOnly(path)) {
-    return NextResponse.redirect(
-      new URL(path + request.nextUrl.search, "https://unreceipt.com"),
-      308
+    return withRefreshedCookies(
+      NextResponse.redirect(
+        new URL(path + request.nextUrl.search, "https://unreceipt.com"),
+        308
+      )
     );
   }
 
   // Admin allowlist — runs on whichever host we ended up on. After the
   // split this is effectively only the app host; before / during DNS
   // propagation it also protects apex.
-  if (path.startsWith("/admin") || path.startsWith("/api/admin")) {
+  if (isAdminPath) {
     return adminGate(request);
   }
 
-  return NextResponse.next();
+  return withRefreshedCookies(NextResponse.next());
+}
+
+// TEMPORARY helper for the session-refresh block in proxy() above — remove
+// alongside it. Builds a request-scoped Supabase client, refreshes the
+// session via getUser(), and returns the cookies the SDK wants to set so the
+// caller can replay them onto the outgoing response. Returns [] when the env
+// is unconfigured; never throws.
+async function refreshSessionCookies(
+  request: NextRequest
+): Promise<{ name: string; value: string; options: CookieOptions }[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return [];
+
+  const refreshed: { name: string; value: string; options: CookieOptions }[] =
+    [];
+  const supabase = createServerClient(url, anon, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll: (toSet) => {
+        for (const cookie of toSet) refreshed.push(cookie);
+      },
+    },
+  });
+
+  await supabase.auth.getUser();
+  return refreshed;
 }
 
 async function adminGate(request: NextRequest) {

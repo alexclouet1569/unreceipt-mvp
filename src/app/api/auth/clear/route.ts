@@ -1,10 +1,18 @@
-// User-triggered escape hatch for stale Supabase auth cookies. The founder
-// (and pilot testers) routinely delete users, rotate JWT secrets, or retry
-// signups — leaving sb-* cookies that point at a user the SDK can no longer
-// refresh. signInWithPassword then hangs on the silent JWT refresh attempt.
+// User-triggered escape hatch that wipes every sb-* Supabase auth cookie and
+// signs the session out, so the next page load starts from a clean anonymous
+// state. /app/login's "Reset session" link POSTs here.
 //
-// /app/login's "Reset session" link POSTs here, we wipe every sb-* cookie,
-// and the next page load starts from a clean anonymous state.
+// History / what this is NOT: this began as the suspected fix for the login
+// hang, on the hypothesis that stale sb-* cookies (from deleted users,
+// rotated JWT secrets, or retried signups) made signInWithPassword hang on a
+// silent JWT refresh. PR #27 falsified that: the hang reproduced in a fresh
+// incognito window with NO sb-* cookies present, so stale cookies are not the
+// cause. The real culprit was the navigator.locks-based session lock, now
+// disabled via the no-op lock in src/lib/supabase-client.ts.
+//
+// We keep this endpoint anyway as a genuine session-reset affordance — it
+// still helps users stuck with an invalid session (deleted user, rotated
+// secret) get back to a clean state — but it is not the hang fix.
 //
 // Intentionally NOT auto-triggered on mount (see PR #25 revert).
 
