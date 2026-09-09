@@ -171,7 +171,53 @@ function SignInPanel() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [magicSent, setMagicSent] = useState(false);
+
+  // One sign-in attempt. Returns { ok:true } on success, or a failure with a
+  // `brokenSession` flag: true when the call rejected/timed out (the hang /
+  // transport symptom we can recover from by clearing the session), false when
+  // it resolved with a real auth error like invalid credentials (retrying
+  // wouldn't help).
+  const attemptSignIn = async (
+    signinEmail: string,
+    signinPassword: string
+  ): Promise<{ ok: true } | { ok: false; message?: string; brokenSession: boolean }> => {
+    const startedAt = Date.now(); // [auth-debug]
+    authDebug("signInWithPassword:start", startedAt);
+    const supabase = getSupabaseClient();
+    console.log(
+      "[auth-debug] handlePasswordSignIn: client id before signInWithPassword",
+      getSupabaseClientDebugId()
+    );
+    try {
+      const res = await withAuthTimeout(
+        "signInWithPassword",
+        supabase.auth.signInWithPassword({
+          email: signinEmail,
+          password: signinPassword,
+        })
+      );
+      if (res.error) {
+        authDebug("signInWithPassword:error", startedAt, {
+          message: res.error.message,
+        });
+        return { ok: false, message: res.error.message, brokenSession: false };
+      }
+      authDebug("signInWithPassword:success", startedAt);
+      return { ok: true };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "request failed";
+      authDebug(
+        message.toLowerCase().includes("timed out")
+          ? "signInWithPassword:timeout"
+          : "signInWithPassword:error",
+        startedAt,
+        { message }
+      );
+      return { ok: false, message, brokenSession: true };
+    }
+  };
 
   const handlePasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,45 +230,28 @@ function SignInPanel() {
     }
 
     setLoading(true);
-    const startedAt = Date.now(); // [auth-debug]
-    authDebug("signInWithPassword:start", startedAt);
-    const supabase = getSupabaseClient();
-    console.log(
-      "[auth-debug] handlePasswordSignIn: client id before signInWithPassword",
-      getSupabaseClientDebugId()
-    );
-    let authError: { message?: string } | null = null;
-    try {
-      const res = await withAuthTimeout(
-        "signInWithPassword",
-        supabase.auth.signInWithPassword({
-          email: parsed.data.email,
-          password: parsed.data.password,
-        })
-      );
-      authError = res.error;
-      if (authError) {
-        authDebug("signInWithPassword:error", startedAt, {
-          message: authError.message,
-        });
-      } else {
-        authDebug("signInWithPassword:success", startedAt);
+    let result = await attemptSignIn(parsed.data.email, parsed.data.password);
+
+    // Auto-recovery — ONLY after a failure that looks like a broken session,
+    // and ONLY once. Never on mount: auto-clearing on load was tried in PR #25
+    // and reverted in PR #26 because it signed out valid users. It's safe here
+    // because the user isn't authenticated yet in this flow, so wiping sb-*
+    // cookies costs them nothing.
+    if (!result.ok && result.brokenSession) {
+      setReconnecting(true);
+      try {
+        await fetch("/api/auth/clear", { method: "POST" });
+      } catch {
+        /* ignore — retry the sign-in regardless */
       }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "request failed";
-      authError = { message };
-      authDebug(
-        message.toLowerCase().includes("timed out")
-          ? "signInWithPassword:timeout"
-          : "signInWithPassword:error",
-        startedAt,
-        { message }
-      );
+      result = await attemptSignIn(parsed.data.email, parsed.data.password);
+      setReconnecting(false);
     }
+
     setLoading(false);
 
-    if (authError) {
-      const msg = (authError.message ?? "").toLowerCase();
+    if (!result.ok) {
+      const msg = (result.message ?? "").toLowerCase();
       if (msg.includes("timed out")) {
         setError(
           "Sign-in is taking too long. Reload the page and try again."
@@ -409,7 +438,11 @@ function SignInPanel() {
         </p>
       )}
       <Button type="submit" className="w-full h-11" disabled={loading}>
-        {loading ? "Signing in..." : "Sign in"}
+        {reconnecting
+          ? "Reconnecting…"
+          : loading
+            ? "Signing in..."
+            : "Sign in"}
       </Button>
       <button
         type="button"
