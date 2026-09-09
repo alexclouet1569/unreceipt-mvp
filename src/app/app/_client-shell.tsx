@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase-client";
 
@@ -29,6 +29,12 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 export function ClientShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  // When the Supabase browser client can't be created (e.g. a missing
+  // NEXT_PUBLIC_SUPABASE_* build var), we degrade instead of throwing: the
+  // auth-state syncing simply doesn't run and we show a non-blocking banner.
+  // Throwing here used to take down the whole /app tree — with no error
+  // boundary above, that left the login form dead and unclickable.
+  const [clientUnavailable, setClientUnavailable] = useState(false);
 
   useEffect(() => {
     // Service-worker registration is gated to the product host so the
@@ -45,40 +51,69 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
-    const supabase = getSupabaseClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // No session at all → redirect off authed surfaces.
-      if (!session) {
-        if (pathname !== "/app/login") {
-          router.replace("/app/login");
+    // getSupabaseClient() throws if the public Supabase env vars are missing.
+    // Catch it so a config gap degrades to "auth sync disabled" rather than
+    // crashing the tree. Everything that depends on the client lives inside
+    // this try; the cleanup only unsubscribes if we got that far.
+    let subscription: { unsubscribe: () => void } | undefined;
+    try {
+      const supabase = getSupabaseClient();
+      const { data } = supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          // No session at all → redirect off authed surfaces.
+          if (!session) {
+            if (pathname !== "/app/login") {
+              router.replace("/app/login");
+            }
+            return;
+          }
+
+          // Session present — validate against the API before trusting it.
+          // A deleted user still has a syntactically valid JWT in cookies;
+          // getUser() round-trips and returns null in that case.
+          const { data, error } = await supabase.auth.getUser();
+          if (error || !data.user) {
+            // Stale cookie. Clear it locally so the next render is clean and
+            // we don't ping-pong with the server gate.
+            await supabase.auth.signOut().catch(() => {});
+            if (pathname !== "/app/login") {
+              router.replace("/app/login");
+            }
+            return;
+          }
+
+          // Real user — safe to drop them onto the dashboard from /app/login.
+          if (pathname === "/app/login") {
+            router.replace("/app");
+          }
         }
-        return;
-      }
+      );
+      subscription = data.subscription;
+    } catch (err) {
+      console.error("[client-shell] Supabase client unavailable", err);
+      // Intentional error-path setState: fires at most once (the client
+      // either constructs or it doesn't for the life of the page), so there
+      // is no cascading-render loop. This is the whole point — degrade to a
+      // visible banner instead of throwing and taking down the tree.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setClientUnavailable(true);
+    }
 
-      // Session present — validate against the API before trusting it.
-      // A deleted user still has a syntactically valid JWT in cookies;
-      // getUser() round-trips and returns null in that case.
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data.user) {
-        // Stale cookie. Clear it locally so the next render is clean and
-        // we don't ping-pong with the server gate.
-        await supabase.auth.signOut().catch(() => {});
-        if (pathname !== "/app/login") {
-          router.replace("/app/login");
-        }
-        return;
-      }
-
-      // Real user — safe to drop them onto the dashboard from /app/login.
-      if (pathname === "/app/login") {
-        router.replace("/app");
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, [router, pathname]);
 
-  return <>{children}</>;
+  return (
+    <>
+      {clientUnavailable && (
+        <div
+          role="alert"
+          className="bg-destructive/10 text-destructive text-sm text-center px-4 py-2"
+        >
+          We&apos;re having trouble connecting. Sign-in and syncing may not work
+          right now — please reload, or try again shortly.
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
