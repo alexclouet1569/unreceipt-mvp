@@ -80,6 +80,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const host = (request.headers.get("host") ?? "").toLowerCase();
+  const onApex = APEX_HOSTS.has(host);
+  const onApp = host === APP_HOST;
+
+  // Product surface reached on the marketing host → 308 to the same path on
+  // the app host, preserving the query string. This runs FIRST — before the
+  // session-refresh block and before the admin gate — because refreshing here
+  // would only mint cookies scoped to the apex origin we're leaving, so it is
+  // wasted work on a request that just bounces to another host. Keeping it a
+  // plain, cheap redirect avoids that. 308 also preserves method + body.
+  if (onApex && (path === "/app" || path.startsWith("/app/"))) {
+    return NextResponse.redirect(
+      new URL(path + request.nextUrl.search, `https://${APP_HOST}`),
+      308
+    );
+  }
+
   // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
   // Official Supabase + Next.js App Router pattern: read the auth cookies
   // off the request, call getUser() (which silently rotates an expiring
@@ -105,13 +122,11 @@ export async function proxy(request: NextRequest) {
   };
   // ─── END session refresh ───
 
-  const host = (request.headers.get("host") ?? "").toLowerCase();
-  const onApex = APEX_HOSTS.has(host);
-  const onApp = host === APP_HOST;
-
-  // Cross-host redirects. 308 preserves method + body so a POST to the
-  // wrong host (e.g. a still-pointing-at-apex Stripe webhook) survives
-  // the transition window while the founder updates the dashboard URLs.
+  // Cross-host redirects for the remaining app-only paths (/admin, /auth,
+  // /subscribe, /api/checkout, /api/webhooks, /api/admin); /app is already
+  // handled above. 308 preserves method + body so a POST to the wrong host
+  // (e.g. a still-pointing-at-apex Stripe webhook) survives the transition
+  // window while the founder updates the dashboard URLs.
   if (onApex && isAppOnly(path)) {
     return withRefreshedCookies(
       NextResponse.redirect(

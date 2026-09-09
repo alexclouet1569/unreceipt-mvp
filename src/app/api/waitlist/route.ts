@@ -137,7 +137,7 @@ function getWelcomeEmailHtml(): string {
       </p>
 
       <div style="text-align: center; margin-bottom: 16px;">
-        <a href="https://unreceipt.com/app/login" style="display: inline-block; background-color: #303568; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600;">Start your free week</a>
+        <a href="https://app.unreceipt.com/app/login" style="display: inline-block; background-color: #303568; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600;">Start your free week</a>
       </div>
 
       <p style="margin: 16px 0 12px; font-size: 14px; line-height: 1.6; color: #777;">
