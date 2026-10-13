@@ -150,6 +150,8 @@ export interface Profile {
   // Per-user forwarding alias hash. NULL on rows created before step 6
   // (2026-05-12) — getOrCreateAliasForUser() backfills on first read.
   email_alias_hash: string | null;
+  // Set once the pilot welcome email has gone out, so it's sent only once.
+  welcome_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
 }
