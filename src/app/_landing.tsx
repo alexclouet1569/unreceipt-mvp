@@ -178,6 +178,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -200,6 +201,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
     e.preventDefault();
     if (!email) return;
     setSubmitting(true);
+    setWaitlistError("");
     try {
       const res = await fetch("/api/waitlist", {
         method: "POST",
@@ -209,9 +211,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       if (res.ok) {
         setSubmitted(true);
         setEmail("");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setWaitlistError(body.error ?? "Something went wrong. Please try again.");
       }
     } catch {
-      // Silently fail — user can retry
+      setWaitlistError("Couldn't reach us. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -776,6 +781,11 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </Button>
             </form>
           )}
+          {waitlistError ? (
+            <p role="alert" className="text-sm text-[#FFB4A8] mt-3">
+              {waitlistError}
+            </p>
+          ) : null}
           <p className="text-xs text-white/40 mt-5">
             In Sweden? Skip the list and{" "}
             <a href={appUrl("/app/login")} className="underline hover:text-white">

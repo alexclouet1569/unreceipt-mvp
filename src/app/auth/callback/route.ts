@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { syncProfile } from "@/lib/profile-sync";
+import { scheduleWelcomeEmail } from "@/lib/welcome-email";
 
 // The magic-link / OAuth-callback handler. Supabase appends `?code=…` to
 // emailRedirectTo; this route exchanges that code for a session and writes
@@ -109,6 +110,9 @@ export async function GET(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     if (data.user) {
       await syncProfile(data.user.id, data.user.user_metadata ?? null);
+      // First confirmed sign-in → welcome email. Runs after the redirect
+      // is sent and is a no-op for anyone who already got it.
+      scheduleWelcomeEmail(data.user);
     }
   } catch (err) {
     console.error("[auth/callback] profile sync threw", err);

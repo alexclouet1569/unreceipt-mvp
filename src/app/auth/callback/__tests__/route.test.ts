@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
   getUser: vi.fn(),
   syncProfile: vi.fn(),
+  scheduleWelcomeEmail: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -30,6 +31,10 @@ vi.mock("@supabase/ssr", () => ({
 
 vi.mock("@/lib/profile-sync", () => ({
   syncProfile: mocks.syncProfile,
+}));
+
+vi.mock("@/lib/welcome-email", () => ({
+  scheduleWelcomeEmail: mocks.scheduleWelcomeEmail,
 }));
 
 import { GET } from "@/app/auth/callback/route";
@@ -118,6 +123,9 @@ describe("GET /auth/callback", () => {
       full_name: "Alex",
       company_name: "Acme",
     });
+    expect(mocks.scheduleWelcomeEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "user-abc" })
+    );
   });
 
   it("ignores attacker-controlled next param outside same-origin paths", async () => {
