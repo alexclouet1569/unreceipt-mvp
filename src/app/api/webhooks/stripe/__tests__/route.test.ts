@@ -19,12 +19,20 @@ const stripeForCrypto = new Stripe("sk_test_unused_for_webhooks_helper", {
 const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
   retrieve: vi.fn(),
+  lookupByCustomer: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({
       upsert: mocks.upsert,
+      select: () => ({
+        eq: (_col: string, customerId: string) => ({
+          limit: () => ({
+            maybeSingle: () => mocks.lookupByCustomer(customerId),
+          }),
+        }),
+      }),
     }),
   }),
 }));
@@ -82,6 +90,7 @@ describe("POST /api/webhooks/stripe", () => {
     process.env.STRIPE_WEBHOOK_SECRET = TEST_SECRET;
     mocks.upsert.mockReset().mockResolvedValue({ error: null });
     mocks.retrieve.mockReset();
+    mocks.lookupByCustomer.mockReset().mockResolvedValue({ data: null, error: null });
   });
 
   afterEach(() => {
@@ -216,6 +225,38 @@ describe("POST /api/webhooks/stripe", () => {
     expect(res.status).toBe(200);
     expect(mocks.upsert).toHaveBeenCalledTimes(1);
     expect(mocks.upsert.mock.calls[0][0].status).toBe("canceled");
+  });
+
+  it("falls back to the existing row's user when a subscription has no metadata.user_id", async () => {
+    mocks.lookupByCustomer.mockResolvedValue({
+      data: { user_id: "user-from-checkout" },
+      error: null,
+    });
+    const payload = buildEvent({
+      type: "customer.subscription.deleted",
+      data: { object: subscriptionPayload({ status: "active", metadata: {} }) },
+    });
+
+    const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.lookupByCustomer).toHaveBeenCalledWith("cus_test_abc");
+    expect(mocks.upsert.mock.calls[0][0]).toMatchObject({
+      user_id: "user-from-checkout",
+      status: "canceled",
+    });
+  });
+
+  it("skips (200, no write) a subscription event whose user can't be resolved yet", async () => {
+    const payload = buildEvent({
+      type: "customer.subscription.created",
+      data: { object: subscriptionPayload({ metadata: {} }) },
+    });
+
+    const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsert).not.toHaveBeenCalled();
   });
 
   it("returns 200 and skips DB writes for unknown event types", async () => {

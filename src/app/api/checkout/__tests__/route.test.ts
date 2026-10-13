@@ -80,7 +80,10 @@ describe("POST /api/checkout", () => {
     expect(args).toMatchObject({
       mode: "subscription",
       line_items: [{ price: "price_test_123", quantity: 1 }],
-      subscription_data: { trial_period_days: 7 }, // CMT1 — 7, not 30
+      subscription_data: {
+        trial_period_days: 7, // CMT1 — 7, not 30
+        metadata: { user_id: adminUser.id }, // read by the subscription.* webhooks
+      },
       client_reference_id: adminUser.id, // A3 — sign-in-first, link to auth user
       customer_email: adminUser.email,
       // Step 10 / CMT2 — Stripe Tax wired in. Stripe collects VAT

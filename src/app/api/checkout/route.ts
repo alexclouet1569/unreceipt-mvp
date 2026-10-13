@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: { trial_period_days: 7 },
+      // metadata.user_id rides on the subscription itself so the
+      // customer.subscription.updated / .deleted webhooks know whose row
+      // to update (client_reference_id only exists on the Checkout session).
+      subscription_data: { trial_period_days: 7, metadata: { user_id: user.id } },
       client_reference_id: user.id,
       customer_email: user.email,
       // Stripe Tax: charge VAT automatically based on the customer's
