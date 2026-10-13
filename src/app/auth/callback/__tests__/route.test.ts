@@ -132,4 +132,15 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("location")).toContain("/app");
     expect(res.headers.get("location")).not.toContain("evil.com");
   });
+
+  it("ignores a protocol-relative next param (//evil.com)", async () => {
+    mocks.exchangeCodeForSession.mockResolvedValue({ error: null });
+    mocks.getUser.mockResolvedValue({ data: { user: null } });
+
+    const res = await GET(buildRequest({ code: "abc123", next: "//evil.com/steal" }));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).host).toBe("localhost:3000");
+    expect(res.headers.get("location")).not.toContain("evil.com");
+  });
 });

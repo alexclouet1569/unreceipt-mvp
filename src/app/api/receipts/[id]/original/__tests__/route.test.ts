@@ -70,7 +70,7 @@ function paperRow(overrides: Record<string, unknown> = {}) {
     merchant_name: "ICA Maxi",
     purchased_at: "2026-05-10T12:00:00Z",
     receipt_date: null,
-    image_url: "user-id/uuid.jpg",
+    image_url: "user-1/uuid.jpg",
     original_source_url: null,
     original_source_kind: null,
     ...overrides,
@@ -129,6 +129,17 @@ describe("GET /api/receipts/[id]/original", () => {
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error).toBe("no_original");
+  });
+
+  it("refuses to sign a path outside the caller's own storage folder", async () => {
+    mockGetServerUser.mockResolvedValue({ id: "user-1" });
+    mockMaybeSingle.mockResolvedValue({
+      data: paperRow({ image_url: "user-2/their-receipt.jpg" }),
+      error: null,
+    });
+    const res = await GET(makeRequest(), params());
+    expect(res.status).toBe(404);
+    expect(mockCreateSignedUrl).not.toHaveBeenCalled();
   });
 
   it("signs from the receipts bucket for legacy paper rows (image_url)", async () => {
