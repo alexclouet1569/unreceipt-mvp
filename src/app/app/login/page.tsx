@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { z } from "zod";
@@ -88,16 +88,9 @@ function authDebug(
 
 function LoginPageInner() {
   const searchParams = useSearchParams();
-  const [topError, setTopError] = useState("");
-
-  useEffect(() => {
-    const callbackError = searchParams.get("error");
-    if (callbackError) {
-      setTopError(
-        "That sign-in link didn't work. Magic links expire after one click and after one hour — request a new one below."
-      );
-    }
-  }, [searchParams]);
+  const topError = searchParams.get("error")
+    ? "That sign-in link didn't work. Magic links expire after one click and after one hour — request a new one below."
+    : "";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">

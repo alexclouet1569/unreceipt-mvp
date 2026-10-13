@@ -6,6 +6,14 @@ import type { Receipt } from "@/lib/types";
 
 afterEach(cleanup);
 
+// Local calendar date, not toISOString() — between midnight and the UTC
+// offset the UTC date is still "yesterday" and the day-group test flakes.
+function localToday(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 const baseReceipt: Receipt = {
   id: "r1",
   transaction_id: null,
@@ -20,7 +28,7 @@ const baseReceipt: Receipt = {
   currency: "SEK",
   notes: null,
   receipt_number: null,
-  receipt_date: new Date().toISOString().slice(0, 10),
+  receipt_date: localToday(),
   receipt_time: null,
   purchased_at: null,
   subtotal: null,
