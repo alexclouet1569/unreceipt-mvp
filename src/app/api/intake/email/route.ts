@@ -6,8 +6,10 @@
 //      shape has fields nested under .data and `to`/`from` may be a
 //      string or `{ address, name }` objects).
 //   3. Resolve the user_id from the `receipts+<hash>@in.unreceipt.com`
-//      To: address. Unknown alias → 404 with a generic body (don't leak
-//      which hashes are valid).
+//      address (To:, received_for or Cc:). Unknown alias → 404 with a
+//      generic body (don't leak which hashes are valid).
+//   3b. Load the body, headers and original .eml from Resend's Receiving
+//      API by email_id — the webhook itself carries metadata only.
 //   4. Compute intake_ref = Message-Id header || sha256(raw .eml).
 //   5. Upsert by intake_ref. Existing row → 200 idempotent.
 //   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
@@ -31,6 +33,7 @@ import {
 } from "@/lib/email-alias";
 import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
+import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,16 +46,52 @@ type AddressLike = string | { address?: unknown; name?: unknown };
 type ResendInboundPayload = {
   type?: string;
   data?: {
+    // Current Resend webhooks: metadata only. The body, headers and the
+    // original .eml are fetched by email_id (lib/resend-inbound.ts).
+    email_id?: string;
+    message_id?: string;
     from?: AddressLike;
     to?: AddressLike | AddressLike[];
+    cc?: AddressLike | AddressLike[];
+    // The address the message was actually delivered for — differs from
+    // `to` when the user set up an automatic forwarding rule.
+    received_for?: AddressLike | AddressLike[];
     subject?: string;
+    // Full-body shape, kept for payloads that carry the content inline.
     text?: string | null;
     html?: string | null;
     headers?: Record<string, string | string[] | undefined>;
-    // Base64-encoded raw .eml. Resend Inbound exposes this as `raw`.
+    // Base64-encoded raw .eml.
     raw?: string;
   };
 };
+
+function allAddresses(...fields: Array<AddressLike | AddressLike[] | undefined>): string[] {
+  return fields
+    .flatMap((f) => (Array.isArray(f) ? f : f ? [f] : []))
+    .map((a) => pickAddress(a))
+    .filter((a) => a.length > 0);
+}
+
+// Inline body when the payload has one; otherwise load it from Resend.
+async function loadEmailContent(
+  data: NonNullable<ResendInboundPayload["data"]>
+): Promise<ReceivedEmailContent | null> {
+  const inline =
+    typeof data.text === "string" ||
+    typeof data.html === "string" ||
+    typeof data.raw === "string";
+  if (inline || typeof data.email_id !== "string") {
+    return {
+      text: typeof data.text === "string" ? data.text : null,
+      html: typeof data.html === "string" ? data.html : null,
+      headers: data.headers ?? {},
+      messageId: typeof data.message_id === "string" ? data.message_id : null,
+      rawEml: typeof data.raw === "string" ? Buffer.from(data.raw, "base64") : null,
+    };
+  }
+  return fetchReceivedEmail(data.email_id);
+}
 
 function pickAddress(addr: AddressLike | AddressLike[] | undefined): string {
   if (!addr) return "";
@@ -131,12 +170,25 @@ export async function POST(request: NextRequest) {
   }
 
   const data = payload.data ?? {};
-  const toAddr = pickAddress(data.to);
   const fromAddr = pickAddress(data.from);
 
-  const aliasHash = parseAliasFromTo(toAddr);
+  // The alias is usually in To:, but an automatic forwarding rule keeps the
+  // original recipient there and puts ours in received_for (or Cc:).
+  const recipients = allAddresses(data.to, data.received_for, data.cc);
+  let toAddr = recipients[0] ?? "";
+  let aliasHash: string | null = null;
+  for (const candidate of recipients) {
+    aliasHash = parseAliasFromTo(candidate);
+    if (aliasHash) {
+      toAddr = candidate;
+      break;
+    }
+  }
   if (!aliasHash) {
-    console.warn("[intake/email] unparseable To:", { to: toAddr, from: fromAddr });
+    console.warn("[intake/email] no forwarding alias among recipients", {
+      to: recipients,
+      from: fromAddr,
+    });
     return genericNotFound();
   }
 
@@ -147,20 +199,36 @@ export async function POST(request: NextRequest) {
   }
   const userId = owner.user_id;
 
+  // Loaded only after the alias resolves, so spam to random addresses
+  // costs no API call. A failed load → 502 so Resend retries the webhook.
+  const content = await loadEmailContent(data);
+  if (!content) {
+    return NextResponse.json({ error: "email content unavailable" }, { status: 502 });
+  }
+  const rawEml = content.rawEml;
+  const hasRaw = rawEml !== null && rawEml.length > 0;
+
   // intake_ref: prefer Message-Id (provider-stable identity that survives
   // re-forwarding by the user). Fall back to sha256 of the raw .eml so we
   // still get idempotency on senders that strip Message-Id.
-  const messageId = pickHeader(data.headers, "Message-Id");
-  const rawEml = typeof data.raw === "string" ? data.raw : "";
+  const messageId = content.messageId ?? pickHeader(content.headers, "Message-Id");
   let intakeRef: string | null = messageId && messageId.trim().length > 0 ? messageId.trim() : null;
   if (!intakeRef) {
-    if (rawEml.length > 0) {
+    if (hasRaw) {
       intakeRef = `sha256:${createHash("sha256").update(rawEml).digest("hex")}`;
     } else {
       // No Message-Id and no raw payload — fall back to a hash of the
       // visible fields so re-deliveries of the same body still dedupe.
       intakeRef = `sha256:${createHash("sha256")
-        .update(JSON.stringify({ toAddr, fromAddr, subject: data.subject, text: data.text }))
+        .update(
+          JSON.stringify({
+            emailId: data.email_id,
+            toAddr,
+            fromAddr,
+            subject: data.subject,
+            text: content.text,
+          })
+        )
         .digest("hex")}`;
     }
   }
@@ -190,8 +258,8 @@ export async function POST(request: NextRequest) {
         from: fromAddr,
         to: toAddr,
         subject: typeof data.subject === "string" ? data.subject : "",
-        text: typeof data.text === "string" ? data.text : null,
-        html: typeof data.html === "string" ? data.html : null,
+        text: content.text,
+        html: content.html,
       },
     });
   } catch (err) {
@@ -205,11 +273,10 @@ export async function POST(request: NextRequest) {
   const receiptId = crypto.randomUUID();
   const storagePath = `${userId}/${receiptId}.eml`;
 
-  if (rawEml.length > 0) {
-    const buf = Buffer.from(rawEml, "base64");
+  if (hasRaw) {
     const { error: uploadError } = await supabase.storage
       .from("receipt-originals")
-      .upload(storagePath, buf, {
+      .upload(storagePath, rawEml, {
         cacheControl: "3600",
         upsert: false,
         contentType: "message/rfc822",
@@ -226,8 +293,8 @@ export async function POST(request: NextRequest) {
     user_id: userId,
     source: "email" as const,
     intake_ref: intakeRef,
-    original_source_url: rawEml.length > 0 ? storagePath : null,
-    original_source_kind: rawEml.length > 0 ? ("eml" as const) : null,
+    original_source_url: hasRaw ? storagePath : null,
+    original_source_kind: hasRaw ? ("eml" as const) : null,
     notes: typeof data.subject === "string" && data.subject.length > 0 ? `Subject: ${data.subject}` : null,
   };
 
@@ -272,7 +339,7 @@ export async function POST(request: NextRequest) {
     // race. Best-effort delete the orphan blob and return the existing
     // row's id so the provider stops retrying.
     if (insertError && (insertError as { code?: string }).code === "23505") {
-      if (rawEml.length > 0) {
+      if (hasRaw) {
         await supabase.storage
           .from("receipt-originals")
           .remove([storagePath])
@@ -289,7 +356,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("[intake/email] insert failed", insertError);
-    if (rawEml.length > 0) {
+    if (hasRaw) {
       await supabase.storage
         .from("receipt-originals")
         .remove([storagePath])
