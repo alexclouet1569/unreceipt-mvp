@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "UnReceipt — Automatic expense receipt capture. From Chaos to Clarity.";
+  "UnReceipt — VAT-ready receipts for small businesses. From Chaos to Clarity.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -82,7 +82,7 @@ export default async function Image() {
             textAlign: "center",
           }}
         >
-          Automatic expense receipt capture for businesses — Paper is Past
+          VAT-ready receipts for small businesses — Paper is Past
         </div>
 
         {/* Badges */}

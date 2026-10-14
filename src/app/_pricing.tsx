@@ -33,11 +33,11 @@ export const PLANS = [
 ] as const;
 
 const INCLUDED = [
-  "Concierge inbox — forward any receipt",
+  "Private address — forward any receipt",
   "Photo capture with auto-fill",
   "VAT-ready records within 24 hours",
-  "CSV export for your accountant",
-  "Swedish + English support",
+  "Original file + PDF for every receipt",
+  "Every receipt checked by our concierge",
   "Cancel anytime",
 ];
 

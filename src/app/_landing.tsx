@@ -10,19 +10,15 @@ import {
   CheckCircle2,
   Smartphone,
   Building2,
-  CreditCard,
-  BellRing,
   Camera,
   BarChart3,
   Menu,
   X,
-  Infinity,
-  FileX2,
+  Mail,
+  FileText,
+  Download,
   Search,
-  Zap,
-  Shield,
-  Clock,
-  Receipt,
+  ReceiptText,
   Sparkles,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -95,17 +91,19 @@ function ReceiptEdge({ color = "#27BE7B", flip = false }: { color?: string; flip
 
 /* ── Scrolling receipt ticker ── */
 function ReceiptTicker() {
+  // Example receipts. Source is how it reached UnReceipt (forwarded email
+  // or a photo); every receipt ends up verified by the concierge.
   const receipts = [
-    { merchant: "ICA Maxi", amount: "342 kr", category: "Meals", status: "matched" },
-    { merchant: "Spotify", amount: "129 kr", category: "Software", status: "auto" },
-    { merchant: "Klarna", amount: "1,450 kr", category: "Software", status: "matched" },
-    { merchant: "SJ", amount: "895 kr", category: "Travel", status: "auto" },
-    { merchant: "Apoteket", amount: "212 kr", category: "Supplies", status: "matched" },
-    { merchant: "SAS Airlines", amount: "2,340 kr", category: "Travel", status: "auto" },
-    { merchant: "Uber Stockholm", amount: "189 kr", category: "Transport", status: "matched" },
-    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: "Meals", status: "auto" },
-    { merchant: "Hotel Scandic", amount: "1,250 kr", category: "Travel", status: "matched" },
-    { merchant: "Coop Konferens", amount: "890 kr", category: "Catering", status: "auto" },
+    { merchant: "ICA Maxi", amount: "342 kr", category: "Meals", source: "photo" },
+    { merchant: "Spotify", amount: "129 kr", category: "Software", source: "email" },
+    { merchant: "Clas Ohlson", amount: "1 450 kr", category: "Office supplies", source: "photo" },
+    { merchant: "SJ", amount: "895 kr", category: "Travel", source: "email" },
+    { merchant: "Apoteket", amount: "212 kr", category: "Other", source: "photo" },
+    { merchant: "SAS", amount: "2 340 kr", category: "Travel", source: "email" },
+    { merchant: "Uber", amount: "189 kr", category: "Transport", source: "email" },
+    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: "Meals", source: "photo" },
+    { merchant: "Scandic Hotel", amount: "1 250 kr", category: "Accommodation", source: "email" },
+    { merchant: "Coop Konferens", amount: "890 kr", category: "Meals", source: "photo" },
   ];
 
   const doubled = [...receipts, ...receipts];
@@ -123,10 +121,10 @@ function ReceiptTicker() {
             className="flex-shrink-0 bg-[#ECF7E7] rounded-2xl px-5 py-3.5 flex items-center gap-4 border border-[#27BE7B]/10"
           >
             <div className="w-9 h-9 rounded-xl bg-[#27BE7B]/15 flex items-center justify-center">
-              {r.status === "auto" ? (
-                <Zap className="w-4 h-4 text-[#27BE7B]" />
+              {r.source === "email" ? (
+                <Mail className="w-4 h-4 text-[#27BE7B]" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
+                <Camera className="w-4 h-4 text-[#27BE7B]" />
               )}
             </div>
             <div className="min-w-0">
@@ -136,7 +134,7 @@ function ReceiptTicker() {
             <div className="text-right pl-3">
               <p className="text-sm font-extrabold text-[#303568] whitespace-nowrap">{r.amount}</p>
               <p className="text-[10px] text-[#27BE7B] font-semibold">
-                {r.status === "auto" ? "Auto" : "Matched"}
+                Verified
               </p>
             </div>
           </div>
@@ -169,7 +167,7 @@ function FloatingReceipts() {
             transform: `rotate(${r.rotate})`,
           }}
         >
-          <Receipt className={`${r.size} text-white`} />
+          <ReceiptText className={`${r.size} text-white`} />
         </div>
       ))}
     </div>
@@ -357,16 +355,16 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                     <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
                       <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
                     </div>
-                    {/* Notification card */}
                     <div className="p-4 space-y-3">
+                      {/* Latest receipt, verified by the concierge */}
                       <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
                         <div className="flex items-center gap-2 mb-2">
-                          <BellRing className="w-4 h-4 text-[#27BE7B]" />
-                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">Just now</span>
+                          <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
+                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">Verified</span>
                         </div>
-                        <p className="text-sm font-bold text-[#303568]">New expense detected</p>
-                        <p className="text-xs text-[#303568]/60 mt-1">Restaurant Le Petit Bistro</p>
-                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">42.50 &euro;</p>
+                        <p className="text-sm font-bold text-[#303568]">ICA Maxi</p>
+                        <p className="text-xs text-[#303568]/60 mt-1">Meals · Moms 12% 36,64 kr</p>
+                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">342,00 kr</p>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4">
                         <div className="flex items-center justify-between mb-3">
@@ -375,9 +373,9 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                         </div>
                         <div className="space-y-2">
                           {[
-                            { name: "Uber", amount: "18.90 \u20ac", time: "14:22" },
-                            { name: "Starbucks", amount: "6.50 \u20ac", time: "09:15" },
-                            { name: "Office Depot", amount: "124.00 \u20ac", time: "08:30" },
+                            { name: "Uber", amount: "189,00 kr", time: "14:22" },
+                            { name: "Scandic Hotel", amount: "1 250,00 kr", time: "09:15" },
+                            { name: "SJ", amount: "895,00 kr", time: "08:30" },
                           ].map((item) => (
                             <div key={item.name} className="flex items-center justify-between py-1.5">
                               <div>
@@ -394,7 +392,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                       </div>
                       <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
                         <Camera className="w-3.5 h-3.5 mr-1.5" />
-                        Snap Receipt
+                        Snap a receipt
                       </Button>
                     </div>
                   </div>
@@ -408,21 +406,21 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                     <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
                       <CheckCircle2 className="w-3 h-3 text-[#27BE7B]" />
                     </div>
-                    <span className="text-[10px] font-bold text-[#303568]">Matched</span>
+                    <span className="text-[10px] font-bold text-[#303568]">Verified</span>
                   </div>
-                  <p className="text-xs text-[#303568]/60">Hotel Nordic</p>
-                  <p className="text-sm font-extrabold text-[#303568]">285.00 &euro;</p>
+                  <p className="text-xs text-[#303568]/60">Clas Ohlson</p>
+                  <p className="text-sm font-extrabold text-[#303568]">1 450,00 kr</p>
                 </div>
 
                 <div className="absolute -right-12 bottom-28 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-32 rotate-[4deg] animate-[float_5s_ease-in-out_infinite_1s]">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
-                      <Zap className="w-3 h-3 text-[#27BE7B]" />
+                      <Mail className="w-3 h-3 text-[#27BE7B]" />
                     </div>
-                    <span className="text-[10px] font-bold text-[#303568]">Auto</span>
+                    <span className="text-[10px] font-bold text-[#303568]">Forwarded</span>
                   </div>
-                  <p className="text-xs text-[#303568]/60">Train SJ</p>
-                  <p className="text-sm font-extrabold text-[#303568]">89.00 kr</p>
+                  <p className="text-xs text-[#303568]/60">Spotify</p>
+                  <p className="text-sm font-extrabold text-[#303568]">129,00 kr</p>
                 </div>
               </div>
             </div>
@@ -447,10 +445,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: "EUR 58", label: "avg. cost per expense report" },
-              { value: "50%", label: "of finance teams cite lost receipts as #1 problem" },
-              { value: "15 min", label: "spent per expense report by employees" },
-              { value: "5 sec", label: "with UnReceipt" },
+              { value: "24 h", label: "from forwarded receipt to VAT-ready record" },
+              { value: "1", label: "private receipt address for your company" },
+              { value: "8", label: "expense categories, sorted for you" },
+              { value: "0", label: "bank connections or new cards needed" },
             ].map((stat) => (
               <div key={stat.label}>
                 <p className="text-2xl sm:text-3xl font-extrabold text-[#303568]">{stat.value}</p>
@@ -480,19 +478,19 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           <div className="grid md:grid-cols-3 gap-12 md:gap-8">
             {[
               {
-                icon: Infinity,
-                title: "Simplicity Stays",
-                desc: "Every receipt turns into a smart, categorized record instantly. Clean, effortless expense management — so you can focus on what truly matters.",
+                icon: Mail,
+                title: "One Inbox for Every Receipt",
+                desc: "Your company gets a private UnReceipt address. Forward email receipts to it, or snap paper ones with your phone.",
               },
               {
-                icon: FileX2,
-                title: "Zero Paperwork",
-                desc: "Simply pay and forget. Your data is saved, organized, and ready for your report without any manual action. Less paper, more power.",
+                icon: ReceiptText,
+                title: "Every Line, VAT Included",
+                desc: "Merchant, date, line items, VAT rate and amount, and the merchant\u2019s VAT number \u2014 read, checked and saved within 24 hours.",
               },
               {
                 icon: Search,
-                title: "Pure Clarity",
-                desc: "Access a detailed spending history in seconds. The information you need is always safe at your fingertips, giving you control and peace of mind.",
+                title: "Find Anything, Keep Everything",
+                desc: "Receipts sorted by date and category. Open any one to see the original, or download it as a PDF for your accountant.",
               },
             ].map((feature) => (
               <div key={feature.title} className="text-center px-2">
@@ -519,39 +517,33 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">How it Works</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-              Four Steps. Zero Effort.
+              Three Steps. No Setup.
             </h2>
             <p className="text-[#303568]/50 text-lg max-w-2xl mx-auto">
-              Connect your company bank account. We handle the rest.
+              No bank connection, no new card. Just send us your receipts.
             </p>
           </div>
-          <div className="grid md:grid-cols-4 gap-8 relative">
+          <div className="grid md:grid-cols-3 gap-8 relative">
             {/* Connecting line */}
-            <div className="hidden md:block absolute top-10 left-[12.5%] right-[12.5%] h-[2px] bg-[#27BE7B]/20" />
+            <div className="hidden md:block absolute top-10 left-[16.67%] right-[16.67%] h-[2px] bg-[#27BE7B]/20" />
             {[
               {
-                icon: CreditCard,
+                icon: Mail,
                 step: "01",
-                title: "Employee pays",
-                desc: "With any existing corporate card at any POS. No special card needed.",
+                title: "Forward or snap",
+                desc: "Forward email receipts to your private address, or take a photo of a paper receipt \u2014 the fields fill themselves.",
               },
               {
-                icon: BellRing,
+                icon: CheckCircle2,
                 step: "02",
-                title: "Instant detection",
-                desc: "We detect the payment and send a smart notification with pre-filled details.",
+                title: "We check every receipt",
+                desc: "Within 24 hours each receipt is read, categorized and its VAT split out, then checked by our concierge.",
               },
               {
-                icon: Camera,
+                icon: FileText,
                 step: "03",
-                title: "One-tap capture",
-                desc: "Employee snaps the receipt in 5 seconds — while it\u2019s still in hand.",
-              },
-              {
-                icon: BarChart3,
-                step: "04",
-                title: "Done",
-                desc: "Expense is submitted, matched, and ready for approval. Finance sees it live.",
+                title: "Ready for your accountant",
+                desc: "Every receipt waits in your dashboard, VAT-ready, with the original file and a PDF one click away.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center relative">
@@ -582,22 +574,21 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               Paper Fades. Simplicity Stays.
             </h2>
             <p className="text-[#303568]/50 text-lg">
-              Why companies switch to UnReceipt
+              Why small businesses switch to UnReceipt
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             <Card className="border-0 shadow-sm rounded-3xl bg-[#ECF7E7]">
               <CardContent className="pt-8 pb-8 px-8">
                 <h3 className="font-bold mb-6 text-red-400 text-sm uppercase tracking-widest">
-                  Traditional tools
+                  The old way
                 </h3>
                 <ul className="space-y-4 text-sm">
                   {[
-                    "Must switch to their corporate cards",
-                    "Employee manually photos every receipt",
-                    "Weeks of implementation",
-                    "Receipts lost days after payment",
-                    "EUR 58 average cost per expense report",
+                    "Paper receipts lost in wallets and cars",
+                    "Email receipts buried across inboxes",
+                    "Typing amounts and VAT into spreadsheets",
+                    "Chasing colleagues for receipts at month-end",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3 text-[#303568]/60">
                       <X className="w-4 h-4 mt-0.5 text-red-400 shrink-0" />
@@ -614,11 +605,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 </h3>
                 <ul className="space-y-4 text-sm">
                   {[
-                    "Works with any existing corporate card",
-                    "Expenses auto-captured from bank feed",
-                    "Set up in minutes, not weeks",
-                    "Receipt notification within seconds of payment",
-                    "One-tap confirmation, everything pre-filled",
+                    "One private address for every receipt",
+                    "Paper receipts captured with a photo",
+                    "VAT split out and checked for you",
+                    "Everything in one dashboard, original included",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3 text-white">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 text-white shrink-0" />
@@ -647,7 +637,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Who it&apos;s for</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
-              Built for Teams That Move Fast
+              Built for Small Teams
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-10 md:gap-8">
@@ -655,17 +645,17 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               {
                 icon: Smartphone,
                 title: "For Employees",
-                desc: "Pay normally. Get a notification. Tap once. Done. No more chasing receipts, filling forms, or remembering to submit.",
+                desc: "Forward the email or snap the paper receipt. No forms to fill in, nothing to remember at month-end.",
               },
               {
                 icon: Building2,
-                title: "For Finance Teams",
-                desc: "Real-time visibility into all company expenses. Automated compliance. No more chasing employees for missing receipts.",
+                title: "For Whoever Does the Books",
+                desc: "Every receipt in one place, with merchant, category and VAT ready to hand to your accountant.",
               },
               {
                 icon: BarChart3,
-                title: "For Leadership",
-                desc: "Instant spend analytics. Policy enforcement. Know exactly where your money goes — without waiting for monthly reports.",
+                title: "For Owners",
+                desc: "See this month\u2019s receipts and spending at a glance, without opening a spreadsheet.",
               },
             ].map((item) => (
               <div key={item.title}>
@@ -689,10 +679,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { icon: Shield, label: "GDPR Compliant" },
-              { icon: Zap, label: "Real-time Processing" },
-              { icon: Clock, label: "5-second Capture" },
-              { icon: CreditCard, label: "Any Card Works" },
+              { icon: Mail, label: "Private Address per Company" },
+              { icon: FileText, label: "Original Always Kept" },
+              { icon: Download, label: "PDF for Every Receipt" },
+              { icon: CheckCircle2, label: "Cancel Anytime" },
             ].map((badge) => (
               <div key={badge.label} className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center mb-3 shadow-sm">
@@ -778,13 +768,13 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             <div>
               <Image
                 src="/logo-light.png"
-                alt="UnReceipt — automatic expense receipt capture for businesses"
+                alt="UnReceipt"
                 width={180}
                 height={50}
                 className="h-10 w-auto mb-4"
               />
               <p className="text-sm text-white/40 max-w-xs">
-                Automatic expense receipt capture for businesses. Paper is Past.
+                VAT-ready receipts for small businesses in Sweden. Paper is Past.
               </p>
             </div>
             <div className="flex gap-16">
