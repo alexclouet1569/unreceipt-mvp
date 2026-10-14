@@ -4,34 +4,14 @@ import { useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { appUrl } from "@/lib/app-url";
+import { PLANS } from "@/lib/plans";
 
 /**
  * Usage-based, per-employee pricing. A company picks the plan that
  * matches how many receipts a typical employee files per month;
- * the allowance is pooled across the whole team.
+ * the allowance is pooled across the whole team. Plans live in
+ * src/lib/plans.ts, shared with /subscribe and /api/checkout.
  */
-export const PLANS = [
-  {
-    name: "Light",
-    price: 5,
-    receipts: 5,
-    who: "Occasional spenders — office and back-office staff.",
-  },
-  {
-    name: "Regular",
-    price: 9,
-    receipts: 15,
-    who: "Sales, managers, anyone who meets clients.",
-    popular: true,
-  },
-  {
-    name: "Heavy",
-    price: 14,
-    receipts: 40,
-    who: "Field staff, consultants and frequent travellers.",
-  },
-] as const;
-
 const INCLUDED = [
   "Private address — forward any receipt",
   "Photo capture with auto-fill",
@@ -125,7 +105,7 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
 
       <div className="grid md:grid-cols-3 gap-5 items-stretch">
         {PLANS.map((plan) => {
-          const popular = "popular" in plan && plan.popular;
+          const popular = !!plan.popular;
           return (
             <div
               key={plan.name}

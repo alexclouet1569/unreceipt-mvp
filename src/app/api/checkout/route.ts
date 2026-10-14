@@ -1,6 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getStripe } from "@/lib/stripe";
+import {
+  MAX_EMPLOYEES,
+  MIN_EMPLOYEES,
+  PLAN_IDS,
+  planPriceEnv,
+} from "@/lib/plans";
+
+// The customer picks a plan and how many employees file receipts; the
+// subscription is that plan's per-employee price × employees.
+const CheckoutBody = z.object({
+  plan: z.enum(PLAN_IDS),
+  employees: z.number().int().min(MIN_EMPLOYEES).max(MAX_EMPLOYEES),
+});
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,10 +25,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const priceId = process.env.STRIPE_PRICE_ID;
-  if (!priceId) {
+  const parsed = CheckoutBody.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Stripe price not configured" },
+      { error: "Pick a plan and a number of employees." },
+      { status: 400 }
+    );
+  }
+  const { plan, employees } = parsed.data;
+
+  // No fallback to another price: a missing env var must fail loudly
+  // rather than bill the customer for a plan they didn't choose.
+  const priceId = process.env[planPriceEnv(plan)];
+  if (!priceId) {
+    console.error(`Checkout: ${planPriceEnv(plan)} is not set`);
+    return NextResponse.json(
+      { error: "This plan isn't available yet. Please contact us." },
       { status: 500 }
     );
   }
@@ -31,11 +57,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: employees }],
       // metadata.user_id rides on the subscription itself so the
       // customer.subscription.updated / .deleted webhooks know whose row
       // to update (client_reference_id only exists on the Checkout session).
-      subscription_data: { trial_period_days: 7, metadata: { user_id: user.id } },
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: { user_id: user.id, plan },
+      },
       client_reference_id: user.id,
       customer_email: user.email,
       // Stripe Tax: charge VAT automatically based on the customer's

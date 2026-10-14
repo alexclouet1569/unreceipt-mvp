@@ -27,21 +27,37 @@ import { POST } from "@/app/api/checkout/route";
 
 const adminUser = { id: "user-1", email: "founder@unreceipt.com" };
 
-const buildRequest = () =>
-  new NextRequest("http://localhost:3000/api/checkout", { method: "POST" });
+const buildRequest = (
+  body: unknown = { plan: "regular", employees: 12 }
+) =>
+  new NextRequest("http://localhost:3000/api/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+const PRICE_ENV = {
+  STRIPE_PRICE_LIGHT: "price_light",
+  STRIPE_PRICE_REGULAR: "price_regular",
+  STRIPE_PRICE_HEAVY: "price_heavy",
+};
 
 describe("POST /api/checkout", () => {
-  const originalPrice = process.env.STRIPE_PRICE_ID;
+  const original = Object.fromEntries(
+    Object.keys(PRICE_ENV).map((k) => [k, process.env[k]])
+  );
 
   beforeEach(() => {
-    process.env.STRIPE_PRICE_ID = "price_test_123";
+    Object.assign(process.env, PRICE_ENV);
     mocks.getServerUser.mockReset();
     mocks.createSession.mockReset();
   });
 
   afterEach(() => {
-    if (originalPrice === undefined) delete process.env.STRIPE_PRICE_ID;
-    else process.env.STRIPE_PRICE_ID = originalPrice;
+    for (const [k, v] of Object.entries(original)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
   });
 
   it("returns 401 when there is no authenticated user", async () => {
@@ -54,11 +70,26 @@ describe("POST /api/checkout", () => {
     expect(mocks.createSession).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when STRIPE_PRICE_ID is missing", async () => {
-    delete process.env.STRIPE_PRICE_ID;
+  it.each([
+    [null],
+    [{}],
+    [{ plan: "enterprise", employees: 5 }],
+    [{ plan: "regular", employees: 0 }],
+    [{ plan: "regular", employees: 2.5 }],
+    [{ plan: "regular", employees: 10_000 }],
+  ])("returns 400 for an invalid body %j", async (body) => {
     mocks.getServerUser.mockResolvedValue(adminUser);
 
-    const res = await POST(buildRequest());
+    const res = await POST(buildRequest(body));
+    expect(res.status).toBe(400);
+    expect(mocks.createSession).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 — and never falls back to another price — when the plan's price is missing", async () => {
+    delete process.env.STRIPE_PRICE_HEAVY;
+    mocks.getServerUser.mockResolvedValue(adminUser);
+
+    const res = await POST(buildRequest({ plan: "heavy", employees: 3 }));
     expect(res.status).toBe(500);
     expect(mocks.createSession).not.toHaveBeenCalled();
   });
@@ -79,10 +110,11 @@ describe("POST /api/checkout", () => {
 
     expect(args).toMatchObject({
       mode: "subscription",
-      line_items: [{ price: "price_test_123", quantity: 1 }],
+      // Per-employee pricing: the chosen plan's price × employees.
+      line_items: [{ price: "price_regular", quantity: 12 }],
       subscription_data: {
         trial_period_days: 7, // CMT1 — 7, not 30
-        metadata: { user_id: adminUser.id }, // read by the subscription.* webhooks
+        metadata: { user_id: adminUser.id, plan: "regular" }, // read by the subscription.* webhooks
       },
       client_reference_id: adminUser.id, // A3 — sign-in-first, link to auth user
       customer_email: adminUser.email,

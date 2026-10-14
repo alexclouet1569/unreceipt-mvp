@@ -40,10 +40,10 @@ export default async function SubscribePage({
           <CardContent className="py-6 px-6 space-y-5">
             <ul className="space-y-2.5">
               {[
-                "First week free, then €49/month",
-                "Forward receipts to your concierge inbox",
-                "VAT-ready records ready in your dashboard within 24h",
-                "Cancel anytime in Stripe — no questions asked",
+                "First week free on every plan",
+                "Forward receipts to your private address",
+                "VAT-ready records in your dashboard within 24h",
+                "Cancel anytime — no questions asked",
               ].map((line) => (
                 <li
                   key={line}
@@ -65,7 +65,8 @@ export default async function SubscribePage({
               <div className="space-y-3">
                 <p className="text-sm text-foreground bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5">
                   We&apos;re running a free pilot right now — no subscription
-                  needed.
+                  needed. After the pilot, plans start at €5 per employee per
+                  month.
                 </p>
                 <Link
                   href="/app"
