@@ -109,6 +109,31 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload.purchased_at).toBe("2026-05-12T12:00:00.000Z");
   });
 
+  it("verifies a low-confidence row once the user saves it with every required field", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: RECEIPT_ID,
+        user_id: USER_ID,
+        status: "pending_review",
+        merchant_name: "Espresso House",
+        purchased_at: "2026-05-10T08:14:00.000Z",
+        receipt_date: "2026-05-10",
+        total: 75,
+        currency: "SEK",
+        category: "other",
+        parse_confidence: 0.7,
+      },
+      error: null,
+    });
+
+    const res = await PATCH(req({ merchant: "Espresso House" }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.status).toBe("verified");
+    expect(payload).not.toHaveProperty("parse_confidence");
+  });
+
   it("keeps status as 'pending_review' when a required field is still missing after the patch", async () => {
     mocks.maybeSingle.mockResolvedValueOnce({
       data: {

@@ -118,7 +118,10 @@ export async function PATCH(
     purchased_at: existingRow.purchased_at,
     receipt_date: existingRow.receipt_date,
     total: existingRow.total,
-    parse_confidence: existingRow.parse_confidence,
+    // A person is now saving these fields, which is the review the low
+    // confidence asked for — so it no longer holds the row in
+    // pending_review. The stored parse_confidence is left as-is.
+    parse_confidence: null,
   };
 
   if (patch.merchant != null) {
