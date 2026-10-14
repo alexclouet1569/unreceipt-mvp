@@ -73,6 +73,24 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
+  it("lets an admin use OCR (admin paste form) without a subscription", async () => {
+    const previous = process.env.CONCIERGE_ADMIN_EMAILS;
+    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.com";
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "founder@unreceipt.com" });
+    productAccessMock.mockResolvedValue(false);
+    mocks.extractReceipt.mockResolvedValue({ merchant: "ICA" });
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+
+    expect(res.status).toBe(200);
+    expect(rateLimitMock).toHaveBeenCalledWith("ocr", USER_ID);
+    productAccessMock.mockResolvedValue(true);
+    if (previous === undefined) delete process.env.CONCIERGE_ADMIN_EMAILS;
+    else process.env.CONCIERGE_ADMIN_EMAILS = previous;
+  });
+
   it("returns 429 with Retry-After and skips the Claude call when rate limited", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     rateLimitMock.mockResolvedValueOnce({ ok: false, retryAfterSeconds: 120 });

@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
+import { isAdminEmail } from "@/lib/auth-admin";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import {
   hasProductAccess,
@@ -38,7 +39,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
 
-  if (!(await hasProductAccess(user.id))) {
+  // Founders use OCR from /admin's paste form without a subscription of
+  // their own; they stay rate-limited like everyone else.
+  if (!isAdminEmail(user.email) && !(await hasProductAccess(user.id))) {
     return subscriptionRequiredResponse();
   }
 
