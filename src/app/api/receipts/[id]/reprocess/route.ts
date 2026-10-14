@@ -8,6 +8,7 @@
 // user_id) and writes the merged update through the service-role admin
 // client so we can also re-download from the private storage bucket.
 
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -146,6 +147,7 @@ export async function POST(
     extracted = await extractReceipt(base64, mediaType);
   } catch (err) {
     console.error("[/api/receipts/reprocess] extract failed:", err);
+    Sentry.captureException(err, { tags: { area: "reprocess" } });
     return NextResponse.json(
       // Details stay in the server log: Anthropic errors and raw model
       // output aren't for the client.

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[/api/ocr] extract failed:", err);
+    Sentry.captureException(err, { tags: { area: "ocr" } });
     return NextResponse.json(
       // Details stay in the server log: Anthropic errors and raw model
       // output aren't for the client.

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error(`Webhook handler error for ${event.type}:`, err);
+    Sentry.captureException(err, { tags: { area: "stripe-webhook", event: event.type } });
     // 500 → Stripe retries with exponential backoff. Our upsert is idempotent
     // (unique on stripe_subscription_id) so the retry is safe.
     return NextResponse.json({ error: "handler failure" }, { status: 500 });

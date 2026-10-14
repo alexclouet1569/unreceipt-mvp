@@ -17,7 +17,7 @@ import type { NextConfig } from "next";
 // reviewed (reports go to the browser console; a report endpoint comes
 // with Sentry) — then it moves into the enforced header.
 // Allowed origins: Supabase (API, realtime, signed storage URLs for the
-// photo/PDF original) and Vercel Analytics / Speed Insights.
+// photo/PDF original), Vercel Analytics / Speed Insights, and Sentry ingest.
 // Checked in Chromium against /, /app/login, /privacy, /subscribe: the only
 // report is zod v4 probing `Function("")` for JIT support, which it catches
 // and falls back from — no 'unsafe-eval' needed.
@@ -34,7 +34,7 @@ const CSP_REPORT_ONLY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https://*.supabase.co",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com https://*.ingest.de.sentry.io https://*.ingest.sentry.io",
   "frame-src 'self' https://*.supabase.co",
   "worker-src 'self'",
   "manifest-src 'self'",

@@ -3,9 +3,9 @@
 // Critical-gap fix #2 (locked plan): if the subscriptions query throws
 // — Supabase hiccup, network blip, anything — fail OPEN with a warning
 // banner. Don't block a paying customer because of a transient backend
-// issue. We log via console.error today; Sentry instrumentation lands
-// in step 11.
+// issue. Failures are logged and reported to Sentry.
 
+import * as Sentry from "@sentry/nextjs";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { isPilotMode } from "./pilot";
 
@@ -39,7 +39,7 @@ export async function checkSubscriptionGate(
       .maybeSingle();
 
     if (error) {
-      // TODO(step-11): Sentry.captureException(error, { tags: { area: "gate" } });
+      Sentry.captureException(error, { tags: { area: "gate" } });
       console.error("[gate] subscriptions query failed", error);
       return { kind: "allow_with_warning", reason: "db_error" };
     }
@@ -54,7 +54,7 @@ export async function checkSubscriptionGate(
 
     return { kind: "redirect_subscribe" };
   } catch (err) {
-    // TODO(step-11): Sentry.captureException(err, { tags: { area: "gate" } });
+    Sentry.captureException(err, { tags: { area: "gate" } });
     console.error("[gate] threw", err);
     return { kind: "allow_with_warning", reason: "db_error" };
   }

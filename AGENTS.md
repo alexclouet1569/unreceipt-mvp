@@ -111,6 +111,10 @@ Rules:
 - `/admin/*`, `/subscribe`, Stripe Checkout, and the marketing landing at `unreceipt.com/` are out of scope for the design system. Token changes will ripple to them but do not redesign their layouts.
 - In QA / design-review mode, flag any code that violates `DESIGN.md` (off-token colors, wrong fonts on amounts, shadows on cards, mint backgrounds outside the allowed surfaces).
 
+# Error monitoring
+
+Sentry (`@sentry/nextjs`) loads from `src/instrumentation.ts` (server/edge) and `src/instrumentation-client.ts` (browser), with options in `src/lib/sentry-options.ts`. It is a no-op unless `NEXT_PUBLIC_SENTRY_DSN` is set. Events are scrubbed of request bodies, cookies, headers, query strings and user details; session replay is off because it would record receipt contents. Report unexpected failures with `Sentry.captureException(err, { tags: { area } })` next to the `console.error`, and never put receipt contents, emails or names in `extra`.
+
 # Review agents
 
 `.claude/agents/` holds three read-only reviewers. Run the matching one on a diff before committing:

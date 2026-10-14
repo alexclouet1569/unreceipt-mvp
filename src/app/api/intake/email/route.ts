@@ -23,6 +23,7 @@
 // provider's retry logic kicks in (real signing issues are usually
 // transient config drift on the provider side).
 
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -275,6 +276,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("[intake/email] parser threw", err);
+    Sentry.captureException(err, { tags: { area: "intake-parse" } });
     parseResult = { status: "pending_review" };
   }
 
@@ -368,6 +370,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("[intake/email] insert failed", insertError);
+    Sentry.captureException(new Error("intake insert failed"), {
+      tags: { area: "intake-insert" },
+      extra: { code: (insertError as { code?: string } | null)?.code },
+    });
     if (hasRaw) {
       await supabase.storage
         .from("receipt-originals")
