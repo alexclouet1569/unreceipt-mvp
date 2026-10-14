@@ -23,6 +23,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Fails on high/critical advisories in what ships to production.
+      # Dev-only tooling (eslint, playwright, the shadcn CLI) is excluded.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
       - name: Type check
         run: npx tsc --noEmit
       - name: Lint
