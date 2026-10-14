@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Download, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
-import { getSupabaseClient } from "@/lib/supabase-client";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -109,25 +108,14 @@ export function ReceiptDetailDialog({
     setDeleteError(null);
     setDeleting(true);
 
-    const supabase = getSupabaseClient();
-
     try {
-      if (receipt.image_url) {
-        const { error: storageError } = await supabase.storage
-          .from("receipts")
-          .remove([receipt.image_url]);
-        if (storageError) {
-          throw storageError;
-        }
-      }
-
-      const { error: rowError } = await supabase
-        .from("receipts")
-        .delete()
-        .eq("id", receipt.id);
-
-      if (rowError) {
-        throw rowError;
+      // Server-side so the forwarded email / PDF original is deleted too —
+      // the browser can't remove files from `receipt-originals`.
+      const res = await fetch(`/api/receipts/${receipt.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error(`delete failed (HTTP ${res.status})`);
       }
 
       onOpenChange(false);

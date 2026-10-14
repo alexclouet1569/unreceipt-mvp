@@ -10,6 +10,18 @@ const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   maybeSingle: vi.fn(),
   updateEq: vi.fn(),
+  deleteEq: vi.fn(),
+  storageRemove: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase-admin", () => ({
+  getSupabaseAdmin: () => ({
+    storage: {
+      from: (bucket: string) => ({
+        remove: (paths: string[]) => mocks.storageRemove(bucket, paths),
+      }),
+    },
+  }),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({
@@ -35,6 +47,9 @@ vi.mock("@supabase/ssr", () => ({
       update: (payload: Record<string, unknown>) => ({
         eq: (col: string, val: string) => mocks.updateEq(payload, col, val),
       }),
+      delete: () => ({
+        eq: (col: string, val: string) => mocks.deleteEq(col, val),
+      }),
     }),
   }),
 }));
@@ -45,13 +60,15 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "u@x.com" });
   mocks.updateEq.mockResolvedValue({ error: null });
+  mocks.deleteEq.mockResolvedValue({ error: null });
+  mocks.storageRemove.mockResolvedValue({ error: null });
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-import { PATCH } from "@/app/api/receipts/[id]/route";
+import { DELETE, PATCH } from "@/app/api/receipts/[id]/route";
 
 function req(body: unknown) {
   return new NextRequest(`http://localhost:3000/api/receipts/${RECEIPT_ID}`, {
@@ -169,5 +186,78 @@ describe("PATCH /api/receipts/[id]", () => {
     const res = await PATCH(req({ amount: -1 }), params());
     expect(res.status).toBe(400);
     expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/receipts/[id]", () => {
+  const del = () =>
+    DELETE(
+      new NextRequest(`http://localhost:3000/api/receipts/${RECEIPT_ID}`, {
+        method: "DELETE",
+      }),
+      params()
+    );
+
+  it("removes the photo and the forwarded original, then the row", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: RECEIPT_ID,
+        image_url: `${USER_ID}/photo.jpg`,
+        original_source_url: `${USER_ID}/${RECEIPT_ID}.eml`,
+      },
+      error: null,
+    });
+
+    const res = await del();
+
+    expect(res.status).toBe(200);
+    expect(mocks.storageRemove).toHaveBeenCalledWith("receipts", [`${USER_ID}/photo.jpg`]);
+    expect(mocks.storageRemove).toHaveBeenCalledWith("receipt-originals", [
+      `${USER_ID}/${RECEIPT_ID}.eml`,
+    ]);
+    expect(mocks.deleteEq).toHaveBeenCalledWith("id", RECEIPT_ID);
+    expect(mocks.storageRemove.mock.invocationCallOrder[1]).toBeLessThan(
+      mocks.deleteEq.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("keeps the row (so the user can retry) when a file can't be removed", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { id: RECEIPT_ID, image_url: `${USER_ID}/photo.jpg`, original_source_url: null },
+      error: null,
+    });
+    mocks.storageRemove.mockResolvedValueOnce({ error: { message: "down" } });
+
+    const res = await del();
+
+    expect(res.status).toBe(500);
+    expect(mocks.deleteEq).not.toHaveBeenCalled();
+  });
+
+  it("never touches files outside the caller's own folder", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: RECEIPT_ID,
+        image_url: "someone-else/photo.jpg",
+        original_source_url: `${USER_ID}/../someone-else/x.eml`,
+      },
+      error: null,
+    });
+
+    const res = await del();
+
+    expect(res.status).toBe(200);
+    expect(mocks.storageRemove).not.toHaveBeenCalled();
+    expect(mocks.deleteEq).toHaveBeenCalledWith("id", RECEIPT_ID);
+  });
+
+  it("returns 404 for a row the caller can't see", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+    const res = await del();
+
+    expect(res.status).toBe(404);
+    expect(mocks.storageRemove).not.toHaveBeenCalled();
+    expect(mocks.deleteEq).not.toHaveBeenCalled();
   });
 });
