@@ -142,22 +142,41 @@
 - [x] 18 ★ S — Apply the rate limit to `/reprocess` and `/api/capture`.
 - [x] 19 ★ S — Apply a per-alias daily cap to `/api/intake/email`.
 - [x] 20 ★ S — Enforce the subscription/pilot gate inside the paid API routes, not only on the `/app` page.
-- [ ] 21 ★ S — Make email dedupe per user: unique `(user_id, intake_ref)`, and add a `user_id` filter to the lookup.
-- [ ] 22 ★ S — Stop trusting the model's self-reported confidence. LLM-only email extractions land as "needs a glance", pre-filled. This closes the prompt-injection route to fake verified receipts.
-- [ ] 23 ★ M — Security headers in `next.config.ts`: `frame-ancestors`, nosniff, Referrer-Policy, Permissions-Policy (camera=self). Start CSP in report-only mode.
-- [ ] 24 ★ S — Waitlist: `ENABLE ROW LEVEL SECURITY` in `schema.sql`, an IP rate limit, and Turnstile/BotID.
-- [ ] 25 ★ S — Capture upload: MIME allowlist and a 4 MB cap (Vercel rejects bodies over 4.5 MB). Set `file_size_limit` and `allowed_mime_types` on the buckets.
-- [ ] 26 ★ M — Shrink photos in the browser before upload: max 2000 px, JPEG. Faster, cheaper OCR, and always under the cap.
-- [ ] 27 ★ S — Generic error messages from capture/ocr/reprocess; keep details in server logs only.
-- [ ] 28 ★ S — Server-side receipt delete that removes **both** storage objects (image and `.eml`).
-- [ ] 29 ★ S — Lock columns users must not edit, using column grants or a trigger: `email_alias_hash`, `welcome_email_sent_at`, `status`, `intake_ref`, `is_verified`.
-- [ ] 30 ★ S — Stripe webhook: ignore stale events (compare `event.created`, or re-fetch the subscription).
-- [ ] 31 ★ S — Remove the `[auth-debug]` logs and the sender/recipient addresses from intake logs.
-- [ ] 32 ★ S — `/api/auth/clear`: check the Origin header (logout CSRF). Validate the UUID in `/reprocess`.
-- [ ] 33 ★ S — CI: add Dependabot and `npm audit --audit-level=high`. Delete `bun.lock` and move `shadcn` to devDependencies.
-- [ ] 34 ★ M — Sentry (`@sentry/nextjs`) with PII scrubbing; replace every `TODO(step-11)`.
-- [ ] 35 ★ S — Privacy page: list Anthropic, Resend, Stripe, Supabase (Frankfurt) and Vercel, with the transfer basis. Fix the "magic link only" wording.
-- [ ] 36 ★ S — Pin Vercel functions to `fra1` or `arn1`, next to the database. Fix the stale 5 MB note in AGENTS.md.
+- [x] 21 ★ S — Make email dedupe per user: unique `(user_id, intake_ref)`, and add a `user_id` filter to the lookup.
+- [x] 22 ★ S — Stop trusting the model's self-reported confidence. LLM-only email extractions land as "needs a glance", pre-filled. This closes the prompt-injection route to fake verified receipts.
+- [x] 23 ★ M — Security headers in `next.config.ts`: `frame-ancestors`, nosniff, Referrer-Policy, Permissions-Policy (camera=self). Start CSP in report-only mode.
+- [x] 24 ★ S — Waitlist: `ENABLE ROW LEVEL SECURITY` in `schema.sql`, an IP rate limit, and Turnstile/BotID.
+- [x] 25 ★ S — Capture upload: MIME allowlist and a 4 MB cap (Vercel rejects bodies over 4.5 MB). Set `file_size_limit` and `allowed_mime_types` on the buckets.
+- [x] 26 ★ M — Shrink photos in the browser before upload: max 2000 px, JPEG. Faster, cheaper OCR, and always under the cap.
+- [x] 27 ★ S — Generic error messages from capture/ocr/reprocess; keep details in server logs only.
+- [x] 28 ★ S — Server-side receipt delete that removes **both** storage objects (image and `.eml`).
+- [x] 29 ★ S — Lock columns users must not edit, using column grants or a trigger: `email_alias_hash`, `welcome_email_sent_at`, `status`, `intake_ref`, `is_verified`.
+- [x] 30 ★ S — Stripe webhook: ignore stale events (compare `event.created`, or re-fetch the subscription).
+- [x] 31 ★ S — Remove the `[auth-debug]` logs and the sender/recipient addresses from intake logs.
+- [x] 32 ★ S — `/api/auth/clear`: check the Origin header (logout CSRF). Validate the UUID in `/reprocess`.
+- [x] 33 ★ S — CI: add Dependabot and `npm audit --audit-level=high`. Delete `bun.lock` and move `shadcn` to devDependencies.
+- [x] 34 ★ M — Sentry (`@sentry/nextjs`) with PII scrubbing; replace every `TODO(step-11)`.
+- [x] 35 ★ S — Privacy page: list Anthropic, Resend, Stripe, Supabase (Frankfurt) and Vercel, with the transfer basis. Fix the "magic link only" wording.
+- [x] 36 ★ S — Pin Vercel functions to `fra1` or `arn1`, next to the database. Fix the stale 5 MB note in AGENTS.md.
+
+### Phase 1 deploy steps (order matters)
+
+1. **Merge and deploy the code first.** Every new check fails open or works without the SQL: rate limits are skipped while `rate_limit_hit` is missing, and dedupe still works under the old index.
+2. **Then apply the SQL in the Supabase SQL editor**, in this order:
+   1. `supabase/migrations/20261014_rate_limits.sql`
+   2. `supabase/migrations/20261014_intake_ref_per_user.sql`
+   3. `supabase/migrations/20261014_waitlist_rls.sql` (already true in production; a no-op)
+   4. `supabase/migrations/20261014_receipts_bucket_limits.sql`
+   5. `supabase/migrations/20261014_server_only_trust_fields.sql`, **only after step 1 is live.** Applied before the deploy, it would break saving the review form, because the old code writes receipts with the user's own client.
+3. **Vercel env:** set `NEXT_PUBLIC_SENTRY_DSN` from an EU-region Sentry project (optional; without it Sentry stays off).
+4. **Smoke test on production:**
+   - log in
+   - capture a photo
+   - complete a "needs review" receipt
+   - delete a receipt
+   - forward an email
+   - download a PDF
+   - `curl -I https://app.unreceipt.com/app` shows the security headers
 
 ## Phase 2 — Complete the core product (🤖)
 
@@ -274,14 +293,14 @@
 ## Phase 9 — Agents
 
 **Build agents** (Claude Code subagents in `.claude/agents/`, used on every PR from now on):
-- [ ] A1 🤖 S — `security-reviewer` checks each diff against the rules this audit produced:
+- [x] A1 🤖 S — `security-reviewer` checks each diff against the rules this audit produced:
   - `requireAdmin` on admin routes
   - the service-role client never imported from client code
   - `rateLimit` on paid routes
   - RLS and column grants on new tables
   - no PII in logs
-- [ ] A2 🤖 S — `design-reviewer` flags DESIGN.md violations: off-token colours, mono outside amounts, shadows on cards.
-- [ ] A3 🤖 S — `compliance-reviewer` checks that changes to the rules config come with dated sources and fixture tests.
+- [x] A2 🤖 S — `design-reviewer` flags DESIGN.md violations: off-token colours, mono outside amounts, shadows on cards.
+- [x] A3 🤖 S — `compliance-reviewer` checks that changes to the rules config come with dated sources and fixture tests.
 
 **Operations agents** (scheduled tasks, after Launch 1):
 - [ ] A4 🤖 S — Daily: Sentry errors, Vercel runtime errors, Supabase advisors, Anthropic spend. Silent unless something is wrong.
