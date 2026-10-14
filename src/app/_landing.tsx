@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
+import { cn } from "@/lib/utils";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
 
@@ -258,10 +259,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             >
               Sign in
             </a>
-            <a href={appUrl("/app/login")}>
-              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11">
-                {pilotMode ? "Join the pilot" : "Start free"}
-              </Button>
+            <a
+              href={appUrl("/app/login")}
+              className={cn(buttonVariants({
+                size: "sm",
+                className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
+              }))}
+            >
+              {pilotMode ? "Join the pilot" : "Start free"}
             </a>
           </div>
           <button
@@ -294,10 +299,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             >
               Sign in
             </a>
-            <a href={appUrl("/app/login")} onClick={() => setMobileMenuOpen(false)} className="mt-2">
-              <Button className="w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12">
-                {pilotMode ? "Join the pilot" : "Start free"}
-              </Button>
+            <a
+              href={appUrl("/app/login")}
+              onClick={() => setMobileMenuOpen(false)}
+              className={cn(buttonVariants({
+                className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
+              }))}
+            >
+              {pilotMode ? "Join the pilot" : "Start free"}
             </a>
           </div>
         )}
@@ -326,22 +335,31 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 your dashboard within 24 hours.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <a href={appUrl("/app/login")}>
-                  <Button size="lg" className="bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12">
-                    {pilotMode ? "Join the pilot" : "Start your free week"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+                <a
+                  href={appUrl("/app/login")}
+                  className={cn(buttonVariants({
+                    size: "lg",
+                    className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
+                  }))}
+                >
+                  {pilotMode ? "Join the pilot" : "Start your free week"}
+                  <ArrowRight className="w-4 h-4 ml-2" />
                 </a>
-                <a href="#how">
-                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12">
-                    See How it Works
-                  </Button>
+                <a
+                  href="#how"
+                  className={cn(buttonVariants({
+                    size: "lg",
+                    variant: "outline",
+                    className: "border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12",
+                  }))}
+                >
+                  See How it Works
                 </a>
               </div>
               <p className="text-white/80 text-sm mt-4">
                 {pilotMode
-                  ? "Free during the pilot. From €5 per employee/month after."
-                  : "From €5 per employee/month + VAT after the free week. Cancel anytime."}
+                  ? "Free during the pilot. Plans from €5.99/month after."
+                  : "Plans from €5.99/month + VAT after the free week. Cancel anytime."}
               </p>
             </div>
 

@@ -28,7 +28,7 @@ import { POST } from "@/app/api/checkout/route";
 const adminUser = { id: "user-1", email: "founder@unreceipt.com" };
 
 const buildRequest = (
-  body: unknown = { plan: "regular", employees: 12 }
+  body: unknown = { plan: "regular" }
 ) =>
   new NextRequest("http://localhost:3000/api/checkout", {
     method: "POST",
@@ -73,10 +73,8 @@ describe("POST /api/checkout", () => {
   it.each([
     [null],
     [{}],
-    [{ plan: "enterprise", employees: 5 }],
-    [{ plan: "regular", employees: 0 }],
-    [{ plan: "regular", employees: 2.5 }],
-    [{ plan: "regular", employees: 10_000 }],
+    [{ plan: "enterprise" }],
+    [{ plan: 3 }],
   ])("returns 400 for an invalid body %j", async (body) => {
     mocks.getServerUser.mockResolvedValue(adminUser);
 
@@ -89,7 +87,7 @@ describe("POST /api/checkout", () => {
     delete process.env.STRIPE_PRICE_HEAVY;
     mocks.getServerUser.mockResolvedValue(adminUser);
 
-    const res = await POST(buildRequest({ plan: "heavy", employees: 3 }));
+    const res = await POST(buildRequest({ plan: "heavy" }));
     expect(res.status).toBe(500);
     expect(mocks.createSession).not.toHaveBeenCalled();
   });
@@ -110,8 +108,8 @@ describe("POST /api/checkout", () => {
 
     expect(args).toMatchObject({
       mode: "subscription",
-      // Per-employee pricing: the chosen plan's price × employees.
-      line_items: [{ price: "price_regular", quantity: 12 }],
+      // One flat monthly price per company for the chosen plan.
+      line_items: [{ price: "price_regular", quantity: 1 }],
       subscription_data: {
         trial_period_days: 7, // CMT1 — 7, not 30
         metadata: { user_id: adminUser.id, plan: "regular" }, // read by the subscription.* webhooks

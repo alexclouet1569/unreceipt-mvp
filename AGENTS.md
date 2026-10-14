@@ -40,7 +40,7 @@ Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_
 
 Required env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_LIGHT`, `STRIPE_PRICE_REGULAR`, `STRIPE_PRICE_HEAVY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (see `.env.example`).
 
-Plans (Light / Regular / Heavy) are defined once in `src/lib/plans.ts` and shared by the landing pricing, `/subscribe` and `/api/checkout`. Each plan is a recurring **per-unit** monthly price in EUR in Stripe; checkout bills `plan price × employees` (quantity). `/api/checkout` never falls back to another price: if a plan's `STRIPE_PRICE_*` env var is missing it returns 500 instead of charging the wrong amount.
+Plans (Light / Regular / Heavy) are defined once in `src/lib/plans.ts` and shared by the landing pricing, `/subscribe` and `/api/checkout`. Each plan is one recurring monthly EUR price in Stripe for the whole company (quantity 1, no per-user fees). `/api/checkout` never falls back to another price: if a plan's `STRIPE_PRICE_*` env var is missing it returns 500 instead of charging the wrong amount.
 
 Webhook signature verification needs the *raw* request body, so `src/app/api/webhooks/stripe/route.ts` reads `await request.text()` before any JSON parsing. Don't refactor that route to parse JSON eagerly — it will break verification.
 
@@ -65,8 +65,8 @@ Production webhook: Stripe Dashboard → Developers → Webhooks → Add endpoin
 - The subscription gate at `/app` returns `{ kind: "allow_with_warning", reason: "pilot_mode" }` — bypassing Stripe entirely. Any logged-in user reaches the dashboard regardless of subscription state.
 - A yellow `PilotBanner` is rendered above the dashboard explaining the pilot.
 - `/subscribe` hides the Subscribe button and shows a "Continue to dashboard →" link instead (the page itself remains so old links still resolve).
-- The landing page CTA copy switches from "Start your free week" / "First week free" to "Join the pilot" / "Free during the pilot. From €5 per employee/month after."
-- Pricing is three per-employee plans (Light €5 / Regular €9 / Heavy €14, see `src/lib/plans.ts`). **Before turning `PILOT_MODE` off**, create the three per-unit prices in Stripe and set `STRIPE_PRICE_LIGHT` / `_REGULAR` / `_HEAVY` in Vercel — otherwise checkout refuses with "This plan isn't available yet".
+- The landing page CTA copy switches from "Start your free week" / "First week free" to "Join the pilot" / "Free during the pilot. Plans from €5.99/month after."
+- Pricing is three flat monthly plans per company (Light €5.99 / 15 receipts, Regular €9.99 / 40, Heavy €15.99 / 100 — see `src/lib/plans.ts`). Receipt allowances are not enforced in code yet. **Before turning `PILOT_MODE` off**, create the three monthly prices in Stripe and set `STRIPE_PRICE_LIGHT` / `_REGULAR` / `_HEAVY` in Vercel — otherwise checkout refuses with "This plan isn't available yet".
 - `/admin`, `/auth/callback`, `/api/webhooks/stripe`, `/api/checkout` are **unchanged**. Pilot mode only affects the customer-facing gate and copy.
 
 When `PILOT_MODE` is unset or set to anything other than the literal string `"true"`, the app behaves as paid (current state). `src/lib/pilot.ts` exposes `isPilotMode()` — server-only; the literal-`"true"` compare is intentional so a typo defaults safely to charging.

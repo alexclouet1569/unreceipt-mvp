@@ -2,18 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getStripe } from "@/lib/stripe";
-import {
-  MAX_EMPLOYEES,
-  MIN_EMPLOYEES,
-  PLAN_IDS,
-  planPriceEnv,
-} from "@/lib/plans";
+import { PLAN_IDS, planPriceEnv } from "@/lib/plans";
 
-// The customer picks a plan and how many employees file receipts; the
-// subscription is that plan's per-employee price × employees.
+// The customer picks a plan; each plan is one flat monthly price for the
+// whole company (no per-user quantity).
 const CheckoutBody = z.object({
   plan: z.enum(PLAN_IDS),
-  employees: z.number().int().min(MIN_EMPLOYEES).max(MAX_EMPLOYEES),
 });
 
 export const runtime = "nodejs";
@@ -28,11 +22,11 @@ export async function POST(request: NextRequest) {
   const parsed = CheckoutBody.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Pick a plan and a number of employees." },
+      { error: "Pick a plan." },
       { status: 400 }
     );
   }
-  const { plan, employees } = parsed.data;
+  const { plan } = parsed.data;
 
   // No fallback to another price: a missing env var must fail loudly
   // rather than bill the customer for a plan they didn't choose.
@@ -57,7 +51,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: employees }],
+      line_items: [{ price: priceId, quantity: 1 }],
       // metadata.user_id rides on the subscription itself so the
       // customer.subscription.updated / .deleted webhooks know whose row
       // to update (client_reference_id only exists on the Checkout session).

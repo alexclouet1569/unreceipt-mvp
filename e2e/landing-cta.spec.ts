@@ -52,39 +52,52 @@ test.describe("landing → /app/login funnel", () => {
       .locator('[data-plan="Regular"]')
       .getByRole("link", { name: /Start your free week/i });
     await expect(cta).toBeVisible();
+    // The section slides into place when scrolled into view; clicking
+    // mid-transition lands on whatever was under the old position.
+    await pricingSection.scrollIntoViewIfNeeded();
+    await expect(pricingSection).toHaveClass(/opacity-100/);
+    await pricingSection.evaluate((el) =>
+      Promise.all(el.getAnimations().map((a) => a.finished))
+    );
     await cta.click();
 
     await expect(page).toHaveURL(/\/app\/login$/);
   });
 
-  test("pricing shows the three per-employee plans with first-week-free", async ({
+  test("pricing shows the three flat monthly plans with first-week-free", async ({
     page,
   }) => {
     await page.goto("/");
 
     const pricing = page.locator("#pricing");
-    for (const [name, price] of [["Light", "€5"], ["Regular", "€9"], ["Heavy", "€14"]]) {
+    for (const [name, price] of [
+      ["Light", "€5.99"],
+      ["Regular", "€9.99"],
+      ["Heavy", "€15.99"],
+    ]) {
       const card = pricing.locator(`[data-plan="${name}"]`);
       await expect(card).toContainText(price);
-      await expect(card).toContainText(/per employee/i);
+      await expect(card).toContainText(/receipts \/ month/i);
     }
+    await expect(pricing).not.toContainText(/per employee/i);
     await expect(pricing).toContainText(/VAT/);
     await expect(pricing).toContainText(/First week free/i);
-    await expect(pricing).not.toContainText(/€49/);
   });
 
-  test("the team-size slider recomputes each plan's monthly total", async ({
+  test("the receipts slider highlights the plan that fits", async ({
     page,
   }) => {
     await page.goto("/");
 
     const pricing = page.locator("#pricing");
-    const regular = pricing.locator('[data-plan="Regular"]');
     // Retry until the client component has hydrated and owns the input.
     await expect(async () => {
-      await pricing.locator("#team-size").fill("20");
-      await expect(regular).toContainText("€180", { timeout: 500 });
+      await pricing.locator("#receipts-per-month").fill("30");
+      await expect(pricing.getByTestId("plan-fit")).toContainText("Regular", {
+        timeout: 500,
+      });
     }).toPass();
+    await expect(pricing.locator('[data-plan="Regular"]')).toHaveAttribute("data-fits", "");
   });
 });
 

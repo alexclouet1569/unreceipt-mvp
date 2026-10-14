@@ -104,7 +104,7 @@ export default async function Image() {
               fontWeight: 600,
             }}
           >
-            Free for small teams
+            Forward or snap
           </div>
           <div
             style={{
@@ -117,7 +117,7 @@ export default async function Image() {
               fontWeight: 600,
             }}
           >
-            Any card works
+            VAT-ready in 24 h
           </div>
           <div
             style={{
@@ -130,7 +130,7 @@ export default async function Image() {
               fontWeight: 600,
             }}
           >
-            Zero employee effort
+            From €5.99 / month
           </div>
         </div>
       </div>

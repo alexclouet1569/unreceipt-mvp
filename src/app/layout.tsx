@@ -4,6 +4,7 @@ import { Manrope, Figtree, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PLANS } from "@/lib/plans";
 import "./globals.css";
 
 const APP_HOST = "app.unreceipt.com";
@@ -38,7 +39,7 @@ const geistMono = Geist_Mono({
 // forwarding address, photo capture with auto-fill, and concierge-checked,
 // VAT-ready records within 24 hours. Prices mirror src/app/_pricing.tsx.
 const DESCRIPTION =
-  "Forward email receipts or snap paper ones. UnReceipt turns every receipt into a VAT-ready record within 24 hours — merchant, line items, VAT and category. Built for small businesses in Sweden. From €5 per employee/month.";
+  "Forward email receipts or snap paper ones. UnReceipt turns every receipt into a VAT-ready record within 24 hours — merchant, line items, VAT and category. Built for small businesses in Sweden. Plans from €5.99/month.";
 const SHARE_DESCRIPTION =
   "Forward any receipt — email or photo — and get a VAT-ready record within 24 hours. Built for small businesses in Sweden.";
 
@@ -140,15 +141,13 @@ export default async function RootLayout({
               operatingSystem: "Web",
               description: DESCRIPTION,
               url: "https://unreceipt.com",
-              offers: [
-                { name: "Light", price: "5", description: "Up to 5 receipts per employee per month" },
-                { name: "Regular", price: "9", description: "Up to 15 receipts per employee per month" },
-                { name: "Heavy", price: "14", description: "Up to 40 receipts per employee per month" },
-              ].map((plan) => ({
+              offers: PLANS.map((plan) => ({
                 "@type": "Offer",
-                ...plan,
+                name: plan.name,
+                price: plan.price.toFixed(2),
                 priceCurrency: "EUR",
-                unitText: "per employee per month",
+                description: `Up to ${plan.receipts} receipts per month for the whole company`,
+                unitText: "per month",
               })),
             }),
           }}

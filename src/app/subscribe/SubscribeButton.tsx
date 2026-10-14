@@ -2,28 +2,20 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Minus, Plus } from "lucide-react";
-import {
-  MAX_EMPLOYEES,
-  MIN_EMPLOYEES,
-  PLANS,
-  type PlanId,
-} from "@/lib/plans";
+import { Loader2 } from "lucide-react";
+import { PLANS, formatPrice, type PlanId } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 /**
- * Plan picker + Subscribe. The customer chooses a plan and how many
- * employees file receipts; /api/checkout bills plan price × employees.
+ * Plan picker + Subscribe. Each plan is one flat monthly price for the
+ * whole company; /api/checkout bills the chosen plan.
  */
 export function SubscribeButton() {
-  const [plan, setPlan] = useState<PlanId>("regular");
-  const [employees, setEmployees] = useState(5);
+  const [plan, setPlan] = useState<PlanId>("light");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selected = PLANS.find((p) => p.id === plan) ?? PLANS[0];
-  const clamp = (n: number) =>
-    Math.min(MAX_EMPLOYEES, Math.max(MIN_EMPLOYEES, Math.round(n) || MIN_EMPLOYEES));
 
   const handleClick = async () => {
     setLoading(true);
@@ -32,7 +24,7 @@ export function SubscribeButton() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, employees }),
+        body: JSON.stringify({ plan }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -74,83 +66,29 @@ export function SubscribeButton() {
               className="accent-[var(--primary)]"
             />
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold">
-                {p.name}
-                {p.popular ? (
-                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-primary">
-                    Most chosen
-                  </span>
-                ) : null}
-              </span>
+              <span className="block text-sm font-semibold">{p.name}</span>
               <span className="block text-xs text-muted-foreground">
-                Up to {p.receipts} receipts per employee / month
+                Up to {p.receipts} receipts / month
               </span>
             </span>
             <span className="font-mono tabular-nums text-sm font-medium whitespace-nowrap">
-              €{p.price}
-              <span className="font-sans text-xs text-muted-foreground"> /employee</span>
+              {formatPrice(p.price)}
+              <span className="font-sans text-xs text-muted-foreground"> /month</span>
             </span>
           </label>
         ))}
+        <p className="text-xs text-muted-foreground pt-1">
+          One price for the whole company — no per-user fees.
+        </p>
       </fieldset>
-
-      <div className="flex items-center justify-between gap-3">
-        <label htmlFor="employees" className="text-sm font-semibold">
-          Employees with expenses
-        </label>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Fewer employees"
-            onClick={() => setEmployees((n) => clamp(n - 1))}
-            disabled={employees <= MIN_EMPLOYEES}
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
-          <input
-            id="employees"
-            type="number"
-            inputMode="numeric"
-            min={MIN_EMPLOYEES}
-            max={MAX_EMPLOYEES}
-            value={employees}
-            onChange={(e) => setEmployees(clamp(Number(e.target.value)))}
-            className="w-14 h-9 rounded-md border border-input bg-background text-center font-mono tabular-nums text-sm"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="More employees"
-            onClick={() => setEmployees((n) => clamp(n + 1))}
-            disabled={employees >= MAX_EMPLOYEES}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm flex items-baseline justify-between">
-        <span className="text-muted-foreground">
-          {employees} × €{selected.price}
-        </span>
-        <span>
-          <span className="font-mono tabular-nums font-semibold" data-testid="subscribe-total">
-            €{selected.price * employees}
-          </span>
-          <span className="text-xs text-muted-foreground"> /month excl. VAT</span>
-        </span>
-      </div>
 
       <div className="space-y-2">
         <Button className="w-full gap-2" onClick={handleClick} disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
           {loading ? "Starting checkout..." : "Start your free week"}
         </Button>
-        <p className="text-[11px] text-muted-foreground text-center">
-          Free for 7 days, then billed monthly. Cancel anytime.
+        <p className="text-[11px] text-muted-foreground text-center" data-testid="subscribe-total">
+          Free for 7 days, then {formatPrice(selected.price)}/month excl. VAT. Cancel anytime.
         </p>
         {error ? (
           <p className="text-xs text-destructive text-center">{error}</p>
