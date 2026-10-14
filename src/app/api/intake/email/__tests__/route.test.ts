@@ -18,6 +18,11 @@ const mocks = vi.hoisted(() => ({
   receiptsInsert: vi.fn(),
   storageUpload: vi.fn(),
   storageRemove: vi.fn(),
+  fetchReceivedEmail: vi.fn(),
+}));
+
+vi.mock("@/lib/resend-inbound", () => ({
+  fetchReceivedEmail: mocks.fetchReceivedEmail,
 }));
 
 vi.mock("@/lib/email-alias", () => ({
@@ -270,5 +275,96 @@ describe("POST /api/intake/email", () => {
     >;
     expect(typeof insertedRow.intake_ref).toBe("string");
     expect((insertedRow.intake_ref as string).startsWith("sha256:")).toBe(true);
+  });
+
+  // Resend's real webhook: metadata only, body fetched by email_id.
+  function metadataOnlyPayload(overrides: Record<string, unknown> = {}) {
+    return JSON.stringify({
+      type: "email.received",
+      created_at: "2026-10-14T08:00:00.000Z",
+      data: {
+        email_id: "56761188-7520-42d8-8898-ff6fc54ce618",
+        created_at: "2026-10-14T08:00:00.000Z",
+        from: "receipts@uber.com",
+        to: [`receipts+${VALID_HASH}@in.unreceipt.com`],
+        cc: [],
+        bcc: [],
+        received_for: [],
+        message_id: "<msg-uber-002@uber.com>",
+        subject: "Your Tuesday morning trip with Uber",
+        attachments: [],
+        ...overrides,
+      },
+    });
+  }
+
+  it("loads the body from Resend when the webhook only carries metadata", async () => {
+    mocks.fetchReceivedEmail.mockResolvedValue({
+      text: "Total: 189 kr",
+      html: "<p>Total: 189 kr</p>",
+      headers: {},
+      messageId: "<msg-uber-002@uber.com>",
+      rawEml: Buffer.from("From: receipts@uber.com\r\n\r\nTotal: 189 kr"),
+    });
+    const body = metadataOnlyPayload();
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(mocks.fetchReceivedEmail).toHaveBeenCalledWith(
+      "56761188-7520-42d8-8898-ff6fc54ce618"
+    );
+    expect(mocks.parseReceipt.mock.calls[0][0].raw).toMatchObject({
+      text: "Total: 189 kr",
+      html: "<p>Total: 189 kr</p>",
+    });
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+    const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.intake_ref).toBe("<msg-uber-002@uber.com>");
+    expect(row.original_source_kind).toBe("eml");
+  });
+
+  it("answers 502 (so Resend retries) and saves nothing when the body can't be loaded", async () => {
+    mocks.fetchReceivedEmail.mockResolvedValue(null);
+    const body = metadataOnlyPayload();
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(502);
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("finds the alias in received_for when an auto-forward kept the original To:", async () => {
+    mocks.parseAliasFromTo.mockImplementation((addr: string) =>
+      addr.startsWith("receipts+") ? VALID_HASH : null
+    );
+    mocks.fetchReceivedEmail.mockResolvedValue({
+      text: "Total: 189 kr",
+      html: null,
+      headers: {},
+      messageId: "<msg-uber-003@uber.com>",
+      rawEml: null,
+    });
+    const body = metadataOnlyPayload({
+      to: ["alex@acme.se"],
+      received_for: [`receipts+${VALID_HASH}@in.unreceipt.com`],
+    });
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(mocks.findUserByAliasHash).toHaveBeenCalledWith(VALID_HASH);
+    const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.original_source_url).toBeNull();
+  });
+
+  it("does not call Resend for an unknown alias", async () => {
+    mocks.findUserByAliasHash.mockResolvedValue(null);
+    const body = metadataOnlyPayload();
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(404);
+    expect(mocks.fetchReceivedEmail).not.toHaveBeenCalled();
   });
 });
