@@ -43,7 +43,7 @@ export function getFaq(pilotMode: boolean): FaqItem[] {
       a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
     },
     {
-      q: "How long do I have to keep receipts in Sweden?",
+      q: "How long do companies in Sweden have to keep receipts?",
       a: "Under the Swedish Bookkeeping Act (bokföringslagen), receipts must be kept for seven years after the end of the calendar year in which the financial year ended. Since 1 July 2024 you may throw away the paper original once it's saved digitally in a way that keeps the information intact.",
     },
     {
@@ -55,8 +55,12 @@ export function getFaq(pilotMode: boolean): FaqItem[] {
       a: "Receipts and account data are stored with Supabase, hosted in the EU. Payments are handled by Stripe — UnReceipt never sees your card details. See our privacy page for the details.",
     },
     {
-      q: "Is UnReceipt available outside Sweden?",
-      a: "Not yet — UnReceipt is in pilot in Sweden. Leave your email on this page and we'll let you know when we open in your country.",
+      q: "Which countries does UnReceipt work in?",
+      a: "Sweden today, in pilot. France is next. Leave your email on this page and we'll let you know as soon as we open in your country.",
+    },
+    {
+      q: "How long do companies in France have to keep receipts?",
+      a: "Ten years from the end of the financial year, under the French Commercial Code (article L123-22). A paper original may only be destroyed after scanning if the scan meets the strict French rules for certified copies (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals for now.",
     },
   ];
 }
