@@ -201,7 +201,7 @@
 - [ ] 55 M — OCR shimmer skeleton and 480 ms reveal, per DESIGN.md.
 - [ ] 56 M — Detail view as a full-screen bottom sheet on mobile, per DESIGN.md.
 - [ ] 57 S — GDPR data export (JSON plus files).
-- [ ] 58 S — Retention job matching what the privacy page promises.
+- [ ] 58 ★ M — Retention job matching the privacy page: 90 days after cancellation, email a download reminder, then delete account, rows and storage. The seven-year BFL duty is the customer's.
 
 ## Phase 3 — Swedish compliance engine (the moat) (🤖, rules reviewed by the accountant)
 
