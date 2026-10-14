@@ -119,6 +119,17 @@ export async function PATCH(
   const existingRow = existing as Receipt;
   const patch = parsed.data;
 
+  // Only rows awaiting review can be completed here (that's all the UI
+  // offers). Editing a verified receipt — and marking it as edited on the
+  // PDF — is a separate feature (launch plan action 41); until then the
+  // API must not silently rewrite a verified receipt's amount or date.
+  if (existingRow.status !== "pending_review") {
+    return NextResponse.json(
+      { error: "only receipts awaiting review can be edited" },
+      { status: 409 }
+    );
+  }
+
   // Build the update payload + the prospective post-patch view for the
   // status computation. Touching `receipt_date` also pins `purchased_at`
   // to noon UTC of that date — matches the convention from /api/capture.

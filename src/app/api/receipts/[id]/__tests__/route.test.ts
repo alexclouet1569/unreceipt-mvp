@@ -182,6 +182,29 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload.status).toBe("pending_review");
   });
 
+  it("refuses to rewrite an already-verified receipt (409)", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: RECEIPT_ID,
+        user_id: USER_ID,
+        status: "verified",
+        merchant_name: "Uber",
+        purchased_at: "2026-05-10T08:14:00.000Z",
+        receipt_date: "2026-05-10",
+        total: 24.9,
+        currency: "EUR",
+        category: "transport",
+        parse_confidence: 0.95,
+      },
+      error: null,
+    });
+
+    const res = await PATCH(req({ amount: 2490 }), params());
+
+    expect(res.status).toBe(409);
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the row is not visible (RLS or missing)", async () => {
     mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
     const res = await PATCH(req({ merchant: "Uber" }), params());
