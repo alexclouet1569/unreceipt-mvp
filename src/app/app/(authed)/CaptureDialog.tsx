@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -75,7 +74,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const [items, setItems] = useState<OcrItem[] | null>(null);
 
   // Reset everything when the dialog closes so the next open is fresh.
-  useEffect(() => {
+  // Adjusted during render (React's "reset state when a prop changes"
+  // pattern) rather than in an effect, which would paint stale state once.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setForm(blankForm());
       setImageFile(null);
@@ -86,7 +89,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       setOcrError(null);
       setItems(null);
     }
-  }, [open]);
+  }
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));

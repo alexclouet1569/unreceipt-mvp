@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -40,13 +40,17 @@ export function ReceiptDetailDialog({
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessError, setReprocessError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Fresh action state for each receipt opened (adjusted during render,
+  // React's "reset state when a prop changes" pattern).
+  const [prevReceiptId, setPrevReceiptId] = useState(receipt?.id);
+  if (receipt?.id !== prevReceiptId) {
+    setPrevReceiptId(receipt?.id);
     setConfirming(false);
     setDeleting(false);
     setDeleteError(null);
     setReprocessing(false);
     setReprocessError(null);
-  }, [receipt?.id]);
+  }
 
   const open = receipt !== null;
   const pending = receipt?.status === "pending_review";
@@ -324,10 +328,12 @@ function CompleteForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [prevReceipt, setPrevReceipt] = useState(receipt);
+  if (receipt !== prevReceipt) {
+    setPrevReceipt(receipt);
     setForm(deriveFormState(receipt));
     setError(null);
-  }, [receipt]);
+  }
 
   const update = <K extends keyof CompleteFormState>(
     key: K,
