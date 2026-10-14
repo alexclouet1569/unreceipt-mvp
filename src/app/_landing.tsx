@@ -20,10 +20,12 @@ import {
   Search,
   ReceiptText,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
+import { getFaq } from "@/lib/faq";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
 
@@ -244,6 +246,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               { label: "How it Works", href: "#how" },
               { label: "Pricing", href: "#pricing" },
               { label: "About", href: "#about" },
+              { label: "FAQ", href: "#faq" },
             ].map((link) => (
               <a
                 key={link.label}
@@ -287,6 +290,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               { label: "How it Works", href: "#how" },
               { label: "Pricing", href: "#pricing" },
               { label: "About", href: "#about" },
+              { label: "FAQ", href: "#faq" },
             ].map((link) => (
               <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}
@@ -690,6 +694,36 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      {/* ─── FAQ ─── */}
+      <Section id="faq" className="py-20 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">FAQ</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
+              Questions, Answered
+            </h2>
+          </div>
+          {/* Native <details>: every answer is in the HTML, so search
+              engines and AI assistants read it without running JS. */}
+          <div className="space-y-3">
+            {getFaq(pilotMode).map((item) => (
+              <details
+                key={item.q}
+                className="group bg-white border border-[#E8E5DD] rounded-2xl px-5 sm:px-6 open:pb-5"
+              >
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none py-4 sm:py-5 font-bold text-[#303568] [&::-webkit-details-marker]:hidden">
+                  <h3 className="text-base sm:text-lg">{item.q}</h3>
+                  <ChevronDown className="w-5 h-5 shrink-0 text-[#27BE7B] transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="text-sm sm:text-base leading-relaxed text-[#303568]/70">
+                  {item.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </Section>
+
       <ReceiptRows rows={RECEIPT.badges} />
 
       {/* ─── TRUST BADGES ─── */}
@@ -808,6 +842,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Company</p>
                 <div className="flex flex-col">
                   <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors py-2">About</a>
+                  <a href="#faq" className="text-sm text-white/40 hover:text-white transition-colors py-2">FAQ</a>
                   <a href="#waitlist" className="text-sm text-white/40 hover:text-white transition-colors py-2">Contact</a>
                   <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors py-2">Privacy</a>
                 </div>

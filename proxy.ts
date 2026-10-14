@@ -64,6 +64,7 @@ const STATIC_PATHS = new Set([
   "/sw.js",
   "/robots.txt",
   "/sitemap.xml",
+  "/llms.txt",
   "/opengraph-image",
 ]);
 const STATIC_EXT_RE = /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?|css|js|map)$/i;
