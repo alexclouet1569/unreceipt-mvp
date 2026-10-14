@@ -1,11 +1,19 @@
-// Customer-side receipt edit endpoint — used by the "Complete this
-// receipt" flow on pending_review rows. PATCH validates the partial
-// payload, merges it onto the existing row, and re-runs
-// computeReceiptStatus so a previously pending row flips to 'verified'
-// the moment the missing fields are filled.
+// Customer-side receipt endpoint.
 //
-// Anon-key client → RLS enforces user ownership; service-role is not
-// required here.
+// PATCH — the "Complete this receipt" flow on pending_review rows.
+// Validates the partial payload, merges it onto the existing row, and
+// re-runs computeReceiptStatus so a previously pending row flips to
+// 'verified' the moment the missing fields are filled.
+//
+// DELETE — removes the row and every stored file behind it (the photo in
+// `receipts`, the forwarded .eml or PDF in `receipt-originals`).
+//
+// Rows are read through the anon-key client, so RLS enforces ownership.
+// Updates go through the service role, scoped to the user: users have no
+// direct INSERT/UPDATE grant on receipts, so the trust fields (status,
+// intake_ref, …) can only be set by server code. Storage deletes also use
+// the service role (`receipt-originals` has no user DELETE policy), on
+// paths checked with isOwnedStoragePath first.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -14,6 +22,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
+import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { Receipt } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -109,6 +119,17 @@ export async function PATCH(
   const existingRow = existing as Receipt;
   const patch = parsed.data;
 
+  // Only rows awaiting review can be completed here (that's all the UI
+  // offers). Editing a verified receipt — and marking it as edited on the
+  // PDF — is a separate feature (launch plan action 41); until then the
+  // API must not silently rewrite a verified receipt's amount or date.
+  if (existingRow.status !== "pending_review") {
+    return NextResponse.json(
+      { error: "only receipts awaiting review can be edited" },
+      { status: 409 }
+    );
+  }
+
   // Build the update payload + the prospective post-patch view for the
   // status computation. Touching `receipt_date` also pins `purchased_at`
   // to noon UTC of that date — matches the convention from /api/capture.
@@ -118,7 +139,10 @@ export async function PATCH(
     purchased_at: existingRow.purchased_at,
     receipt_date: existingRow.receipt_date,
     total: existingRow.total,
-    parse_confidence: existingRow.parse_confidence,
+    // A person is now saving these fields, which is the review the low
+    // confidence asked for — so it no longer holds the row in
+    // pending_review. The stored parse_confidence is left as-is.
+    parse_confidence: null,
   };
 
   if (patch.merchant != null) {
@@ -148,10 +172,14 @@ export async function PATCH(
 
   update.status = computeReceiptStatus(merged);
 
-  const { error: updateError } = await supabase
+  // The row was read under RLS above, so it belongs to this user. The write
+  // itself goes through the service role: users have no direct UPDATE on
+  // receipts (status and the other trust fields must only be set here).
+  const { error: updateError } = await getSupabaseAdmin()
     .from("receipts")
     .update(update)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (updateError) {
     console.error("[/api/receipts/PATCH] update failed", updateError);
@@ -159,4 +187,72 @@ export async function PATCH(
   }
 
   return NextResponse.json({ ok: true, status: update.status });
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getServerUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return NextResponse.json({ error: "invalid id" }, { status: 400 });
+  }
+
+  const supabase = await getUserScopedClient();
+  const { data: row, error: readError } = await supabase
+    .from("receipts")
+    .select("id, image_url, original_source_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) {
+    console.error("[/api/receipts/DELETE] lookup failed", readError);
+    return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+  }
+  if (!row) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
+  // Files first: if storage fails, the row is still there and the user
+  // can retry, instead of the files being orphaned with no row pointing
+  // at them.
+  const removals: Array<{ bucket: "receipts" | "receipt-originals"; path: string }> = [];
+  if (row.image_url && isOwnedStoragePath(row.image_url, user.id)) {
+    removals.push({ bucket: "receipts", path: row.image_url });
+  }
+  if (
+    row.original_source_url &&
+    isOwnedStoragePath(row.original_source_url, user.id)
+  ) {
+    removals.push({ bucket: "receipt-originals", path: row.original_source_url });
+  }
+
+  const admin = getSupabaseAdmin();
+  for (const { bucket, path } of removals) {
+    const { error } = await admin.storage.from(bucket).remove([path]);
+    if (error) {
+      console.error("[/api/receipts/DELETE] storage remove failed", {
+        bucket,
+        error,
+      });
+      return NextResponse.json({ error: "delete failed" }, { status: 500 });
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from("receipts")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    console.error("[/api/receipts/DELETE] row delete failed", deleteError);
+    return NextResponse.json({ error: "delete failed" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

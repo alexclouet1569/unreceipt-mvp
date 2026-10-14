@@ -5,6 +5,7 @@ import { appUrl } from "@/lib/app-url";
 import { isPilotMode } from "@/lib/pilot";
 import { founderReplyTo, sendEmail } from "@/lib/email/send";
 import { waitlistEmail } from "@/lib/email/templates";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 // "Notify me" on the landing page. public.waitlist has RLS on and no
 // policies, so the write goes through the service-role client — the anon
@@ -18,6 +19,17 @@ const bodySchema = z.object({
 const JOIN_URL_FALLBACK = "https://app.unreceipt.com/app/login";
 
 export async function POST(request: NextRequest) {
+  const limited = await rateLimit("waitlist", clientIp(request));
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again later." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limited.retryAfterSeconds) },
+      }
+    );
+  }
+
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(

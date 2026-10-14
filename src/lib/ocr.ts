@@ -147,6 +147,9 @@ export async function extractReceipt(
   try {
     return JSON.parse(cleaned) as OcrResult;
   } catch {
-    throw new Error(`OCR returned non-JSON: ${cleaned.slice(0, 200)}`);
+    // Don't echo the model's output: it's receipt content (merchant,
+    // address, card digits, email text) and this message reaches logs and
+    // Sentry.
+    throw new Error(`OCR returned non-JSON (${cleaned.length} chars)`);
   }
 }

@@ -21,6 +21,14 @@ const mocks = vi.hoisted(() => ({
   fetchReceivedEmail: vi.fn(),
 }));
 
+const rateLimitMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
+);
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  rateLimit: rateLimitMock,
+}));
+
 vi.mock("@/lib/resend-inbound", () => ({
   fetchReceivedEmail: mocks.fetchReceivedEmail,
 }));
@@ -42,11 +50,17 @@ vi.mock("@/lib/supabase-admin", () => ({
           single: () => mocks.receiptsInsert(row),
         }),
       }),
-      select: () => ({
-        eq: (_col: string, value: unknown) => ({
-          maybeSingle: () => mocks.receiptsLookup(value),
-        }),
-      }),
+      select: () => {
+        const filters: Record<string, unknown> = {};
+        const chain = {
+          eq: (col: string, value: unknown) => {
+            filters[col] = value;
+            return chain;
+          },
+          maybeSingle: () => mocks.receiptsLookup(filters),
+        };
+        return chain;
+      },
     }),
     storage: {
       from: () => ({
@@ -174,6 +188,11 @@ describe("POST /api/intake/email", () => {
     expect(res.status).toBe(200);
 
     expect(mocks.receiptsLookup).toHaveBeenCalledTimes(1);
+    // Dedupe is per user, never global.
+    expect(mocks.receiptsLookup).toHaveBeenCalledWith({
+      user_id: USER_ID,
+      intake_ref: "<msg-uber-001@uber.com>",
+    });
     expect(mocks.receiptsInsert).toHaveBeenCalledTimes(1);
     expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
 

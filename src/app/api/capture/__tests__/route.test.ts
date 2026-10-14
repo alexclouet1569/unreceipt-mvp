@@ -11,6 +11,20 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
 }));
 
+const productAccessMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/subscription-gate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/subscription-gate")>()),
+  hasProductAccess: productAccessMock,
+}));
+
+const rateLimitMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
+);
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  rateLimit: rateLimitMock,
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
 }));
@@ -176,6 +190,30 @@ describe("POST /api/capture", () => {
     expect(row.image_captured_at).toEqual(expect.any(String));
   });
 
+  it("rejects a non-receipt file type without uploading it", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ image: imageBlob("evil.html", "text/html") }))
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("names the stored file from the checked MIME type, not the client filename", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ image: imageBlob("receipt.php", "image/png") }))
+    );
+
+    expect(res.status).toBe(200);
+    const row = mocks.insert.mock.calls[0][0];
+    expect(row.image_url).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]+\\.png$`));
+  });
+
   it("returns 500 + clean error and skips orphan cleanup when DB insert fails (no image)", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     mocks.single.mockResolvedValue({
@@ -187,7 +225,8 @@ describe("POST /api/capture", () => {
 
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toMatch(/duplicate key/);
+    expect(body.error).toBe("Couldn't save the receipt. Please try again.");
+    expect(body.error).not.toMatch(/duplicate key/);
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
@@ -228,7 +267,8 @@ describe("POST /api/capture", () => {
 
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toMatch(/storage quota/i);
+    expect(body.error).toBe("Couldn't store the file. Please try again.");
+    expect(body.error).not.toMatch(/storage quota/i);
 
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();

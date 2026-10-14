@@ -8,10 +8,16 @@
 // user_id) and writes the merged update through the service-role admin
 // client so we can also re-download from the private storage bucket.
 
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/supabase-server";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import {
+  hasProductAccess,
+  subscriptionRequiredResponse,
+} from "@/lib/subscription-gate";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
@@ -77,7 +83,17 @@ export async function POST(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  if (!(await hasProductAccess(user.id))) {
+    return subscriptionRequiredResponse();
+  }
+
+  const limited = await rateLimit("reprocess", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
+
   const { id } = await params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return NextResponse.json({ error: "invalid id" }, { status: 400 });
+  }
 
   const supabase = await getUserScopedClient();
   const { data: row, error: readErr } = await supabase
@@ -131,8 +147,11 @@ export async function POST(
     extracted = await extractReceipt(base64, mediaType);
   } catch (err) {
     console.error("[/api/receipts/reprocess] extract failed:", err);
+    Sentry.captureException(err, { tags: { area: "reprocess" } });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "extract failed" },
+      // Details stay in the server log: Anthropic errors and raw model
+      // output aren't for the client.
+      { error: "couldn't read this receipt" },
       { status: 500 }
     );
   }

@@ -6,6 +6,14 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
 }));
 
+const rateLimitMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
+);
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  rateLimit: rateLimitMock,
+}));
+
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({ insert: mocks.insert }),
@@ -74,6 +82,24 @@ describe("POST /api/waitlist", () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).message).toMatch(/already/i);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 per IP before touching the database or sending email", async () => {
+    rateLimitMock.mockResolvedValueOnce({ ok: false, retryAfterSeconds: 600 });
+
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/waitlist", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.7, 10.0.0.1" },
+        body: JSON.stringify({ email: "someone@example.com" }),
+      })
+    );
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("600");
+    expect(rateLimitMock).toHaveBeenCalledWith("waitlist", "203.0.113.7");
+    expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 

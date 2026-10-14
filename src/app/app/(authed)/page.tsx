@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -40,7 +41,7 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
     .limit(RECENT_RECEIPTS_LIMIT);
 
   if (error) {
-    // TODO(step-11): Sentry.captureException(error, { tags: { area: "/app load" } });
+    Sentry.captureException(error, { tags: { area: "/app load" } });
     console.error("[/app] receipts load failed", error);
     return [];
   }

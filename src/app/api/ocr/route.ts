@@ -1,6 +1,17 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
+import { isAdminEmail } from "@/lib/auth-admin";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import {
+  hasProductAccess,
+  subscriptionRequiredResponse,
+} from "@/lib/subscription-gate";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
+import {
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadType,
+} from "@/lib/receipts/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,15 +19,6 @@ export const dynamic = "force-dynamic";
 // images and multi-page PDFs.
 export const maxDuration = 30;
 
-const ALLOWED_TYPES: OcrMediaType[] = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-];
-// 15 MB — image cap was 5 MB but vendor PDFs (Stripe invoices, multi-page
-// hotel folios) routinely run 1–8 MB and the old cap silently rejected them.
-const MAX_BYTES = 15 * 1024 * 1024;
 // Cap PDF page count so a 50-page contract uploaded by mistake doesn't burn
 // vision tokens. Counted via /Type /Page occurrences — works for the vast
 // majority of PDFs we see in the wild; linearized PDFs may over-count but
@@ -37,6 +39,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
 
+  // Founders use OCR from /admin's paste form without a subscription of
+  // their own; they stay rate-limited like everyone else.
+  if (!isAdminEmail(user.email) && !(await hasProductAccess(user.id))) {
+    return subscriptionRequiredResponse();
+  }
+
+  const limited = await rateLimit("ocr", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
+
   let form: FormData;
   try {
     form = await request.formData();
@@ -53,16 +64,16 @@ export async function POST(request: NextRequest) {
   }
 
   const type = (image as Blob).type;
-  if (!ALLOWED_TYPES.includes(type as OcrMediaType)) {
+  if (!isAllowedUploadType(type)) {
     return NextResponse.json(
       { error: `unsupported file type: ${type || "unknown"}` },
       { status: 400 }
     );
   }
 
-  if ((image as Blob).size > MAX_BYTES) {
+  if ((image as Blob).size > MAX_UPLOAD_BYTES) {
     return NextResponse.json(
-      { error: "file too large (max 15MB)" },
+      { error: "file too large (max 4 MB)" },
       { status: 400 }
     );
   }
@@ -87,8 +98,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[/api/ocr] extract failed:", err);
+    Sentry.captureException(err, { tags: { area: "ocr" } });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "extract failed" },
+      // Details stay in the server log: Anthropic errors and raw model
+      // output aren't for the client.
+      { error: "couldn't read this receipt" },
       { status: 500 }
     );
   }

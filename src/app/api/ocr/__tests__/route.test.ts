@@ -8,6 +8,20 @@ const mocks = vi.hoisted(() => ({
   extractReceipt: vi.fn(),
 }));
 
+const productAccessMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/subscription-gate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/subscription-gate")>()),
+  hasProductAccess: productAccessMock,
+}));
+
+const rateLimitMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
+);
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  rateLimit: rateLimitMock,
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
 }));
@@ -46,6 +60,51 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
+  it("returns 402 and skips the Claude call without an active subscription", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    productAccessMock.mockResolvedValueOnce(false);
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+
+    expect(res.status).toBe(402);
+    expect(productAccessMock).toHaveBeenCalledWith(USER_ID);
+    expect(mocks.extractReceipt).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin use OCR (admin paste form) without a subscription", async () => {
+    const previous = process.env.CONCIERGE_ADMIN_EMAILS;
+    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.com";
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "founder@unreceipt.com" });
+    productAccessMock.mockResolvedValue(false);
+    mocks.extractReceipt.mockResolvedValue({ merchant: "ICA" });
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+
+    expect(res.status).toBe(200);
+    expect(rateLimitMock).toHaveBeenCalledWith("ocr", USER_ID);
+    productAccessMock.mockResolvedValue(true);
+    if (previous === undefined) delete process.env.CONCIERGE_ADMIN_EMAILS;
+    else process.env.CONCIERGE_ADMIN_EMAILS = previous;
+  });
+
+  it("returns 429 with Retry-After and skips the Claude call when rate limited", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    rateLimitMock.mockResolvedValueOnce({ ok: false, retryAfterSeconds: 120 });
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("120");
+    expect(rateLimitMock).toHaveBeenCalledWith("ocr", USER_ID);
+    expect(mocks.extractReceipt).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when no image is attached", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     const fd = new FormData();
@@ -69,12 +128,12 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the file exceeds 15MB", async () => {
+  it("returns 400 when the file exceeds the 4 MB upload cap", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     const fd = new FormData();
     fd.append(
       "image",
-      imageBlob("image/jpeg", 15 * 1024 * 1024 + 1),
+      imageBlob("image/jpeg", 4 * 1024 * 1024 + 1),
       "big.jpg"
     );
 
@@ -154,7 +213,7 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when the OCR call throws", async () => {
+  it("returns a generic 500 when the OCR call throws, without leaking the cause", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     mocks.extractReceipt.mockRejectedValue(new Error("anthropic down"));
     const fd = new FormData();
@@ -163,6 +222,7 @@ describe("POST /api/ocr", () => {
     const res = await POST(buildRequest(fd));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toMatch(/anthropic down/);
+    expect(body.error).toBe("couldn't read this receipt");
+    expect(JSON.stringify(body)).not.toContain("anthropic down");
   });
 });

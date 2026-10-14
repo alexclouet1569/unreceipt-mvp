@@ -27,7 +27,10 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 
-import { checkSubscriptionGate } from "@/lib/subscription-gate";
+import {
+  checkSubscriptionGate,
+  hasProductAccess,
+} from "@/lib/subscription-gate";
 
 const userId = "user-1";
 
@@ -189,5 +192,37 @@ describe("checkSubscriptionGate — PILOT_MODE", () => {
     expect(await checkSubscriptionGate(userId, null)).toEqual({
       kind: "redirect_subscribe",
     });
+  });
+});
+
+describe("hasProductAccess (API routes)", () => {
+  beforeEach(() => {
+    mocks.query.mockReset();
+  });
+
+  it("allows an active subscription", async () => {
+    mocks.query.mockResolvedValue({
+      data: { status: "active", current_period_end: null, trial_end: null },
+      error: null,
+    });
+    expect(await hasProductAccess(userId)).toBe(true);
+  });
+
+  it("denies when there is no subscription row", async () => {
+    mocks.query.mockResolvedValue({ data: null, error: null });
+    expect(await hasProductAccess(userId)).toBe(false);
+  });
+
+  it("denies a canceled subscription", async () => {
+    mocks.query.mockResolvedValue({
+      data: { status: "canceled", current_period_end: null, trial_end: null },
+      error: null,
+    });
+    expect(await hasProductAccess(userId)).toBe(false);
+  });
+
+  it("fails open on a DB error, like the page gate", async () => {
+    mocks.query.mockResolvedValue({ data: null, error: { message: "boom" } });
+    expect(await hasProductAccess(userId)).toBe(true);
   });
 });

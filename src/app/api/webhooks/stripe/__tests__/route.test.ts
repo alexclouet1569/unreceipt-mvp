@@ -189,6 +189,32 @@ describe("POST /api/webhooks/stripe", () => {
   });
 
   it("upserts on customer.subscription.updated with the new status", async () => {
+    const sub = subscriptionPayload({
+      status: "active",
+      metadata: { user_id: "user-uuid-9" },
+    });
+    mocks.retrieve.mockResolvedValue(sub);
+    const payload = buildEvent({
+      type: "customer.subscription.updated",
+      data: { object: sub },
+    });
+
+    const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsert).toHaveBeenCalledTimes(1);
+    expect(mocks.upsert.mock.calls[0][0]).toMatchObject({
+      stripe_subscription_id: "sub_test_123",
+      status: "active",
+    });
+  });
+
+  it("writes Stripe's current state when an updated event arrives late (out of order)", async () => {
+    // A stale "active" update is delivered after the subscription was
+    // already canceled; Stripe's current state wins.
+    mocks.retrieve.mockResolvedValue(
+      subscriptionPayload({ status: "canceled", metadata: { user_id: "user-uuid-9" } })
+    );
     const payload = buildEvent({
       type: "customer.subscription.updated",
       data: {
@@ -202,11 +228,8 @@ describe("POST /api/webhooks/stripe", () => {
     const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
 
     expect(res.status).toBe(200);
-    expect(mocks.upsert).toHaveBeenCalledTimes(1);
-    expect(mocks.upsert.mock.calls[0][0]).toMatchObject({
-      stripe_subscription_id: "sub_test_123",
-      status: "active",
-    });
+    expect(mocks.retrieve).toHaveBeenCalledWith("sub_test_123");
+    expect(mocks.upsert.mock.calls[0][0].status).toBe("canceled");
   });
 
   it("upserts status='canceled' on customer.subscription.deleted regardless of source status", async () => {
@@ -248,6 +271,7 @@ describe("POST /api/webhooks/stripe", () => {
   });
 
   it("skips (200, no write) a subscription event whose user can't be resolved yet", async () => {
+    mocks.retrieve.mockResolvedValue(subscriptionPayload({ metadata: {} }));
     const payload = buildEvent({
       type: "customer.subscription.created",
       data: { object: subscriptionPayload({ metadata: {} }) },

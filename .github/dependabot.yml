@@ -1,0 +1,19 @@
+# Weekly dependency PRs. Minor and patch updates are grouped into one PR so
+# they don't pile up; majors come one by one because they can break the
+# build (Next.js, React, Supabase, Stripe). Security updates are separate
+# and arrive as soon as an advisory is published.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

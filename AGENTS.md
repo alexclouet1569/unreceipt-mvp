@@ -78,10 +78,15 @@ To flip back to paid: in Vercel → Settings → Environment Variables, remove `
 `/api/ocr` accepts a receipt image and returns extracted fields (merchant, amount, currency, date, category, etc.) via Claude vision. The customer-side `CaptureDialog` and the founder-side `/admin/[userId]` paste form both POST to it on photo pick and pre-fill empty form fields with the result.
 
 - `src/lib/ocr.ts` exposes `extractReceipt(imageBase64, mediaType)`. Server-only; never import from `"use client"`. Uses prompt caching on the system message — the JSON schema is reused across every call so cached tokens are ~90% cheaper.
-- `/api/ocr` is auth-gated via `getServerUser()`, capped at 5 MB, restricted to `image/jpeg|png|webp`, runs on Node.js with `maxDuration = 30`.
+- `/api/ocr` is auth-gated via `getServerUser()` and `hasProductAccess()`, accepts `image/jpeg|png|webp` and `application/pdf` (max 10 pages), capped at 4 MB (`src/lib/receipts/upload-limits.ts` — Vercel rejects bodies over 4.5 MB anyway), runs on Node.js with `maxDuration = 30`. The capture dialog shrinks photos in the browser first (`src/lib/image-resize.ts`).
+- `/api/ocr`, `/api/receipts/[id]/reprocess`, `/api/capture` and `/api/intake/email` are rate-limited per user (per alias for email) via `rateLimit()` in `src/lib/rate-limit.ts`, backed by `public.rate_limit_hit()`. Any new route that calls Claude or writes to storage must call it too. It fails open if the counter errors; the Anthropic console spend cap is the hard backstop.
 - The OCR step runs BEFORE `/api/capture` and is best-effort — failures fall back silently to manual entry. OCR never persists anything; the existing capture/admin-receipts routes still handle saves.
 
 Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.
+
+# Region
+
+`vercel.json` pins serverless functions to `fra1` (Frankfurt), next to the Supabase project (`eu-central-1`). Every request makes several database round-trips, so keeping them in the same region matters for latency, and it keeps processing in the EU. Don't add regions without moving the database too.
 
 # Hosts
 
@@ -112,3 +117,17 @@ Rules:
 - The signature elements are the `Un` wordmark (mono `Un` tag + Manrope `Receipt`) and the perforated edge motif at the top of receipt detail views. Reuse the shared `Wordmark` and `PerfEdge` components rather than re-implementing.
 - `/admin/*`, `/subscribe`, Stripe Checkout, and the marketing landing at `unreceipt.com/` are out of scope for the design system. Token changes will ripple to them but do not redesign their layouts.
 - In QA / design-review mode, flag any code that violates `DESIGN.md` (off-token colors, wrong fonts on amounts, shadows on cards, mint backgrounds outside the allowed surfaces).
+
+# Error monitoring
+
+Sentry (`@sentry/nextjs`) loads from `src/instrumentation.ts` (server/edge) and `src/instrumentation-client.ts` (browser), with options in `src/lib/sentry-options.ts`. It is a no-op unless `NEXT_PUBLIC_SENTRY_DSN` is set. Events are scrubbed of request bodies, cookies, headers, query strings and user details; session replay is off because it would record receipt contents. Report unexpected failures with `Sentry.captureException(err, { tags: { area } })` next to the `console.error`, and never put receipt contents, emails or names in `extra`.
+
+# Review agents
+
+`.claude/agents/` holds three read-only reviewers. Run the matching one on a diff before committing:
+
+- `security-reviewer`: anything under `src/app/api/**`, `src/lib/**`, `proxy.ts`, `next.config.ts`, `supabase/**`.
+- `design-reviewer`: anything under `src/app/app/**`, `src/components/**`, `globals.css`.
+- `compliance-reviewer`: extraction, the compliance rules config, the proof PDF, retention/deletion.
+
+They report findings with `file:line`. Fix what survives verification; don't commit around a HIGH finding.
