@@ -110,3 +110,13 @@ Rules:
 - The signature elements are the `Un` wordmark (mono `Un` tag + Manrope `Receipt`) and the perforated edge motif at the top of receipt detail views. Reuse the shared `Wordmark` and `PerfEdge` components rather than re-implementing.
 - `/admin/*`, `/subscribe`, Stripe Checkout, and the marketing landing at `unreceipt.com/` are out of scope for the design system. Token changes will ripple to them but do not redesign their layouts.
 - In QA / design-review mode, flag any code that violates `DESIGN.md` (off-token colors, wrong fonts on amounts, shadows on cards, mint backgrounds outside the allowed surfaces).
+
+# Review agents
+
+`.claude/agents/` holds three read-only reviewers. Run the matching one on a diff before committing:
+
+- `security-reviewer`: anything under `src/app/api/**`, `src/lib/**`, `proxy.ts`, `next.config.ts`, `supabase/**`.
+- `design-reviewer`: anything under `src/app/app/**`, `src/components/**`, `globals.css`.
+- `compliance-reviewer`: extraction, the compliance rules config, the proof PDF, retention/deletion.
+
+They report findings with `file:line`. Fix what survives verification; don't commit around a HIGH finding.
