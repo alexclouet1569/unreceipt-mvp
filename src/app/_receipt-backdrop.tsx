@@ -90,7 +90,7 @@ export function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
               <div key={i} className="rb-foot" data-print>
                 <span className="rb-stamp">✓ VAT-ready</span>
                 <div className="rb-barcode" />
-                <p className="rb-thanks">Tack! Paper is past.</p>
+                <p className="rb-thanks">Tack! · Paper is past</p>
               </div>
             );
           case "text":
@@ -123,8 +123,9 @@ export function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
   );
 }
 
-// The print head sits this far down the viewport.
-const HEAD = 0.82;
+// The print head sits this far down the viewport — low, below where
+// people are reading.
+const HEAD = 0.9;
 const COUNT_MS = 700;
 
 export function ReceiptBackdrop() {
@@ -311,30 +312,44 @@ export function ReceiptBackdrop() {
           right: 0;
           bottom: 0;
           height: 26px;
-          background: linear-gradient(to bottom, rgba(39, 190, 123, 0), rgba(39, 190, 123, 0.08));
-          border-bottom: 1px solid rgba(39, 190, 123, 0.4);
+          background: linear-gradient(to bottom, rgba(39, 190, 123, 0), rgba(39, 190, 123, 0.05));
+          border-bottom: 1px solid rgba(39, 190, 123, 0.25);
         }
+        /* Subtotal speaks in the receipt's faded voice, not the page's. */
         .rb-subtotal {
           position: absolute;
           right: 4px;
           top: 6px;
-          font-size: 11px;
-          font-weight: 600;
-          color: #1f9d63;
-          background: #ecf7e7;
-          border-radius: 999px;
-          padding: 2px 8px;
+          font-size: 10px;
+          letter-spacing: 0.04em;
+          color: #8c90aa;
+          background: #ffffff;
+          border: 1px dashed #e2dfd6;
+          border-radius: 4px;
+          padding: 1px 6px;
         }
 
-        /* In-flow groups of receipt lines, sitting between sections. */
+        /* In-flow groups of receipt lines, sitting between sections.
+           The receipt has its own typographic voice so it can never be
+           mistaken for page copy: everything is set in the mono "till
+           printer" face, small, in faded ink, with no bold headings and
+           no brand-green numbers. Page content is Manrope in full navy. */
         .rb-group {
+          --rb-ink: #a3a7bd;
+          --rb-ink-strong: #8c90aa;
           width: var(--paper-w);
           margin: 0 auto;
           padding: 8px 28px;
           display: flex;
           flex-direction: column;
-          gap: 2px;
-          color: #303568;
+          gap: 0;
+          font-family: var(--font-mono), ui-monospace, monospace;
+          font-variant-numeric: tabular-nums;
+          font-size: 12px;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: var(--rb-ink);
+          user-select: none;
         }
         .rb-head,
         .rb-rule,
@@ -350,20 +365,19 @@ export function ReceiptBackdrop() {
           transform: none;
         }
         /* Rows type in left to right in green "wet" ink, then develop to
-           navy, like thermal paper. */
+           the faded receipt grey, like thermal paper. */
         .rb-row {
           display: flex;
           align-items: baseline;
           gap: 8px;
-          height: 28px;
-          font-size: 13px;
-          color: #27be7b;
+          height: 24px;
+          color: rgba(39, 190, 123, 0.75);
           filter: blur(1.5px);
           clip-path: inset(0 100% 0 0);
           transition: clip-path 0ms 200ms, color 0ms 200ms, filter 0ms 200ms;
         }
         .rb-row.is-printed {
-          color: #5a5f7a;
+          color: var(--rb-ink);
           filter: blur(0);
           clip-path: inset(0 0 0 0);
           transition:
@@ -372,62 +386,49 @@ export function ReceiptBackdrop() {
             color 1100ms ease 450ms;
         }
         .rb-row.is-printed .rb-mono {
-          color: #303568;
+          color: var(--rb-ink-strong);
           transition: color 1100ms ease 450ms;
         }
         .rb-head {
           text-align: center;
-          padding: 28px 0 10px;
+          padding: 24px 0 8px;
+          line-height: 1.8;
         }
         .rb-brand {
-          font-weight: 800;
-          font-size: 22px;
-          letter-spacing: -0.02em;
-          margin-bottom: 4px;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.24em;
+          color: var(--rb-ink-strong);
         }
         .rb-meta {
-          font-size: 11px;
+          font-size: 10px;
           letter-spacing: 0.08em;
-          text-transform: uppercase;
-          font-weight: 600;
-          line-height: 1.7;
-          color: #9ca0b8;
         }
         .rb-mono {
-          font-family: var(--font-mono), ui-monospace, monospace;
-          font-variant-numeric: tabular-nums;
           white-space: nowrap;
         }
         .rb-label {
-          font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .rb-dots {
           flex: 1;
-          border-bottom: 1px dotted #c9c6bd;
+          border-bottom: 1px dotted #dcd9d0;
           transform: translateY(-4px);
         }
-        .rb-total,
-        .rb-strong-soft {
-          font-weight: 800;
-          font-size: 14px;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
+        /* Totals are only a touch heavier — never a heading. */
         .rb-total.is-printed,
         .rb-strong-soft.is-printed {
-          color: #303568;
+          color: var(--rb-ink-strong);
+          font-weight: 600;
         }
         .rb-total.is-printed .rb-mono,
         .rb-strong-soft.is-printed .rb-mono {
           font-weight: 600;
-          font-size: 16px;
-          color: #27be7b;
         }
         .rb-rule {
-          border-top: 1px dashed #d9d6cc;
+          border-top: 1px dashed #e2dfd6;
           margin: 8px 0;
         }
         .rb-foot {
@@ -435,12 +436,13 @@ export function ReceiptBackdrop() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           padding: 12px 0 8px;
         }
         .rb-barcode {
-          width: 72%;
-          height: 40px;
+          width: 64%;
+          height: 34px;
+          opacity: 0.35;
           background: repeating-linear-gradient(
             90deg,
             #303568 0 2px,
@@ -452,10 +454,8 @@ export function ReceiptBackdrop() {
           );
         }
         .rb-thanks {
-          font-family: var(--font-accent), sans-serif;
-          font-style: italic;
-          font-size: 14px;
-          color: #5a5f7a;
+          font-size: 10px;
+          letter-spacing: 0.12em;
         }
         /* The stamp lands on the total once the receipt is complete. */
         .rb-stamp {
@@ -466,8 +466,8 @@ export function ReceiptBackdrop() {
           border: 2px solid #27be7b;
           border-radius: 6px;
           color: #27be7b;
-          font-weight: 800;
-          font-size: 13px;
+          font-weight: 700;
+          font-size: 12px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           background: rgba(255, 255, 255, 0.85);
@@ -478,15 +478,15 @@ export function ReceiptBackdrop() {
             transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 500ms;
         }
         .rb-foot.is-printed .rb-stamp {
-          opacity: 0.92;
+          opacity: 0.7;
           transform: rotate(-9deg) scale(1);
         }
         @media (max-width: 640px) {
           .rb-group {
             padding: 8px 18px;
           }
-          .rb-row {
-            font-size: 12px;
+          .rb-group {
+            font-size: 11px;
           }
           .rb-stamp {
             right: 0;
