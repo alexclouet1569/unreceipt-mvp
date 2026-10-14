@@ -16,6 +16,14 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
+    from: () => ({
+      update: (payload: Record<string, unknown>) => ({
+        eq: (col: string, val: string) => ({
+          eq: (col2: string, val2: string) =>
+            mocks.updateEq(payload, col, val, col2, val2),
+        }),
+      }),
+    }),
     storage: {
       from: (bucket: string) => ({
         remove: (paths: string[]) => mocks.storageRemove(bucket, paths),
@@ -43,9 +51,6 @@ vi.mock("@supabase/ssr", () => ({
         eq: () => ({
           maybeSingle: () => mocks.maybeSingle(),
         }),
-      }),
-      update: (payload: Record<string, unknown>) => ({
-        eq: (col: string, val: string) => mocks.updateEq(payload, col, val),
       }),
       delete: () => ({
         eq: (col: string, val: string) => mocks.deleteEq(col, val),
@@ -119,8 +124,10 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(res.status).toBe(200);
     expect(mocks.updateEq).toHaveBeenCalledTimes(1);
 
-    const [payload] = mocks.updateEq.mock.calls[0];
+    const [payload, , , scopeCol, scopeVal] = mocks.updateEq.mock.calls[0];
     expect(payload.status).toBe("verified");
+    // Service-role write, so it must be scoped to the caller explicitly.
+    expect([scopeCol, scopeVal]).toEqual(["user_id", USER_ID]);
     expect(payload.merchant_name).toBe("ICA Maxi");
     expect(payload.total).toBe(49);
     expect(payload.purchased_at).toBe("2026-05-12T12:00:00.000Z");

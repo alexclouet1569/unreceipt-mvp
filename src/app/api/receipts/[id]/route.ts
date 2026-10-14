@@ -8,10 +8,12 @@
 // DELETE — removes the row and every stored file behind it (the photo in
 // `receipts`, the forwarded .eml or PDF in `receipt-originals`).
 //
-// Rows are read and written through the anon-key client, so RLS enforces
-// ownership. Storage deletes use the service-role client because
-// `receipt-originals` has no user DELETE policy; paths are checked with
-// isOwnedStoragePath first.
+// Rows are read through the anon-key client, so RLS enforces ownership.
+// Updates go through the service role, scoped to the user: users have no
+// direct INSERT/UPDATE grant on receipts, so the trust fields (status,
+// intake_ref, …) can only be set by server code. Storage deletes also use
+// the service role (`receipt-originals` has no user DELETE policy), on
+// paths checked with isOwnedStoragePath first.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -159,10 +161,14 @@ export async function PATCH(
 
   update.status = computeReceiptStatus(merged);
 
-  const { error: updateError } = await supabase
+  // The row was read under RLS above, so it belongs to this user. The write
+  // itself goes through the service role: users have no direct UPDATE on
+  // receipts (status and the other trust fields must only be set here).
+  const { error: updateError } = await getSupabaseAdmin()
     .from("receipts")
     .update(update)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (updateError) {
     console.error("[/api/receipts/PATCH] update failed", updateError);
