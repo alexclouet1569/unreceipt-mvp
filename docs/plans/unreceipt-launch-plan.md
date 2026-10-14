@@ -37,23 +37,78 @@
 
 ---
 
-## 1. Decisions to lock first (you)
+## 1. Decisions (locked 2026-10-14)
 
-| # | Decision | My recommendation |
+| # | Decision | Locked choice |
 |---|---|---|
-| D1 | Who pays, and how much | The company pays per active user, e.g. **79 kr/user/month**. Add a solo plan (~59 kr) for enskild firma. Stay in `PILOT_MODE` until 3 pilots convert. |
-| D2 | How to build the store apps | **Capacitor** shell that loads `app.unreceipt.com`, plus native plugins (camera/document scanner, push, share sheet, photo scan). Reuses 100% of the code. Rewriting in Expo would take weeks. The native features also protect against App Store guideline 4.2 ("just a website"). |
-| D3 | Email access | **Launch 1:** forwarding plus guided Gmail/Outlook auto-forward rules. **Launch 2:** Outlook OAuth first (Microsoft publisher verification is cheaper), Gmail OAuth only if pilots ask for it. |
-| D4 | Photo scanning | **iOS:** on-device scan of new photos with Apple Vision text recognition. Only receipts the user confirms are uploaded. **Android:** multi-select photo picker, because broad photo permission is likely to be rejected by Play. |
-| D5 | Payment-moment nudge | **Launch 1:** iOS Shortcut "Wallet → after payment" pings us, and we push "Snap the receipt?". **Launch 2:** open banking (Enable Banking or Tink) for daily missing-receipt detection. |
-| D6 | Integrations | **Fortnox API first** (self-serve). Ask Findity for partnership in week 1. Fallback: email the PDF to the customer's system inbox (Concur, Pleo Fetch). |
-| D7 | Page background | Follow **DESIGN.md (cream `#FAFAF7`)**, since it's declared the source of truth, and change `globals.css`. Or keep mint and update DESIGN.md. Either is one small PR. |
+| D1 | Pricing | Company-paid, per active user. See §1a: list **99 kr/user/month**, founding-customer price **79 kr**, solo plan ~59 kr. Validate with pilots before turning payments on. |
+| D2 | Store apps | **Capacitor** shell around `app.unreceipt.com`, plus native plugins. |
+| D3 | Email | Forwarding and guided auto-forward rules now. Outlook OAuth, then Gmail OAuth, only if pilots need it. |
+| D4 | Photos | iOS on-device scan with confirmation; Android photo picker. |
+| D5 | Payment moment | iOS Wallet automation. Make setup as close to one tap as iOS allows (§1b). Open banking later. |
+| D6 | Integrations | Fortnox first, Findity in parallel, email fallback. **France added as Launch 3** (§1c). |
+| D7 | Page background | Cream `#FAFAF7`, per DESIGN.md. `globals.css` changes in action 37. |
 
----
+### 1a. Is 79–99 kr/user/month the right price?
+
+**Market anchors:**
+- **Sweden, per user per month:**
+  - KvittoFlow 59 kr (planned)
+  - Zevoy claims user ~€5
+  - Findity from ~£7
+  - Kvitto & Resa 109 kr
+  - Pleo ~£11 per extra user
+- **Sweden, per receipt:** Fortnox Kvitto & Utlägg 4.90 kr, free with their card.
+- **France, per user per month:** N2F ~€5–7, Expensya ~€5.
+
+**Our cost:**
+- Claude vision costs roughly 1–2 US cents per receipt. That's an estimate; action 112 measures the real figure.
+- A heavy user at 30 receipts/month costs us well under 10 kr. Margin is not the issue at any price in this range.
+
+**Will they pay more?** There is no evidence either way yet. Nobody has paid us. My read:
+- **79 kr** sits mid-market. It's defensible but leaves money on the table if the compliance checks work.
+- **Above 109 kr** we're the most expensive per-user option in Sweden. That only works if we replace the existing app, not just sit on top of it, which Fortnox/Findity integration makes possible.
+- **Start high and discount:** lowering a price is easy, raising one on existing customers is hard. Lock the founding pilots at 79 kr for 12 months in exchange for feedback and a case study.
+
+**How we find out (actions P1–P4):**
+- [ ] P1 🧑 S — In every finance-owner interview, ask the four Van Westendorp questions: too cheap / a bargain / getting expensive / too expensive. That's 15 minutes per interview.
+- [ ] P2 🧑 S — Send pilot proposals at **three different prices** (79 / 99 / 129 kr), one price per company. Track which ones sign.
+- [ ] P3 🤖 S — Add a minimum per company (e.g. 3 seats, or 299 kr/month), so a 1-user company isn't sold at a loss once support is counted.
+- [ ] P4 🤖 S — Annual prepay at 2 months free. Improves cash flow and reduces churn.
+
+### 1b. Payment-moment automation (D5): how close to automatic it can get
+
+**The hard limit:** iOS doesn't let an app create a Shortcuts *personal automation* for the user. The user has to create it once. We can cut that to about 5 taps:
+- [ ] 94a 🤖 M — Ship an **App Intent** "Log a payment in UnReceipt" from the iOS app. The automation becomes "Wallet → After payment → *Log a payment in UnReceipt*", with no URL or token to copy, and merchant and amount pass straight through.
+- [ ] 94b 🤖 S — In-app guided setup: a 20-second screen recording plus a deep link that opens the Shortcuts Automation tab.
+- [ ] 94c 🤖 S — "Did it work?" check: after setup we ask for a test payment or a tap on "Run" and confirm the ping arrived.
+
+**Android:** there is no equivalent. Payment nudges there come with open banking (action 97).
+
+### 1c. France (Launch 3, after Sweden pilots convert)
+
+**Why later, not now:** France doubles the compliance work. It has different VAT recovery rules and different digitisation rules (copie fiable). It also has different integrations and a lower price anchor (~€5–7/user). Doing it in parallel would slow down the Swedish launch.
+
+**What we do now so it's cheap later:**
+- `country` on the organisation.
+- Compliance rules keyed by country (action 60 builds this shape).
+- i18n with `fr` as a third locale (action 49).
+
+**France actions (when Launch 3 starts):**
+- [ ] F1 🧑 M — Lawyer or expert-comptable review: rules for a **copie fiable** of an expense receipt. The arrêté of 22 March 2017 and décret 2016-1673 cover invoices; URSSAF applies them to expense reports. The integrity presumption needs a qualified eIDAS timestamp or seal, so we need a qualified trust service provider (QTSP).
+- [ ] F2 🤖 M — Qualified timestamp on every proof PDF (QTSP API), if F1 confirms it's needed.
+- [ ] F3 🤖 M — French VAT rules config (recovery differs by expense type; to be confirmed with the expert-comptable).
+- [ ] F4 🧑 S — Confirm **Pennylane**'s public API supports uploading receipts (justificatifs) or creating expenses. It's the default accounting tool for many French SMEs and their accountants.
+- [ ] F5 🤖 M — Pennylane integration (if F4 confirms).
+- [ ] F6 🧑 S — Check the Qonto API for attaching receipts to card transactions. Qonto is common among French SMEs.
+- [ ] F7 🤖 M — `fr` translations and a French landing page.
+- [ ] F8 🧑 M — 3 French pilot companies. Expert-comptable firms are the multiplier channel, as redovisningsbyråer are in Sweden.
+
+**Note:** France's B2B e-invoicing reform (receiving becomes mandatory from 1 Sept 2026, per Pennylane) covers supplier *invoices*, not employee expense receipts. It doesn't remove the problem we solve.
 
 ## 2. How we execute
 
-- **One action = one PR.** Under ~200 changed lines, CI green, tests added, merged before the next action starts. Small diffs are the main defense against regressions.
+- **One action = one commit.** Under ~200 changed lines, with tests, and every commit passes tsc, lint and unit tests on its own. Commits go to the working branch, and a batch (e.g. Phase 1) is reviewed and merged as one PR. Small diffs are the main defense against regressions.
 - **Order:** Phase 0 runs in parallel because it's mostly waiting on Apple, Google and partners. Phase 1 (security) goes before anything else lands. Phases 2–5 follow in order.
 - **Markers:** ★ = needed for **Launch 1** (pilot companies on TestFlight and Play closed test, then the public stores). Everything without a ★ is **Launch 2**.
 - **Owners:** 🧑 = only you can do it (accounts, legal, dashboards, real devices). 🤖 = I can do it as a PR.
@@ -80,13 +135,13 @@
 
 ## Phase 1 — Security and cost hardening (🤖, before any new user)
 
-- [ ] 14 ★ S — Self-heal: reject the session when `client_reference_id !== userId`, plus a test. **(HIGH)**
-- [ ] 15 ★ S — Upgrade `next` to the latest patched 16.x; build and run all tests. **(HIGH)**
-- [ ] 16 ★ S — Call `requireAdmin()` inside the `/admin` and `/admin/[userId]` data loaders, not only in the layout. **(HIGH)**
-- [ ] 17 ★ M — Postgres rate-limit table and a `rateLimit(userId, key, limit, window)` helper, with no new vendor. Apply it to `/api/ocr`.
-- [ ] 18 ★ S — Apply the rate limit to `/reprocess` and `/api/capture`.
-- [ ] 19 ★ S — Apply a per-alias daily cap to `/api/intake/email`.
-- [ ] 20 ★ S — Enforce the subscription/pilot gate inside the paid API routes, not only on the `/app` page.
+- [x] 14 ★ S — Self-heal: reject the session when `client_reference_id !== userId`, plus a test. **(HIGH)**
+- [x] 15 ★ S — Upgrade `next` to the latest patched 16.x; build and run all tests. **(HIGH)**
+- [x] 16 ★ S — Call `requireAdmin()` inside the `/admin` and `/admin/[userId]` data loaders, not only in the layout. **(HIGH)**
+- [x] 17 ★ M — Postgres rate-limit table and a `rateLimit(userId, key, limit, window)` helper, with no new vendor. Apply it to `/api/ocr`.
+- [x] 18 ★ S — Apply the rate limit to `/reprocess` and `/api/capture`.
+- [x] 19 ★ S — Apply a per-alias daily cap to `/api/intake/email`.
+- [x] 20 ★ S — Enforce the subscription/pilot gate inside the paid API routes, not only on the `/app` page.
 - [ ] 21 ★ S — Make email dedupe per user: unique `(user_id, intake_ref)`, and add a `user_id` filter to the lookup.
 - [ ] 22 ★ S — Stop trusting the model's self-reported confidence. LLM-only email extractions land as "needs a glance", pre-filled. This closes the prompt-injection route to fake verified receipts.
 - [ ] 23 ★ M — Security headers in `next.config.ts`: `frame-ancestors`, nosniff, Referrer-Policy, Permissions-Policy (camera=self). Start CSP in report-only mode.
@@ -177,7 +232,7 @@
 
 **Payment moment**
 - [ ] 93 ★ S — Per-user signed "payment ping" endpoint (merchant and amount), with a rate limit.
-- [ ] 94 ★ M — iOS Shortcut template ("Wallet → after payment → POST") and a setup screen.
+- [ ] 94 ★ M — iOS Wallet automation setup. Implemented as 94a–94c in §1b: an App Intent, guided setup, and a "did it work" check.
 - [ ] 95 ★ S — Ping → push "You paid 245 kr at ICA — snap the receipt?" → opens the scanner with merchant and amount pre-filled.
 - [ ] 96 M — Match later receipts to pings. Unmatched pings appear in a "Missing receipts" list.
 - [ ] 97 M — Open banking (Enable Banking or Tink): daily card-transaction sync for missing-receipt detection.
@@ -215,6 +270,23 @@
 - [ ] 120 ★ 🧑 S — Turn payments on (`PILOT_MODE` off, D1 pricing) once the pilots convert.
 
 ---
+
+## Phase 9 — Agents
+
+**Build agents** (Claude Code subagents in `.claude/agents/`, used on every PR from now on):
+- [ ] A1 🤖 S — `security-reviewer` checks each diff against the rules this audit produced:
+  - `requireAdmin` on admin routes
+  - the service-role client never imported from client code
+  - `rateLimit` on paid routes
+  - RLS and column grants on new tables
+  - no PII in logs
+- [ ] A2 🤖 S — `design-reviewer` flags DESIGN.md violations: off-token colours, mono outside amounts, shadows on cards.
+- [ ] A3 🤖 S — `compliance-reviewer` checks that changes to the rules config come with dated sources and fixture tests.
+
+**Operations agents** (scheduled tasks, after Launch 1):
+- [ ] A4 🤖 S — Daily: Sentry errors, Vercel runtime errors, Supabase advisors, Anthropic spend. Silent unless something is wrong.
+- [ ] A5 🤖 S — Weekly: OCR accuracy benchmark plus a summary of user edits to extracted fields.
+- [ ] A6 🤖 S — Support inbox triage and draft replies, with a human sending them.
 
 ## 3. Realistic timeline
 
