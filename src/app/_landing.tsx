@@ -29,6 +29,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 import { Pricing } from "./_pricing";
 import { ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
+import { ReceiptRibbon } from "./_receipt-ribbon";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -176,11 +177,16 @@ function FloatingReceipts() {
   );
 }
 
+export type ReceiptVariant = "ribbon" | "paper";
+
 type LandingPageProps = {
   pilotMode: boolean;
+  /** Which scroll-receipt backdrop to show (preview toggle: ?receipt=paper). */
+  receipt?: ReceiptVariant;
 };
 
-export function LandingPage({ pilotMode }: LandingPageProps) {
+export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps) {
+  const paper = receipt === "paper";
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -311,24 +317,23 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
-          {/* Centered editorial hero: the hero is the "printer" the
-              background receipt comes out of. */}
-          <div className="max-w-3xl mx-auto text-center">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left — Copy */}
             <div>
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
                 <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">Paper is Past</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-[4rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
+              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
                 From Chaos<br />to Clarity —<br />
                 <span className="text-[#303568]">Automatically.</span>
               </h1>
-              <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-xl mx-auto mb-10">
+              <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
                 Built for Swedish SMBs who hate chasing receipts. Forward any
                 receipt — email or photo — and get a VAT-ready record in
                 your dashboard within 24 hours.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <a href={appUrl("/app/login")}>
                   <Button size="lg" className="bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12">
                     {pilotMode ? "Join the pilot" : "Start your free week"}
@@ -348,6 +353,85 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </p>
             </div>
 
+            {/* Right — Phone mockup */}
+            <div className="hidden lg:flex justify-center">
+              <div className="relative">
+                {/* Phone frame */}
+                <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
+                  <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
+                    {/* Status bar */}
+                    <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
+                      <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
+                    </div>
+                    {/* Notification card */}
+                    <div className="p-4 space-y-3">
+                      <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BellRing className="w-4 h-4 text-[#27BE7B]" />
+                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">Just now</span>
+                        </div>
+                        <p className="text-sm font-bold text-[#303568]">New expense detected</p>
+                        <p className="text-xs text-[#303568]/60 mt-1">Restaurant Le Petit Bistro</p>
+                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">42.50 &euro;</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-semibold text-[#303568]/60">Today</span>
+                          <span className="text-xs font-bold text-[#27BE7B]">3 receipts</span>
+                        </div>
+                        <div className="space-y-2">
+                          {[
+                            { name: "Uber", amount: "18.90 \u20ac", time: "14:22" },
+                            { name: "Starbucks", amount: "6.50 \u20ac", time: "09:15" },
+                            { name: "Office Depot", amount: "124.00 \u20ac", time: "08:30" },
+                          ].map((item) => (
+                            <div key={item.name} className="flex items-center justify-between py-1.5">
+                              <div>
+                                <p className="text-xs font-semibold text-[#303568]">{item.name}</p>
+                                <p className="text-[10px] text-[#303568]/40">{item.time}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#303568]">{item.amount}</span>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#27BE7B]" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
+                        <Camera className="w-3.5 h-3.5 mr-1.5" />
+                        Snap Receipt
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Notch */}
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#303568] rounded-b-2xl" />
+                </div>
+
+                {/* Floating receipt cards */}
+                <div className="absolute -left-16 top-20 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-36 rotate-[-6deg] animate-[float_6s_ease-in-out_infinite]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
+                      <CheckCircle2 className="w-3 h-3 text-[#27BE7B]" />
+                    </div>
+                    <span className="text-[10px] font-bold text-[#303568]">Matched</span>
+                  </div>
+                  <p className="text-xs text-[#303568]/60">Hotel Nordic</p>
+                  <p className="text-sm font-extrabold text-[#303568]">285.00 &euro;</p>
+                </div>
+
+                <div className="absolute -right-12 bottom-28 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-32 rotate-[4deg] animate-[float_5s_ease-in-out_infinite_1s]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
+                      <Zap className="w-3 h-3 text-[#27BE7B]" />
+                    </div>
+                    <span className="text-[10px] font-bold text-[#303568]">Auto</span>
+                  </div>
+                  <p className="text-xs text-[#303568]/60">Train SJ</p>
+                  <p className="text-sm font-extrabold text-[#303568]">89.00 kr</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -361,8 +445,8 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           surface with the printing receipt behind it, so these sections
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
-      <ReceiptBackdrop />
-      <ReceiptRows rows={[{ kind: "head" }, { kind: "rule" }]} />
+      {paper ? <ReceiptBackdrop /> : <ReceiptRibbon />}
+      {paper && <ReceiptRows rows={[{ kind: "head" }, { kind: "rule" }]} />}
 
       {/* ─── SOCIAL PROOF BAR ─── */}
       <Section className="py-10 px-4 sm:px-6">
@@ -388,12 +472,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         <ReceiptTicker />
       </section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "item", label: "ICA Maxi", value: "342,00" },
-          { kind: "item", label: "SJ Stockholm–Göteborg", value: "895,00" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "item", label: "ICA Maxi", value: "342,00" },
+            { kind: "item", label: "SJ Stockholm–Göteborg", value: "895,00" },
+          ]}
+        />
+      )}
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
       <Section id="features" className="py-20 px-4 sm:px-6">
@@ -438,12 +524,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "item", label: "Spotify Business", value: "129,00" },
-          { kind: "item", label: "Scandic Hotel", value: "1 250,00" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "item", label: "Spotify Business", value: "129,00" },
+            { kind: "item", label: "Scandic Hotel", value: "1 250,00" },
+          ]}
+        />
+      )}
 
       {/* ─── HOW IT WORKS ─── */}
       <Section id="how" className="py-20 px-4 sm:px-6">
@@ -503,12 +591,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "item", label: "Uber", value: "189,00" },
-          { kind: "item", label: "Apoteket", value: "212,00" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "item", label: "Uber", value: "189,00" },
+            { kind: "item", label: "Apoteket", value: "212,00" },
+          ]}
+        />
+      )}
 
       {/* ─── COMPARISON ─── */}
       <Section id="difference" className="py-20 px-4 sm:px-6">
@@ -569,26 +659,30 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "item", label: "Coop Konferens", value: "890,00" },
-          { kind: "item", label: "Pressbyrån", value: "68,00" },
-          { kind: "rule" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "item", label: "Coop Konferens", value: "890,00" },
+            { kind: "item", label: "Pressbyrån", value: "68,00" },
+            { kind: "rule" },
+          ]}
+        />
+      )}
 
       {/* ─── PRICING ─── */}
       <Section id="pricing" className="py-20 px-4 sm:px-6">
         <Pricing pilotMode={pilotMode} />
       </Section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "strong", label: "Summa", value: "3 975,00" },
-          { kind: "item", label: "Varav moms", value: "795,00" },
-          { kind: "rule" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "strong", label: "Summa", value: "3 975,00" },
+            { kind: "item", label: "Varav moms", value: "795,00" },
+            { kind: "rule" },
+          ]}
+        />
+      )}
 
       {/* ─── BUILT FOR TEAMS ─── */}
       <Section id="about" className="py-20 px-4 sm:px-6">
@@ -631,12 +725,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "item", label: "Lost receipts", value: "0" },
-          { kind: "item", label: "Hours chasing", value: "0,00" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "item", label: "Lost receipts", value: "0" },
+            { kind: "item", label: "Hours chasing", value: "0,00" },
+          ]}
+        />
+      )}
 
       {/* ─── TRUST BADGES ─── */}
       <Section className="py-16 px-4 sm:px-6">
@@ -659,13 +755,15 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows
-        rows={[
-          { kind: "rule" },
-          { kind: "strong", label: "Total stress", value: "0,00" },
-          { kind: "foot" },
-        ]}
-      />
+      {paper && (
+        <ReceiptRows
+          rows={[
+            { kind: "rule" },
+            { kind: "strong", label: "Total stress", value: "0,00" },
+            { kind: "foot" },
+          ]}
+        />
+      )}
       </div>
 
       {/* ─── WAITLIST CTA ─── */}

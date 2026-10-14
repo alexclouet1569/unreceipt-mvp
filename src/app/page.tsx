@@ -6,6 +6,17 @@ import { LandingPage } from "./_landing";
 // flips with one redeploy without invalidating a static cache.
 export const dynamic = "force-dynamic";
 
-export default function Page() {
-  return <LandingPage pilotMode={isPilotMode()} />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  // Preview toggle between the two scroll-receipt designs.
+  const { receipt } = await searchParams;
+  return (
+    <LandingPage
+      pilotMode={isPilotMode()}
+      receipt={receipt === "paper" ? "paper" : "ribbon"}
+    />
+  );
 }
