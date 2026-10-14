@@ -26,6 +26,7 @@ import {
   MapPin,
   LayoutDashboard,
 } from "lucide-react";
+import { Wordmark } from "@/components/brand/Wordmark";
 import {
   transactions as allTransactions,
   employees,
@@ -102,12 +103,7 @@ export default function EmployeeDemoPage() {
             <ArrowLeft className="w-4 h-4" />
             Back
           </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Receipt className="w-3.5 h-3.5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-sm">UnReceipt</span>
-          </div>
+          <Wordmark variant="horizontal" className="text-[18px]" />
           <Link href="/demo/dashboard">
             <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
               <LayoutDashboard className="w-3.5 h-3.5" />

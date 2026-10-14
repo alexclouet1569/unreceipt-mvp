@@ -25,6 +25,7 @@ import {
   Receipt,
   Sparkles,
 } from "lucide-react";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 
 /* ── Scroll-reveal hook ── */
@@ -225,13 +226,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       {/* ─── NAV ─── */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-transparent"}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
-          <Image
-            src="/logo-dark.png"
-            alt="UnReceipt — automatic expense receipt capture"
-            width={180}
-            height={50}
-            className="h-10 sm:h-11 w-auto"
-            priority
+          {/* Brand book "on Green Mint" single-color navy variant over the green
+              hero; the full-color primary lockup once the white backdrop is in. */}
+          <Wordmark
+            variant="horizontal"
+            on={scrolled ? "light" : "mint"}
+            className="text-[22px] sm:text-[26px]"
           />
           <div className="hidden md:flex items-center gap-8">
             {[
@@ -632,7 +632,9 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             <CardContent className="pt-12 pb-8 px-8">
               <h3 className="font-bold text-xl">UnReceipt Concierge</h3>
               <p className="text-sm text-white/60 mb-5">
-                For Swedish SMBs in the WOZ pilot
+                {pilotMode
+                  ? "For small businesses in Sweden, during our pilot"
+                  : "For small businesses in Sweden"}
               </p>
               <div className="mb-1">
                 <span className="text-5xl font-extrabold">{"\u20ac"}49</span>
