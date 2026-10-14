@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Confirm your email</title>
+</head>
+<body style="margin:0;padding:0;background:#FAFAF7;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">One click to confirm it's you, then you can add your first receipt.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FAFAF7;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+        <tr>
+          <td style="padding:0 4px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.02em;">
+            <span style="color:#303568;">Un</span><span style="color:#27BE7B;">Receipt</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FFFFFF;border:1px solid #E8E5DD;border-radius:16px;padding:32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#303568;">Confirm your email</h1>
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#5A5F7A;">Hey, we saw that you just signed up for UnReceipt with this address. One click to confirm it's really you:</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+              <tr>
+                <td style="border-radius:10px;background:#303568;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:10px;">Confirm my email</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#9CA0B8;">The button works once and expires in an hour. If it doesn't open, copy this link into your browser:</p>
+            <p style="margin:0;font-size:12px;line-height:1.5;color:#9CA0B8;word-break:break-all;">{{ .ConfirmationURL }}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 4px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#9CA0B8;">
+            Didn't sign up? Ignore this email — nothing happens without the click.
+            <br>UnReceipt &middot; Paper is Past
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
