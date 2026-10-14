@@ -90,6 +90,9 @@ export async function POST(
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   const { id } = await params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return NextResponse.json({ error: "invalid id" }, { status: 400 });
+  }
 
   const supabase = await getUserScopedClient();
   const { data: row, error: readErr } = await supabase
