@@ -34,6 +34,7 @@ const paidSession = (
   overrides: Partial<Record<string, unknown>> = {}
 ): Record<string, unknown> => ({
   id: sessionId,
+  client_reference_id: userId,
   payment_status: "paid",
   status: "complete",
   customer: "cus_test_abc",
@@ -79,6 +80,17 @@ describe("handleSelfHeal", () => {
   it("returns 'not_paid' and skips upsert for an unpaid session", async () => {
     mocks.retrieve.mockResolvedValue(
       paidSession({ payment_status: "unpaid", status: "open" })
+    );
+
+    const outcome = await handleSelfHeal(userId, sessionId);
+
+    expect(outcome).toBe("not_paid");
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
+  it("returns 'not_paid' and skips upsert when the session belongs to another user", async () => {
+    mocks.retrieve.mockResolvedValue(
+      paidSession({ client_reference_id: "someone-else" })
     );
 
     const outcome = await handleSelfHeal(userId, sessionId);

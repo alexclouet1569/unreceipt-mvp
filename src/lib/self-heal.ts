@@ -37,6 +37,11 @@ export async function handleSelfHeal(
     return "stripe_down";
   }
 
+  // The session must belong to the signed-in user. Without this check a
+  // leaked `cs_…` id (history, Referer, screenshot) would let any account
+  // re-point someone else's subscription row at itself via the upsert below.
+  if (session.client_reference_id !== userId) return "not_paid";
+
   // A trialing subscription is "paid" with no charge; use status as a backstop.
   const looksPaid =
     PAID_STATUSES.has(session.payment_status) || session.status === "complete";
