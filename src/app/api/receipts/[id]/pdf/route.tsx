@@ -4,6 +4,7 @@ import type { Readable } from "node:stream";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { ReceiptPdf, pdfFilenameFor } from "@/components/receipt/ReceiptPdf";
+import { missingRequiredFields } from "@/lib/receipts/status";
 import type { Receipt } from "@/lib/types";
 
 // react-pdf uses fontkit + Node streams; the route MUST run on Node, not
@@ -52,6 +53,23 @@ export async function GET(
   }
 
   const receipt = data as Receipt;
+
+  // A receipt still in review isn't something to hand to finance yet —
+  // the UI hides the button, this is the server-side backstop.
+  if (receipt.status === "pending_review") {
+    return NextResponse.json(
+      {
+        error: "review_required",
+        missing_fields: missingRequiredFields({
+          merchant_name: receipt.merchant_name,
+          purchased_at: receipt.purchased_at,
+          receipt_date: receipt.receipt_date,
+          total: receipt.total,
+        }),
+      },
+      { status: 409 }
+    );
+  }
 
   let nodeStream: Readable;
   try {

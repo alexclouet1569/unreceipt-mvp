@@ -50,15 +50,14 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
-        await upsertSubscription(extractFromSubscription(sub));
+        const row = await withResolvedUser(extractFromSubscription(sub));
+        if (row) await upsertSubscription(row);
         break;
       }
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        await upsertSubscription({
-          ...extractFromSubscription(sub),
-          status: "canceled",
-        });
+        const row = await withResolvedUser(extractFromSubscription(sub));
+        if (row) await upsertSubscription({ ...row, status: "canceled" });
         break;
       }
       default:
@@ -136,6 +135,36 @@ function extractFromSubscription(sub: Stripe.Subscription): SubscriptionRow {
 function unixToIso(unix: number | null | undefined): string | null {
   if (!unix) return null;
   return new Date(unix * 1000).toISOString();
+}
+
+// Subscriptions created before Checkout stamped metadata.user_id carry no
+// user id. Fall back to the row checkout.session.completed already wrote
+// for the same customer. If there is none yet (subscription.created can
+// arrive before checkout.session.completed), skip — the checkout handler
+// writes the row with the user id from client_reference_id.
+async function withResolvedUser(
+  row: SubscriptionRow
+): Promise<SubscriptionRow | null> {
+  if (row.user_id) return row;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("subscriptions")
+    .select("user_id")
+    .eq("stripe_customer_id", row.stripe_customer_id)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`subscriptions lookup failed: ${error.message}`);
+  }
+  if (!data?.user_id) {
+    console.warn("[stripe webhook] no user for customer yet, skipping", {
+      customer: row.stripe_customer_id,
+      subscription: row.stripe_subscription_id,
+    });
+    return null;
+  }
+  return { ...row, user_id: data.user_id as string };
 }
 
 async function upsertSubscription(row: SubscriptionRow) {

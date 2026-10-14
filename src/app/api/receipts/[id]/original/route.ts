@@ -19,6 +19,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import type { Receipt, ReceiptOriginalKind } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -213,6 +214,10 @@ export async function GET(
     path = receipt.image_url;
     kind = receipt.original_source_kind ?? inferKindFromPath(path);
   } else {
+    return NextResponse.json({ error: "no_original" }, { status: 404 });
+  }
+
+  if (!isOwnedStoragePath(path, user.id)) {
     return NextResponse.json({ error: "no_original" }, { status: 404 });
   }
 

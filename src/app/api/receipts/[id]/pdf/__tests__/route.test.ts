@@ -80,6 +80,7 @@ const fakeReceipt = (overrides: Partial<Receipt> = {}): Receipt => ({
   capture_time_seconds: null,
   ocr_confidence: null,
   is_verified: true,
+  status: "verified",
   original_source_url: null,
   original_source_kind: null,
   intake_ref: null,
@@ -137,6 +138,21 @@ describe("GET /api/receipts/[id]/pdf", () => {
     // call is what enforces ownership at the SQL layer.
     expect(mocks.eqId).toHaveBeenCalledWith("id", RECEIPT_ID);
     expect(mocks.eqUser).toHaveBeenCalledWith("user_id", USER_ID);
+  });
+
+  it("returns 409 with review_required + missing_fields when the row is pending_review", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    mocks.maybeSingle.mockResolvedValue({
+      data: fakeReceipt({ status: "pending_review", merchant_name: null, total: null }),
+      error: null,
+    });
+
+    const res = await GET(buildRequest(), params);
+
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error).toBe("review_required");
+    expect(json.missing_fields.sort()).toEqual(["merchant", "total"]);
   });
 
   it("returns 200 with application/pdf and a %PDF- byte stream when owned", async () => {

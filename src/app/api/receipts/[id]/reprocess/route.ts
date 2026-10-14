@@ -13,6 +13,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
@@ -93,7 +94,7 @@ export async function POST(
   }
 
   const artifact = resolveArtifact(row);
-  if (!artifact) {
+  if (!artifact || !isOwnedStoragePath(artifact.path, user.id)) {
     return NextResponse.json(
       { error: "no extractable artifact on this receipt" },
       { status: 400 }

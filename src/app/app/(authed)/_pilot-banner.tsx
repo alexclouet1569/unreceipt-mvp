@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Sparkles, X } from "lucide-react";
 
 const DISMISS_KEY = "unreceipt:pilot-banner-dismissed";
+
+function readDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+// localStorage has no change event within the same tab; the in-memory
+// `dismissedNow` state covers a dismissal made on this page.
+const noSubscribe = () => () => {};
 
 /**
  * Shown on /app when PILOT_MODE=true. The Stripe subscription gate is
@@ -14,14 +26,12 @@ const DISMISS_KEY = "unreceipt:pilot-banner-dismissed";
  * recurring banner once a pilot user has acknowledged it.
  */
 export function PilotBanner() {
-  const [hidden, setHidden] = useState(true);
+  // Server snapshot is "dismissed" so SSR renders nothing and the banner
+  // only appears after hydration for users who haven't closed it.
+  const dismissedEarlier = useSyncExternalStore(noSubscribe, readDismissed, () => true);
+  const [dismissedNow, setDismissedNow] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setHidden(window.localStorage.getItem(DISMISS_KEY) === "1");
-  }, []);
-
-  if (hidden) return null;
+  if (dismissedEarlier || dismissedNow) return null;
 
   const dismiss = () => {
     try {
@@ -30,7 +40,7 @@ export function PilotBanner() {
       // localStorage can throw in private mode / quota — silent fallback
       // to in-memory dismissal so the user still gets the X to close it.
     }
-    setHidden(true);
+    setDismissedNow(true);
   };
 
   return (

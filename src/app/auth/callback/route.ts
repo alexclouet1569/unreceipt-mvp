@@ -22,6 +22,9 @@ function safeNext(raw: string | null): string {
   // Only allow same-origin paths starting with "/" to avoid open-redirect.
   if (!raw) return "/app";
   if (!SAFE_NEXT_RE.test(raw)) return "/app";
+  // "//evil.com" passes the regex but is a protocol-relative URL — the
+  // browser resolves it to another host.
+  if (raw.startsWith("//")) return "/app";
   return raw;
 }
 
