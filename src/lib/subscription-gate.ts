@@ -59,3 +59,19 @@ export async function checkSubscriptionGate(
     return { kind: "allow_with_warning", reason: "db_error" };
   }
 }
+
+/**
+ * Same policy as the /app gate, for API routes that cost money (OCR,
+ * re-run, capture). The page gate alone left those routes callable by any
+ * signed-in account. Pilot mode and DB errors allow (fail open, like the
+ * page); only a confirmed missing/inactive subscription denies.
+ */
+export async function hasProductAccess(userId: string): Promise<boolean> {
+  const result = await checkSubscriptionGate(userId, null);
+  return result.kind !== "redirect_subscribe";
+}
+
+/** Standard 402 for an API caller without an active subscription. */
+export function subscriptionRequiredResponse(): Response {
+  return Response.json({ error: "subscription_required" }, { status: 402 });
+}

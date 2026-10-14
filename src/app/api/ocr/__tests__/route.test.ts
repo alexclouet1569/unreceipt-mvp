@@ -8,6 +8,12 @@ const mocks = vi.hoisted(() => ({
   extractReceipt: vi.fn(),
 }));
 
+const productAccessMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/subscription-gate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/subscription-gate")>()),
+  hasProductAccess: productAccessMock,
+}));
+
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
 );
@@ -51,6 +57,19 @@ describe("POST /api/ocr", () => {
     const res = await POST(buildRequest(fd));
 
     expect(res.status).toBe(401);
+    expect(mocks.extractReceipt).not.toHaveBeenCalled();
+  });
+
+  it("returns 402 and skips the Claude call without an active subscription", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    productAccessMock.mockResolvedValueOnce(false);
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+
+    expect(res.status).toBe(402);
+    expect(productAccessMock).toHaveBeenCalledWith(USER_ID);
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 

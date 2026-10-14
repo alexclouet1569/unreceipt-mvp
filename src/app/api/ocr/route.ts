@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import {
+  hasProductAccess,
+  subscriptionRequiredResponse,
+} from "@/lib/subscription-gate";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
 
 export const runtime = "nodejs";
@@ -36,6 +40,10 @@ export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+
+  if (!(await hasProductAccess(user.id))) {
+    return subscriptionRequiredResponse();
   }
 
   const limited = await rateLimit("ocr", user.id);

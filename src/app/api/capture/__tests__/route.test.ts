@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
   single: vi.fn(),
 }));
 
+const productAccessMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/subscription-gate", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/subscription-gate")>()),
+  hasProductAccess: productAccessMock,
+}));
+
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
 );
