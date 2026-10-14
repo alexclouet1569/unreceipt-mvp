@@ -180,11 +180,11 @@
 
 ## Phase 2 — Complete the core product (🤖)
 
-- [ ] 37 ★ S — Apply D7, so the background matches the design source of truth.
-- [ ] 38 ★ M — `/app/settings` shell: profile, company name, sign out.
-- [ ] 39 ★ S — Show the forwarding address with a Copy button in settings. Today it only appears when the inbox is empty.
+- [x] 37 ★ S — Apply D7, so the background matches the design source of truth.
+- [x] 38 ★ M — `/app/settings` shell: profile, company name, sign out.
+- [x] 39 ★ S — Show the forwarding address with a Copy button in settings. Today it only appears when the inbox is empty.
 - [ ] 40 ★ S — Pass VAT amount, VAT rate and payment method from OCR through `CaptureDialog` and `CaptureSchema`. Today they're dropped.
-- [ ] 41 ★ M — Allow editing **verified** receipts, not only ones that need review.
+- [ ] 41 ★ M — Allow editing **verified** receipts, not only ones that need review. Store an `edited_at` / "edited by you" marker and show it on the PDF; the API refuses these edits (409) until this ships.
 - [ ] 42 ★ M — Make VAT and line items editable (extend the PATCH route).
 - [ ] 43 ★ S — Check that iPhone HEIC photos work end to end; convert them if needed.
 - [ ] 44 ★ M — **Account deletion in the app.** This is an App Store requirement. It deletes storage, rows and the auth user, after a warning to export first because of the 7-year bookkeeping duty.
@@ -239,6 +239,7 @@
 **Email**
 - [ ] 84 ★ M — Gmail auto-forward setup. Gmail sends a **confirmation code to the forwarding address**: detect that email in intake and show the code/link to the user in the app.
 - [ ] 85 ★ S — Guided setup screen for Gmail and Outlook/M365 forwarding rules, with a "test it" button.
+- [ ] 85a ★ M — Verify inbound authentication (DKIM/SPF/ARC results on the received message) before a sender-based template marks a receipt verified. Today a spoofed "Uber" or "Stripe" email that fully matches a template is trusted. This must ship before any receipt is pushed to Fortnox/Findity automatically.
 - [ ] 86 ★ M — Receipt classifier on inbound mail. Non-receipts are ignored and logged, never shown as receipts. Use a cheaper model for this step.
 - [ ] 87 ★ M — **"Is this a receipt? Add it?"** tab: uncertain candidates wait for a one-tap confirm or dismiss.
 - [ ] 88 M — Outlook/M365 OAuth (Graph `Mail.Read`), read-only, with a receipt-only search window.
