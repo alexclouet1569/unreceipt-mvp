@@ -48,30 +48,43 @@ test.describe("landing → /app/login funnel", () => {
     // There are multiple "Start your free week" links across the page —
     // pick the one inside the pricing section.
     const pricingSection = page.locator("#pricing");
-    const cta = pricingSection.getByRole("link", {
-      name: /Start your free week/i,
-    });
+    const cta = pricingSection
+      .locator('[data-plan="Regular"]')
+      .getByRole("link", { name: /Start your free week/i });
     await expect(cta).toBeVisible();
     await cta.click();
 
     await expect(page).toHaveURL(/\/app\/login$/);
   });
 
-  test("pricing copy reads €49 + VAT with first-week-free, not the old freemium tiers", async ({
+  test("pricing shows the three per-employee plans with first-week-free", async ({
     page,
   }) => {
     await page.goto("/");
 
     const pricing = page.locator("#pricing");
-    await expect(pricing).toContainText("One simple plan");
-    await expect(pricing).toContainText(/49/);
+    for (const [name, price] of [["Light", "€5"], ["Regular", "€9"], ["Heavy", "€14"]]) {
+      const card = pricing.locator(`[data-plan="${name}"]`);
+      await expect(card).toContainText(price);
+      await expect(card).toContainText(/per employee/i);
+    }
     await expect(pricing).toContainText(/VAT/);
     await expect(pricing).toContainText(/First week free/i);
+    await expect(pricing).not.toContainText(/€49/);
+  });
 
-    // The old 3-tier copy must be gone.
-    await expect(pricing).not.toContainText(/Most Popular/i);
-    await expect(pricing).not.toContainText(/Enterprise/i);
-    await expect(pricing).not.toContainText(/forever/i);
+  test("the team-size slider recomputes each plan's monthly total", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const pricing = page.locator("#pricing");
+    const regular = pricing.locator('[data-plan="Regular"]');
+    // Retry until the client component has hydrated and owns the input.
+    await expect(async () => {
+      await pricing.locator("#team-size").fill("20");
+      await expect(regular).toContainText("€180", { timeout: 500 });
+    }).toPass();
   });
 });
 

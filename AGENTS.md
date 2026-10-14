@@ -63,7 +63,8 @@ Production webhook: Stripe Dashboard → Developers → Webhooks → Add endpoin
 - The subscription gate at `/app` returns `{ kind: "allow_with_warning", reason: "pilot_mode" }` — bypassing Stripe entirely. Any logged-in user reaches the dashboard regardless of subscription state.
 - A yellow `PilotBanner` is rendered above the dashboard explaining the pilot.
 - `/subscribe` hides the Subscribe button and shows a "Continue to dashboard →" link instead (the page itself remains so old links still resolve).
-- The landing page CTA copy switches from "Start your free week" / "First week free" to "Join the pilot" / "Free during pilot. €49/month after."
+- The landing page CTA copy switches from "Start your free week" / "First week free" to "Join the pilot" / "Free during the pilot. From €5 per employee/month after."
+- Landing pricing (`src/app/_pricing.tsx`) shows three per-employee plans (Light €5 / Regular €9 / Heavy €14). **Stripe still bills the single `STRIPE_PRICE_ID` (€49/mo)** — create the three prices and wire `/api/checkout` + `/subscribe` before turning `PILOT_MODE` off.
 - `/admin`, `/auth/callback`, `/api/webhooks/stripe`, `/api/checkout` are **unchanged**. Pilot mode only affects the customer-facing gate and copy.
 
 When `PILOT_MODE` is unset or set to anything other than the literal string `"true"`, the app behaves as paid (current state). `src/lib/pilot.ts` exposes `isPilotMode()` — server-only; the literal-`"true"` compare is intentional so a typo defaults safely to charging.
