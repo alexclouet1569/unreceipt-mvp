@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
+import { Pricing } from "./_pricing";
+import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -111,8 +113,8 @@ function ReceiptTicker() {
   return (
     <div className="relative overflow-hidden py-6">
       {/* Fade edges */}
-      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10" />
-      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10" />
+      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10" />
+      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10" />
 
       <div className="flex gap-4 animate-[scroll_30s_linear_infinite]">
         {doubled.map((r, i) => (
@@ -227,17 +229,16 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#ECF7E7]">
+    <div id="top" className="min-h-screen bg-[#ECF7E7]">
       {/* ─── NAV ─── */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-transparent"}`}>
+      {/* Solid cream bar from the first pixel so the full-color primary
+          lockup never has to swap variants mid-scroll. Only the hairline
+          appears once the page moves. */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#FAFAF7] border-b transition-colors duration-300 ${scrolled ? "border-[#E8E5DD]" : "border-transparent"}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
-          {/* Brand book "on Green Mint" single-color navy variant over the green
-              hero; the full-color primary lockup once the white backdrop is in. */}
-          <Wordmark
-            variant="horizontal"
-            on={scrolled ? "light" : "mint"}
-            className="text-[22px] sm:text-[26px]"
-          />
+          <a href="#top" aria-label="UnReceipt — back to top" className="py-1">
+            <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
+          </a>
           <div className="hidden md:flex items-center gap-8">
             {[
               { label: "Solutions", href: "#features" },
@@ -260,7 +261,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               Sign in
             </a>
             <a href={appUrl("/app/login")}>
-              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full px-6 h-11 shadow-md shadow-[#27BE7B]/25">
+              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11">
                 {pilotMode ? "Join the pilot" : "Start free"}
               </Button>
             </a>
@@ -341,8 +342,8 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </div>
               <p className="text-white/80 text-sm mt-4">
                 {pilotMode
-                  ? "Free during pilot. €49/month after."
-                  : "€49/month + VAT after the trial. Cancel anytime."}
+                  ? "Free during the pilot. From €5 per employee/month after."
+                  : "From €5 per employee/month + VAT after the free week. Cancel anytime."}
               </p>
             </div>
 
@@ -430,12 +431,19 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
 
         {/* Receipt edge transition */}
         <div className="absolute bottom-0 left-0 right-0">
-          <ReceiptEdge color="#ECF7E7" />
+          <ReceiptEdge color="#FAFAF7" />
         </div>
       </section>
 
+      {/* Everything between the hero and the waitlist shares one cream
+          surface with the printing receipt behind it, so these sections
+          carry no background of their own. */}
+      <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
+      <ReceiptBackdrop />
+      <ReceiptRows rows={RECEIPT.top} />
+
       {/* ─── SOCIAL PROOF BAR ─── */}
-      <Section className="py-10 px-4 sm:px-6 bg-[#ECF7E7]">
+      <Section className="py-10 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
@@ -454,12 +462,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── RECEIPT TICKER ─── */}
-      <section className="bg-white py-4 overflow-hidden">
+      <section className="py-4 overflow-hidden">
         <ReceiptTicker />
       </section>
 
+      <ReceiptRows rows={RECEIPT.features} />
+
       {/* ─── FEATURES — 3 PILLARS ─── */}
-      <Section id="features" className="py-20 px-4 sm:px-6 bg-white">
+      <Section id="features" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Why UnReceipt</p>
@@ -501,8 +511,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows rows={RECEIPT.how} />
+
       {/* ─── HOW IT WORKS ─── */}
-      <Section id="how" className="py-20 px-4 sm:px-6 bg-[#ECF7E7]">
+      <Section id="how" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">How it Works</p>
@@ -559,8 +571,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows rows={RECEIPT.difference} />
+
       {/* ─── COMPARISON ─── */}
-      <Section className="py-20 px-4 sm:px-6 bg-white">
+      <Section id="difference" className="py-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">The Difference</p>
@@ -618,66 +632,17 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows rows={RECEIPT.pricing} />
+
       {/* ─── PRICING ─── */}
-      <Section id="pricing" className="py-20 px-4 sm:px-6 bg-[#ECF7E7]">
-        <div className="max-w-md mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Pricing</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-              One simple plan
-            </h2>
-            <p className="text-[#303568]/60 text-base">
-              No tiers. No per-seat math. No surprises.
-            </p>
-          </div>
-          <Card className="border-0 rounded-3xl bg-[#303568] text-white shadow-xl shadow-[#303568]/25 overflow-hidden relative">
-            <div className="absolute top-0 left-0 right-0 bg-[#27BE7B] text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-[0.2em]">
-              {pilotMode ? "Free during pilot" : "First week free"}
-            </div>
-            <CardContent className="pt-12 pb-8 px-8">
-              <h3 className="font-bold text-xl">UnReceipt Concierge</h3>
-              <p className="text-sm text-white/60 mb-5">
-                {pilotMode
-                  ? "For small businesses in Sweden, during our pilot"
-                  : "For small businesses in Sweden"}
-              </p>
-              <div className="mb-1">
-                <span className="text-5xl font-extrabold">{"\u20ac"}49</span>
-                <span className="text-sm text-white/50 ml-1">/ month</span>
-              </div>
-              <p className="text-xs text-white/40 mb-7">+ VAT</p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Forward receipts to your concierge inbox",
-                  "VAT-ready records in your dashboard within 24 hours",
-                  "Weekly CSV export for your accountant",
-                  "Swedish + English support",
-                  "Cancel anytime, no questions asked",
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm">
-                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#27BE7B]" />
-                    <span className="text-white/85">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <a href={appUrl("/app/login")}>
-                <Button className="w-full rounded-full font-semibold h-12 bg-[#27BE7B] text-white hover:bg-[#1fa568]">
-                  {pilotMode ? "Join the pilot" : "Start your free week"}
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
-                </Button>
-              </a>
-              <p className="text-[11px] text-white/40 text-center mt-3">
-                {pilotMode
-                  ? "Free during pilot. \u20ac49/month after."
-                  : "\u20ac49 + VAT charged on day 8 unless you cancel."}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      <Section id="pricing" className="py-20 px-4 sm:px-6">
+        <Pricing pilotMode={pilotMode} />
       </Section>
 
+      <ReceiptRows rows={RECEIPT.about} />
+
       {/* ─── BUILT FOR TEAMS ─── */}
-      <Section id="about" className="py-20 px-4 sm:px-6 bg-white">
+      <Section id="about" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Who it&apos;s for</p>
@@ -717,8 +682,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows rows={RECEIPT.badges} />
+
       {/* ─── TRUST BADGES ─── */}
-      <Section className="py-16 px-4 sm:px-6 bg-[#ECF7E7]">
+      <Section className="py-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
@@ -737,6 +704,9 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           </div>
         </div>
       </Section>
+
+      <ReceiptRows rows={RECEIPT.end} />
+      </div>
 
       {/* ─── WAITLIST CTA ─── */}
       <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 overflow-hidden">
