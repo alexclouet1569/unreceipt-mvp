@@ -142,10 +142,19 @@ export default function PrivacyPage() {
               is active or you&apos;ve used the service in the last 12 months.
             </li>
             <li>
-              <strong>After cancellation:</strong> 30 days for billing
-              reconciliation, then your account and receipts are permanently
-              deleted unless legal record-keeping requires longer (e.g.,
-              Swedish bookkeeping law for invoiced amounts).
+              <strong>After cancellation:</strong> your account and receipts
+              stay available for 90 days so you can download them, and we
+              email you before anything is deleted. After that they are
+              permanently deleted. Billing records that we must keep for our
+              own accounts (invoices, via Stripe) are kept as the law
+              requires.
+            </li>
+            <li>
+              <strong>Your bookkeeping obligation:</strong> under Swedish
+              bookkeeping law (bokföringslagen), a business must keep its
+              receipts for seven years. That obligation stays with your
+              company, so download your receipts — or ask us for a copy —
+              before you close your account.
             </li>
             <li>
               <strong>Request immediate deletion at any time</strong> by
