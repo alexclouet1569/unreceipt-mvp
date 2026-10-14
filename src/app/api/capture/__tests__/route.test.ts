@@ -190,6 +190,30 @@ describe("POST /api/capture", () => {
     expect(row.image_captured_at).toEqual(expect.any(String));
   });
 
+  it("rejects a non-receipt file type without uploading it", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ image: imageBlob("evil.html", "text/html") }))
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("names the stored file from the checked MIME type, not the client filename", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ image: imageBlob("receipt.php", "image/png") }))
+    );
+
+    expect(res.status).toBe(200);
+    const row = mocks.insert.mock.calls[0][0];
+    expect(row.image_url).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]+\\.png$`));
+  });
+
   it("returns 500 + clean error and skips orphan cleanup when DB insert fails (no image)", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     mocks.single.mockResolvedValue({

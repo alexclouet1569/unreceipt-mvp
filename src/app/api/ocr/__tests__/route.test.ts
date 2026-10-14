@@ -110,12 +110,12 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the file exceeds 15MB", async () => {
+  it("returns 400 when the file exceeds the 4 MB upload cap", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     const fd = new FormData();
     fd.append(
       "image",
-      imageBlob("image/jpeg", 15 * 1024 * 1024 + 1),
+      imageBlob("image/jpeg", 4 * 1024 * 1024 + 1),
       "big.jpg"
     );
 

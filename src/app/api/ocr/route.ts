@@ -6,6 +6,10 @@ import {
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
+import {
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadType,
+} from "@/lib/receipts/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,15 +17,6 @@ export const dynamic = "force-dynamic";
 // images and multi-page PDFs.
 export const maxDuration = 30;
 
-const ALLOWED_TYPES: OcrMediaType[] = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-];
-// 15 MB — image cap was 5 MB but vendor PDFs (Stripe invoices, multi-page
-// hotel folios) routinely run 1–8 MB and the old cap silently rejected them.
-const MAX_BYTES = 15 * 1024 * 1024;
 // Cap PDF page count so a 50-page contract uploaded by mistake doesn't burn
 // vision tokens. Counted via /Type /Page occurrences — works for the vast
 // majority of PDFs we see in the wild; linearized PDFs may over-count but
@@ -65,16 +60,16 @@ export async function POST(request: NextRequest) {
   }
 
   const type = (image as Blob).type;
-  if (!ALLOWED_TYPES.includes(type as OcrMediaType)) {
+  if (!isAllowedUploadType(type)) {
     return NextResponse.json(
       { error: `unsupported file type: ${type || "unknown"}` },
       { status: 400 }
     );
   }
 
-  if ((image as Blob).size > MAX_BYTES) {
+  if ((image as Blob).size > MAX_UPLOAD_BYTES) {
     return NextResponse.json(
-      { error: "file too large (max 15MB)" },
+      { error: "file too large (max 4 MB)" },
       { status: 400 }
     );
   }
