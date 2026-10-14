@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { formatDate } from "@/lib/receipt-format";
+import { requireAdminPage } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +95,7 @@ async function loadCustomers(): Promise<CustomerRow[]> {
 }
 
 export default async function AdminCustomerListPage() {
+  await requireAdminPage();
   const customers = await loadCustomers();
 
   return (

@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Receipt } from "lucide-react";
-import { AdminAuthError, requireAdmin } from "@/lib/require-admin";
+import { requireAdminPage } from "@/lib/require-admin";
 
 // Admin reads cookies + DB on every request — never cache.
 export const dynamic = "force-dynamic";
@@ -16,17 +15,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  try {
-    await requireAdmin();
-  } catch (err) {
-    if (err instanceof AdminAuthError) {
-      // Whether the caller is unauthenticated or just not an admin, the
-      // safest bounce is back to /app — which itself redirects to
-      // /app/login if there's no session.
-      redirect("/app");
-    }
-    throw err;
-  }
+  await requireAdminPage();
 
   return (
     <div className="min-h-screen bg-muted/20">

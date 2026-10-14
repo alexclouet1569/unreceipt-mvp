@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { formatAmount } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
+import { requireAdminPage } from "@/lib/require-admin";
 import { PasteForm } from "./PasteForm";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ async function loadCustomer(userId: string) {
 }
 
 export default async function AdminCustomerDetailPage({ params }: PageProps) {
+  await requireAdminPage();
   const { userId } = await params;
   const customer = await loadCustomer(userId);
   if (!customer) notFound();
