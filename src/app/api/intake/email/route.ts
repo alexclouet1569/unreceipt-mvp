@@ -186,16 +186,17 @@ export async function POST(request: NextRequest) {
     }
   }
   if (!aliasHash) {
+    // No addresses in logs: they're personal data, and the recipient
+    // count is enough to debug routing.
     console.warn("[intake/email] no forwarding alias among recipients", {
-      to: recipients,
-      from: fromAddr,
+      recipientCount: recipients.length,
     });
     return genericNotFound();
   }
 
   const owner = await findUserByAliasHash(aliasHash);
   if (!owner) {
-    console.warn("[intake/email] unknown alias hash", { aliasHash, from: fromAddr });
+    console.warn("[intake/email] unknown alias hash", { aliasHash });
     return genericNotFound();
   }
   const userId = owner.user_id;

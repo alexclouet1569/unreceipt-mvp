@@ -62,30 +62,6 @@ function withAuthTimeout<T>(label: string, p: PromiseLike<T>): Promise<T> {
   }) as Promise<T>;
 }
 
-// ─── BEGIN [auth-debug] temporary sign-in instrumentation ───
-// Structured console logging around the password sign-in call to diagnose
-// the production hang. Every line is a single JSON object prefixed with
-// "[auth-debug] " and carries an ISO timestamp plus elapsed ms since the
-// call started. To strip later: delete this helper and grep the file for
-// `authDebug(` to remove the call sites.
-function authDebug(
-  event: string,
-  startedAt: number,
-  extra?: Record<string, unknown>
-) {
-  const now = Date.now();
-  console.log(
-    "[auth-debug] " +
-      JSON.stringify({
-        event,
-        at: new Date(now).toISOString(),
-        elapsedMs: now - startedAt,
-        ...extra,
-      })
-  );
-}
-// ─── END [auth-debug] ───
-
 function LoginPageInner() {
   const searchParams = useSearchParams();
   const topError = searchParams.get("error")
@@ -174,8 +150,6 @@ function SignInPanel() {
     }
 
     setLoading(true);
-    const startedAt = Date.now(); // [auth-debug]
-    authDebug("signInWithPassword:start", startedAt);
     let authError: { message?: string } | null = null;
     try {
       const res = await withAuthTimeout(
@@ -186,23 +160,9 @@ function SignInPanel() {
         })
       );
       authError = res.error;
-      if (authError) {
-        authDebug("signInWithPassword:error", startedAt, {
-          message: authError.message,
-        });
-      } else {
-        authDebug("signInWithPassword:success", startedAt);
-      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "request failed";
       authError = { message };
-      authDebug(
-        message.toLowerCase().includes("timed out")
-          ? "signInWithPassword:timeout"
-          : "signInWithPassword:error",
-        startedAt,
-        { message }
-      );
     }
     setLoading(false);
 
