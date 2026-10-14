@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error("[/api/capture] upload failed:", uploadError);
       return NextResponse.json(
-        { error: `Storage upload failed: ${uploadError.message ?? "unknown"}` },
+        { error: "Couldn't store the file. Please try again." },
         { status: 500 }
       );
     }
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
     console.error("[/api/capture] insert failed:", insertError);
     return NextResponse.json(
-      { error: `Save failed: ${insertError?.message ?? "unknown"}` },
+      { error: "Couldn't save the receipt. Please try again." },
       { status: 500 }
     );
   }

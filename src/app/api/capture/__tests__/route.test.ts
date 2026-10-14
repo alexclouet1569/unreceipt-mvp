@@ -225,7 +225,8 @@ describe("POST /api/capture", () => {
 
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toMatch(/duplicate key/);
+    expect(body.error).toBe("Couldn't save the receipt. Please try again.");
+    expect(body.error).not.toMatch(/duplicate key/);
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
@@ -266,7 +267,8 @@ describe("POST /api/capture", () => {
 
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toMatch(/storage quota/i);
+    expect(body.error).toBe("Couldn't store the file. Please try again.");
+    expect(body.error).not.toMatch(/storage quota/i);
 
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();

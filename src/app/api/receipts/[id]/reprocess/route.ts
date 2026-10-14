@@ -144,7 +144,9 @@ export async function POST(
   } catch (err) {
     console.error("[/api/receipts/reprocess] extract failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "extract failed" },
+      // Details stay in the server log: Anthropic errors and raw model
+      // output aren't for the client.
+      { error: "couldn't read this receipt" },
       { status: 500 }
     );
   }

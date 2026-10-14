@@ -195,7 +195,7 @@ describe("POST /api/ocr", () => {
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when the OCR call throws", async () => {
+  it("returns a generic 500 when the OCR call throws, without leaking the cause", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
     mocks.extractReceipt.mockRejectedValue(new Error("anthropic down"));
     const fd = new FormData();
@@ -204,6 +204,7 @@ describe("POST /api/ocr", () => {
     const res = await POST(buildRequest(fd));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toMatch(/anthropic down/);
+    expect(body.error).toBe("couldn't read this receipt");
+    expect(JSON.stringify(body)).not.toContain("anthropic down");
   });
 });
