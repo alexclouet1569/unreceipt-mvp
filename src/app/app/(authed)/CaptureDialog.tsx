@@ -7,6 +7,8 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { prepareImageForUpload } from "@/lib/image-resize";
+import { MAX_UPLOAD_BYTES } from "@/lib/receipts/upload-limits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -168,11 +170,25 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     }
   };
 
-  const onPickFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setImageFile(f);
+  const onPickFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0] ?? null;
     setImagePreview(null);
-    if (!f) return;
+    setOcrError(null);
+    if (!picked) {
+      setImageFile(null);
+      return;
+    }
+    // Shrink phone photos before anything leaves the device (faster on
+    // mobile data, cheaper OCR, under the upload cap). PDFs pass through.
+    const f = await prepareImageForUpload(picked);
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setImageFile(null);
+      setOcrError(
+        "This file is larger than 4 MB. Try a photo instead, or forward the PDF to your receipts address."
+      );
+      return;
+    }
+    setImageFile(f);
     // PDFs can't be previewed with FileReader as a data URL inside an <img>
     // — show a generic document badge instead. The Original tab on the
     // detail dialog (PR #52) renders the real PDF after save.
