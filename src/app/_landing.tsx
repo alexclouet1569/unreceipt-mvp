@@ -28,8 +28,7 @@ import {
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 import { Pricing } from "./_pricing";
-import { ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
-import { ReceiptRibbon } from "./_receipt-ribbon";
+import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -177,16 +176,11 @@ function FloatingReceipts() {
   );
 }
 
-export type ReceiptVariant = "ribbon" | "paper";
-
 type LandingPageProps = {
   pilotMode: boolean;
-  /** Which scroll-receipt backdrop to show (preview toggle: ?receipt=paper). */
-  receipt?: ReceiptVariant;
 };
 
-export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps) {
-  const paper = receipt === "paper";
+export function LandingPage({ pilotMode }: LandingPageProps) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -445,8 +439,8 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
           surface with the printing receipt behind it, so these sections
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
-      {paper ? <ReceiptBackdrop /> : <ReceiptRibbon />}
-      {paper && <ReceiptRows rows={[{ kind: "head" }, { kind: "rule" }]} />}
+      <ReceiptBackdrop />
+      <ReceiptRows rows={RECEIPT.top} />
 
       {/* ─── SOCIAL PROOF BAR ─── */}
       <Section className="py-10 px-4 sm:px-6">
@@ -472,14 +466,7 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
         <ReceiptTicker />
       </section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "item", label: "ICA Maxi", value: "342,00" },
-            { kind: "item", label: "SJ Stockholm–Göteborg", value: "895,00" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.features} />
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
       <Section id="features" className="py-20 px-4 sm:px-6">
@@ -524,14 +511,7 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
         </div>
       </Section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "item", label: "Spotify Business", value: "129,00" },
-            { kind: "item", label: "Scandic Hotel", value: "1 250,00" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.how} />
 
       {/* ─── HOW IT WORKS ─── */}
       <Section id="how" className="py-20 px-4 sm:px-6">
@@ -591,14 +571,7 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
         </div>
       </Section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "item", label: "Uber", value: "189,00" },
-            { kind: "item", label: "Apoteket", value: "212,00" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.difference} />
 
       {/* ─── COMPARISON ─── */}
       <Section id="difference" className="py-20 px-4 sm:px-6">
@@ -659,30 +632,14 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
         </div>
       </Section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "item", label: "Coop Konferens", value: "890,00" },
-            { kind: "item", label: "Pressbyrån", value: "68,00" },
-            { kind: "rule" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.pricing} />
 
       {/* ─── PRICING ─── */}
       <Section id="pricing" className="py-20 px-4 sm:px-6">
         <Pricing pilotMode={pilotMode} />
       </Section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "strong", label: "Summa", value: "3 975,00" },
-            { kind: "item", label: "Varav moms", value: "795,00" },
-            { kind: "rule" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.about} />
 
       {/* ─── BUILT FOR TEAMS ─── */}
       <Section id="about" className="py-20 px-4 sm:px-6">
@@ -725,14 +682,7 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
         </div>
       </Section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "item", label: "Lost receipts", value: "0" },
-            { kind: "item", label: "Hours chasing", value: "0,00" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.badges} />
 
       {/* ─── TRUST BADGES ─── */}
       <Section className="py-16 px-4 sm:px-6">
@@ -755,15 +705,7 @@ export function LandingPage({ pilotMode, receipt = "ribbon" }: LandingPageProps)
         </div>
       </Section>
 
-      {paper && (
-        <ReceiptRows
-          rows={[
-            { kind: "rule" },
-            { kind: "strong", label: "Total stress", value: "0,00" },
-            { kind: "foot" },
-          ]}
-        />
-      )}
+      <ReceiptRows rows={RECEIPT.end} />
       </div>
 
       {/* ─── WAITLIST CTA ─── */}

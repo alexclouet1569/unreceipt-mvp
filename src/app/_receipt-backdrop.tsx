@@ -5,21 +5,66 @@ import { useEffect, useRef } from "react";
 /**
  * Landing-page backdrop: one long thermal receipt that runs down the
  * page behind the content and prints as the visitor scrolls. The green
- * hero acts as the printer — the paper comes out of its slot, the print
- * head travels down with the viewport, and each line types in as the
- * head passes it. Scrolling back up feeds the paper back in.
+ * hero acts as the printer — the paper comes out of its slot and a
+ * print head travels down with the viewport. As the head passes a line:
+ *
+ *   - the line types in left to right, in green "wet" ink that develops
+ *     to navy, like thermal paper;
+ *   - its amount counts up from zero;
+ *   - the running subtotal carried by the print head ticks up.
+ *
+ * When the last line prints, the paper tears off and a VAT-READY stamp
+ * lands on the total. Scrolling back up feeds the paper back in.
  *
  * Purely decorative (aria-hidden). The scroll handler writes straight
- * to the DOM (one CSS variable + class toggles) so scrolling never
+ * to the DOM (CSS variables, class toggles, text) so scrolling never
  * re-renders React.
  */
 
 export type ReceiptRow =
-  | { kind: "item"; label: string; value: string }
-  | { kind: "strong"; label: string; value: string }
+  | { kind: "item"; label: string; amount: number; sum?: boolean }
+  | { kind: "text"; label: string; value: string }
+  | { kind: "total"; label: string; amount: number }
   | { kind: "rule" }
   | { kind: "head" }
   | { kind: "foot" };
+
+/** Receipt content, keyed by where it sits on the page. */
+export const RECEIPT = {
+  top: [{ kind: "head" }, { kind: "rule" }],
+  features: [
+    { kind: "item", label: "ICA Maxi", amount: 342 },
+    { kind: "item", label: "SJ Stockholm–Göteborg", amount: 895 },
+  ],
+  how: [
+    { kind: "item", label: "Spotify Business", amount: 129 },
+    { kind: "item", label: "Scandic Hotel", amount: 1250 },
+  ],
+  difference: [
+    { kind: "item", label: "Uber", amount: 189 },
+    { kind: "item", label: "Apoteket", amount: 212 },
+  ],
+  pricing: [
+    { kind: "item", label: "Coop Konferens", amount: 890 },
+    { kind: "item", label: "Pressbyrån", amount: 68 },
+    { kind: "rule" },
+  ],
+  about: [
+    { kind: "total", label: "Summa", amount: 3975 },
+    { kind: "item", label: "Varav moms", amount: 795, sum: false },
+    { kind: "rule" },
+  ],
+  badges: [
+    { kind: "text", label: "Lost receipts", value: "0" },
+    { kind: "text", label: "Hours chasing", value: "0,00" },
+  ],
+  end: [{ kind: "rule" }, { kind: "text", label: "Total stress", value: "0,00" }, { kind: "foot" }],
+} satisfies Record<string, ReceiptRow[]>;
+
+const kr = new Intl.NumberFormat("sv-SE", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 /**
  * A few receipt lines, rendered in the page flow between two sections so
@@ -43,20 +88,33 @@ export function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
           case "foot":
             return (
               <div key={i} className="rb-foot" data-print>
+                <span className="rb-stamp">✓ VAT-ready</span>
                 <div className="rb-barcode" />
                 <p className="rb-thanks">Tack! Paper is past.</p>
+              </div>
+            );
+          case "text":
+            return (
+              <div key={i} className="rb-row rb-strong-soft" data-print>
+                <span className="rb-label">{row.label}</span>
+                <span className="rb-dots" />
+                <span className="rb-mono">{row.value}</span>
               </div>
             );
           default:
             return (
               <div
                 key={i}
-                className={`rb-row ${row.kind === "strong" ? "rb-strong" : ""}`}
+                className={`rb-row ${row.kind === "total" ? "rb-total" : ""}`}
                 data-print
+                data-amount={row.amount}
+                data-sum={row.kind === "item" && row.sum !== false ? "" : undefined}
               >
                 <span className="rb-label">{row.label}</span>
                 <span className="rb-dots" />
-                <span className="rb-mono">{row.value}</span>
+                <span className="rb-mono" data-count>
+                  {kr.format(row.amount)}
+                </span>
               </div>
             );
         }
@@ -67,40 +125,95 @@ export function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
 
 // The print head sits this far down the viewport.
 const HEAD = 0.82;
+const COUNT_MS = 700;
 
 export function ReceiptBackdrop() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const subtotalRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    const subtotalEl = subtotalRef.current;
+    if (!root || !subtotalEl) return;
     const scope = root.parentElement ?? root;
     const lines = Array.from(scope.querySelectorAll<HTMLElement>("[data-print]"));
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Count-up tweens for amounts, keyed by line.
+    const tweens = new Map<HTMLElement, number>();
+    const countUp = (line: HTMLElement) => {
+      const out = line.querySelector<HTMLElement>("[data-count]");
+      const target = Number(line.dataset.amount);
+      if (!out || Number.isNaN(target)) return;
+      if (reduced) {
+        out.textContent = kr.format(target);
+        return;
+      }
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const k = Math.min(1, (now - t0) / COUNT_MS);
+        const eased = 1 - Math.pow(1 - k, 3);
+        out.textContent = kr.format(target * eased);
+        if (k < 1) tweens.set(line, requestAnimationFrame(tick));
+        else tweens.delete(line);
+      };
+      tweens.set(line, requestAnimationFrame(tick));
+    };
+    const reset = (line: HTMLElement) => {
+      const raf = tweens.get(line);
+      if (raf) cancelAnimationFrame(raf);
+      tweens.delete(line);
+      const out = line.querySelector<HTMLElement>("[data-count]");
+      if (out) out.textContent = kr.format(0);
+    };
+
+    let shownSubtotal = -1;
     let frame = 0;
     const update = () => {
       frame = 0;
       const rect = root.getBoundingClientRect();
       const height = rect.height;
-      const printed = reduced
-        ? height
-        : Math.max(0, Math.min(height, window.innerHeight * HEAD - rect.top));
+      // The receipt tears off as soon as its last line is out, rather
+      // than when the (empty) bottom margin of the paper reaches the head.
+      const last = lines[lines.length - 1]?.getBoundingClientRect();
+      const tearAt = last ? Math.min(height, last.top + last.height / 2 - rect.top) : height;
+      const head = reduced ? height : Math.max(0, window.innerHeight * HEAD - rect.top);
+      const done = head >= tearAt;
+      const printed = done ? height : Math.min(head, height);
       root.style.setProperty("--printed", `${printed}px`);
-      root.classList.toggle("is-done", printed >= height - 1);
+      root.classList.toggle("is-done", done);
+      root.classList.toggle("is-printing", printed > 0 && !done);
+
+      let subtotal = 0;
       for (const line of lines) {
         const r = line.getBoundingClientRect();
-        line.classList.toggle("is-printed", r.top + r.height / 2 - rect.top <= printed);
+        const isPrinted = r.top + r.height / 2 - rect.top <= printed;
+        if (isPrinted !== line.classList.contains("is-printed")) {
+          line.classList.toggle("is-printed", isPrinted);
+          if (line.dataset.amount) {
+            if (isPrinted) countUp(line);
+            else reset(line);
+          }
+        }
+        if (isPrinted && line.dataset.sum !== undefined) {
+          subtotal += Number(line.dataset.amount);
+        }
+      }
+      if (subtotal !== shownSubtotal) {
+        shownSubtotal = subtotal;
+        subtotalEl.textContent = `${kr.format(subtotal)} kr`;
       }
     };
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
     };
 
+    // Amounts start at zero once JS runs; the server render shows the
+    // full amounts so the receipt still reads without JS.
+    if (!reduced) for (const line of lines) if (line.dataset.amount) reset(line);
     update();
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
-    // Section reveal animations change layout after mount.
     const ro = new ResizeObserver(schedule);
     ro.observe(scope);
     return () => {
@@ -108,25 +221,27 @@ export function ReceiptBackdrop() {
       window.removeEventListener("resize", schedule);
       ro.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
+      for (const raf of tweens.values()) cancelAnimationFrame(raf);
     };
   }, []);
 
   return (
     <div ref={rootRef} className="receipt-backdrop" aria-hidden="true">
       <div className="rb-slot" />
-      <div className="rb-paper">
-        <div className="rb-printhead" />
+      <div className="rb-paper" />
+      <div className="rb-printhead">
+        <span ref={subtotalRef} className="rb-subtotal rb-mono" />
       </div>
 
       <style jsx global>{`
         /* Set on the wrapper that holds both the backdrop and the
            in-flow row groups, so both agree on the paper width. */
         .receipt-scope {
-          --paper-w: clamp(260px, 44vw, 420px);
+          --paper-w: clamp(280px, 40vw, 400px);
         }
         @media (max-width: 640px) {
           .receipt-scope {
-            --paper-w: 84vw;
+            --paper-w: 86vw;
           }
         }
         .receipt-backdrop {
@@ -139,50 +254,76 @@ export function ReceiptBackdrop() {
         /* Printer slot, tucked under the hero's bottom edge. */
         .rb-slot {
           position: absolute;
-          top: -6px;
+          top: -5px;
           left: 50%;
           transform: translateX(-50%);
-          width: calc(var(--paper-w) + 28px);
-          height: 10px;
+          width: calc(var(--paper-w) + 36px);
+          height: 9px;
           border-radius: 6px;
           background: #303568;
           z-index: 1;
         }
+        /* Paper: no hard border. The edges fade into the page so it reads
+           as a surface rather than a column cutting through content, with
+           a faint thermal-paper grain. */
         .rb-paper {
           position: absolute;
           top: 0;
           bottom: 0;
           left: 50%;
-          width: var(--paper-w);
+          width: calc(var(--paper-w) + 48px);
           transform: translateX(-50%);
-          background: #ffffff;
-          border-left: 1px solid #e8e5dd;
-          border-right: 1px solid #e8e5dd;
-          /* Only the printed part of the roll is visible. */
-          clip-path: inset(0 -1px calc(100% - var(--printed)) -1px);
+          background:
+            repeating-linear-gradient(180deg, rgba(48, 53, 104, 0.02) 0 1px, transparent 1px 4px),
+            #ffffff;
+          -webkit-mask: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+          mask: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+          clip-path: inset(0 0 calc(100% - var(--printed)) 0);
         }
         /* Torn bottom edge once the whole receipt is out. */
         .receipt-backdrop.is-done .rb-paper {
           -webkit-mask:
-            linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat,
-            conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 14px 8px repeat-x;
+            linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent) 0 0 / 100% calc(100% - 8px) no-repeat,
+            conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 24px 100% / 14px 8px repeat-x;
           mask:
-            linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat,
-            conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 14px 8px repeat-x;
+            linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent) 0 0 / 100% calc(100% - 8px) no-repeat,
+            conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 24px 100% / 14px 8px repeat-x;
         }
-        /* Thermal print head: a faint green edge riding the paper. */
+        /* Thermal print head: a thin green glow riding the paper's edge,
+           carrying the running subtotal. */
         .rb-printhead {
+          position: absolute;
+          left: 50%;
+          top: var(--printed);
+          width: var(--paper-w);
+          height: 0;
+          transform: translateX(-50%);
+          opacity: 0;
+          transition: opacity 300ms ease;
+        }
+        .receipt-backdrop.is-printing .rb-printhead {
+          opacity: 1;
+        }
+        .rb-printhead::before {
+          content: "";
           position: absolute;
           left: 0;
           right: 0;
-          top: calc(var(--printed) - 32px);
-          height: 32px;
-          background: linear-gradient(to bottom, rgba(39, 190, 123, 0), rgba(39, 190, 123, 0.07));
-          border-bottom: 1px solid rgba(39, 190, 123, 0.35);
-          transition: opacity 300ms ease;
+          bottom: 0;
+          height: 26px;
+          background: linear-gradient(to bottom, rgba(39, 190, 123, 0), rgba(39, 190, 123, 0.08));
+          border-bottom: 1px solid rgba(39, 190, 123, 0.4);
         }
-        .receipt-backdrop.is-done .rb-printhead {
-          opacity: 0;
+        .rb-subtotal {
+          position: absolute;
+          right: 4px;
+          top: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #1f9d63;
+          background: #ecf7e7;
+          border-radius: 999px;
+          padding: 2px 8px;
         }
 
         /* In-flow groups of receipt lines, sitting between sections. */
@@ -208,20 +349,31 @@ export function ReceiptBackdrop() {
           opacity: 1;
           transform: none;
         }
-        /* Rows "type" in left to right, like a thermal printer. */
+        /* Rows type in left to right in green "wet" ink, then develop to
+           navy, like thermal paper. */
         .rb-row {
           display: flex;
           align-items: baseline;
           gap: 8px;
           height: 28px;
           font-size: 13px;
-          color: #5a5f7a;
+          color: #27be7b;
+          filter: blur(1.5px);
           clip-path: inset(0 100% 0 0);
-          transition: clip-path 0ms 200ms;
+          transition: clip-path 0ms 200ms, color 0ms 200ms, filter 0ms 200ms;
         }
         .rb-row.is-printed {
+          color: #5a5f7a;
+          filter: blur(0);
           clip-path: inset(0 0 0 0);
-          transition: clip-path 650ms steps(16, end);
+          transition:
+            clip-path 650ms steps(16, end),
+            filter 500ms ease 150ms,
+            color 1100ms ease 450ms;
+        }
+        .rb-row.is-printed .rb-mono {
+          color: #303568;
+          transition: color 1100ms ease 450ms;
         }
         .rb-head {
           text-align: center;
@@ -245,7 +397,6 @@ export function ReceiptBackdrop() {
           font-family: var(--font-mono), ui-monospace, monospace;
           font-variant-numeric: tabular-nums;
           white-space: nowrap;
-          color: #303568;
         }
         .rb-label {
           font-weight: 600;
@@ -258,14 +409,19 @@ export function ReceiptBackdrop() {
           border-bottom: 1px dotted #c9c6bd;
           transform: translateY(-4px);
         }
-        .rb-strong {
+        .rb-total,
+        .rb-strong-soft {
           font-weight: 800;
           font-size: 14px;
           text-transform: uppercase;
           letter-spacing: 0.04em;
+        }
+        .rb-total.is-printed,
+        .rb-strong-soft.is-printed {
           color: #303568;
         }
-        .rb-strong .rb-mono {
+        .rb-total.is-printed .rb-mono,
+        .rb-strong-soft.is-printed .rb-mono {
           font-weight: 600;
           font-size: 16px;
           color: #27be7b;
@@ -275,6 +431,7 @@ export function ReceiptBackdrop() {
           margin: 8px 0;
         }
         .rb-foot {
+          position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -300,6 +457,30 @@ export function ReceiptBackdrop() {
           font-size: 14px;
           color: #5a5f7a;
         }
+        /* The stamp lands on the total once the receipt is complete. */
+        .rb-stamp {
+          position: absolute;
+          right: -6px;
+          top: -58px;
+          padding: 4px 10px;
+          border: 2px solid #27be7b;
+          border-radius: 6px;
+          color: #27be7b;
+          font-weight: 800;
+          font-size: 13px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          background: rgba(255, 255, 255, 0.85);
+          opacity: 0;
+          transform: rotate(-9deg) scale(1.9);
+          transition:
+            opacity 160ms ease 500ms,
+            transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 500ms;
+        }
+        .rb-foot.is-printed .rb-stamp {
+          opacity: 0.92;
+          transform: rotate(-9deg) scale(1);
+        }
         @media (max-width: 640px) {
           .rb-group {
             padding: 8px 18px;
@@ -307,13 +488,18 @@ export function ReceiptBackdrop() {
           .rb-row {
             font-size: 12px;
           }
+          .rb-stamp {
+            right: 0;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           .rb-row,
           .rb-row.is-printed,
+          .rb-row.is-printed .rb-mono,
           .rb-head,
           .rb-rule,
-          .rb-foot {
+          .rb-foot,
+          .rb-stamp {
             transition: none;
           }
           .rb-printhead {
