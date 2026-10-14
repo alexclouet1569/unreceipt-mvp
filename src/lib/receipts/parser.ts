@@ -47,6 +47,10 @@ const TEMPLATE_PARTIAL_CONFIDENCE = 0.7;
 // 1.0". When no template vouched for the content, cap it below the floor:
 // the fields still pre-fill the row, but it lands as pending_review and a
 // person confirms it before it can be exported as a verified receipt.
+// Applies whenever the model contributed fields, including partial
+// template hits. Full template hits are still trusted on the template's
+// own match, which keys on sender/subject text — see the launch plan's
+// "verify inbound DKIM" action before trusting those for auto-export.
 const UNTRUSTED_LLM_CONFIDENCE_CAP = 0.7;
 
 // Zod for the LLM output. Mirrors LlmExtractResult but stricter so a
@@ -110,7 +114,10 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
       emailToText(raw),
       describeHint(fields, template.name)
     );
-    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE);
+    // The model filled the gaps, so its self-report must not decide trust.
+    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE, {
+      untrusted: true,
+    });
   }
 
   // 2. No template matched — LLM-extract on the body.
@@ -153,7 +160,9 @@ async function parseSms(raw: SmsRaw): Promise<ParseResult> {
       return finalize(fields, TEMPLATE_HIT_CONFIDENCE);
     }
     const llmResult = await tryLlm("sms", raw.body);
-    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE);
+    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE, {
+      untrusted: true,
+    });
   }
 
   const llmResult = await tryLlm("sms", raw.body);

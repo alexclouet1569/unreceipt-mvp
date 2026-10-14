@@ -16,8 +16,10 @@ export const stripeTemplate: EmailTemplate = {
   name: "stripe",
 
   match(raw) {
-    const from = raw.from.toLowerCase();
-    if (from.includes("@stripe.com") || from.includes("@receipts.stripe.com")) {
+    // Match the sender's domain exactly: `includes("@stripe.com")` also
+    // matched look-alikes such as x@stripe.com.evil.example.
+    const domain = senderDomain(raw.from);
+    if (domain === "stripe.com" || domain?.endsWith(".stripe.com")) {
       return true;
     }
     // Defensive: merchants can configure their own from-address. Fall
@@ -98,4 +100,10 @@ function toIsoDate(d: string, m: string, y: string): string | null {
   if (!mm) return null;
   const dd = d.padStart(2, "0");
   return `${y}-${mm}-${dd}`;
+}
+
+// "Name <user@example.com>" or "user@example.com" → "example.com".
+function senderDomain(from: string): string | null {
+  const m = from.toLowerCase().match(/@([a-z0-9.-]+)>?\s*$/);
+  return m ? m[1] : null;
 }
