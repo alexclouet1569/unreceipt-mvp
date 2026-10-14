@@ -90,19 +90,6 @@ describe("proxy — host-based routing", () => {
     expect(res.headers.get("location")).toBe("https://unreceipt.com/privacy");
   });
 
-  it("redirects /demo/* from app subdomain → apex", async () => {
-    const res = await proxy(
-      buildRequest(
-        "https://app.unreceipt.com/demo/employee",
-        "app.unreceipt.com"
-      )
-    );
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe(
-      "https://unreceipt.com/demo/employee"
-    );
-  });
-
   it("redirects /api/waitlist from app subdomain → apex", async () => {
     const res = await proxy(
       buildRequest(

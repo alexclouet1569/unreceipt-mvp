@@ -4,6 +4,7 @@ import { Manrope, Figtree, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PLANS } from "@/lib/plans";
 import "./globals.css";
 
 const APP_HOST = "app.unreceipt.com";
@@ -34,60 +35,53 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Every claim here must match what the product does today: a private
+// forwarding address, photo capture with auto-fill, and concierge-checked,
+// VAT-ready records within 24 hours. Prices mirror src/app/_pricing.tsx.
+const DESCRIPTION =
+  "Forward email receipts or snap paper ones. UnReceipt turns every receipt into a VAT-ready record within 24 hours — merchant, line items, VAT and category. Built for small businesses in Sweden. Plans from €5.99/month.";
+const SHARE_DESCRIPTION =
+  "Forward any receipt — email or photo — and get a VAT-ready record within 24 hours. Built for small businesses in Sweden.";
+
 export const metadata: Metadata = {
   title: {
-    default: "UnReceipt — Automatic Expense Receipt Capture for Businesses",
+    default: "UnReceipt — VAT-Ready Receipts for Small Businesses in Sweden",
     template: "%s | UnReceipt",
   },
-  description:
-    "Stop losing receipts. UnReceipt captures expense receipts automatically at the moment of payment — no photos, no forms, no effort. Free for teams up to 10. Works with any corporate card.",
+  description: DESCRIPTION,
   metadataBase: new URL("https://unreceipt.com"),
   keywords: [
-    "automatic receipt capture",
-    "expense management software",
-    "expense report automation",
-    "digital receipt management",
-    "corporate expense tracking",
+    "receipt management",
+    "VAT receipts",
+    "expense receipts small business",
+    "receipt inbox",
     "receipt scanning app",
-    "business expense software",
-    "expense receipt capture",
-    "automated expense reports",
-    "no more lost receipts",
-    "corporate card expense tracking",
-    "real-time expense tracking",
-    "employee expense management",
-    "SME expense software",
-    "gestion automatique des reçus",
-    "gestion des notes de frais",
-    "justificatifs de paiement automatiques",
-    "logiciel notes de frais",
-    "capture automatique ticket de caisse",
+    "kvitton företag",
+    "kvittohantering",
+    "moms kvitto",
   ],
   authors: [{ name: "UnReceipt" }],
   creator: "UnReceipt",
   openGraph: {
     type: "website",
     locale: "en_US",
-    alternateLocale: "fr_FR",
     url: "https://unreceipt.com",
     siteName: "UnReceipt",
-    title: "UnReceipt — From Chaos to Clarity, Automatically",
-    description:
-      "Automatic expense receipt capture for businesses. No photos, no forms — receipts appear instantly when your employees pay. Free for small teams.",
+    title: "UnReceipt — From Chaos to Clarity",
+    description: SHARE_DESCRIPTION,
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "UnReceipt — Automatic expense receipt capture. From Chaos to Clarity, Automatically.",
+        alt: "UnReceipt — VAT-ready receipts for small businesses. From Chaos to Clarity.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "UnReceipt — From Chaos to Clarity, Automatically",
-    description:
-      "Stop losing receipts. Automatic expense capture at the moment of payment. Free for teams up to 10.",
+    title: "UnReceipt — From Chaos to Clarity",
+    description: SHARE_DESCRIPTION,
     images: ["/opengraph-image"],
   },
   robots: {
@@ -99,13 +93,6 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
       "max-image-preview": "large",
       "max-snippet": -1,
-    },
-  },
-  alternates: {
-    languages: {
-      "en": "https://unreceipt.com",
-      "fr": "https://unreceipt.com",
-      "x-default": "https://unreceipt.com",
     },
   },
 };
@@ -152,41 +139,16 @@ export default async function RootLayout({
               name: "UnReceipt",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
-              description:
-                "Automatic expense receipt capture for businesses. Receipts are captured at the moment of payment — no photos, no forms, no effort. Works with any existing corporate card.",
+              description: DESCRIPTION,
               url: "https://unreceipt.com",
-              offers: [
-                {
-                  "@type": "Offer",
-                  name: "Free",
-                  description: "For small teams up to 10 employees",
-                  price: "0",
-                  priceCurrency: "EUR",
-                },
-                {
-                  "@type": "Offer",
-                  name: "Pro",
-                  description: "For growing companies — unlimited employees, approval workflows, integrations",
-                  price: "9",
-                  priceCurrency: "EUR",
-                  unitText: "per user per month",
-                },
-                {
-                  "@type": "Offer",
-                  name: "Enterprise",
-                  description: "For large organizations — SSO, multi-entity, dedicated support",
-                  price: "0",
-                  priceCurrency: "EUR",
-                  priceSpecification: {
-                    "@type": "PriceSpecification",
-                    priceCurrency: "EUR",
-                    eligibleQuantity: {
-                      "@type": "QuantitativeValue",
-                      unitText: "custom pricing",
-                    },
-                  },
-                },
-              ],
+              offers: PLANS.map((plan) => ({
+                "@type": "Offer",
+                name: plan.name,
+                price: plan.price.toFixed(2),
+                priceCurrency: "EUR",
+                description: `Up to ${plan.receipts} receipts per month for the whole company`,
+                unitText: "per month",
+              })),
             }),
           }}
         />

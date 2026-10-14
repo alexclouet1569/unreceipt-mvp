@@ -27,7 +27,7 @@ const APP_HOST = "app.unreceipt.com";
 // list is "neutral" (e.g. /api/health if we ever add one) and stays
 // wherever the request landed.
 const APEX_ONLY_EXACT = new Set(["/", "/privacy"]);
-const APEX_ONLY_PREFIX = ["/demo/", "/api/waitlist"];
+const APEX_ONLY_PREFIX = ["/api/waitlist"];
 
 // Paths that belong on the product host. Includes Stripe webhook,
 // checkout, auth callback, and admin so signups, payments, magic
