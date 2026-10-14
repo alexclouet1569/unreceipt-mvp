@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
+import { Pricing } from "./_pricing";
+import { PrintingReceipt, type ReceiptLine } from "./_printing-receipt";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -174,6 +176,17 @@ function FloatingReceipts() {
   );
 }
 
+// One printed line per section, in page order. The hero line prints on load.
+const RECEIPT_LINES: ReceiptLine[] = [
+  { label: "Receipt forwarded", value: "1 st" },
+  { anchor: "features", label: "Lost receipts", value: "0" },
+  { anchor: "how", label: "Time chasing", value: "0 min" },
+  { anchor: "difference", label: "Paperwork", value: "0 kr" },
+  { anchor: "pricing", label: "Per employee", value: "from €5" },
+  { anchor: "about", label: "VAT-ready", value: "100 %" },
+];
+const RECEIPT_TOTAL = { anchor: "waitlist", label: "TOTAL STRESS", value: "0,00" };
+
 type LandingPageProps = {
   pilotMode: boolean;
 };
@@ -227,17 +240,16 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#ECF7E7]">
+    <div id="top" className="min-h-screen bg-[#ECF7E7]">
       {/* ─── NAV ─── */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-transparent"}`}>
+      {/* Solid cream bar from the first pixel so the full-color primary
+          lockup never has to swap variants mid-scroll. Only the hairline
+          appears once the page moves. */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#FAFAF7] border-b transition-colors duration-300 ${scrolled ? "border-[#E8E5DD]" : "border-transparent"}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
-          {/* Brand book "on Green Mint" single-color navy variant over the green
-              hero; the full-color primary lockup once the white backdrop is in. */}
-          <Wordmark
-            variant="horizontal"
-            on={scrolled ? "light" : "mint"}
-            className="text-[22px] sm:text-[26px]"
-          />
+          <a href="#top" aria-label="UnReceipt — back to top" className="py-1">
+            <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
+          </a>
           <div className="hidden md:flex items-center gap-8">
             {[
               { label: "Solutions", href: "#features" },
@@ -260,7 +272,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               Sign in
             </a>
             <a href={appUrl("/app/login")}>
-              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full px-6 h-11 shadow-md shadow-[#27BE7B]/25">
+              <Button size="sm" className="bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11">
                 {pilotMode ? "Join the pilot" : "Start free"}
               </Button>
             </a>
@@ -304,29 +316,32 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         )}
       </nav>
 
+      <PrintingReceipt lines={RECEIPT_LINES} total={RECEIPT_TOTAL} />
+
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 overflow-hidden">
+      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 lg:pr-[296px] overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left — Copy */}
+          {/* Centered editorial hero — the printing receipt in the corner
+              is the visual, so no phone mockup competes with it. */}
+          <div className="max-w-3xl mx-auto text-center">
             <div>
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
                 <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">Paper is Past</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
+              <h1 className="text-4xl sm:text-5xl lg:text-[4rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
                 From Chaos<br />to Clarity —<br />
                 <span className="text-[#303568]">Automatically.</span>
               </h1>
-              <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
+              <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-xl mx-auto mb-10">
                 Built for Swedish SMBs who hate chasing receipts. Forward any
                 receipt — email or photo — and get a VAT-ready record in
                 your dashboard within 24 hours.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href={appUrl("/app/login")}>
                   <Button size="lg" className="bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12">
                     {pilotMode ? "Join the pilot" : "Start your free week"}
@@ -341,90 +356,11 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </div>
               <p className="text-white/80 text-sm mt-4">
                 {pilotMode
-                  ? "Free during pilot. €49/month after."
-                  : "€49/month + VAT after the trial. Cancel anytime."}
+                  ? "Free during the pilot. From €5 per employee/month after."
+                  : "From €5 per employee/month + VAT after the free week. Cancel anytime."}
               </p>
             </div>
 
-            {/* Right — Phone mockup */}
-            <div className="hidden lg:flex justify-center">
-              <div className="relative">
-                {/* Phone frame */}
-                <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
-                  <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
-                    {/* Status bar */}
-                    <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
-                      <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
-                    </div>
-                    {/* Notification card */}
-                    <div className="p-4 space-y-3">
-                      <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
-                        <div className="flex items-center gap-2 mb-2">
-                          <BellRing className="w-4 h-4 text-[#27BE7B]" />
-                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">Just now</span>
-                        </div>
-                        <p className="text-sm font-bold text-[#303568]">New expense detected</p>
-                        <p className="text-xs text-[#303568]/60 mt-1">Restaurant Le Petit Bistro</p>
-                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">42.50 &euro;</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-2xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-semibold text-[#303568]/60">Today</span>
-                          <span className="text-xs font-bold text-[#27BE7B]">3 receipts</span>
-                        </div>
-                        <div className="space-y-2">
-                          {[
-                            { name: "Uber", amount: "18.90 \u20ac", time: "14:22" },
-                            { name: "Starbucks", amount: "6.50 \u20ac", time: "09:15" },
-                            { name: "Office Depot", amount: "124.00 \u20ac", time: "08:30" },
-                          ].map((item) => (
-                            <div key={item.name} className="flex items-center justify-between py-1.5">
-                              <div>
-                                <p className="text-xs font-semibold text-[#303568]">{item.name}</p>
-                                <p className="text-[10px] text-[#303568]/40">{item.time}</p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-[#303568]">{item.amount}</span>
-                                <CheckCircle2 className="w-3.5 h-3.5 text-[#27BE7B]" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
-                        <Camera className="w-3.5 h-3.5 mr-1.5" />
-                        Snap Receipt
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Notch */}
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#303568] rounded-b-2xl" />
-                </div>
-
-                {/* Floating receipt cards */}
-                <div className="absolute -left-16 top-20 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-36 rotate-[-6deg] animate-[float_6s_ease-in-out_infinite]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
-                      <CheckCircle2 className="w-3 h-3 text-[#27BE7B]" />
-                    </div>
-                    <span className="text-[10px] font-bold text-[#303568]">Matched</span>
-                  </div>
-                  <p className="text-xs text-[#303568]/60">Hotel Nordic</p>
-                  <p className="text-sm font-extrabold text-[#303568]">285.00 &euro;</p>
-                </div>
-
-                <div className="absolute -right-12 bottom-28 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-32 rotate-[4deg] animate-[float_5s_ease-in-out_infinite_1s]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
-                      <Zap className="w-3 h-3 text-[#27BE7B]" />
-                    </div>
-                    <span className="text-[10px] font-bold text-[#303568]">Auto</span>
-                  </div>
-                  <p className="text-xs text-[#303568]/60">Train SJ</p>
-                  <p className="text-sm font-extrabold text-[#303568]">89.00 kr</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -435,7 +371,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </section>
 
       {/* ─── SOCIAL PROOF BAR ─── */}
-      <Section className="py-10 px-4 sm:px-6 bg-[#ECF7E7]">
+      <Section className="py-10 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
@@ -459,7 +395,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </section>
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
-      <Section id="features" className="py-20 px-4 sm:px-6 bg-white">
+      <Section id="features" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Why UnReceipt</p>
@@ -502,7 +438,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── HOW IT WORKS ─── */}
-      <Section id="how" className="py-20 px-4 sm:px-6 bg-[#ECF7E7]">
+      <Section id="how" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">How it Works</p>
@@ -560,7 +496,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── COMPARISON ─── */}
-      <Section className="py-20 px-4 sm:px-6 bg-white">
+      <Section id="difference" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-white">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">The Difference</p>
@@ -619,65 +555,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── PRICING ─── */}
-      <Section id="pricing" className="py-20 px-4 sm:px-6 bg-[#ECF7E7]">
-        <div className="max-w-md mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Pricing</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-              One simple plan
-            </h2>
-            <p className="text-[#303568]/60 text-base">
-              No tiers. No per-seat math. No surprises.
-            </p>
-          </div>
-          <Card className="border-0 rounded-3xl bg-[#303568] text-white shadow-xl shadow-[#303568]/25 overflow-hidden relative">
-            <div className="absolute top-0 left-0 right-0 bg-[#27BE7B] text-white text-[10px] font-bold text-center py-1.5 uppercase tracking-[0.2em]">
-              {pilotMode ? "Free during pilot" : "First week free"}
-            </div>
-            <CardContent className="pt-12 pb-8 px-8">
-              <h3 className="font-bold text-xl">UnReceipt Concierge</h3>
-              <p className="text-sm text-white/60 mb-5">
-                {pilotMode
-                  ? "For small businesses in Sweden, during our pilot"
-                  : "For small businesses in Sweden"}
-              </p>
-              <div className="mb-1">
-                <span className="text-5xl font-extrabold">{"\u20ac"}49</span>
-                <span className="text-sm text-white/50 ml-1">/ month</span>
-              </div>
-              <p className="text-xs text-white/40 mb-7">+ VAT</p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Forward receipts to your concierge inbox",
-                  "VAT-ready records in your dashboard within 24 hours",
-                  "Weekly CSV export for your accountant",
-                  "Swedish + English support",
-                  "Cancel anytime, no questions asked",
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2.5 text-sm">
-                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#27BE7B]" />
-                    <span className="text-white/85">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <a href={appUrl("/app/login")}>
-                <Button className="w-full rounded-full font-semibold h-12 bg-[#27BE7B] text-white hover:bg-[#1fa568]">
-                  {pilotMode ? "Join the pilot" : "Start your free week"}
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
-                </Button>
-              </a>
-              <p className="text-[11px] text-white/40 text-center mt-3">
-                {pilotMode
-                  ? "Free during pilot. \u20ac49/month after."
-                  : "\u20ac49 + VAT charged on day 8 unless you cancel."}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      <Section id="pricing" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
+        <Pricing pilotMode={pilotMode} />
       </Section>
 
       {/* ─── BUILT FOR TEAMS ─── */}
-      <Section id="about" className="py-20 px-4 sm:px-6 bg-white">
+      <Section id="about" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Who it&apos;s for</p>
@@ -718,7 +601,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── TRUST BADGES ─── */}
-      <Section className="py-16 px-4 sm:px-6 bg-[#ECF7E7]">
+      <Section className="py-16 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
@@ -739,7 +622,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── WAITLIST CTA ─── */}
-      <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 overflow-hidden">
+      <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 lg:pr-[296px] overflow-hidden">
         <div className="absolute top-0 left-0 right-0">
           <ReceiptEdge color="#303568" flip />
         </div>
@@ -802,7 +685,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="bg-[#252850] py-12 px-4 sm:px-6">
+      <footer className="bg-[#252850] py-12 px-4 sm:px-6 lg:pr-[296px]">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-start justify-between gap-10">
             <div>

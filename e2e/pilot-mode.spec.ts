@@ -27,13 +27,13 @@ test.describe("pilot mode landing copy", () => {
     ).toHaveCount(0);
   });
 
-  test("pricing card shows 'Free during pilot. €49/month after.'", async ({
+  test("pricing says the plans are free during the pilot", async ({
     page,
   }) => {
     await page.goto("/");
     const pricing = page.locator("#pricing");
-    await expect(pricing).toContainText(/Free during pilot/i);
-    await expect(pricing).toContainText(/49\/month after/i);
+    await expect(pricing).toContainText(/Free during the pilot/i);
+    await expect(pricing).toContainText(/apply once the pilot ends/i);
   });
 
   test("/subscribe shows 'Continue to dashboard' instead of the Subscribe button", async ({
