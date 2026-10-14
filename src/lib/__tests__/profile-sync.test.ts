@@ -38,6 +38,7 @@ describe("syncProfile", () => {
     expect(mocks.upsert).toHaveBeenCalledTimes(1);
     expect(mocks.upsert).toHaveBeenCalledWith(
       {
+        id: USER_ID,
         user_id: USER_ID,
         full_name: "Alex Andersson",
         company_name: "Acme AB",
@@ -54,6 +55,7 @@ describe("syncProfile", () => {
 
     expect(mocks.upsert).toHaveBeenCalledWith(
       {
+        id: USER_ID,
         user_id: USER_ID,
         full_name: "Alex",
         company_name: null,
@@ -67,6 +69,7 @@ describe("syncProfile", () => {
 
     expect(mocks.upsert).toHaveBeenCalledWith(
       {
+        id: USER_ID,
         user_id: USER_ID,
         full_name: null,
         company_name: null,
@@ -83,6 +86,7 @@ describe("syncProfile", () => {
 
     expect(mocks.upsert).toHaveBeenCalledWith(
       {
+        id: USER_ID,
         user_id: USER_ID,
         full_name: null,
         company_name: null,

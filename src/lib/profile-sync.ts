@@ -29,10 +29,15 @@ export async function syncProfile(
 
   // Service role bypasses RLS — we trust this is a fresh post-callback
   // session for the user we're writing on behalf of.
+  //
+  // `id` is the table's original primary key and references auth.users,
+  // so it has to be the user's id too — otherwise a fresh insert gets a
+  // random id and fails the foreign key.
   const { error } = await getSupabaseAdmin()
     .from("profiles")
     .upsert(
       {
+        id: userId,
         user_id: userId,
         full_name: fullName,
         company_name: companyName,
