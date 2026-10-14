@@ -8,7 +8,12 @@ vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({ rpc: mocks.rpc }),
 }));
 
-import { RATE_LIMITS, rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import {
+  RATE_LIMITS,
+  clientIp,
+  rateLimit,
+  rateLimitedResponse,
+} from "@/lib/rate-limit";
 
 describe("rateLimit", () => {
   beforeEach(() => {
@@ -57,5 +62,21 @@ describe("rateLimitedResponse", () => {
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("42");
     await expect(res.json()).resolves.toEqual({ error: "rate_limited" });
+  });
+});
+
+describe("clientIp", () => {
+  it("takes the first x-forwarded-for entry", () => {
+    const req = new Request("http://x", {
+      headers: { "x-forwarded-for": "203.0.113.7, 10.0.0.1" },
+    });
+    expect(clientIp(req)).toBe("203.0.113.7");
+  });
+
+  it("falls back to x-real-ip, then a shared bucket", () => {
+    expect(
+      clientIp(new Request("http://x", { headers: { "x-real-ip": "198.51.100.2" } }))
+    ).toBe("198.51.100.2");
+    expect(clientIp(new Request("http://x"))).toBe("unknown");
   });
 });

@@ -36,6 +36,12 @@ export const RATE_LIMITS = {
   ],
   capture: [{ limit: 120, windowSeconds: 60 * 60 }],
   intakeEmail: [{ limit: 200, windowSeconds: 24 * 60 * 60 }],
+  // Per IP: the form sends an email to whatever address is typed, so an
+  // unthrottled loop would spam strangers from our domain.
+  waitlist: [
+    { limit: 5, windowSeconds: 60 * 60 },
+    { limit: 20, windowSeconds: 24 * 60 * 60 },
+  ],
 } satisfies Record<string, RateLimitRule[]>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -75,6 +81,18 @@ export async function rateLimit(
   }
 
   return { ok: true };
+}
+
+/**
+ * Client IP for per-IP limits on unauthenticated routes. On Vercel the
+ * platform overwrites x-forwarded-for, so its first entry is the real
+ * client. Anything unidentifiable shares one "unknown" bucket.
+ */
+export function clientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const first = forwarded?.split(",")[0]?.trim();
+  if (first) return first;
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
 /** Standard 429 body + Retry-After header for a failed rateLimit(). */
