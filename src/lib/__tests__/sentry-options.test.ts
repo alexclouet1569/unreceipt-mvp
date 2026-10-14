@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ErrorEvent } from "@sentry/nextjs";
-import { scrubEvent } from "@/lib/sentry-options";
+import { baseSentryOptions, scrubBreadcrumb, scrubEvent } from "@/lib/sentry-options";
 
 describe("scrubEvent", () => {
   it("strips request bodies, cookies, headers, query strings and user details", () => {
@@ -20,5 +20,29 @@ describe("scrubEvent", () => {
 
     expect(out.request).toEqual({ url: "https://app.unreceipt.com/app" });
     expect(out.user).toEqual({ id: "user-1" });
+  });
+});
+
+describe("scrubBreadcrumb", () => {
+  it("drops console breadcrumbs (they repeat logged errors)", () => {
+    expect(scrubBreadcrumb({ category: "console", message: "a@b.se" })).toBeNull();
+  });
+
+  it("strips query strings from navigation and fetch URLs", () => {
+    expect(
+      scrubBreadcrumb({
+        category: "navigation",
+        data: { from: "/app?session_id=cs_live_x", to: "/auth/callback?code=abc" },
+      })?.data
+    ).toEqual({ from: "/app", to: "/auth/callback" });
+    expect(
+      scrubBreadcrumb({ category: "fetch", data: { url: "/api/x?y=1", method: "GET" } })?.data
+    ).toEqual({ url: "/api/x", method: "GET" });
+  });
+});
+
+describe("baseSentryOptions", () => {
+  it("sends no performance traces", () => {
+    expect(baseSentryOptions.tracesSampleRate).toBe(0);
   });
 });

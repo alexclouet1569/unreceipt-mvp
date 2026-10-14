@@ -7,9 +7,12 @@
 //
 // Receipts are financial and personal data, so events are scrubbed before
 // they leave the process: no request bodies, cookies, headers, query
-// strings or user identity beyond the opaque user id.
+// strings (Stripe session ids, auth codes) or user identity beyond the
+// opaque user id. Console breadcrumbs are dropped — they repeat whatever
+// was logged, including error objects. Performance tracing is off: its
+// spans carry full URLs and we don't need it yet.
 
-import type { ErrorEvent } from "@sentry/nextjs";
+import type { Breadcrumb, ErrorEvent } from "@sentry/nextjs";
 
 export const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || undefined;
 
@@ -27,11 +30,30 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
   return event;
 }
 
+const URL_KEYS = ["url", "to", "from"] as const;
+
+function stripQuery(value: unknown): unknown {
+  return typeof value === "string" ? value.split("?")[0] : value;
+}
+
+export function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
+  if (breadcrumb.category === "console") return null;
+  if (breadcrumb.data) {
+    const data = { ...breadcrumb.data };
+    for (const key of URL_KEYS) {
+      if (key in data) data[key] = stripQuery(data[key]);
+    }
+    breadcrumb.data = data;
+  }
+  return breadcrumb;
+}
+
 export const baseSentryOptions = {
   dsn: SENTRY_DSN,
   enabled: Boolean(SENTRY_DSN),
   environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
   sendDefaultPii: false,
-  tracesSampleRate: 0.1,
+  tracesSampleRate: 0,
   beforeSend: scrubEvent,
+  beforeBreadcrumb: scrubBreadcrumb,
 };
