@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
 
 export const runtime = "nodejs";
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
+
+  const limited = await rateLimit("ocr", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   let form: FormData;
   try {

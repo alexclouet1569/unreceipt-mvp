@@ -8,6 +8,14 @@ const mocks = vi.hoisted(() => ({
   extractReceipt: vi.fn(),
 }));
 
+const rateLimitMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
+);
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  rateLimit: rateLimitMock,
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
 }));
@@ -43,6 +51,20 @@ describe("POST /api/ocr", () => {
     const res = await POST(buildRequest(fd));
 
     expect(res.status).toBe(401);
+    expect(mocks.extractReceipt).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 with Retry-After and skips the Claude call when rate limited", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    rateLimitMock.mockResolvedValueOnce({ ok: false, retryAfterSeconds: 120 });
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+
+    const res = await POST(buildRequest(fd));
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("120");
+    expect(rateLimitMock).toHaveBeenCalledWith("ocr", USER_ID);
     expect(mocks.extractReceipt).not.toHaveBeenCalled();
   });
 

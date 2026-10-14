@@ -76,6 +76,7 @@ To flip back to paid: in Vercel → Settings → Environment Variables, remove `
 
 - `src/lib/ocr.ts` exposes `extractReceipt(imageBase64, mediaType)`. Server-only; never import from `"use client"`. Uses prompt caching on the system message — the JSON schema is reused across every call so cached tokens are ~90% cheaper.
 - `/api/ocr` is auth-gated via `getServerUser()`, capped at 5 MB, restricted to `image/jpeg|png|webp`, runs on Node.js with `maxDuration = 30`.
+- `/api/ocr`, `/api/receipts/[id]/reprocess`, `/api/capture` and `/api/intake/email` are rate-limited per user (per alias for email) via `rateLimit()` in `src/lib/rate-limit.ts`, backed by `public.rate_limit_hit()`. Any new route that calls Claude or writes to storage must call it too. It fails open if the counter errors; the Anthropic console spend cap is the hard backstop.
 - The OCR step runs BEFORE `/api/capture` and is best-effort — failures fall back silently to manual entry. OCR never persists anything; the existing capture/admin-receipts routes still handle saves.
 
 Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.

@@ -12,6 +12,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/supabase-server";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
@@ -76,6 +77,9 @@ export async function POST(
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const limited = await rateLimit("reprocess", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   const { id } = await params;
 

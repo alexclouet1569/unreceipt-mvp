@@ -26,6 +26,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
   findUserByAliasHash,
@@ -198,6 +199,12 @@ export async function POST(request: NextRequest) {
     return genericNotFound();
   }
   const userId = owner.user_id;
+
+  // Per-alias daily cap, checked before loading the email or calling the
+  // parser so a flood to a leaked alias stays cheap. 429 → Resend retries
+  // later, so a real (very busy) inbox doesn't lose mail.
+  const limited = await rateLimit("intakeEmail", aliasHash);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   // Loaded only after the alias resolves, so spam to random addresses
   // costs no API call. A failed load → 502 so Resend retries the webhook.

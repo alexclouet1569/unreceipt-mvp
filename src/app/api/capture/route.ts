@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const limited = await rateLimit("capture", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   let form: FormData;
   try {

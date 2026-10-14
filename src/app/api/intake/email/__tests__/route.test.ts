@@ -21,6 +21,14 @@ const mocks = vi.hoisted(() => ({
   fetchReceivedEmail: vi.fn(),
 }));
 
+const rateLimitMock = vi.hoisted(() =>
+  vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
+);
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  rateLimit: rateLimitMock,
+}));
+
 vi.mock("@/lib/resend-inbound", () => ({
   fetchReceivedEmail: mocks.fetchReceivedEmail,
 }));
