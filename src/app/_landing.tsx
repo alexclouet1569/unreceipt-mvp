@@ -28,7 +28,7 @@ import {
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 import { Pricing } from "./_pricing";
-import { PrintingReceipt, type ReceiptLine } from "./_printing-receipt";
+import { ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -113,8 +113,8 @@ function ReceiptTicker() {
   return (
     <div className="relative overflow-hidden py-6">
       {/* Fade edges */}
-      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white to-transparent z-10" />
-      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white to-transparent z-10" />
+      <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10" />
+      <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10" />
 
       <div className="flex gap-4 animate-[scroll_30s_linear_infinite]">
         {doubled.map((r, i) => (
@@ -175,17 +175,6 @@ function FloatingReceipts() {
     </div>
   );
 }
-
-// One printed line per section, in page order. The hero line prints on load.
-const RECEIPT_LINES: ReceiptLine[] = [
-  { label: "Receipt forwarded", value: "1 st" },
-  { anchor: "features", label: "Lost receipts", value: "0" },
-  { anchor: "how", label: "Time chasing", value: "0 min" },
-  { anchor: "difference", label: "Paperwork", value: "0 kr" },
-  { anchor: "pricing", label: "Per employee", value: "from €5" },
-  { anchor: "about", label: "VAT-ready", value: "100 %" },
-];
-const RECEIPT_TOTAL = { anchor: "waitlist", label: "TOTAL STRESS", value: "0,00" };
 
 type LandingPageProps = {
   pilotMode: boolean;
@@ -316,16 +305,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         )}
       </nav>
 
-      <PrintingReceipt lines={RECEIPT_LINES} total={RECEIPT_TOTAL} />
-
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 lg:pr-[296px] overflow-hidden">
+      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
-          {/* Centered editorial hero — the printing receipt in the corner
-              is the visual, so no phone mockup competes with it. */}
+          {/* Centered editorial hero: the hero is the "printer" the
+              background receipt comes out of. */}
           <div className="max-w-3xl mx-auto text-center">
             <div>
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
@@ -366,12 +353,19 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
 
         {/* Receipt edge transition */}
         <div className="absolute bottom-0 left-0 right-0">
-          <ReceiptEdge color="#ECF7E7" />
+          <ReceiptEdge color="#FAFAF7" />
         </div>
       </section>
 
+      {/* Everything between the hero and the waitlist shares one cream
+          surface with the printing receipt behind it, so these sections
+          carry no background of their own. */}
+      <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
+      <ReceiptBackdrop />
+      <ReceiptRows rows={[{ kind: "head" }, { kind: "rule" }]} />
+
       {/* ─── SOCIAL PROOF BAR ─── */}
-      <Section className="py-10 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
+      <Section className="py-10 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
@@ -390,12 +384,19 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </Section>
 
       {/* ─── RECEIPT TICKER ─── */}
-      <section className="bg-white py-4 overflow-hidden">
+      <section className="py-4 overflow-hidden">
         <ReceiptTicker />
       </section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "item", label: "ICA Maxi", value: "342,00" },
+          { kind: "item", label: "SJ Stockholm–Göteborg", value: "895,00" },
+        ]}
+      />
+
       {/* ─── FEATURES — 3 PILLARS ─── */}
-      <Section id="features" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-white">
+      <Section id="features" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Why UnReceipt</p>
@@ -437,8 +438,15 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "item", label: "Spotify Business", value: "129,00" },
+          { kind: "item", label: "Scandic Hotel", value: "1 250,00" },
+        ]}
+      />
+
       {/* ─── HOW IT WORKS ─── */}
-      <Section id="how" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
+      <Section id="how" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">How it Works</p>
@@ -495,8 +503,15 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "item", label: "Uber", value: "189,00" },
+          { kind: "item", label: "Apoteket", value: "212,00" },
+        ]}
+      />
+
       {/* ─── COMPARISON ─── */}
-      <Section id="difference" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-white">
+      <Section id="difference" className="py-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">The Difference</p>
@@ -554,13 +569,29 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "item", label: "Coop Konferens", value: "890,00" },
+          { kind: "item", label: "Pressbyrån", value: "68,00" },
+          { kind: "rule" },
+        ]}
+      />
+
       {/* ─── PRICING ─── */}
-      <Section id="pricing" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
+      <Section id="pricing" className="py-20 px-4 sm:px-6">
         <Pricing pilotMode={pilotMode} />
       </Section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "strong", label: "Summa", value: "3 975,00" },
+          { kind: "item", label: "Varav moms", value: "795,00" },
+          { kind: "rule" },
+        ]}
+      />
+
       {/* ─── BUILT FOR TEAMS ─── */}
-      <Section id="about" className="py-20 px-4 sm:px-6 lg:pr-[296px] bg-white">
+      <Section id="about" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Who it&apos;s for</p>
@@ -600,8 +631,15 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "item", label: "Lost receipts", value: "0" },
+          { kind: "item", label: "Hours chasing", value: "0,00" },
+        ]}
+      />
+
       {/* ─── TRUST BADGES ─── */}
-      <Section className="py-16 px-4 sm:px-6 lg:pr-[296px] bg-[#ECF7E7]">
+      <Section className="py-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
@@ -621,8 +659,17 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
+      <ReceiptRows
+        rows={[
+          { kind: "rule" },
+          { kind: "strong", label: "Total stress", value: "0,00" },
+          { kind: "foot" },
+        ]}
+      />
+      </div>
+
       {/* ─── WAITLIST CTA ─── */}
-      <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 lg:pr-[296px] overflow-hidden">
+      <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 overflow-hidden">
         <div className="absolute top-0 left-0 right-0">
           <ReceiptEdge color="#303568" flip />
         </div>
@@ -685,7 +732,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="bg-[#252850] py-12 px-4 sm:px-6 lg:pr-[296px]">
+      <footer className="bg-[#252850] py-12 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-start justify-between gap-10">
             <div>
