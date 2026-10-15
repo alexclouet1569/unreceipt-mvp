@@ -35,14 +35,23 @@ async function loadProfile(userId: string) {
 
 // Earliest purchase date, so the export can reach every month back to it.
 async function loadFirstReceiptDate(userId: string): Promise<string | null> {
-  const { data } = await getSupabaseAdmin()
-    .from("receipts")
-    .select("purchased_at, receipt_date")
-    .eq("user_id", userId)
-    .order("purchased_at", { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
-  return (data?.purchased_at as string | null) ?? (data?.receipt_date as string | null) ?? null;
+  // Older rows may only have receipt_date; take the earlier of both columns.
+  const earliest = (column: "purchased_at" | "receipt_date") =>
+    getSupabaseAdmin()
+      .from("receipts")
+      .select(column)
+      .eq("user_id", userId)
+      .not(column, "is", null)
+      .order(column, { ascending: true })
+      .limit(1)
+      .maybeSingle();
+  const [a, b] = await Promise.all([earliest("purchased_at"), earliest("receipt_date")]);
+  const dates = [
+    (a.data as { purchased_at?: string } | null)?.purchased_at,
+    (b.data as { receipt_date?: string } | null)?.receipt_date,
+  ].filter((d): d is string => typeof d === "string" && !Number.isNaN(Date.parse(d)));
+  if (dates.length === 0) return null;
+  return dates.reduce((min, d) => (Date.parse(d) < Date.parse(min) ? d : min));
 }
 
 async function loadUsage(userId: string): Promise<Usage | null> {

@@ -208,6 +208,15 @@ async function upsertSubscription(row: SubscriptionRow) {
     // cancels the subscription, and Stripe's event arrives afterwards).
     // Nothing left to update — acknowledge instead of 500 + 3 days of retries.
     if (error.code === "23503") {
+      // A subscription that can still charge must not outlive its account
+      // (e.g. created moments before the user deleted it): cancel it.
+      if (["trialing", "active", "past_due", "incomplete", "unpaid", "paused"].includes(row.status)) {
+        await getStripe().subscriptions.cancel(row.stripe_subscription_id);
+        Sentry.captureMessage("cancelled a live subscription of a deleted account", {
+          level: "warning",
+          tags: { area: "stripe-webhook" },
+        });
+      }
       console.warn("[stripe webhook] subscription for a deleted user, ignoring");
       return;
     }

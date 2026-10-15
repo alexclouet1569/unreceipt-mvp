@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
   retrieve: vi.fn(),
   lookupByCustomer: vi.fn(),
+  cancel: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase-admin", () => ({
@@ -40,7 +41,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 vi.mock("@/lib/stripe", async () => ({
   getStripe: () => ({
     webhooks: stripeForCrypto.webhooks,
-    subscriptions: { retrieve: mocks.retrieve },
+    subscriptions: { retrieve: mocks.retrieve, cancel: mocks.cancel },
   }),
 }));
 
@@ -90,6 +91,7 @@ describe("POST /api/webhooks/stripe", () => {
     process.env.STRIPE_WEBHOOK_SECRET = TEST_SECRET;
     mocks.upsert.mockReset().mockResolvedValue({ error: null });
     mocks.retrieve.mockReset();
+    mocks.cancel.mockReset().mockResolvedValue({});
     mocks.lookupByCustomer.mockReset().mockResolvedValue({ data: null, error: null });
   });
 
@@ -281,6 +283,35 @@ describe("POST /api/webhooks/stripe", () => {
     await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
 
     expect(mocks.upsert.mock.calls[0][0].ended_at).toEqual(expect.any(String));
+  });
+
+  it("cancels a live subscription whose account was deleted, then acknowledges", async () => {
+    mocks.upsert.mockResolvedValue({ error: { code: "23503", message: "fk" } });
+    mocks.retrieve.mockResolvedValue(
+      subscriptionPayload({ status: "active", metadata: { user_id: "gone" } }),
+    );
+    const payload = buildEvent({
+      type: "customer.subscription.updated",
+      data: { object: subscriptionPayload({ status: "active", metadata: { user_id: "gone" } }) },
+    });
+
+    const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("just acknowledges the cancellation event of a deleted account", async () => {
+    mocks.upsert.mockResolvedValue({ error: { code: "23503", message: "fk" } });
+    const payload = buildEvent({
+      type: "customer.subscription.deleted",
+      data: { object: subscriptionPayload({ status: "canceled", metadata: { user_id: "gone" } }) },
+    });
+
+    const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.cancel).not.toHaveBeenCalled();
   });
 
   it("falls back to the existing row's user when a subscription has no metadata.user_id", async () => {

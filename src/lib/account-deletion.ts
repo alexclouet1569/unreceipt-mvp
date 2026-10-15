@@ -100,22 +100,37 @@ async function cancelStripeSubscriptions(
     .eq("user_id", userId);
   if (error) throw new AccountDeletionError("stripe", "subscription lookup failed");
   const rows = data ?? [];
-  if (rows.length === 0) return 0;
+  // Without Stripe configured nobody can have bought anything; with rows
+  // but no key, fail rather than delete a possibly paying customer.
+  if (rows.length === 0 && !process.env.STRIPE_SECRET_KEY) return 0;
 
   const stripe = getStripe();
   const live = new Set<string>();
   const customers = [...new Set(rows.map((r) => r.stripe_customer_id).filter(Boolean))];
-  try {
-    for (const customer of customers) {
+  for (const customer of customers) {
+    try {
       for await (const sub of stripe.subscriptions.list({ customer, status: "all", limit: 100 })) {
         if (CHARGEABLE_STATUSES.has(sub.status)) live.add(sub.id);
       }
+    } catch (err) {
+      // A customer deleted on Stripe's side has nothing left to charge.
+      if ((err as { code?: string }).code !== "resource_missing") {
+        throw new AccountDeletionError("stripe", "subscription list failed");
+      }
     }
-  } catch (err) {
-    // A customer deleted on Stripe's side has nothing left to charge.
-    if ((err as { code?: string }).code !== "resource_missing") {
-      throw new AccountDeletionError("stripe", "subscription list failed");
+  }
+  // Each checkout creates a new Stripe customer and stamps the subscription
+  // with metadata.user_id; a fresh one may have no row yet (its webhook
+  // still pending). Search finds it. userId is UUID-checked by the caller.
+  try {
+    for await (const sub of stripe.subscriptions.search({
+      query: `metadata['user_id']:'${userId}'`,
+      limit: 100,
+    })) {
+      if (CHARGEABLE_STATUSES.has(sub.status)) live.add(sub.id);
     }
+  } catch {
+    throw new AccountDeletionError("stripe", "subscription search failed");
   }
   // Rows we hold are cancelled too, in case the list missed one.
   for (const r of rows) {

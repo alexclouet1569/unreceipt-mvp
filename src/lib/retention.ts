@@ -127,7 +127,9 @@ async function loadAllSubscriptions(): Promise<RetentionSubscription[]> {
  * subscription ended or their last receipt arrived, whichever is later.
  * Null when they have a live subscription (or none at all).
  */
-export async function currentClockStart(userId: string): Promise<Date | null> {
+export async function currentClockStart(
+  userId: string,
+): Promise<{ clock: Date; subscriptionEnded: Date } | null> {
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("subscriptions")
@@ -146,9 +148,9 @@ export async function currentClockStart(userId: string): Promise<Date | null> {
     .maybeSingle();
   if (usageError) throw new Error(`usage read failed (${usageError.code})`);
   const lastReceipt = last?.created_at ? Date.parse(last.created_at as string) : NaN;
-  return Number.isFinite(lastReceipt) && lastReceipt > ended.getTime()
-    ? new Date(lastReceipt)
-    : ended;
+  const clock =
+    Number.isFinite(lastReceipt) && lastReceipt > ended.getTime() ? new Date(lastReceipt) : ended;
+  return { clock, subscriptionEnded: ended };
 }
 
 export type RetentionRunResult = {
@@ -187,11 +189,12 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionRun
     if (retentionAction(shortlistEndedAt, record, now) === "none") continue;
     let action: RetentionAction = "none";
     try {
-      const endedAt = await currentClockStart(userId);
-      if (!endedAt) {
+      const fresh = await currentClockStart(userId);
+      if (!fresh) {
         result.skipped++;
         continue;
       }
+      const endedAt = fresh.clock;
       action = retentionAction(endedAt, record, now);
       if (action === "none") continue;
       if (action === "wait") {
@@ -217,7 +220,9 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionRun
       if (action === "remind") {
         const deleteOn = deletionDate(endedAt, now);
         const content = retentionReminderEmail({
-          endedOn: stockholmDate(endedAt),
+          // The sentence is about the subscription, not the clock (which
+          // moves later when receipts keep arriving).
+          endedOn: stockholmDate(fresh.subscriptionEnded),
           deleteOn: stockholmDate(deleteOn),
           settingsUrl: appUrl("/app/settings"),
           subscribeUrl: appUrl("/subscribe"),

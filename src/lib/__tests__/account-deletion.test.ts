@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
     status: string;
   }>,
   stripeSubs: [] as Array<{ id: string; status: string }>,
+  searchSubs: [] as Array<{ id: string; status: string }>,
   files: {} as Record<string, Record<string, Array<{ name: string; id: string | null }>>>,
   removeError: null as null | { message: string },
   deleteUserError: null as null | { message: string },
@@ -27,6 +28,11 @@ vi.mock("@/lib/stripe", () => ({
       list: () => ({
         async *[Symbol.asyncIterator]() {
           yield* state.stripeSubs;
+        },
+      }),
+      search: () => ({
+        async *[Symbol.asyncIterator]() {
+          yield* state.searchSubs;
         },
       }),
     },
@@ -89,6 +95,8 @@ beforeEach(() => {
   state.calls = [];
   state.subscriptions = [];
   state.stripeSubs = [];
+  state.searchSubs = [];
+  delete process.env.STRIPE_SECRET_KEY;
   state.files = {};
   state.removeError = null;
   state.deleteUserError = null;
@@ -166,6 +174,14 @@ describe("deleteAccount", () => {
     const res = await deleteAccount(USER_ID);
     expect(state.cancel).toHaveBeenCalledWith("sub_new_unsynced");
     expect(res.canceledSubscriptions).toBe(1);
+  });
+
+  it("finds a brand-new subscription with no row through Stripe search", async () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_x";
+    state.searchSubs = [{ id: "sub_just_bought", status: "active" }];
+
+    await deleteAccount(USER_ID);
+    expect(state.cancel).toHaveBeenCalledWith("sub_just_bought");
   });
 
   it("refuses (retention) when anything is still live, before touching data", async () => {
