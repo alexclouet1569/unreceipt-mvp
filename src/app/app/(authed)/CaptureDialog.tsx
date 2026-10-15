@@ -7,8 +7,16 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { prepareImageForUpload } from "@/lib/image-resize";
-import { MAX_UPLOAD_BYTES } from "@/lib/receipts/upload-limits";
+import {
+  HEIC_UNSUPPORTED_MESSAGE,
+  UNSUPPORTED_FILE_MESSAGE,
+  isHeicLike,
+  prepareImageForUpload,
+} from "@/lib/image-resize";
+import {
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadType,
+} from "@/lib/receipts/upload-limits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -211,6 +219,14 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     // Shrink phone photos before anything leaves the device (faster on
     // mobile data, cheaper OCR, under the upload cap). PDFs pass through.
     const f = await prepareImageForUpload(picked);
+    // Refuse here, with a reason, anything the server would reject anyway
+    // (typically an iPhone HEIC photo that this browser can't convert).
+    if (!isAllowedUploadType(f.type)) {
+      setImageFile(null);
+      setOcrError(isHeicLike(f) ? HEIC_UNSUPPORTED_MESSAGE : UNSUPPORTED_FILE_MESSAGE);
+      e.target.value = "";
+      return;
+    }
     if (f.size > MAX_UPLOAD_BYTES) {
       setImageFile(null);
       setOcrError(

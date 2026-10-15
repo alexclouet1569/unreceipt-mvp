@@ -287,4 +287,24 @@ describe("CaptureDialog", () => {
       /VAT can't be more than the total/,
     );
   });
+
+  it("explains, instead of uploading, an iPhone HEIC photo this browser can't convert", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => {
+        throw new Error("The source image could not be decoded.");
+      }),
+    );
+    renderDialog();
+
+    const heic = new File(["fake"], "IMG_0001.HEIC", { type: "image/heic" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    // image/heic matches the input's image/* accept, like a real picker.
+    await user.upload(input, heic);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/HEIC format/);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByAltText("Receipt preview")).toBeNull();
+  });
 });
