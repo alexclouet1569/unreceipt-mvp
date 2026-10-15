@@ -49,7 +49,7 @@ export function IntakeRow({
       >
         <span
           className={cn(
-            "flex-1 min-w-0 text-[var(--ink)] truncate",
+            "flex-1 min-w-0 text-[var(--ink)] break-all",
             mono ? "font-mono" : "",
           )}
           style={{ fontSize: "14px", fontWeight: 500 }}
