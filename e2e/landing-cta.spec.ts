@@ -72,8 +72,8 @@ test.describe("landing → /app/login funnel", () => {
     const pricing = page.locator("#pricing");
     for (const [name, price] of [
       ["Light", "€5.99"],
-      ["Regular", "€9.99"],
-      ["Heavy", "€15.99"],
+      ["Regular", "€14.99"],
+      ["Heavy", "€29.99"],
     ]) {
       const card = pricing.locator(`[data-plan="${name}"]`);
       await expect(card).toContainText(price);
