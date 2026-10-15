@@ -40,7 +40,7 @@ Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_
 
 Required env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_LIGHT`, `STRIPE_PRICE_REGULAR`, `STRIPE_PRICE_HEAVY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; for extra-receipt billing also `STRIPE_METER_EVENT_NAME` and `STRIPE_PRICE_OVERAGE` (see `.env.example`).
 
-Plans (Light / Regular / Heavy) are defined once in `src/lib/plans.ts` and shared by the landing pricing, `/subscribe` and `/api/checkout`. Each plan is one recurring monthly EUR price in Stripe for the whole company (quantity 1, no per-user fees), excl. VAT. Checkout collects the billing address and VAT number so Stripe Tax applies 25% moms in Sweden and reverse charge for EU businesses; that only happens once the company's VAT registration is added under Stripe → Tax → Registrations. `/api/checkout` never falls back to another price: if a plan's `STRIPE_PRICE_*` env var is missing it returns 500 instead of charging the wrong amount.
+Plans (Light / Regular / Heavy) are defined once in `src/lib/plans.ts` and shared by the landing pricing, `/subscribe` and `/api/checkout`. Each plan is one recurring monthly EUR price in Stripe for the whole company (quantity 1, no per-user fees), excl. VAT. The Swedish landing page shows SEK instead (`priceSek`: 69 / 169 / 329 kr, extra receipts `OVERAGE_PRICE_SEK` 4,90 kr). To charge Swedish customers those amounts, add them as SEK currency options on the same Stripe prices, the metered overage price included (Dashboard → product → price → **Add a price by currency**); Checkout then shows SEK to customers in Sweden by itself, as long as `/api/checkout` doesn't pass a `currency`. Without the SEK options they are charged the EUR prices. Checkout collects the billing address and VAT number so Stripe Tax applies 25% moms in Sweden and reverse charge for EU businesses; that only happens once the company's VAT registration is added under Stripe → Tax → Registrations. `/api/checkout` never falls back to another price: if a plan's `STRIPE_PRICE_*` env var is missing it returns 500 instead of charging the wrong amount.
 
 Webhook signature verification needs the *raw* request body, so `src/app/api/webhooks/stripe/route.ts` reads `await request.text()` before any JSON parsing. Don't refactor that route to parse JSON eagerly — it will break verification.
 
@@ -92,7 +92,7 @@ Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NE
 
 Two hosts, one Next.js app:
 
-- `unreceipt.com` (apex) — marketing only: `/`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
+- `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
 - `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/webhooks/*`, `/api/admin/*`. PWA-installable.
 - `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
 
@@ -103,6 +103,15 @@ Cross-host links from marketing to product use `appUrl(path)` from `src/lib/app-
 PWA assets (manifest, apple-touch-icon, mobile-web-app meta) only render in `app/layout.tsx` when the host matches the product subdomain or a dev/preview origin. Service-worker registration in `_client-shell.tsx` follows the same rule.
 
 Stripe Checkout `success_url` / `cancel_url` use `NEXT_PUBLIC_APP_URL` so the customer always returns to the product host regardless of which host received the POST.
+
+# Languages
+
+The marketing site has two languages: English at `/` and Swedish at `/sv`. The product (`app.unreceipt.com`) is English only.
+
+- Both pages render the same `LandingPage` component with a `locale` prop. Every visible string lives in `src/app/_landing-copy.ts` (fixed-length tuples keep the two languages in step); FAQ answers live in `src/lib/faq.ts`; prices come from `src/lib/plans.ts` (`planPriceLabel()` shows EUR on `/` and SEK on `/sv`).
+- Questions about one country's rules (receipt retention, paper originals) belong on that country's language page; the English FAQ stays general.
+- Each landing page declares `alternates.languages` (hreflang) for both languages plus `x-default` → `/`, and the sitemap lists both URLs with the same alternates. A new language needs a page, a copy entry, FAQ answers, and an entry in `LANDING_LANGUAGES` (`src/lib/seo.ts`) and the sitemap.
+- The root layout always renders `<html lang="en">` because it can't see the pathname; `/sv` corrects it after hydration with `HtmlLang` (`src/app/_html-lang.tsx`). Search engines read the language from hreflang and the content.
 
 # Design System
 

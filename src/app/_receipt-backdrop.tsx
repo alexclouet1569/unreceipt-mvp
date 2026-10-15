@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { Locale } from "@/lib/locale";
 
 /**
  * Landing-page backdrop: one long thermal receipt that runs down the
@@ -29,37 +30,51 @@ export type ReceiptRow =
   | { kind: "head" }
   | { kind: "foot" };
 
-/** Receipt content, keyed by where it sits on the page. */
-export const RECEIPT = {
-  top: [{ kind: "head" }, { kind: "rule" }],
-  features: [
-    { kind: "item", label: "ICA Maxi", amount: 342 },
-    { kind: "item", label: "SJ Stockholm–Göteborg", amount: 895 },
-  ],
-  how: [
-    { kind: "item", label: "Spotify Business", amount: 129 },
-    { kind: "item", label: "Scandic Hotel", amount: 1250 },
-  ],
-  difference: [
-    { kind: "item", label: "Uber", amount: 189 },
-    { kind: "item", label: "Apoteket", amount: 212 },
-  ],
-  pricing: [
-    { kind: "item", label: "Coop Konferens", amount: 890 },
-    { kind: "item", label: "Pressbyrån", amount: 68 },
-    { kind: "rule" },
-  ],
-  about: [
-    { kind: "total", label: "Summa", amount: 3975 },
-    { kind: "item", label: "Varav moms", amount: 795, sum: false },
-    { kind: "rule" },
-  ],
-  badges: [
-    { kind: "text", label: "Lost receipts", value: "0" },
-    { kind: "text", label: "Hours chasing", value: "0,00" },
-  ],
-  end: [{ kind: "rule" }, { kind: "text", label: "Total stress", value: "0,00" }, { kind: "foot" }],
-} satisfies Record<string, ReceiptRow[]>;
+/** The receipt's few non-Swedish words, per page language. */
+const WORDS: Record<Locale, { lost: string; chasing: string; stress: string; stamp: string }> = {
+  en: { lost: "Lost receipts", chasing: "Hours chasing", stress: "Total stress", stamp: "✓ VAT-ready" },
+  sv: { lost: "Borttappade kvitton", chasing: "Timmar på kvittojakt", stress: "Stress totalt", stamp: "✓ Kontrollerat" },
+};
+
+function receiptFor(locale: Locale) {
+  const w = WORDS[locale];
+  return {
+    top: [{ kind: "head" }, { kind: "rule" }],
+    features: [
+      { kind: "item", label: "ICA Maxi", amount: 342 },
+      { kind: "item", label: "SJ Stockholm–Göteborg", amount: 895 },
+    ],
+    how: [
+      { kind: "item", label: "Spotify Business", amount: 129 },
+      { kind: "item", label: "Scandic Hotel", amount: 1250 },
+    ],
+    difference: [
+      { kind: "item", label: "Uber", amount: 189 },
+      { kind: "item", label: "Apoteket", amount: 212 },
+    ],
+    pricing: [
+      { kind: "item", label: "Coop Konferens", amount: 890 },
+      { kind: "item", label: "Pressbyrån", amount: 68 },
+      { kind: "rule" },
+    ],
+    about: [
+      { kind: "total", label: "Summa", amount: 3975 },
+      { kind: "item", label: "Varav moms", amount: 795, sum: false },
+      { kind: "rule" },
+    ],
+    badges: [
+      { kind: "text", label: w.lost, value: "0" },
+      { kind: "text", label: w.chasing, value: "0,00" },
+    ],
+    end: [{ kind: "rule" }, { kind: "text", label: w.stress, value: "0,00" }, { kind: "foot" }],
+  } satisfies Record<string, ReceiptRow[]>;
+}
+
+/** Receipt content per page language, keyed by where it sits on the page. */
+export const RECEIPT: Record<Locale, ReturnType<typeof receiptFor>> = {
+  en: receiptFor("en"),
+  sv: receiptFor("sv"),
+};
 
 const kr = new Intl.NumberFormat("sv-SE", {
   minimumFractionDigits: 2,
@@ -70,7 +85,7 @@ const kr = new Intl.NumberFormat("sv-SE", {
  * A few receipt lines, rendered in the page flow between two sections so
  * they sit on the paper without ever overlapping section content.
  */
-export function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
+export function ReceiptRows({ rows, locale = "en" }: { rows: ReceiptRow[]; locale?: Locale }) {
   return (
     <div className="rb-group" aria-hidden="true">
       {rows.map((row, i) => {
@@ -88,7 +103,7 @@ export function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
           case "foot":
             return (
               <div key={i} className="rb-foot" data-print>
-                <span className="rb-stamp">✓ VAT-ready</span>
+                <span className="rb-stamp">{WORDS[locale].stamp}</span>
                 <div className="rb-barcode" />
                 <p className="rb-thanks">Tack! Paper is past.</p>
               </div>

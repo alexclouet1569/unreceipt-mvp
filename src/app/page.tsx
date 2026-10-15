@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
-import { landingJsonLd } from "@/lib/seo";
+import { LANDING_LANGUAGES, landingJsonLd } from "@/lib/seo";
 import { LandingPage } from "./_landing";
 
 // PILOT_MODE is read server-side here and passed down so the client
@@ -9,7 +9,7 @@ import { LandingPage } from "./_landing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/", languages: LANDING_LANGUAGES },
 };
 
 export default function Page() {

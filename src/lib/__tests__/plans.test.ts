@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   OVERAGE_PRICE,
+  OVERAGE_PRICE_SEK,
   PLANS,
+  formatSek,
   cheapestPlanFor,
   getPlan,
   monthlyCost,
@@ -41,5 +43,19 @@ describe("plans", () => {
     expect(planForReceipts(15).id).toBe("light");
     expect(planForReceipts(16).id).toBe("regular");
     expect(planForReceipts(500).id).toBe("heavy");
+  });
+
+  it("keeps the same price ladder in SEK for the Swedish site", () => {
+    const perReceipt = PLANS.map((p) => p.priceSek / p.receipts);
+    expect(perReceipt[0]).toBeGreaterThan(perReceipt[1]);
+    expect(perReceipt[1]).toBeGreaterThan(perReceipt[2]);
+    for (const p of PLANS) {
+      expect(OVERAGE_PRICE_SEK).toBeGreaterThanOrEqual(p.priceSek / p.receipts);
+    }
+  });
+
+  it("writes kronor the Swedish way", () => {
+    expect(formatSek(69)).toBe("69 kr");
+    expect(formatSek(4.9)).toBe("4,90 kr");
   });
 });

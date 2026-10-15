@@ -21,11 +21,15 @@ import {
   ReceiptText,
   Sparkles,
   ChevronDown,
+  Globe,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
+import { LOCALE_HOME, type Locale } from "@/lib/locale";
+import { PLANS, planPriceLabel } from "@/lib/plans";
+import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
 
@@ -92,20 +96,21 @@ function ReceiptEdge({ color = "#27BE7B", flip = false }: { color?: string; flip
 }
 
 /* ── Scrolling receipt ticker ── */
-function ReceiptTicker() {
+function ReceiptTicker({ t }: { t: LandingCopy["ticker"] }) {
   // Example receipts. Source is how it reached UnReceipt (forwarded email
   // or a photo); every receipt ends up verified by the concierge.
+  const c = t.categories;
   const receipts = [
-    { merchant: "ICA Maxi", amount: "342 kr", category: "Meals", source: "photo" },
-    { merchant: "Spotify", amount: "129 kr", category: "Software", source: "email" },
-    { merchant: "Clas Ohlson", amount: "1 450 kr", category: "Office supplies", source: "photo" },
-    { merchant: "SJ", amount: "895 kr", category: "Travel", source: "email" },
-    { merchant: "Apoteket", amount: "212 kr", category: "Other", source: "photo" },
-    { merchant: "SAS", amount: "2 340 kr", category: "Travel", source: "email" },
-    { merchant: "Uber", amount: "189 kr", category: "Transport", source: "email" },
-    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: "Meals", source: "photo" },
-    { merchant: "Scandic Hotel", amount: "1 250 kr", category: "Accommodation", source: "email" },
-    { merchant: "Coop Konferens", amount: "890 kr", category: "Meals", source: "photo" },
+    { merchant: "ICA Maxi", amount: "342 kr", category: c.meals, source: "photo" },
+    { merchant: "Spotify", amount: "129 kr", category: c.software, source: "email" },
+    { merchant: "Clas Ohlson", amount: "1 450 kr", category: c.office, source: "photo" },
+    { merchant: "SJ", amount: "895 kr", category: c.travel, source: "email" },
+    { merchant: "Apoteket", amount: "212 kr", category: c.other, source: "photo" },
+    { merchant: "SAS", amount: "2 340 kr", category: c.travel, source: "email" },
+    { merchant: "Uber", amount: "189 kr", category: c.transport, source: "email" },
+    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: c.meals, source: "photo" },
+    { merchant: "Scandic Hotel", amount: "1 250 kr", category: c.accommodation, source: "email" },
+    { merchant: "Coop Konferens", amount: "890 kr", category: c.meals, source: "photo" },
   ];
 
   const doubled = [...receipts, ...receipts];
@@ -136,7 +141,7 @@ function ReceiptTicker() {
             <div className="text-right pl-3">
               <p className="text-sm font-extrabold text-[#303568] whitespace-nowrap">{r.amount}</p>
               <p className="text-[10px] text-[#27BE7B] font-semibold">
-                Verified
+                {t.verified}
               </p>
             </div>
           </div>
@@ -178,9 +183,22 @@ function FloatingReceipts() {
 
 type LandingPageProps = {
   pilotMode: boolean;
+  locale?: Locale;
 };
 
-export function LandingPage({ pilotMode }: LandingPageProps) {
+export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
+  const t = LANDING_COPY[locale];
+  const otherLocale: Locale = locale === "sv" ? "en" : "sv";
+  const fromPrice = planPriceLabel(PLANS[0], locale);
+  const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
+  const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
+  const navLinks = [
+    { label: t.nav.solutions, href: "#features" },
+    { label: t.nav.how, href: "#how" },
+    { label: t.nav.pricing, href: "#pricing" },
+    { label: t.nav.about, href: "#about" },
+    { label: t.nav.faq, href: "#faq" },
+  ];
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -205,7 +223,8 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
 
   const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || t.ending.kind !== "waitlist") return;
+    const copy = t.ending;
     setSubmitting(true);
     setWaitlistError("");
     try {
@@ -219,10 +238,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         setEmail("");
       } else {
         const body = await res.json().catch(() => ({}));
-        setWaitlistError(body.error ?? "Something went wrong. Please try again.");
+        setWaitlistError(body.error ?? copy.errorGeneric);
       }
     } catch {
-      setWaitlistError("Couldn't reach us. Check your connection and try again.");
+      setWaitlistError(copy.errorNetwork);
     } finally {
       setSubmitting(false);
     }
@@ -236,17 +255,11 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           appears once the page moves. */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#FAFAF7] border-b transition-colors duration-300 ${scrolled ? "border-[#E8E5DD]" : "border-transparent"}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
-          <a href="#top" aria-label="UnReceipt — back to top" className="py-1">
+          <a href="#top" aria-label={t.nav.backToTop} className="py-1">
             <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
           </a>
           <div className="hidden md:flex items-center gap-8">
-            {[
-              { label: "Solutions", href: "#features" },
-              { label: "How it Works", href: "#how" },
-              { label: "Pricing", href: "#pricing" },
-              { label: "About", href: "#about" },
-              { label: "FAQ", href: "#faq" },
-            ].map((link) => (
+            {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
@@ -256,10 +269,20 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               </a>
             ))}
             <a
+              href={LOCALE_HOME[otherLocale]}
+              hrefLang={otherLocale}
+              lang={otherLocale}
+              aria-label={t.switchTo.aria}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
+            >
+              <Globe className="w-4 h-4" aria-hidden="true" />
+              {t.switchTo.short}
+            </a>
+            <a
               href={appUrl("/app/login")}
               className="text-sm font-medium text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
             >
-              Sign in
+              {t.nav.signIn}
             </a>
             <a
               href={appUrl("/app/login")}
@@ -268,12 +291,12 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
               }))}
             >
-              {pilotMode ? "Join the pilot" : "Start free"}
+              {navCta}
             </a>
           </div>
           <button
             type="button"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={mobileMenuOpen ? t.nav.closeMenu : t.nav.openMenu}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
             className={`md:hidden p-3 -mr-1 text-[#303568]`}
@@ -284,13 +307,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
         {mobileMenuOpen && (
           <div id="mobile-menu" className="md:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
-            {[
-              { label: "Solutions", href: "#features" },
-              { label: "How it Works", href: "#how" },
-              { label: "Pricing", href: "#pricing" },
-              { label: "About", href: "#about" },
-              { label: "FAQ", href: "#faq" },
-            ].map((link) => (
+            {navLinks.map((link) => (
               <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}
               </a>
@@ -300,7 +317,17 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
               onClick={() => setMobileMenuOpen(false)}
               className="text-base text-[#303568] font-medium min-h-[44px] flex items-center border-t border-gray-100 mt-2 pt-2"
             >
-              Sign in
+              {t.nav.signIn}
+            </a>
+            <a
+              href={LOCALE_HOME[otherLocale]}
+              hrefLang={otherLocale}
+              lang={otherLocale}
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center gap-2"
+            >
+              <Globe className="w-4 h-4" aria-hidden="true" />
+              {t.switchTo.label}
             </a>
             <a
               href={appUrl("/app/login")}
@@ -309,7 +336,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
               }))}
             >
-              {pilotMode ? "Join the pilot" : "Start free"}
+              {navCta}
             </a>
           </div>
         )}
@@ -326,16 +353,14 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
-                <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">Paper is Past</span>
+                <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">{t.hero.badge}</span>
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
-                From Chaos<br />to Clarity —<br />
-                <span className="text-[#303568]">Automatically.</span>
+                {t.hero.titleLine1}<br />{t.hero.titleLine2}<br />
+                <span className="text-[#303568]">{t.hero.titleAccent}</span>
               </h1>
               <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
-                Built for Swedish SMBs who hate chasing receipts. Forward any
-                receipt — email or photo — and get a VAT-ready record in
-                your dashboard within 24 hours.
+                {t.hero.lead}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
@@ -345,7 +370,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                     className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
                   }))}
                 >
-                  {pilotMode ? "Join the pilot" : "Start your free week"}
+                  {heroCta}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </a>
                 <a
@@ -356,13 +381,11 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                     className: "border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12",
                   }))}
                 >
-                  See How it Works
+                  {t.hero.secondary}
                 </a>
               </div>
               <p className="text-white/80 text-sm mt-4">
-                {pilotMode
-                  ? "Free during the pilot. Plans from €5.99/month after."
-                  : "Plans from €5.99/month + VAT after the free week. Cancel anytime."}
+                {fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })}
               </p>
             </div>
 
@@ -381,16 +404,16 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                       <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
-                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">Verified</span>
+                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">{t.phone.verified}</span>
                         </div>
                         <p className="text-sm font-bold text-[#303568]">ICA Maxi</p>
-                        <p className="text-xs text-[#303568]/60 mt-1">Meals · Moms 12% 36,64 kr</p>
+                        <p className="text-xs text-[#303568]/60 mt-1">{t.phone.latestMeta}</p>
                         <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">342,00 kr</p>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-semibold text-[#303568]/60">Today</span>
-                          <span className="text-xs font-bold text-[#27BE7B]">3 receipts</span>
+                          <span className="text-xs font-semibold text-[#303568]/60">{t.phone.today}</span>
+                          <span className="text-xs font-bold text-[#27BE7B]">{t.phone.todayCount}</span>
                         </div>
                         <div className="space-y-2">
                           {[
@@ -413,7 +436,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                       </div>
                       <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
                         <Camera className="w-3.5 h-3.5 mr-1.5" />
-                        Snap a receipt
+                        {t.phone.snap}
                       </Button>
                     </div>
                   </div>
@@ -427,7 +450,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                     <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
                       <CheckCircle2 className="w-3 h-3 text-[#27BE7B]" />
                     </div>
-                    <span className="text-[10px] font-bold text-[#303568]">Verified</span>
+                    <span className="text-[10px] font-bold text-[#303568]">{t.phone.verified}</span>
                   </div>
                   <p className="text-xs text-[#303568]/60">Clas Ohlson</p>
                   <p className="text-sm font-extrabold text-[#303568]">1 450,00 kr</p>
@@ -438,7 +461,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                     <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
                       <Mail className="w-3 h-3 text-[#27BE7B]" />
                     </div>
-                    <span className="text-[10px] font-bold text-[#303568]">Forwarded</span>
+                    <span className="text-[10px] font-bold text-[#303568]">{t.phone.forwarded}</span>
                   </div>
                   <p className="text-xs text-[#303568]/60">Spotify</p>
                   <p className="text-sm font-extrabold text-[#303568]">129,00 kr</p>
@@ -459,18 +482,13 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
       <ReceiptBackdrop />
-      <ReceiptRows rows={RECEIPT.top} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].top} />
 
       {/* ─── SOCIAL PROOF BAR ─── */}
       <Section className="py-10 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {[
-              { value: "24 h", label: "from forwarded receipt to VAT-ready record" },
-              { value: "1", label: "private receipt address for your company" },
-              { value: "8", label: "expense categories, sorted for you" },
-              { value: "0", label: "bank connections or new cards needed" },
-            ].map((stat) => (
+            {t.stats.map((stat) => (
               <div key={stat.label}>
                 <p className="text-2xl sm:text-3xl font-extrabold text-[#303568]">{stat.value}</p>
                 <p className="text-sm text-[#303568]/70 mt-1 leading-snug">{stat.label}</p>
@@ -482,38 +500,22 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
 
       {/* ─── RECEIPT TICKER ─── */}
       <section className="py-4 overflow-hidden">
-        <ReceiptTicker />
+        <ReceiptTicker t={t.ticker} />
       </section>
 
-      <ReceiptRows rows={RECEIPT.features} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].features} />
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
       <Section id="features" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Why UnReceipt</p>
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.features.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
-              Focus on What Matters
+              {t.features.title}
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-12 md:gap-8">
-            {[
-              {
-                icon: Mail,
-                title: "One Inbox for Every Receipt",
-                desc: "Your company gets a private UnReceipt address. Forward email receipts to it, or snap paper ones with your phone.",
-              },
-              {
-                icon: ReceiptText,
-                title: "Every Line, VAT Included",
-                desc: "Merchant, date, line items, VAT rate and amount, and the merchant\u2019s VAT number \u2014 read, checked and saved within 24 hours.",
-              },
-              {
-                icon: Search,
-                title: "Find Anything, Keep Everything",
-                desc: "Receipts sorted by date and category. Open any one to see the original, or download it as a PDF for your accountant.",
-              },
-            ].map((feature) => (
+            {t.features.items.map((item, i) => ({ ...item, icon: [Mail, ReceiptText, Search][i] })).map((feature) => (
               <div key={feature.title} className="text-center px-2">
                 <div className="w-16 h-16 rounded-2xl bg-[#27BE7B]/10 flex items-center justify-center mx-auto mb-6">
                   <feature.icon className="w-7 h-7 text-[#27BE7B]" />
@@ -530,49 +532,30 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows rows={RECEIPT.how} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].how} />
 
       {/* ─── HOW IT WORKS ─── */}
       <Section id="how" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">How it Works</p>
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.how.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-              Three Steps. No Setup.
+              {t.how.title}
             </h2>
             <p className="text-[#303568]/50 text-lg max-w-2xl mx-auto">
-              No bank connection, no new card. Just send us your receipts.
+              {t.how.lead}
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8 relative">
             {/* Connecting line */}
             <div className="hidden md:block absolute top-10 left-[16.67%] right-[16.67%] h-[2px] bg-[#27BE7B]/20" />
-            {[
-              {
-                icon: Mail,
-                step: "01",
-                title: "Forward or snap",
-                desc: "Forward email receipts to your private address, or take a photo of a paper receipt \u2014 the fields fill themselves.",
-              },
-              {
-                icon: CheckCircle2,
-                step: "02",
-                title: "We check every receipt",
-                desc: "Within 24 hours each receipt is read, categorized and its VAT split out, then checked by our concierge.",
-              },
-              {
-                icon: FileText,
-                step: "03",
-                title: "Ready for your accountant",
-                desc: "Every receipt waits in your dashboard, VAT-ready, with the original file and a PDF one click away.",
-              },
-            ].map((item) => (
+            {t.how.items.map((item, i) => ({ ...item, icon: [Mail, CheckCircle2, FileText][i], step: `0${i + 1}` })).map((item) => (
               <div key={item.step} className="text-center relative">
                 <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center mx-auto mb-5 relative z-10 shadow-sm">
                   <item.icon className="w-8 h-8 text-[#27BE7B]" />
                 </div>
                 <div className="text-xs font-bold text-[#27BE7B] mb-2 tracking-widest">
-                  STEP {item.step}
+                  {t.how.step} {item.step}
                 </div>
                 <h3 className="font-bold text-[#303568] text-lg mb-2">{item.title}</h3>
                 <p className="text-sm text-[#303568]/50 leading-relaxed">
@@ -584,33 +567,28 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows rows={RECEIPT.difference} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].difference} />
 
       {/* ─── COMPARISON ─── */}
       <Section id="difference" className="py-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">The Difference</p>
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.difference.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-              Paper Fades. Simplicity Stays.
+              {t.difference.title}
             </h2>
             <p className="text-[#303568]/50 text-lg">
-              Why small businesses switch to UnReceipt
+              {t.difference.lead}
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             <Card className="border-0 shadow-sm rounded-3xl bg-[#ECF7E7]">
               <CardContent className="pt-8 pb-8 px-8">
                 <h3 className="font-bold mb-6 text-red-400 text-sm uppercase tracking-widest">
-                  The old way
+                  {t.difference.oldTitle}
                 </h3>
                 <ul className="space-y-4 text-sm">
-                  {[
-                    "Paper receipts lost in wallets and cars",
-                    "Email receipts buried across inboxes",
-                    "Typing amounts and VAT into spreadsheets",
-                    "Chasing colleagues for receipts at month-end",
-                  ].map((item) => (
+                  {t.difference.old.map((item) => (
                     <li key={item} className="flex items-start gap-3 text-[#303568]/60">
                       <X className="w-4 h-4 mt-0.5 text-red-400 shrink-0" />
                       {item}
@@ -622,15 +600,10 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
             <Card className="border-0 shadow-lg shadow-[#27BE7B]/20 rounded-3xl bg-[#27BE7B]">
               <CardContent className="pt-8 pb-8 px-8">
                 <h3 className="font-bold mb-6 text-white text-sm uppercase tracking-widest">
-                  UnReceipt
+                  {t.difference.newTitle}
                 </h3>
                 <ul className="space-y-4 text-sm">
-                  {[
-                    "One private address for every receipt",
-                    "Paper receipts captured with a photo",
-                    "VAT split out and checked for you",
-                    "Everything in one dashboard, original included",
-                  ].map((item) => (
+                  {t.difference.new.map((item) => (
                     <li key={item} className="flex items-start gap-3 text-white">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 text-white shrink-0" />
                       {item}
@@ -643,42 +616,26 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows rows={RECEIPT.pricing} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
 
       {/* ─── PRICING ─── */}
       <Section id="pricing" className="py-20 px-4 sm:px-6">
-        <Pricing pilotMode={pilotMode} />
+        <Pricing pilotMode={pilotMode} locale={locale} />
       </Section>
 
-      <ReceiptRows rows={RECEIPT.about} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].about} />
 
       {/* ─── BUILT FOR TEAMS ─── */}
       <Section id="about" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Who it&apos;s for</p>
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.about.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
-              Built for Small Teams
+              {t.about.title}
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-10 md:gap-8">
-            {[
-              {
-                icon: Smartphone,
-                title: "For Employees",
-                desc: "Forward the email or snap the paper receipt. No forms to fill in, nothing to remember at month-end.",
-              },
-              {
-                icon: Building2,
-                title: "For Whoever Does the Books",
-                desc: "Every receipt in one place, with merchant, category and VAT ready to hand to your accountant.",
-              },
-              {
-                icon: BarChart3,
-                title: "For Owners",
-                desc: "See this month\u2019s receipts and spending at a glance, without opening a spreadsheet.",
-              },
-            ].map((item) => (
+            {t.about.items.map((item, i) => ({ ...item, icon: [Smartphone, Building2, BarChart3][i] })).map((item) => (
               <div key={item.title}>
                 <div className="w-14 h-14 rounded-2xl bg-[#27BE7B]/10 flex items-center justify-center mb-5">
                   <item.icon className="w-6 h-6 text-[#27BE7B]" />
@@ -697,15 +654,15 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
       <Section id="faq" className="py-20 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">FAQ</p>
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.faq.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
-              Questions, Answered
+              {t.faq.title}
             </h2>
           </div>
           {/* Native <details>: every answer is in the HTML, so search
               engines and AI assistants read it without running JS. */}
           <div className="space-y-3">
-            {getFaq(pilotMode).map((item) => (
+            {getFaq(pilotMode, locale).map((item) => (
               <details
                 key={item.q}
                 className="group bg-white border border-[#E8E5DD] rounded-2xl px-5 sm:px-6 open:pb-5"
@@ -723,18 +680,13 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows rows={RECEIPT.badges} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].badges} />
 
       {/* ─── TRUST BADGES ─── */}
       <Section className="py-16 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { icon: Mail, label: "Private Address per Company" },
-              { icon: FileText, label: "Original Always Kept" },
-              { icon: Download, label: "PDF for Every Receipt" },
-              { icon: CheckCircle2, label: "Cancel Anytime" },
-            ].map((badge) => (
+            {t.badges.map((label, i) => ({ label, icon: [Mail, FileText, Download, CheckCircle2][i] })).map((badge) => (
               <div key={badge.label} className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center mb-3 shadow-sm">
                   <badge.icon className="w-5 h-5 text-[#27BE7B]" />
@@ -746,7 +698,7 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows rows={RECEIPT.end} />
+      <ReceiptRows locale={locale} rows={RECEIPT[locale].end} />
       </div>
 
       {/* ─── WAITLIST CTA ─── */}
@@ -763,52 +715,71 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
         <div className="max-w-xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-[#27BE7B]/20 rounded-full px-4 py-1.5 mb-6">
             <Sparkles className="w-3.5 h-3.5 text-[#27BE7B]" />
-            <span className="text-[#27BE7B] text-xs font-semibold tracking-wide uppercase">Not in Sweden yet?</span>
+            <span className="text-[#27BE7B] text-xs font-semibold tracking-wide uppercase">{t.ending.badge}</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 text-white">
-            Get notified when we launch in your country
+            {t.ending.title}
           </h2>
-          <p className="text-white/70 text-base mb-10">
-            UnReceipt Concierge is in pilot in Sweden today. Drop your email
-            and we&apos;ll let you know the moment we open in your market.
-          </p>
-          {submitted ? (
-            <div className="flex items-center justify-center gap-2 text-[#27BE7B] font-semibold text-lg">
-              <CheckCircle2 className="w-5 h-5" />
-              You&apos;re on the list! We&apos;ll be in touch.
-            </div>
-          ) : (
-            <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <Input
-                type="email"
-                placeholder="your@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="flex-1 bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-full px-6 h-12 focus:bg-white/15"
-              />
-              <Button
-                type="submit"
-                className="bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
-                disabled={submitting}
+          {t.ending.kind === "cta" ? (
+            <>
+              <p className="text-white/70 text-base mb-10">
+                {pilotMode ? t.ending.leadPilot : t.ending.leadPaid}
+              </p>
+              <a
+                href={appUrl("/app/login")}
+                className={cn(buttonVariants({
+                  size: "lg",
+                  className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
+                }))}
               >
-                {submitting ? "Joining..." : "Notify me"}
-                {!submitting && <ArrowRight className="w-4 h-4 ml-1.5" />}
-              </Button>
-            </form>
+                {heroCta}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="text-white/70 text-base mb-10">
+                {t.ending.lead}
+              </p>
+              {submitted ? (
+                <div className="flex items-center justify-center gap-2 text-[#27BE7B] font-semibold text-lg">
+                  <CheckCircle2 className="w-5 h-5" />
+                  {t.ending.success}
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                  <Input
+                    type="email"
+                    placeholder={t.ending.placeholder}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="flex-1 bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-full px-6 h-12 focus:bg-white/15"
+                  />
+                  <Button
+                    type="submit"
+                    className="bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
+                    disabled={submitting}
+                  >
+                    {submitting ? t.ending.submitting : t.ending.submit}
+                    {!submitting && <ArrowRight className="w-4 h-4 ml-1.5" />}
+                  </Button>
+                </form>
+              )}
+              {waitlistError ? (
+                <p role="alert" className="text-sm text-[#FFB4A8] mt-3">
+                  {waitlistError}
+                </p>
+              ) : null}
+              <p className="text-xs text-white/40 mt-5">
+                {t.ending.skipPrefix}{" "}
+                <a href={appUrl("/app/login")} className="underline hover:text-white">
+                  {heroCta.toLowerCase()}
+                </a>
+                .
+              </p>
+            </>
           )}
-          {waitlistError ? (
-            <p role="alert" className="text-sm text-[#FFB4A8] mt-3">
-              {waitlistError}
-            </p>
-          ) : null}
-          <p className="text-xs text-white/40 mt-5">
-            In Sweden? Skip the list and{" "}
-            <a href={appUrl("/app/login")} className="underline hover:text-white">
-              {pilotMode ? "join the pilot" : "start your free week"}
-            </a>
-            .
-          </p>
         </div>
       </section>
 
@@ -825,35 +796,48 @@ export function LandingPage({ pilotMode }: LandingPageProps) {
                 className="h-10 w-auto mb-4"
               />
               <p className="text-sm text-white/40 max-w-xs">
-                VAT-ready receipts for small businesses in Sweden. Paper is Past.
+                {t.footer.tagline}
               </p>
             </div>
             <div className="flex gap-16">
               <div>
-                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Product</p>
+                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">{t.footer.product}</p>
                 <div className="flex flex-col">
-                  <a href="#features" className="text-sm text-white/40 hover:text-white transition-colors py-2">Solutions</a>
-                  <a href="#pricing" className="text-sm text-white/40 hover:text-white transition-colors py-2">Pricing</a>
-                  <a href="#how" className="text-sm text-white/40 hover:text-white transition-colors py-2">How it Works</a>
+                  <a href="#features" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.solutions}</a>
+                  <a href="#pricing" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.pricing}</a>
+                  <a href="#how" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.how}</a>
                 </div>
               </div>
               <div>
-                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Company</p>
+                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">{t.footer.company}</p>
                 <div className="flex flex-col">
-                  <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors py-2">About</a>
-                  <a href="#faq" className="text-sm text-white/40 hover:text-white transition-colors py-2">FAQ</a>
-                  <a href="#waitlist" className="text-sm text-white/40 hover:text-white transition-colors py-2">Contact</a>
-                  <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors py-2">Privacy</a>
+                  <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.about}</a>
+                  <a href="#faq" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.faq}</a>
+                  <a
+                    href={t.ending.kind === "waitlist" ? "#waitlist" : "mailto:support@unreceipt.com"}
+                    className="text-sm text-white/40 hover:text-white transition-colors py-2"
+                  >
+                    {t.footer.contact}
+                  </a>
+                  <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.footer.privacy}</a>
+                  <a
+                    href={LOCALE_HOME[otherLocale]}
+                    hrefLang={otherLocale}
+                    lang={otherLocale}
+                    className="text-sm text-white/40 hover:text-white transition-colors py-2"
+                  >
+                    {t.switchTo.label}
+                  </a>
                 </div>
               </div>
             </div>
           </div>
           <div className="border-t border-white/10 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-white/30">
-              &copy; 2026 UnReceipt. All rights reserved.
+              &copy; 2026 UnReceipt. {t.footer.rights}
             </p>
             <p className="text-xs text-white/30">
-              Made with precision in Europe.
+              {t.footer.made}
             </p>
           </div>
         </div>

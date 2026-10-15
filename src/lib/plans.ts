@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/locale";
+
 /**
  * The three plans: one flat monthly price per company, sized by how many
  * receipts the company sends us. No per-user fees. Single source of truth
@@ -15,6 +17,11 @@ export type Plan = {
   name: string;
   /** EUR per month for the whole company, excl. VAT. */
   price: number;
+  /**
+   * SEK per month for the whole company, excl. VAT, shown on the Swedish
+   * site. Stripe charges it through the price's SEK currency option.
+   */
+  priceSek: number;
   /** Receipts per month, shared by everyone in the company. */
   receipts: number;
   who: string;
@@ -31,6 +38,7 @@ export const PLANS: readonly Plan[] = [
     id: "light",
     name: "Light",
     price: 5.99,
+    priceSek: 69,
     receipts: 15,
     who: "Freelancers and businesses of 1–3 people.",
   },
@@ -38,6 +46,7 @@ export const PLANS: readonly Plan[] = [
     id: "regular",
     name: "Regular",
     price: 14.99,
+    priceSek: 169,
     receipts: 50,
     who: "Teams of up to about 20 people.",
   },
@@ -45,6 +54,7 @@ export const PLANS: readonly Plan[] = [
     id: "heavy",
     name: "Heavy",
     price: 29.99,
+    priceSek: 329,
     receipts: 150,
     who: "Teams of up to about 50, or that travel a lot.",
   },
@@ -58,11 +68,29 @@ export const PLANS: readonly Plan[] = [
  */
 export const OVERAGE_PRICE = 0.4;
 
+/** The same extra-receipt price in SEK, shown on the Swedish site. */
+export const OVERAGE_PRICE_SEK = 4.9;
+
 export const PLAN_IDS = PLANS.map((p) => p.id) as [PlanId, ...PlanId[]];
 
 /** "€5.99" — prices are shown in EUR with two decimals. */
 export function formatPrice(eur: number): string {
   return `€${eur.toFixed(2)}`;
+}
+
+/** "69 kr", or "4,90 kr" with öre — the way Swedish prices are written. */
+export function formatSek(kr: number): string {
+  return Number.isInteger(kr) ? `${kr} kr` : `${kr.toFixed(2).replace(".", ",")} kr`;
+}
+
+/** A plan's monthly price in the currency of the given site language. */
+export function planPriceLabel(plan: Plan, locale: Locale): string {
+  return locale === "sv" ? formatSek(plan.priceSek) : formatPrice(plan.price);
+}
+
+/** The extra-receipt price in the currency of the given site language. */
+export function overagePriceLabel(locale: Locale): string {
+  return locale === "sv" ? formatSek(OVERAGE_PRICE_SEK) : formatPrice(OVERAGE_PRICE);
 }
 
 /** Smallest plan whose allowance covers `receipts`, or the largest plan. */
