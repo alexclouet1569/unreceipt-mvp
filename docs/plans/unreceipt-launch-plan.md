@@ -81,6 +81,7 @@
 - [ ] P2 🤖 S — After 3 months of pilots, read receipts per claimant per month from `receipt_usage` and re-size the allowances.
 - [ ] P3 🤖 M — Stripe customer portal so customers can switch plans themselves. Until then, the hint says "write to us".
 - [ ] P4 🤖 S — Annual prepay at 2 months free. Improves cash flow and reduces churn.
+- [ ] P5 ★ 🤖 S — Daily sweep that re-reports extra receipts whose Stripe meter call failed (`overage_billed_at IS NULL` and above the allowance). Safe to repeat: Stripe dedupes on the receipt id. Needed before payments go live.
 
 ### 1b. Payment-moment automation (D5): how close to automatic it can get
 
