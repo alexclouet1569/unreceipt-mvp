@@ -250,6 +250,39 @@ describe("POST /api/webhooks/stripe", () => {
     expect(mocks.upsert.mock.calls[0][0].status).toBe("canceled");
   });
 
+  it("records when the subscription ended, for the 90-day retention clock", async () => {
+    const payload = buildEvent({
+      type: "customer.subscription.deleted",
+      data: {
+        object: subscriptionPayload({
+          status: "canceled",
+          ended_at: 1_790_000_000,
+          metadata: { user_id: "user-uuid-9" },
+        } as never),
+      },
+    });
+
+    const res = await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsert.mock.calls[0][0].ended_at).toBe(
+      new Date(1_790_000_000 * 1000).toISOString(),
+    );
+  });
+
+  it("stamps the end time itself when Stripe's deleted event has none", async () => {
+    const payload = buildEvent({
+      type: "customer.subscription.deleted",
+      data: {
+        object: subscriptionPayload({ status: "active", metadata: { user_id: "u" } }),
+      },
+    });
+
+    await POST(buildRequest(payload, { "stripe-signature": sign(payload) }));
+
+    expect(mocks.upsert.mock.calls[0][0].ended_at).toEqual(expect.any(String));
+  });
+
   it("falls back to the existing row's user when a subscription has no metadata.user_id", async () => {
     mocks.lookupByCustomer.mockResolvedValue({
       data: { user_id: "user-from-checkout" },

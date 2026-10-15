@@ -126,10 +126,21 @@ describe("recordReceiptUsage", () => {
         event_name: "extra_receipt",
         payload: { stripe_customer_id: "cus_123", value: "1" },
         identifier: `receipt_${RECEIPT}`,
+        // Counted in the period the receipt was saved in.
+        timestamp: Date.parse("2026-10-15T10:00:00Z") / 1000,
       },
       { timeout: 5000, maxNetworkRetries: 1 }
     );
-    expect(mocks.update).toHaveBeenCalledWith(
+    // The attempt is marked before the call, so the sweep knows whether a
+    // retry is still inside Stripe's dedupe window.
+    expect(mocks.update).toHaveBeenNthCalledWith(
+      1,
+      { overage_attempted_at: expect.any(String) },
+      "receipt_id",
+      RECEIPT
+    );
+    expect(mocks.update).toHaveBeenNthCalledWith(
+      2,
       { overage_billed_at: expect.any(String) },
       "receipt_id",
       RECEIPT
@@ -197,7 +208,21 @@ describe("recordReceiptUsage", () => {
     mocks.meterCreate.mockRejectedValue(new Error("stripe down"));
 
     await expect(record()).resolves.toBeUndefined();
-    expect(mocks.update).not.toHaveBeenCalled();
+    // Attempt marked, never confirmed billed: the sweep retries it.
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    expect(mocks.update).toHaveBeenCalledWith(
+      { overage_attempted_at: expect.any(String) },
+      "receipt_id",
+      RECEIPT
+    );
+  });
+
+  it("doesn't call Stripe when the attempt can't be marked", async () => {
+    mocks.count = 51;
+    mocks.update.mockResolvedValueOnce({ error: { code: "XX000" } });
+
+    await expect(record()).resolves.toBeUndefined();
+    expect(mocks.meterCreate).not.toHaveBeenCalled();
   });
 });
 

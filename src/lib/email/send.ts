@@ -17,7 +17,7 @@ export type OutgoingEmail = {
   text: string;
   replyTo?: string | null;
   // Shows up in the Resend dashboard so the two flows are easy to tell apart.
-  tag: "waitlist" | "pilot_welcome";
+  tag: "waitlist" | "pilot_welcome" | "retention_reminder";
 };
 
 export type SendResult =

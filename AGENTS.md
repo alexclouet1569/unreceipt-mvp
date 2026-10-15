@@ -84,6 +84,19 @@ To flip back to paid: in Vercel → Settings → Environment Variables, remove `
 
 Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.
 
+# Scheduled jobs
+
+`vercel.json` schedules three daily Vercel Cron jobs (Hobby allows one run per day, ±59 min). Each route calls `isAuthorizedCron()` (`src/lib/cron-auth.ts`), which requires `Authorization: Bearer $CRON_SECRET` and refuses everything when `CRON_SECRET` is unset.
+
+- `/api/cron/cleanup-exports` — deletes accountant exports older than 24 h from the private `exports` bucket.
+- `/api/cron/retention` — `src/lib/retention.ts`. When every subscription of an account has ended (`subscriptions.ended_at`, set by the Stripe webhook), it emails a reminder 14 days before day 90 and deletes the account (`deleteAccount()`, same as in-app deletion) on day 90 — never without a recorded reminder for that cancellation (`account_retention`) and never sooner than 14 days after it. Pilot users with no subscription row are never touched; admin accounts are skipped. This implements the privacy page's "How long we keep it"; change both together.
+- `/api/cron/overage-sweep` — `sweepUnbilledOverage()` in `src/lib/usage.ts` re-reports this period's extra receipts whose meter call failed. Stripe dedupes a meter event `identifier` for only "at least 24 hours", so every report sets `receipt_usage.overage_attempted_at` first and the sweep retries automatically only within 20 h of the last attempt; older unconfirmed rows go to Sentry for a manual check.
+
+# Exports and account deletion
+
+- `POST /api/export` builds a ZIP (receipts.csv, PDFs, originals) into the private `exports` bucket and returns 15-minute signed URLs — Vercel caps a function response at 4.5 MB. Parts stay under 40 MB because Supabase Free caps a stored file at 50 MB. Not subscription-gated: cancelled customers must be able to take their data.
+- `POST /api/account/delete` and the retention job both call `deleteAccount()` (`src/lib/account-deletion.ts`): cancel Stripe subscriptions, remove every file under `<user_id>/` in `USER_FILE_BUCKETS`, delete receipts, then the auth user (the rest cascades). A new bucket holding user files must be added to `USER_FILE_BUCKETS`.
+
 # Region
 
 `vercel.json` pins serverless functions to `fra1` (Frankfurt), next to the Supabase project (`eu-central-1`). Every request makes several database round-trips, so keeping them in the same region matters for latency, and it keeps processing in the EU. Don't add regions without moving the database too.

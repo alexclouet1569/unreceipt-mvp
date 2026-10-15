@@ -25,6 +25,9 @@ type SubscriptionRow = {
   current_period_start: string | null;
   current_period_end: string | null;
   trial_end: string | null;
+  // When Stripe ended the subscription; the 90-day retention clock
+  // (/api/cron/retention) starts here.
+  ended_at: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -70,7 +73,13 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const row = await withResolvedUser(extractFromSubscription(sub));
-        if (row) await upsertSubscription({ ...row, status: "canceled" });
+        if (row) {
+          await upsertSubscription({
+            ...row,
+            status: "canceled",
+            ended_at: row.ended_at ?? new Date().toISOString(),
+          });
+        }
         break;
       }
       default:
@@ -128,6 +137,7 @@ function extractFromSubscription(sub: Stripe.Subscription): SubscriptionRow {
   const subAny = sub as unknown as {
     current_period_end?: number | null;
     trial_end?: number | null;
+    ended_at?: number | null;
     items?: { data?: Array<{ current_period_end?: number | null }> };
   };
   const periodEndUnix =
@@ -146,6 +156,9 @@ function extractFromSubscription(sub: Stripe.Subscription): SubscriptionRow {
     current_period_start: periodStartFromSubscription(sub),
     current_period_end: unixToIso(periodEndUnix),
     trial_end: unixToIso(trialEndUnix),
+    // Null again if a subscription is ever revived, which also restarts
+    // retention.
+    ended_at: unixToIso(subAny.ended_at ?? null),
   };
 }
 
