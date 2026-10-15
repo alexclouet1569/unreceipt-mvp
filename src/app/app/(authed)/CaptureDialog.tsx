@@ -39,6 +39,8 @@ import { PAYMENT_METHOD_SUGGESTIONS } from "@/lib/receipts/receipt-fields";
 type CaptureDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Called after a receipt was saved (before the dialog closes).
+  onSaved?: () => void;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -70,7 +72,7 @@ const blankForm = (): FormState => ({
 const isFiniteNumber = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
-export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
+export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProps) {
   const router = useRouter();
   // Two hidden inputs so the picker UI is explicit: "Upload" opens the
   // file/gallery picker (no camera bias) and "Take photo" opens the camera
@@ -300,6 +302,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
         );
       }
 
+      onSaved?.();
       onOpenChange(false);
       router.refresh();
     } catch (err) {

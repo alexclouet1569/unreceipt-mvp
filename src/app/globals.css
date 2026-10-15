@@ -68,6 +68,11 @@
      Mist is --brand-tint, reserved for the empty-state hero, pilot banner
      and VAT panel. */
   --surface: #FAFAF7;
+  /* DESIGN.md color tokens that components reference directly; they were
+     used (ReceiptListItem hover) but never defined. */
+  --brand: #27BE7B;
+  --brand-deep: #1F9D63;
+  --negative: #C73E4E;
   --brand-tint: #ECF7E7;
   --ink: #303568;
   /* Single muted variant derived from Deep Space — replaces the prior

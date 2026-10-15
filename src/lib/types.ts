@@ -186,6 +186,8 @@ export interface Profile {
   email_alias_hash: string | null;
   // Set once the pilot welcome email has gone out, so it's sent only once.
   welcome_email_sent_at: string | null;
+  // Set when the first-run onboarding on /app is finished or skipped.
+  onboarded_at: string | null;
   created_at: string;
   updated_at: string;
 }

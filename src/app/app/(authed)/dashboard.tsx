@@ -12,6 +12,7 @@ import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
+import { FirstRun, type FirstRunStep } from "./_first-run";
 
 type DashboardProps = {
   userEmail: string;
@@ -23,6 +24,8 @@ type DashboardProps = {
   // Shared SMS/WhatsApp intake number (step 7). Null when unset so the
   // empty-state degrades to email-only without rendering a dangling label.
   intakeSmsNumber: string | null;
+  // First run: no receipts yet and onboarding never finished or skipped.
+  showOnboarding?: boolean;
 };
 
 type Filter = "all" | "review";
@@ -32,8 +35,20 @@ export function Dashboard({
   receipts,
   forwardingEmail,
   intakeSmsNumber,
+  showOnboarding = false,
 }: DashboardProps) {
   const [captureOpen, setCaptureOpen] = useState(false);
+  // Once started, onboarding stays until finished — even after the first
+  // receipt arrives mid-flow (step 2 → 3).
+  const [onboardingStep, setOnboardingStep] = useState<FirstRunStep | null>(
+    showOnboarding ? 1 : null,
+  );
+  const finishOnboarding = () => {
+    setOnboardingStep(null);
+    // Best effort: if it fails, onboarding shows again next visit while
+    // the inbox is still empty — harmless.
+    void fetch("/api/profile/onboarded", { method: "POST" }).catch(() => {});
+  };
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -116,7 +131,17 @@ export function Dashboard({
           </p>
         </div>
 
-        {receipts.length === 0 ? (
+        {onboardingStep != null ? (
+          <FirstRun
+            step={onboardingStep}
+            forwardingEmail={forwardingEmail}
+            onNext={() =>
+              setOnboardingStep((s) => (s === 1 ? 2 : 3))
+            }
+            onCapture={() => setCaptureOpen(true)}
+            onFinish={finishOnboarding}
+          />
+        ) : receipts.length === 0 ? (
           <EmptyState
             forwardingEmail={forwardingEmail}
             intakeSmsNumber={intakeSmsNumber}
@@ -192,11 +217,16 @@ export function Dashboard({
         )}
       </div>
 
-      <CaptureFab onClick={() => setCaptureOpen(true)} />
+      {onboardingStep == null ? (
+        <CaptureFab onClick={() => setCaptureOpen(true)} />
+      ) : null}
 
       <CaptureDialog
         open={captureOpen}
         onOpenChange={setCaptureOpen}
+        onSaved={() => {
+          if (onboardingStep === 2) setOnboardingStep(3);
+        }}
       />
       <ReceiptDetailDialog
         receipt={openReceipt}
@@ -242,8 +272,9 @@ function EmptyState({
         className="font-accent italic text-[var(--ink-muted)] max-w-[280px]"
         style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
       >
-        Forward email receipts or text us a photo. We&apos;ll have them
-        VAT-ready in minutes.
+        {intakeSmsNumber
+          ? "Forward email receipts or text us a photo. We'll have them VAT-ready in minutes."
+          : "Forward email receipts or snap a paper one. We'll have them VAT-ready in minutes."}
       </p>
 
       <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "20px" }}>
@@ -251,7 +282,7 @@ function EmptyState({
           callout="Forward email receipts to"
           value={forwardingEmail}
           mono
-          copyLabel="Copy concierge email"
+          copyLabel="Copy forwarding address"
         />
         {intakeSmsNumber ? (
           <IntakeRow
