@@ -4,6 +4,8 @@ import { ArrowRight } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { formatDate } from "@/lib/receipt-format";
 import { requireAdminPage } from "@/lib/require-admin";
+import { paymentsReadiness } from "@/lib/payments-readiness";
+import { PaymentsReadinessPanel } from "./_payments-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +102,7 @@ export default async function AdminCustomerListPage() {
 
   return (
     <div className="space-y-4">
+      <PaymentsReadinessPanel readiness={paymentsReadiness()} />
       <div>
         <h1 className="text-lg font-semibold">Customers</h1>
         <p className="text-sm text-muted-foreground">
