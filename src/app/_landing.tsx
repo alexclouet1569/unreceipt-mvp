@@ -27,7 +27,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
-import { LOCALE_HOME, type Locale } from "@/lib/locale";
+import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
@@ -96,22 +96,10 @@ function ReceiptEdge({ color = "#27BE7B", flip = false }: { color?: string; flip
 }
 
 /* ── Scrolling receipt ticker ── */
-function ReceiptTicker({ t }: { t: LandingCopy["ticker"] }) {
+function ReceiptTicker({ t, samples }: { t: LandingCopy["ticker"]; samples: LandingCopy["samples"] }) {
   // Example receipts. Source is how it reached UnReceipt (forwarded email
   // or a photo); every receipt ends up verified by the concierge.
-  const c = t.categories;
-  const receipts = [
-    { merchant: "ICA Maxi", amount: "342 kr", category: c.meals, source: "photo" },
-    { merchant: "Spotify", amount: "129 kr", category: c.software, source: "email" },
-    { merchant: "Clas Ohlson", amount: "1 450 kr", category: c.office, source: "photo" },
-    { merchant: "SJ", amount: "895 kr", category: c.travel, source: "email" },
-    { merchant: "Apoteket", amount: "212 kr", category: c.other, source: "photo" },
-    { merchant: "SAS", amount: "2 340 kr", category: c.travel, source: "email" },
-    { merchant: "Uber", amount: "189 kr", category: c.transport, source: "email" },
-    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: c.meals, source: "photo" },
-    { merchant: "Scandic Hotel", amount: "1 250 kr", category: c.accommodation, source: "email" },
-    { merchant: "Coop Konferens", amount: "890 kr", category: c.meals, source: "photo" },
-  ];
+  const receipts = samples.ticker.map((r) => ({ ...r, category: t.categories[r.category] }));
 
   const doubled = [...receipts, ...receipts];
 
@@ -188,7 +176,8 @@ type LandingPageProps = {
 
 export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   const t = LANDING_COPY[locale];
-  const otherLocale: Locale = locale === "sv" ? "en" : "sv";
+  const otherLocales = LOCALES.filter((l) => l !== locale);
+  const s = t.samples;
   const fromPrice = planPriceLabel(PLANS[0], locale);
   const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
@@ -268,16 +257,21 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 {link.label}
               </a>
             ))}
-            <a
-              href={LOCALE_HOME[otherLocale]}
-              hrefLang={otherLocale}
-              lang={otherLocale}
-              aria-label={t.switchTo.aria}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
-            >
+            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#303568]/70">
               <Globe className="w-4 h-4" aria-hidden="true" />
-              {t.switchTo.short}
-            </a>
+              {otherLocales.map((l) => (
+                <a
+                  key={l}
+                  href={LOCALE_HOME[l]}
+                  hrefLang={l}
+                  lang={l}
+                  aria-label={LOCALE_NAME[l].label}
+                  className="hover:text-[#303568] py-3 -my-3 px-0.5"
+                >
+                  {LOCALE_NAME[l].short}
+                </a>
+              ))}
+            </span>
             <a
               href={appUrl("/app/login")}
               className="text-sm font-medium text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
@@ -319,16 +313,19 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             >
               {t.nav.signIn}
             </a>
-            <a
-              href={LOCALE_HOME[otherLocale]}
-              hrefLang={otherLocale}
-              lang={otherLocale}
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center gap-2"
-            >
-              <Globe className="w-4 h-4" aria-hidden="true" />
-              {t.switchTo.label}
-            </a>
+            {otherLocales.map((l) => (
+              <a
+                key={l}
+                href={LOCALE_HOME[l]}
+                hrefLang={l}
+                lang={l}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-base text-[#303568] font-medium min-h-[44px] flex items-center gap-2"
+              >
+                <Globe className="w-4 h-4" aria-hidden="true" />
+                {LOCALE_NAME[l].label}
+              </a>
+            ))}
             <a
               href={appUrl("/app/login")}
               onClick={() => setMobileMenuOpen(false)}
@@ -406,9 +403,9 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                           <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
                           <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">{t.phone.verified}</span>
                         </div>
-                        <p className="text-sm font-bold text-[#303568]">ICA Maxi</p>
+                        <p className="text-sm font-bold text-[#303568]">{s.latest.merchant}</p>
                         <p className="text-xs text-[#303568]/60 mt-1">{t.phone.latestMeta}</p>
-                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">342,00 kr</p>
+                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">{s.latest.amount}</p>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4">
                         <div className="flex items-center justify-between mb-3">
@@ -416,14 +413,10 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                           <span className="text-xs font-bold text-[#27BE7B]">{t.phone.todayCount}</span>
                         </div>
                         <div className="space-y-2">
-                          {[
-                            { name: "Uber", amount: "189,00 kr", time: "14:22" },
-                            { name: "Scandic Hotel", amount: "1 250,00 kr", time: "09:15" },
-                            { name: "SJ", amount: "895,00 kr", time: "08:30" },
-                          ].map((item) => (
-                            <div key={item.name} className="flex items-center justify-between py-1.5">
+                          {s.today.map((item) => (
+                            <div key={item.merchant} className="flex items-center justify-between py-1.5">
                               <div>
-                                <p className="text-xs font-semibold text-[#303568]">{item.name}</p>
+                                <p className="text-xs font-semibold text-[#303568]">{item.merchant}</p>
                                 <p className="text-[10px] text-[#303568]/40">{item.time}</p>
                               </div>
                               <div className="flex items-center gap-2">
@@ -452,8 +445,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                     </div>
                     <span className="text-[10px] font-bold text-[#303568]">{t.phone.verified}</span>
                   </div>
-                  <p className="text-xs text-[#303568]/60">Clas Ohlson</p>
-                  <p className="text-sm font-extrabold text-[#303568]">1 450,00 kr</p>
+                  <p className="text-xs text-[#303568]/60">{s.photoCard.merchant}</p>
+                  <p className="text-sm font-extrabold text-[#303568]">{s.photoCard.amount}</p>
                 </div>
 
                 <div className="absolute -right-12 bottom-28 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-32 rotate-[4deg] animate-[float_5s_ease-in-out_infinite_1s]">
@@ -463,8 +456,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                     </div>
                     <span className="text-[10px] font-bold text-[#303568]">{t.phone.forwarded}</span>
                   </div>
-                  <p className="text-xs text-[#303568]/60">Spotify</p>
-                  <p className="text-sm font-extrabold text-[#303568]">129,00 kr</p>
+                  <p className="text-xs text-[#303568]/60">{s.emailCard.merchant}</p>
+                  <p className="text-sm font-extrabold text-[#303568]">{s.emailCard.amount}</p>
                 </div>
               </div>
             </div>
@@ -481,7 +474,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           surface with the printing receipt behind it, so these sections
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
-      <ReceiptBackdrop />
+      <ReceiptBackdrop locale={locale} />
       <ReceiptRows locale={locale} rows={RECEIPT[locale].top} />
 
       {/* ─── SOCIAL PROOF BAR ─── */}
@@ -500,7 +493,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
 
       {/* ─── RECEIPT TICKER ─── */}
       <section className="py-4 overflow-hidden">
-        <ReceiptTicker t={t.ticker} />
+        <ReceiptTicker t={t.ticker} samples={t.samples} />
       </section>
 
       <ReceiptRows locale={locale} rows={RECEIPT[locale].features} />
@@ -820,14 +813,17 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                     {t.footer.contact}
                   </a>
                   <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.footer.privacy}</a>
-                  <a
-                    href={LOCALE_HOME[otherLocale]}
-                    hrefLang={otherLocale}
-                    lang={otherLocale}
-                    className="text-sm text-white/40 hover:text-white transition-colors py-2"
-                  >
-                    {t.switchTo.label}
-                  </a>
+                  {otherLocales.map((l) => (
+                    <a
+                      key={l}
+                      href={LOCALE_HOME[l]}
+                      hrefLang={l}
+                      lang={l}
+                      className="text-sm text-white/40 hover:text-white transition-colors py-2"
+                    >
+                      {LOCALE_NAME[l].label}
+                    </a>
+                  ))}
                 </div>
               </div>
             </div>

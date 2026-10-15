@@ -83,14 +83,23 @@ export function formatSek(kr: number): string {
   return Number.isInteger(kr) ? `${kr} kr` : `${kr.toFixed(2).replace(".", ",")} kr`;
 }
 
-/** A plan's monthly price in the currency of the given site language. */
+/** "5,99 €" — the way French prices are written (non-breaking space). */
+export function formatEurFr(eur: number): string {
+  return `${eur.toFixed(2).replace(".", ",")}\u00a0€`;
+}
+
+/** A plan's monthly price in the currency and style of the site language. */
 export function planPriceLabel(plan: Plan, locale: Locale): string {
-  return locale === "sv" ? formatSek(plan.priceSek) : formatPrice(plan.price);
+  if (locale === "sv") return formatSek(plan.priceSek);
+  if (locale === "fr") return formatEurFr(plan.price);
+  return formatPrice(plan.price);
 }
 
 /** The extra-receipt price in the currency of the given site language. */
 export function overagePriceLabel(locale: Locale): string {
-  return locale === "sv" ? formatSek(OVERAGE_PRICE_SEK) : formatPrice(OVERAGE_PRICE);
+  if (locale === "sv") return formatSek(OVERAGE_PRICE_SEK);
+  if (locale === "fr") return formatEurFr(OVERAGE_PRICE);
+  return formatPrice(OVERAGE_PRICE);
 }
 
 /** Smallest plan whose allowance covers `receipts`, or the largest plan. */

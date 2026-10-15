@@ -171,3 +171,42 @@ test.describe("Swedish landing (/sv)", () => {
     await expect(page).toHaveURL(/\/app\/login$/);
   });
 });
+
+test.describe("French landing (/fr)", () => {
+  test("is in French, prices in euros, and links every language", async ({ page }) => {
+    await page.goto("/fr");
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "fr");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://unreceipt.com/fr"
+    );
+    await expect(page.locator('link[rel="alternate"][hreflang="sv"]')).toHaveAttribute(
+      "href",
+      "https://unreceipt.com/sv"
+    );
+    await expect(page.locator("h1")).toContainText("Du chaos");
+
+    const pricing = page.locator("#pricing");
+    for (const [name, price] of [
+      ["Light", /5,99\s€/],
+      ["Regular", /14,99\s€/],
+      ["Heavy", /29,99\s€/],
+    ] as const) {
+      await expect(pricing.locator(`[data-plan="${name}"]`)).toContainText(price);
+    }
+    await expect(pricing).not.toContainText("kr");
+    await expect(page.locator("#faq")).toContainText("Puis-je jeter le ticket papier");
+
+    await expect(page.locator('footer a[hreflang="en"]')).toHaveAttribute("href", "/");
+    await expect(page.locator('footer a[hreflang="sv"]')).toHaveAttribute("href", "/sv");
+  });
+
+  test("the hero CTA navigates to /app/login", async ({ page }) => {
+    await page.goto("/fr");
+    const cta = page.getByRole("link", { name: /Essayer gratuitement une semaine/i }).first();
+    await expect(cta).toBeVisible();
+    await cta.click();
+    await expect(page).toHaveURL(/\/app\/login$/);
+  });
+});

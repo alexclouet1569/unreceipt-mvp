@@ -30,43 +30,108 @@ export type ReceiptRow =
   | { kind: "head" }
   | { kind: "foot" };
 
-/** The receipt's few non-Swedish words, per page language. */
-const WORDS: Record<Locale, { lost: string; chasing: string; stress: string; stamp: string }> = {
-  en: { lost: "Lost receipts", chasing: "Hours chasing", stress: "Total stress", stamp: "✓ VAT-ready" },
-  sv: { lost: "Borttappade kvitton", chasing: "Timmar på kvittojakt", stress: "Stress totalt", stamp: "✓ Kontrollerat" },
+type Line = { label: string; amount: number };
+
+/** What the receipt says, per page language. */
+type ReceiptText = {
+  /** Shown after the running subtotal on the print head. */
+  currency: string;
+  place: string;
+  ticket: string;
+  thanks: string;
+  /** Eight purchases, two per gap between sections. */
+  items: [Line, Line, Line, Line, Line, Line, Line, Line];
+  total: string;
+  vat: Line;
+  lost: string;
+  chasing: string;
+  stress: string;
+  stamp: string;
+};
+
+// Swedish shops in kronor; the English page shows the same receipt.
+const SWEDISH_ITEMS: ReceiptText["items"] = [
+  { label: "ICA Maxi", amount: 342 },
+  { label: "SJ Stockholm–Göteborg", amount: 895 },
+  { label: "Spotify Business", amount: 129 },
+  { label: "Scandic Hotel", amount: 1250 },
+  { label: "Uber", amount: 189 },
+  { label: "Apoteket", amount: 212 },
+  { label: "Coop Konferens", amount: 890 },
+  { label: "Pressbyrån", amount: 68 },
+];
+
+const TEXT: Record<Locale, ReceiptText> = {
+  en: {
+    currency: "kr",
+    place: "unreceipt.com · Stockholm",
+    ticket: "Kvitto #0042 · 14.10.2026 09:41",
+    thanks: "Tack! Paper is past.",
+    items: SWEDISH_ITEMS,
+    total: "Summa",
+    vat: { label: "Varav moms", amount: 795 },
+    lost: "Lost receipts",
+    chasing: "Hours chasing",
+    stress: "Total stress",
+    stamp: "✓ VAT-ready",
+  },
+  sv: {
+    currency: "kr",
+    place: "unreceipt.com · Stockholm",
+    ticket: "Kvitto #0042 · 14.10.2026 09:41",
+    thanks: "Tack! Paper is past.",
+    items: SWEDISH_ITEMS,
+    total: "Summa",
+    vat: { label: "Varav moms", amount: 795 },
+    lost: "Borttappade kvitton",
+    chasing: "Timmar på kvittojakt",
+    stress: "Stress totalt",
+    stamp: "✓ Kontrollerat",
+  },
+  fr: {
+    currency: "€",
+    place: "unreceipt.com · Paris",
+    ticket: "Ticket n° 0042 · 14/10/2026 09:41",
+    thanks: "Merci\u00a0! Paper is past.",
+    items: [
+      { label: "Paul", amount: 18.5 },
+      { label: "SNCF Paris–Lyon", amount: 64 },
+      { label: "Spotify", amount: 11.99 },
+      { label: "Ibis Paris", amount: 89 },
+      { label: "Uber", amount: 23.4 },
+      { label: "Pharmacie", amount: 8.9 },
+      { label: "Carrefour", amount: 42 },
+      { label: "Relay", amount: 4.5 },
+    ],
+    total: "Total TTC",
+    vat: { label: "Dont TVA", amount: 23.62 },
+    lost: "Tickets perdus",
+    chasing: "Heures de relance",
+    stress: "Stress total",
+    stamp: "✓ Vérifié",
+  },
 };
 
 function receiptFor(locale: Locale) {
-  const w = WORDS[locale];
+  const t = TEXT[locale];
+  const item = (i: number) => ({ kind: "item" as const, ...t.items[i] });
+  const total = Math.round(t.items.reduce((sum, l) => sum + l.amount, 0) * 100) / 100;
   return {
     top: [{ kind: "head" }, { kind: "rule" }],
-    features: [
-      { kind: "item", label: "ICA Maxi", amount: 342 },
-      { kind: "item", label: "SJ Stockholm–Göteborg", amount: 895 },
-    ],
-    how: [
-      { kind: "item", label: "Spotify Business", amount: 129 },
-      { kind: "item", label: "Scandic Hotel", amount: 1250 },
-    ],
-    difference: [
-      { kind: "item", label: "Uber", amount: 189 },
-      { kind: "item", label: "Apoteket", amount: 212 },
-    ],
-    pricing: [
-      { kind: "item", label: "Coop Konferens", amount: 890 },
-      { kind: "item", label: "Pressbyrån", amount: 68 },
-      { kind: "rule" },
-    ],
+    features: [item(0), item(1)],
+    how: [item(2), item(3)],
+    difference: [item(4), item(5)],
+    pricing: [item(6), item(7), { kind: "rule" }],
     about: [
-      { kind: "total", label: "Summa", amount: 3975 },
-      { kind: "item", label: "Varav moms", amount: 795, sum: false },
+      { kind: "total", label: t.total, amount: total },
+      { kind: "item", label: t.vat.label, amount: t.vat.amount, sum: false },
       { kind: "rule" },
     ],
     badges: [
-      { kind: "text", label: w.lost, value: "0" },
-      { kind: "text", label: w.chasing, value: "0,00" },
+      { kind: "text", label: t.lost, value: "0" },
+      { kind: "text", label: t.chasing, value: "0,00" },
     ],
-    end: [{ kind: "rule" }, { kind: "text", label: w.stress, value: "0,00" }, { kind: "foot" }],
+    end: [{ kind: "rule" }, { kind: "text", label: t.stress, value: "0,00" }, { kind: "foot" }],
   } satisfies Record<string, ReceiptRow[]>;
 }
 
@@ -74,6 +139,7 @@ function receiptFor(locale: Locale) {
 export const RECEIPT: Record<Locale, ReturnType<typeof receiptFor>> = {
   en: receiptFor("en"),
   sv: receiptFor("sv"),
+  fr: receiptFor("fr"),
 };
 
 const kr = new Intl.NumberFormat("sv-SE", {
@@ -96,16 +162,16 @@ export function ReceiptRows({ rows, locale = "en" }: { rows: ReceiptRow[]; local
             return (
               <div key={i} className="rb-head" data-print>
                 <p className="rb-brand">UnReceipt</p>
-                <p className="rb-meta">unreceipt.com · Stockholm</p>
-                <p className="rb-meta rb-mono">Kvitto #0042 · 14.10.2026 09:41</p>
+                <p className="rb-meta">{TEXT[locale].place}</p>
+                <p className="rb-meta rb-mono">{TEXT[locale].ticket}</p>
               </div>
             );
           case "foot":
             return (
               <div key={i} className="rb-foot" data-print>
-                <span className="rb-stamp">{WORDS[locale].stamp}</span>
+                <span className="rb-stamp">{TEXT[locale].stamp}</span>
                 <div className="rb-barcode" />
-                <p className="rb-thanks">Tack! Paper is past.</p>
+                <p className="rb-thanks">{TEXT[locale].thanks}</p>
               </div>
             );
           case "text":
@@ -142,11 +208,12 @@ export function ReceiptRows({ rows, locale = "en" }: { rows: ReceiptRow[]; local
 const HEAD = 0.82;
 const COUNT_MS = 700;
 
-export function ReceiptBackdrop() {
+export function ReceiptBackdrop({ locale = "en" }: { locale?: Locale }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const subtotalRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    const currency = TEXT[locale].currency;
     const root = rootRef.current;
     const subtotalEl = subtotalRef.current;
     if (!root || !subtotalEl) return;
@@ -216,7 +283,7 @@ export function ReceiptBackdrop() {
       }
       if (subtotal !== shownSubtotal) {
         shownSubtotal = subtotal;
-        subtotalEl.textContent = `${kr.format(subtotal)} kr`;
+        subtotalEl.textContent = `${kr.format(subtotal)}\u00a0${currency}`;
       }
     };
     const schedule = () => {
@@ -238,7 +305,7 @@ export function ReceiptBackdrop() {
       if (frame) window.cancelAnimationFrame(frame);
       for (const raf of tweens.values()) cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [locale]);
 
   return (
     <div ref={rootRef} className="receipt-backdrop" aria-hidden="true">

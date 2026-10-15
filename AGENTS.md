@@ -92,7 +92,7 @@ Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NE
 
 Two hosts, one Next.js app:
 
-- `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
+- `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/fr`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
 - `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/webhooks/*`, `/api/admin/*`. PWA-installable.
 - `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
 
@@ -106,12 +106,13 @@ Stripe Checkout `success_url` / `cancel_url` use `NEXT_PUBLIC_APP_URL` so the cu
 
 # Languages
 
-The marketing site has two languages: English at `/` and Swedish at `/sv`. The product (`app.unreceipt.com`) is English only.
+The marketing site has three languages: English at `/`, Swedish at `/sv` and French at `/fr`. The product (`app.unreceipt.com`) is English only.
 
-- Both pages render the same `LandingPage` component with a `locale` prop. Every visible string lives in `src/app/_landing-copy.ts` (fixed-length tuples keep the two languages in step); FAQ answers live in `src/lib/faq.ts`; prices come from `src/lib/plans.ts` (`planPriceLabel()` shows EUR on `/` and SEK on `/sv`).
+- Every page renders the same `LandingPage` component with a `locale` prop. Every visible string lives in `src/app/_landing-copy.ts` (fixed-length tuples keep the languages in step), including the example receipts (Swedish shops in kronor on `/` and `/sv`, French shops in euros on `/fr`); the scrolling receipt's text is in `src/app/_receipt-backdrop.tsx`; FAQ answers live in `src/lib/faq.ts`; prices come from `src/lib/plans.ts` (`planPriceLabel()` shows `€5.99` on `/`, `69 kr` on `/sv`, `5,99 €` on `/fr`). Language names for the switch are in `src/lib/locale.ts`.
 - Questions about one country's rules (receipt retention, paper originals) belong on that country's language page; the English FAQ stays general.
-- Each landing page declares `alternates.languages` (hreflang) for both languages plus `x-default` → `/`, and the sitemap lists both URLs with the same alternates. A new language needs a page, a copy entry, FAQ answers, and an entry in `LANDING_LANGUAGES` (`src/lib/seo.ts`) and the sitemap.
-- The root layout always renders `<html lang="en">` because it can't see the pathname; `/sv` corrects it after hydration with `HtmlLang` (`src/app/_html-lang.tsx`). Search engines read the language from hreflang and the content.
+- Each landing page declares `alternates.languages` (hreflang) for every language plus `x-default` → `/`, and the sitemap lists every URL with the same alternates. A new language needs a page, a copy entry, receipt text, FAQ answers, an entry in `LOCALES` and `LANDING_LANGUAGES` (`src/lib/seo.ts`), the sitemap, and its path in `APEX_ONLY_EXACT` in `proxy.ts`.
+- The root layout always renders `<html lang="en">` because it can't see the pathname; `/sv` and `/fr` correct it after hydration with `HtmlLang` (`src/app/_html-lang.tsx`). Search engines read the language from hreflang and the content.
+- Paper originals differ by country: the Swedish FAQ says they may be thrown away once digitised (with the BFL 7 kap. conditions), the French FAQ says to keep them because UnReceipt doesn't produce the *copie fiable* that LPF art. A102 B-2 requires. Change both if the product starts keeping untouched originals.
 
 # Design System
 
