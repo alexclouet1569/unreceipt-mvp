@@ -14,6 +14,9 @@ import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
 import { DbWarningBanner } from "./_db-warning-banner";
 import { PilotBanner } from "./_pilot-banner";
+import { UsageNoticeBanner } from "@/components/UsageNoticeBanner";
+import { getUsage } from "@/lib/usage";
+import { usageNotice, type UsageNotice } from "@/lib/usage-copy";
 
 // The gate reads cookies + DB on every request — never cache.
 export const dynamic = "force-dynamic";
@@ -46,6 +49,17 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
     return [];
   }
   return (data ?? []) as Receipt[];
+}
+
+// Near/over the plan's receipt allowance? Best-effort: a failed lookup
+// just hides the notice.
+async function loadUsageNotice(userId: string): Promise<UsageNotice | null> {
+  try {
+    return usageNotice(await getUsage(userId));
+  } catch (err) {
+    console.error("[/app] usage load failed", err);
+    return null;
+  }
 }
 
 export default async function AppPage({ searchParams }: AppPageProps) {
@@ -111,12 +125,17 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     );
   }
 
+  const notice = await loadUsageNotice(user.id);
+
   return (
-    <Dashboard
-      userEmail={userEmail}
-      receipts={receipts}
-      forwardingEmail={forwardingEmail}
-      intakeSmsNumber={intakeSmsNumber}
-    />
+    <>
+      {notice ? <UsageNoticeBanner notice={notice} /> : null}
+      <Dashboard
+        userEmail={userEmail}
+        receipts={receipts}
+        forwardingEmail={forwardingEmail}
+        intakeSmsNumber={intakeSmsNumber}
+      />
+    </>
   );
 }
