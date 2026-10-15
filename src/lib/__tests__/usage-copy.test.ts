@@ -14,30 +14,39 @@ describe("usageNotice", () => {
   });
 
   it("warns from 80% of the allowance", () => {
-    const n = usageNotice({ used: 12, plan: light, extra: 0, overageBilled: true });
-    expect(n?.level).toBe("warn");
-    expect(n?.message).toContain("12 of the 15");
+    expect(usageNotice({ used: 12, plan: light, extra: 0, overageBilled: true })).toEqual({
+      level: "warn",
+      planName: "Light",
+      used: 12,
+      allowance: 15,
+      overagePrice: 0.4,
+    });
   });
 
-  it("states the extra cost once over, when overage is billed", () => {
-    const n = usageNotice({ used: 18, plan: light, extra: 3, overageBilled: true });
-    expect(n?.level).toBe("over");
-    expect(n?.message).toContain("3 receipts over");
-    expect(n?.message).toContain("€1.20");
+  it("gives the extra cost once over, when overage is billed", () => {
+    expect(usageNotice({ used: 18, plan: light, extra: 3, overageBilled: true })).toMatchObject({
+      level: "over",
+      extra: 3,
+      extraCost: 1.2,
+    });
   });
 
-  it("doesn't mention a charge when overage isn't billed", () => {
-    const n = usageNotice({ used: 16, plan: light, extra: 1, overageBilled: false });
-    expect(n?.message).toContain("1 receipt over");
-    expect(n?.message).not.toContain("invoice");
+  it("has no cost when overage isn't billed", () => {
+    expect(usageNotice({ used: 16, plan: light, extra: 1, overageBilled: false })).toMatchObject({
+      level: "over",
+      extraCost: null,
+    });
   });
 });
 
 describe("planSuggestion", () => {
   it("points to the cheaper plan when overage costs more", () => {
-    expect(planSuggestion({ used: 45, plan: light, extra: 30, overageBilled: true })).toBe(
-      "At 45 receipts, Regular would cost €14.99 instead of €17.99 a month."
-    );
+    expect(planSuggestion({ used: 45, plan: light, extra: 30, overageBilled: true })).toEqual({
+      planName: "Regular",
+      used: 45,
+      better: 14.99,
+      current: 17.99,
+    });
   });
 
   it("stays quiet when the current plan is already the cheapest", () => {

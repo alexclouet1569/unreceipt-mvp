@@ -1,4 +1,6 @@
-import { OVERAGE_PRICE, formatPrice, type Plan } from "@/lib/plans";
+import { OVERAGE_PRICE, type Plan } from "@/lib/plans";
+import type { PlanSuggestion } from "@/lib/usage-copy";
+import { Money } from "@/components/Money";
 
 type Props = {
   used: number;
@@ -6,7 +8,7 @@ type Props = {
   extra: number;
   overageBilled: boolean;
   periodEnd: string;
-  suggestion: string | null;
+  suggestion: PlanSuggestion | null;
 };
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
@@ -49,7 +51,7 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
       </div>
       <div
         className="mt-2 overflow-hidden"
-        style={{ height: "6px", borderRadius: "9999px", background: "var(--brand-tint)" }}
+        style={{ height: "6px", borderRadius: "9999px", background: "var(--hairline)" }}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={plan.receipts}
@@ -65,19 +67,26 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
         />
       </div>
       <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", marginTop: "8px" }}>
-        {over
-          ? overageBilled
-            ? <>
-                {extra} extra × {formatPrice(OVERAGE_PRICE)} ={" "}
-                <span className="font-mono tabular-nums">{formatPrice(extra * OVERAGE_PRICE)}</span>{" "}
-                on your next invoice.
-              </>
-            : `${extra} over your plan — everything is still saved.`
-          : `Resets ${resets}. Extra receipts are ${formatPrice(OVERAGE_PRICE)} each.`}
+        {over ? (
+          overageBilled ? (
+            <>
+              {extra} extra × <Money eur={OVERAGE_PRICE} /> ={" "}
+              <Money eur={extra * OVERAGE_PRICE} /> on your next invoice.
+            </>
+          ) : (
+            `${extra} over your plan — everything is still saved.`
+          )
+        ) : (
+          <>
+            Resets {resets}. Extra receipts are <Money eur={OVERAGE_PRICE} /> each.
+          </>
+        )}
       </p>
       {suggestion ? (
-        <p className="text-[var(--ink)]" style={{ fontSize: "13px", marginTop: "6px", fontWeight: 500 }}>
-          {suggestion} Write to us to switch.
+        <p className="text-[var(--ink)]" style={{ fontSize: "13px", marginTop: "8px", fontWeight: 500 }}>
+          At {suggestion.used} receipts, {suggestion.planName} would cost{" "}
+          <Money eur={suggestion.better} /> instead of <Money eur={suggestion.current} /> a
+          month. Write to us to switch.
         </p>
       ) : null}
     </div>

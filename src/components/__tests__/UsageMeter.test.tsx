@@ -42,10 +42,13 @@ describe("UsageMeter", () => {
         used={45}
         extra={30}
         plan={getPlan("light")}
-        suggestion="At 45 receipts, Regular would cost €14.99 instead of €17.99 a month."
+        suggestion={{ planName: "Regular", used: 45, better: 14.99, current: 17.99 }}
       />
     );
 
-    expect(screen.getByText(/Regular would cost €14.99/)).toBeInTheDocument();
+    expect(screen.getByText(/Regular would cost/)).toBeInTheDocument();
+    // Amounts render in Geist Mono (DESIGN.md).
+    expect(screen.getByText("€14.99")).toHaveClass("font-mono");
+    expect(screen.getByText("€17.99")).toHaveClass("font-mono");
   });
 });
