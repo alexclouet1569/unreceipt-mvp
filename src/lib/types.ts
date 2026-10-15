@@ -137,10 +137,24 @@ export interface Subscription {
   stripe_customer_id: string;
   stripe_subscription_id: string;
   status: SubscriptionStatus;
+  // Plan id from src/lib/plans.ts ("light" | "regular" | "heavy"); null on
+  // rows written before plans existed.
+  plan: string | null;
+  current_period_start: string | null;
   current_period_end: string | null;
   trial_end: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// One row per receipt ever created (public.receipt_usage). Not deleted with
+// the receipt, so the plan allowance can't be reset by deleting.
+export interface ReceiptUsage {
+  receipt_id: string;
+  user_id: string;
+  source: string;
+  created_at: string;
+  overage_billed_at: string | null;
 }
 
 export interface Profile {

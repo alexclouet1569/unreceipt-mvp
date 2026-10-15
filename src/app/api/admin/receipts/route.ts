@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AdminAuthError, requireAdmin } from "@/lib/require-admin";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { recordReceiptUsage } from "@/lib/usage";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
 export const runtime = "nodejs";
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
   const data = parsed.data;
   const supabase = getSupabaseAdmin();
 
-  const { error } = await supabase.from("receipts").insert({
+  const { data: inserted, error } = await supabase.from("receipts").insert({
     user_id: data.user_id,
     merchant_name: data.merchant,
     category: data.category,
@@ -76,15 +77,22 @@ export async function POST(request: NextRequest) {
     notes: data.notes ?? null,
     source: "manual",
     is_verified: true,
-  });
+  }).select("id").single();
 
-  if (error) {
+  if (error || !inserted) {
     console.error("[admin/receipts] insert failed", error);
     return NextResponse.json(
       { error: "Failed to save receipt" },
       { status: 500 }
     );
   }
+
+  // Concierge-entered receipts are the customer's receipts: they count.
+  await recordReceiptUsage({
+    userId: data.user_id,
+    receiptId: inserted.id,
+    source: "manual",
+  });
 
   return NextResponse.json({ ok: true });
 }

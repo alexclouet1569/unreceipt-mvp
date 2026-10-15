@@ -21,6 +21,9 @@ const mocks = vi.hoisted(() => ({
   fetchReceivedEmail: vi.fn(),
 }));
 
+const usageMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
+
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
 );
@@ -195,6 +198,9 @@ describe("POST /api/intake/email", () => {
     });
     expect(mocks.receiptsInsert).toHaveBeenCalledTimes(1);
     expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+    expect(usageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, source: "email" })
+    );
 
     const [path, , uploadOptions] = mocks.storageUpload.mock.calls[0];
     expect(path).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]{36}\\.eml$`));

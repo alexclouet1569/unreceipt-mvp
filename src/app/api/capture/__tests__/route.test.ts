@@ -17,6 +17,9 @@ vi.mock("@/lib/subscription-gate", async (importOriginal) => ({
   hasProductAccess: productAccessMock,
 }));
 
+const usageMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
+
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
 );
@@ -188,6 +191,9 @@ describe("POST /api/capture", () => {
     });
     expect(row.image_url).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]+\\.jpg$`));
     expect(row.image_captured_at).toEqual(expect.any(String));
+    expect(usageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, source: "paper" })
+    );
   });
 
   it("rejects a non-receipt file type without uploading it", async () => {

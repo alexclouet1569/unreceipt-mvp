@@ -27,6 +27,7 @@ import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { recordReceiptUsage } from "@/lib/usage";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
@@ -382,6 +383,8 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
   }
+
+  await recordReceiptUsage({ userId, receiptId: inserted.id, source: "email" });
 
   return NextResponse.json({ ok: true, id: inserted.id });
 }
