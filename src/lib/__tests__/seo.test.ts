@@ -52,8 +52,10 @@ describe("Swedish landing (/sv)", () => {
     );
   });
 
-  it("asks the same number of questions as the English FAQ", () => {
-    expect(getFaq(true, "sv")).toHaveLength(getFaq(true, "en").length);
+  it("answers the Swedish paper-receipt question with its conditions", () => {
+    const paper = getFaq(true, "sv").find((i) => i.q === "Behöver jag spara papperskvittot?")!;
+    expect(paper.a).toMatch(/^Nej/);
+    expect(paper.a).toContain("Skatteverket");
   });
 
   it("FAQPage JSON-LD mirrors the Swedish FAQ and offers SEK prices", () => {

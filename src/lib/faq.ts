@@ -62,7 +62,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "How long do companies have to keep receipts?",
-      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may only be thrown away if the digital copy carries no risk of the information being changed or lost. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't replace your archive yet, in either country: keep your paper originals, or check with your accountant before throwing any away.",
+      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals.",
     },
     {
       q: "Can I cancel at any time?",
@@ -99,7 +99,11 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Hur länge måste företag spara kvitton?",
-      a: "Enligt bokföringslagen ska kvitton och annan räkenskapsinformation sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades. De ska förvaras i Sverige, eller i ett annat EU-land på vissa villkor, bland annat att platsen anmäls till Skatteverket. Sedan den 1 juli 2024 får papperskvittot förstöras efter att det har förts över till digital form, men bara om överföringen inte innebär någon risk att uppgifterna ändras eller försvinner — och det ansvaret ligger på företaget. UnReceipt ersätter inte ditt arkiv ännu, så spara papperskvittona eller stäm av med din redovisningskonsult innan du slänger något.",
+      a: "Enligt bokföringslagen ska kvitton och annan räkenskapsinformation sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades. Skyldigheten ligger hos företaget, så ladda ner dina kvitton om du avslutar UnReceipt.",
+    },
+    {
+      q: "Behöver jag spara papperskvittot?",
+      a: "Nej, inte när kvittot är ordentligt digitaliserat. Sedan den 1 juli 2024 får du slänga papperskvittot när det har förts över till digital form, så länge överföringen inte innebär någon risk att uppgifterna ändras eller försvinner. Med UnReceipt behöver du bara: kontrollera att bilden är skarp och att hela kvittot syns innan du slänger det, anmäla skriftligen till Skatteverket att din räkenskapsinformation förvaras i Tyskland, där UnReceipt lagrar kvittona (en gång, och igen om platsen ändras), och ladda ner dina kvitton om du avslutar tjänsten.",
     },
     {
       q: "Kan jag avsluta när jag vill?",
@@ -107,7 +111,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Var lagras min data?",
-      a: "Kvitton och kontouppgifter lagras hos Supabase inom EU. Betalningar hanteras av Stripe — UnReceipt ser aldrig dina kortuppgifter. Läs mer på vår integritetssida.",
+      a: "Kvitton och kontouppgifter lagras hos Supabase inom EU, i Frankfurt i Tyskland. Betalningar hanteras av Stripe — UnReceipt ser aldrig dina kortuppgifter. Läs mer på vår integritetssida.",
     },
   ];
 }
