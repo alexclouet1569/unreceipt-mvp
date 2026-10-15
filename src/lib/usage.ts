@@ -192,24 +192,156 @@ export async function recordReceiptUsage(input: {
       return;
     }
 
-    await getStripe().billing.meterEvents.create(
-      {
-        event_name: eventName,
-        payload: { stripe_customer_id: sub.stripe_customer_id, value: "1" },
-        // Stripe dedupes on this, so a retried request can't double-charge.
-        identifier: `receipt_${input.receiptId}`,
-      },
+    await reportExtraReceipt({
+      eventName,
+      receiptId: input.receiptId,
+      customerId: sub.stripe_customer_id,
+      createdAt: createdAtRaw,
       // The receipt is already saved; don't hold the user's request for
-      // long on Stripe. A miss here is logged (see launch plan: sweep).
-      { timeout: 5000, maxNetworkRetries: 1 }
-    );
-
-    await db
-      .from("receipt_usage")
-      .update({ overage_billed_at: new Date().toISOString() })
-      .eq("receipt_id", input.receiptId);
+      // long on Stripe. A miss is retried by the daily sweep.
+      timeoutMs: 5000,
+    });
   } catch (err) {
     console.error("[usage] recording failed", err);
     Sentry.captureException(err, { tags: { area: "usage" } });
   }
+}
+
+/**
+ * Reports one extra receipt to the Stripe meter and marks it billed.
+ * `overage_attempted_at` is written first: Stripe only dedupes the
+ * identifier for "a rolling period of at least 24 hours", so the sweep must
+ * know when an earlier attempt may already have reached Stripe.
+ */
+async function reportExtraReceipt(input: {
+  eventName: string;
+  receiptId: string;
+  customerId: string;
+  createdAt: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const db = getSupabaseAdmin();
+  // First attempt only: Stripe's dedupe window runs from the first event
+  // it may have received, so later retries must not move the marker.
+  const { error: markError } = await db
+    .from("receipt_usage")
+    .update({ overage_attempted_at: new Date().toISOString() })
+    .eq("receipt_id", input.receiptId)
+    .is("overage_attempted_at", null);
+  // Without the marker a later retry can't tell whether this call reached
+  // Stripe, so don't make it.
+  if (markError) throw new Error(`usage attempt mark failed: ${markError.code ?? "unknown"}`);
+
+  await getStripe().billing.meterEvents.create(
+    {
+      event_name: input.eventName,
+      payload: { stripe_customer_id: input.customerId, value: "1" },
+      // Stripe dedupes on this within its window (see above).
+      identifier: `receipt_${input.receiptId}`,
+      // Counted in the period the receipt was saved in, also on a retry.
+      timestamp: Math.floor(Date.parse(input.createdAt) / 1000),
+    },
+    { timeout: input.timeoutMs, maxNetworkRetries: 1 }
+  );
+
+  await db
+    .from("receipt_usage")
+    .update({ overage_billed_at: new Date().toISOString() })
+    .eq("receipt_id", input.receiptId);
+}
+
+// A retry is only safe while Stripe still dedupes the first attempt (at
+// least 24 hours from it); keep a margin for clock skew and slow requests.
+export const SAFE_RETRY_WINDOW_MS = 20 * 60 * 60 * 1000;
+
+export type OverageSweepResult = {
+  subscriptions: number;
+  reported: number;
+  failed: number;
+  // Attempted more than SAFE_RETRY_WINDOW_MS ago and never confirmed: may or
+  // may not be on Stripe. Left for a person to check (Sentry alert).
+  ambiguous: number;
+};
+
+/**
+ * Daily retry of extra receipts whose Stripe report failed (launch plan P5,
+ * run by /api/cron/overage-sweep). For each active subscription with the
+ * metered price, finds this period's receipts above the allowance that were
+ * never confirmed billed and reports them. Current period only: once a
+ * period is invoiced, a late event no longer reaches that invoice.
+ */
+export async function sweepUnbilledOverage(now: Date = new Date()): Promise<OverageSweepResult> {
+  const result: OverageSweepResult = { subscriptions: 0, reported: 0, failed: 0, ambiguous: 0 };
+  const eventName = overageMeterEvent();
+  if (!eventName) return result;
+
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
+    .from("subscriptions")
+    .select(
+      "user_id, status, plan, overage_enabled, stripe_customer_id, current_period_start, current_period_end, created_at"
+    )
+    .eq("status", "active")
+    .eq("overage_enabled", true)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`subscriptions read failed: ${error.code ?? "unknown"}`);
+
+  // Same subscription the live path uses: the newest row per user.
+  const latest = new Map<string, BillingSubscription & { user_id: string }>();
+  for (const row of (data ?? []) as Array<BillingSubscription & { user_id: string }>) {
+    if (!latest.has(row.user_id)) latest.set(row.user_id, row);
+  }
+
+  for (const [userId, sub] of latest) {
+    const plan = asPlan(sub.plan);
+    if (!plan) continue;
+    result.subscriptions++;
+    const period = billingPeriod(sub, now);
+
+    const { data: rows, error: rowsError } = await db
+      .from("receipt_usage")
+      .select("receipt_id, created_at, overage_billed_at, overage_attempted_at")
+      .eq("user_id", userId)
+      .gte("created_at", period.start.toISOString())
+      .lte("created_at", now.toISOString())
+      .order("created_at", { ascending: true })
+      .order("receipt_id", { ascending: true })
+      .limit(plan.receipts + MAX_BILLED_EXTRAS_PER_PERIOD);
+    if (rowsError) {
+      result.failed++;
+      continue;
+    }
+
+    const extras = (rows ?? []).slice(plan.receipts);
+    for (const row of extras) {
+      if (row.overage_billed_at) continue;
+      const attempted = row.overage_attempted_at ? Date.parse(row.overage_attempted_at) : null;
+      if (attempted != null && now.getTime() - attempted > SAFE_RETRY_WINDOW_MS) {
+        result.ambiguous++;
+        continue;
+      }
+      try {
+        await reportExtraReceipt({
+          eventName,
+          receiptId: row.receipt_id,
+          customerId: sub.stripe_customer_id,
+          createdAt: row.created_at,
+          timeoutMs: 15000,
+        });
+        result.reported++;
+      } catch (err) {
+        result.failed++;
+        console.error("[usage] sweep report failed", err instanceof Error ? err.message : "unknown");
+      }
+    }
+  }
+
+  if (result.ambiguous > 0) {
+    Sentry.captureMessage("extra receipts need a manual billing check", {
+      level: "warning",
+      tags: { area: "usage-sweep" },
+      extra: { count: result.ambiguous },
+    });
+  }
+  return result;
 }

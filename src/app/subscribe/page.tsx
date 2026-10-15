@@ -94,6 +94,17 @@ export default async function SubscribePage({
           >
             Back to dashboard
           </Link>
+          {/* Without a subscription /app sends you back here; Settings
+              stays open so a cancelled customer can export their receipts
+              (the 90 days the privacy page promises) or delete the account. */}
+          <div>
+            <Link
+              href="/app/settings"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Download your receipts or delete your account
+            </Link>
+          </div>
         </div>
       </div>
     </div>

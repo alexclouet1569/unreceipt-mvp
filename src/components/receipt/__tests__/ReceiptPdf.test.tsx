@@ -36,6 +36,9 @@ const baseReceipt = (overrides: Partial<Receipt> = {}): Receipt => ({
   capture_time_seconds: null,
   ocr_confidence: null,
   is_verified: true,
+  edited_at: null,
+  edited_fields: null,
+  edit_history: null,
   status: "verified",
   original_source_url: null,
   original_source_kind: null,
@@ -113,5 +116,42 @@ describe("pdfFilenameFor", () => {
         })
       )
     ).toBe("unreceipt-receipt-undated.pdf");
+  });
+});
+
+describe("ReceiptPdf — edited receipts", () => {
+  it("says the receipt was edited, when, and what each field was before", () => {
+    const html = renderToString(
+      <ReceiptPdf
+        receipt={baseReceipt({
+          total: 59,
+          edited_at: "2026-10-15T09:30:00.000Z",
+          edited_fields: ["total"],
+          edit_history: [
+            {
+              at: "2026-10-15T09:30:00.000Z",
+              changes: { total: { from: 49, to: 59 } },
+            },
+          ],
+        })}
+      />
+    );
+    expect(html).toContain("Edited by you on Oct 15, 2026");
+    expect(html).toContain("Total — originally: €49.00");
+    // Manual receipt: no original file to speak of.
+    expect(html).not.toContain("original file is unchanged");
+    expect(html).toContain("Entered by hand, with the edits listed above.");
+  });
+
+  it("only mentions an original file when one is stored", () => {
+    const manual = renderToString(<ReceiptPdf receipt={baseReceipt()} />);
+    expect(manual).not.toContain("Edited by you");
+    expect(manual).toContain("There is no original file for this receipt.");
+
+    const photo = renderToString(
+      <ReceiptPdf receipt={baseReceipt({ source: "paper", image_url: "u/a.jpg" })} />
+    );
+    expect(photo).toContain("Data read from the original receipt. The original file is the evidence");
+    expect(photo).not.toContain("faithful");
   });
 });

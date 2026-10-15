@@ -22,6 +22,7 @@ import {
   formatDate,
   formatQty,
 } from "@/lib/receipt-format";
+import { editedOnLabel, originalValues } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 // Bundled font registration. Done once per process — Font.register guards
@@ -227,6 +228,25 @@ const styles = StyleSheet.create({
     color: COLOR.ink,
     marginBottom: 8,
   },
+  // "Edited by you" — set apart so a reader of the PDF can't miss that the
+  // data was corrected after capture.
+  editedBox: {
+    marginTop: 20,
+    padding: 10,
+    border: `0.5pt solid ${COLOR.hairline}`,
+    borderRadius: 4,
+  },
+  editedTitle: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLOR.ink,
+    marginBottom: 4,
+  },
+  editedLine: {
+    fontSize: 9,
+    color: COLOR.inkMuted,
+    lineHeight: 1.4,
+  },
   disclaimer: {
     marginTop: 32,
     fontSize: 8,
@@ -292,6 +312,11 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
   const taxLabel =
     receipt.tax_rate != null ? `VAT (${receipt.tax_rate}%)` : "VAT";
 
+  const editedOn = editedOnLabel(receipt);
+  // Only claim an original when one is stored: manual entries have none.
+  const hasOriginal = Boolean(receipt.image_url || receipt.original_source_url);
+  const wasValues = editedOn ? originalValues(receipt) : [];
+
   const sourceRef =
     receipt.intake_ref ||
     receipt.transaction_ref ||
@@ -325,6 +350,12 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
             ) : null}
             <BodyRow label="Date" value={dateLabel} />
             <BodyRow label="Category" value={categoryLabel} />
+            {editedOn ? (
+              <BodyRow
+                label="Edited"
+                value={`By you on ${editedOn} — see below`}
+              />
+            ) : null}
             {receipt.merchant_vat_number ? (
               <BodyRow
                 label="Merchant VAT"
@@ -420,14 +451,44 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
             </View>
           ) : null}
 
+          {editedOn ? (
+            <View style={styles.editedBox}>
+              <Text style={styles.editedTitle}>
+                {`Edited by you on ${editedOn}`}
+              </Text>
+              <Text style={styles.editedLine}>
+                {hasOriginal
+                  ? "These fields were changed by the account holder after the receipt was captured. The original file is unchanged."
+                  : "These fields were changed by the account holder after the receipt was entered."}
+              </Text>
+              {wasValues.map(({ label, was }) => (
+                <Text key={label} style={styles.editedLine}>
+                  {`${label} — originally: ${was}`}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
           <Text style={styles.disclaimer}>
-            Captured by UnReceipt · unreceipt.com — This is a faithful digital
-            copy of the original receipt; the original is retained on file.
+            {disclaimerText(hasOriginal, Boolean(editedOn))}
           </Text>
         </View>
       </Page>
     </Document>
   );
+}
+
+/**
+ * The closing line. Says only what is true for this receipt: whether there
+ * is an original file at all, and whether the data was edited. The data is
+ * read from the original (by OCR or a parser), so it isn't called a
+ * "faithful copy"; the original file is the evidence.
+ */
+export function disclaimerText(hasOriginal: boolean, edited: boolean): string {
+  const edits = edited ? ", with the edits listed above" : "";
+  return hasOriginal
+    ? `UnReceipt · unreceipt.com — Data read from the original receipt${edits}. The original file is the evidence: it is stored in UnReceipt while the account is active and included in exports.`
+    : `UnReceipt · unreceipt.com — Entered by hand${edits}. There is no original file for this receipt.`;
 }
 
 function BodyRow({ label, value }: { label: string; value: string }) {

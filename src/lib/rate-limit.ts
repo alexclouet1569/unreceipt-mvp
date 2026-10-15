@@ -36,6 +36,14 @@ export const RATE_LIMITS = {
   ],
   capture: [{ limit: 120, windowSeconds: 60 * 60 }],
   intakeEmail: [{ limit: 200, windowSeconds: 24 * 60 * 60 }],
+  // Account deletion is heavy (Stripe, storage listing) and one real
+  // person needs it once; a few retries after a failure is plenty.
+  accountDelete: [{ limit: 5, windowSeconds: 60 * 60 }],
+  // Each export renders a PDF per receipt and writes a ZIP to storage.
+  export: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

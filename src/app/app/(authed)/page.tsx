@@ -51,6 +51,18 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
   return (data ?? []) as Receipt[];
 }
 
+// First-run onboarding shows until finished or skipped. A failed read (or
+// the column not existing yet) counts as done: never trap someone in it.
+async function loadOnboarded(userId: string): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("profiles")
+    .select("onboarded_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return true;
+  return Boolean(data?.onboarded_at);
+}
+
 // Near/over the plan's receipt allowance? Best-effort: a failed lookup
 // just hides the notice.
 async function loadUsageNotice(userId: string): Promise<UsageNotice | null> {
@@ -91,7 +103,11 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   }
 
   const userEmail = user.email ?? "";
-  const receipts = await loadReceiptsForUser(user.id);
+  const [receipts, onboarded] = await Promise.all([
+    loadReceiptsForUser(user.id),
+    loadOnboarded(user.id),
+  ]);
+  const showOnboarding = !onboarded && receipts.length === 0;
 
   // Mint (or fetch) the user's forwarding alias. This is the live MX
   // address that routes to the /api/intake/email webhook — surfaced on
@@ -120,6 +136,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           receipts={receipts}
           forwardingEmail={forwardingEmail}
           intakeSmsNumber={intakeSmsNumber}
+          showOnboarding={showOnboarding}
         />
       </>
     );
@@ -135,6 +152,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
         receipts={receipts}
         forwardingEmail={forwardingEmail}
         intakeSmsNumber={intakeSmsNumber}
+        showOnboarding={showOnboarding}
       />
     </>
   );

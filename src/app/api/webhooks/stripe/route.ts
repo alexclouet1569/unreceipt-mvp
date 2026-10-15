@@ -25,6 +25,9 @@ type SubscriptionRow = {
   current_period_start: string | null;
   current_period_end: string | null;
   trial_end: string | null;
+  // When Stripe ended the subscription; the 90-day retention clock
+  // (/api/cron/retention) starts here.
+  ended_at: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -70,7 +73,13 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const row = await withResolvedUser(extractFromSubscription(sub));
-        if (row) await upsertSubscription({ ...row, status: "canceled" });
+        if (row) {
+          await upsertSubscription({
+            ...row,
+            status: "canceled",
+            ended_at: row.ended_at ?? new Date().toISOString(),
+          });
+        }
         break;
       }
       default:
@@ -128,6 +137,7 @@ function extractFromSubscription(sub: Stripe.Subscription): SubscriptionRow {
   const subAny = sub as unknown as {
     current_period_end?: number | null;
     trial_end?: number | null;
+    ended_at?: number | null;
     items?: { data?: Array<{ current_period_end?: number | null }> };
   };
   const periodEndUnix =
@@ -146,6 +156,9 @@ function extractFromSubscription(sub: Stripe.Subscription): SubscriptionRow {
     current_period_start: periodStartFromSubscription(sub),
     current_period_end: unixToIso(periodEndUnix),
     trial_end: unixToIso(trialEndUnix),
+    // Null again if a subscription is ever revived, which also restarts
+    // retention.
+    ended_at: unixToIso(subAny.ended_at ?? null),
   };
 }
 
@@ -191,6 +204,22 @@ async function upsertSubscription(row: SubscriptionRow) {
     .upsert(row, { onConflict: "stripe_subscription_id" });
 
   if (error) {
+    // 23503: the user no longer exists (account deleted; deleteAccount()
+    // cancels the subscription, and Stripe's event arrives afterwards).
+    // Nothing left to update — acknowledge instead of 500 + 3 days of retries.
+    if (error.code === "23503") {
+      // A subscription that can still charge must not outlive its account
+      // (e.g. created moments before the user deleted it): cancel it.
+      if (["trialing", "active", "past_due", "incomplete", "unpaid", "paused"].includes(row.status)) {
+        await getStripe().subscriptions.cancel(row.stripe_subscription_id);
+        Sentry.captureMessage("cancelled a live subscription of a deleted account", {
+          level: "warning",
+          tags: { area: "stripe-webhook" },
+        });
+      }
+      console.warn("[stripe webhook] subscription for a deleted user, ignoring");
+      return;
+    }
     throw new Error(`subscriptions upsert failed: ${error.message}`);
   }
 }

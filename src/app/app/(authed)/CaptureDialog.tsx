@@ -7,8 +7,16 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { prepareImageForUpload } from "@/lib/image-resize";
-import { MAX_UPLOAD_BYTES } from "@/lib/receipts/upload-limits";
+import {
+  HEIC_UNSUPPORTED_MESSAGE,
+  UNSUPPORTED_FILE_MESSAGE,
+  isHeicLike,
+  prepareImageForUpload,
+} from "@/lib/image-resize";
+import {
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadType,
+} from "@/lib/receipts/upload-limits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,10 +34,13 @@ import {
   type CurrencyCode,
 } from "@/lib/receipt-format";
 import type { OcrItem, OcrResult } from "@/lib/ocr";
+import { PAYMENT_METHOD_SUGGESTIONS } from "@/lib/receipts/receipt-fields";
 
 type CaptureDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Called after a receipt was saved (before the dialog closes).
+  onSaved?: () => void;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -40,6 +51,9 @@ type FormState = {
   currency: CurrencyCode;
   date: string;
   category: CategoryKey;
+  taxAmount: string;
+  taxRate: string;
+  paymentMethod: string;
   notes: string;
 };
 
@@ -49,10 +63,16 @@ const blankForm = (): FormState => ({
   currency: "EUR",
   date: today(),
   category: "other",
+  taxAmount: "",
+  taxRate: "",
+  paymentMethod: "",
   notes: "",
 });
 
-export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
+const isFiniteNumber = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v);
+
+export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProps) {
   const router = useRouter();
   // Two hidden inputs so the picker UI is explicit: "Upload" opens the
   // file/gallery picker (no camera bias) and "Take photo" opens the camera
@@ -132,8 +152,28 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
         if (!prev.merchant && typeof data.merchant === "string") {
           next.merchant = data.merchant;
         }
-        if (!prev.amount && typeof data.amount === "number" && Number.isFinite(data.amount)) {
+        if (!prev.amount && isFiniteNumber(data.amount)) {
           next.amount = String(data.amount);
+        }
+        // VAT and payment method: same rule as merchant/amount — OCR only
+        // fills what the user hasn't typed.
+        if (!prev.taxAmount && isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) {
+          next.taxAmount = String(data.tax_amount);
+        }
+        if (
+          !prev.taxRate &&
+          isFiniteNumber(data.tax_rate) &&
+          data.tax_rate >= 0 &&
+          data.tax_rate <= 100
+        ) {
+          next.taxRate = String(data.tax_rate);
+        }
+        if (
+          !prev.paymentMethod &&
+          typeof data.payment_method === "string" &&
+          data.payment_method.trim()
+        ) {
+          next.paymentMethod = data.payment_method.trim().slice(0, 50);
         }
         if (
           typeof data.currency === "string" &&
@@ -181,6 +221,14 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
     // Shrink phone photos before anything leaves the device (faster on
     // mobile data, cheaper OCR, under the upload cap). PDFs pass through.
     const f = await prepareImageForUpload(picked);
+    // Refuse here, with a reason, anything the server would reject anyway
+    // (typically an iPhone HEIC photo that this browser can't convert).
+    if (!isAllowedUploadType(f.type)) {
+      setImageFile(null);
+      setOcrError(isHeicLike(f) ? HEIC_UNSUPPORTED_MESSAGE : UNSUPPORTED_FILE_MESSAGE);
+      e.target.value = "";
+      return;
+    }
     if (f.size > MAX_UPLOAD_BYTES) {
       setImageFile(null);
       setOcrError(
@@ -223,6 +271,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       fd.append("currency", form.currency);
       fd.append("receipt_date", form.date);
       fd.append("category", form.category);
+      if (form.taxAmount.trim()) fd.append("tax_amount", form.taxAmount.trim());
+      if (form.taxRate.trim()) fd.append("tax_rate", form.taxRate.trim());
+      if (form.paymentMethod.trim()) {
+        fd.append("payment_method", form.paymentMethod.trim());
+      }
       if (form.notes.trim()) fd.append("notes", form.notes.trim());
       if (imageFile) fd.append("image", imageFile);
       if (items && items.length > 0) {
@@ -235,10 +288,21 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Save failed (HTTP ${res.status})`);
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          issues?: Array<{ message?: string }>;
+        };
+        // Validation failures carry a readable reason per field ("VAT
+        // can't be more than the total"); show it rather than the generic
+        // "validation failed".
+        throw new Error(
+          body.issues?.[0]?.message ??
+            body.error ??
+            `Save failed (HTTP ${res.status})`,
+        );
       }
 
+      onSaved?.();
       onOpenChange(false);
       router.refresh();
     } catch (err) {
@@ -358,7 +422,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             {!ocrLoading && ocrError ? (
               <p
                 role="alert"
-                className="mt-3 text-[13px] text-destructive bg-destructive/10 rounded-md px-3 py-2"
+                className="mt-3 text-[13px] bg-[var(--attention-tint)] text-[var(--attention-deep)] rounded-md px-3 py-2"
               >
                 {ocrError}
               </p>
@@ -382,6 +446,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
           >
             <Input
               id="cd-merchant"
+              className="h-11"
               value={form.merchant}
               onChange={(e) => update("merchant", e.target.value)}
               placeholder="ICA Maxi"
@@ -406,7 +471,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
                 onChange={(e) => update("amount", e.target.value)}
                 placeholder="49.00"
                 required
-                className="font-mono tabular-nums"
+                className="h-11 font-mono tabular-nums"
               />
             </Field>
             <Field
@@ -415,7 +480,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             >
               <select
                 id="cd-currency"
-                className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                className="h-11 w-full rounded-md border bg-transparent px-3 text-base md:text-sm"
                 value={form.currency}
                 onChange={(e) =>
                   update("currency", e.target.value as CurrencyCode)
@@ -438,6 +503,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             >
               <Input
                 id="cd-date"
+                className="h-11"
                 type="date"
                 value={form.date}
                 onChange={(e) => update("date", e.target.value)}
@@ -450,7 +516,7 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             >
               <select
                 id="cd-category"
-                className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                className="h-11 w-full rounded-md border bg-transparent px-3 text-base md:text-sm"
                 value={form.category}
                 onChange={(e) =>
                   update("category", e.target.value as CategoryKey)
@@ -465,13 +531,60 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
             </Field>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="VAT amount" htmlFor="cd-tax-amount">
+              <Input
+                id="cd-tax-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={form.taxAmount}
+                onChange={(e) => update("taxAmount", e.target.value)}
+                placeholder="9.80"
+                className="h-11 font-mono tabular-nums"
+              />
+            </Field>
+            <Field label="VAT rate %" htmlFor="cd-tax-rate">
+              <Input
+                id="cd-tax-rate"
+                className="h-11"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                inputMode="decimal"
+                value={form.taxRate}
+                onChange={(e) => update("taxRate", e.target.value)}
+                placeholder="25"
+              />
+            </Field>
+          </div>
+
+          <Field label="Payment method" htmlFor="cd-payment-method">
+            <Input
+              id="cd-payment-method"
+              className="h-11"
+              list="cd-payment-method-options"
+              value={form.paymentMethod}
+              onChange={(e) => update("paymentMethod", e.target.value)}
+              placeholder="Card"
+              maxLength={50}
+            />
+            <datalist id="cd-payment-method-options">
+              {PAYMENT_METHOD_SUGGESTIONS.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </Field>
+
           </div>
           )}
 
           <Field label="Notes" htmlFor="cd-notes">
             <textarea
               id="cd-notes"
-              className="w-full min-h-[60px] rounded-md border bg-transparent px-3 py-2 text-sm"
+              className="w-full min-h-[60px] rounded-md border bg-transparent px-3 py-2 text-base md:text-sm"
               value={form.notes}
               onChange={(e) => update("notes", e.target.value)}
               placeholder="Anything useful…"
@@ -527,9 +640,11 @@ function Field({
 
 
 function OcrSkeletons() {
-  // Five varied-width skeleton bars per DESIGN.md — collective reveal happens
+  // Varied-width skeleton bars per DESIGN.md — collective reveal happens
   // when ocrLoading flips false and the real fields mount in their place.
-  const widths = ["65%", "35%", "50%", "40%", "30%"];
+  // One bar per field the reveal mounts (merchant, amount + currency,
+  // date + category, VAT amount + rate, payment method).
+  const widths = ["65%", "35%", "50%", "40%", "30%", "45%", "25%", "55%"];
   return (
     <div className="space-y-3" aria-hidden="true">
       {widths.map((w, i) => (

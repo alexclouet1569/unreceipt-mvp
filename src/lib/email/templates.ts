@@ -245,6 +245,63 @@ export function pilotWelcomeEmail(opts: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Retention reminder — ~14 days before a cancelled account is deleted
+// (src/lib/retention.ts; privacy page "How long we keep it")
+// ---------------------------------------------------------------------------
+
+export function retentionReminderEmail(opts: {
+  endedOn: string;
+  deleteOn: string;
+  settingsUrl: string;
+  subscribeUrl: string;
+  canReply: boolean;
+}): EmailContent {
+  const sign = signOff(opts.canReply);
+  const intro = `Your UnReceipt subscription ended on ${opts.endedOn}. As promised in our privacy policy, we've kept your account and receipts for 90 days after cancellation so you can download them.`;
+  const warning = `On ${opts.deleteOn} we will permanently delete your account, every receipt and every original file. This can't be undone.`;
+  const duty =
+    "Swedish bookkeeping law requires your company to keep its receipts until the end of the seventh year after the financial year they belong to. Download them before that date: in Settings, choose Export for your accountant → All receipts (or one year at a time if you have more than 1,000). You get a ZIP with the original photos and emails, a PDF of every completed receipt, and a spreadsheet.";
+  const stay = "Want to keep using UnReceipt instead? Choose a plan before that date and nothing is deleted.";
+
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">Your receipts will be deleted on ${esc(opts.deleteOn)}</h1>`,
+    paragraph(esc(intro)),
+    paragraph(`<strong style="color:${C.ink};">${esc(warning)}</strong>`),
+    paragraph(esc(duty)),
+    button("Download your receipts", opts.settingsUrl),
+    paragraph(
+      `${esc(stay)} <a href="${esc(opts.subscribeUrl)}" style="color:${C.ink};">Choose a plan</a>`,
+    ),
+    sign.html,
+  ].join("\n");
+
+  return {
+    subject: `Your UnReceipt receipts will be deleted on ${opts.deleteOn}`,
+    html: layout({
+      preheader: `Download your receipts before ${opts.deleteOn}.`,
+      bodyHtml,
+      footerHtml:
+        "You're receiving this because your UnReceipt subscription ended. It's the only reminder we send before deletion.",
+    }),
+    text: [
+      `Your receipts will be deleted on ${opts.deleteOn}`,
+      "",
+      intro,
+      "",
+      warning,
+      "",
+      duty,
+      "",
+      `Download your receipts: ${opts.settingsUrl}`,
+      "",
+      `${stay} ${opts.subscribeUrl}`,
+      "",
+      sign.text,
+    ].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {

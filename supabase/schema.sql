@@ -928,3 +928,96 @@ CREATE POLICY "Users can insert own transactions"
 DROP POLICY IF EXISTS "Users can update own transactions" ON public.transactions;
 CREATE POLICY "Users can update own transactions"
   ON public.transactions FOR UPDATE USING ((select auth.uid()) = user_id);
+
+-- =============================================================================
+-- 2026-10-15 — edits to receipts are recorded (launch plan actions 41–42)
+--
+-- Customers can now correct any receipt, verified ones included. The original
+-- file is never touched; what changes is the extracted data. Every change to
+-- a factual field (merchant, total, currency, date, VAT, payment method,
+-- line items) is recorded so the detail view and the PDF can say
+-- "Edited by you on <date>" and show what the value was before:
+--   edited_at      — when the last such change was saved
+--   edited_fields  — every field the customer has changed so far; re-running
+--                    extraction never overwrites these
+--   edit_history   — [{ at, changes: { field: { from, to } } }], newest last
+-- Written only by PATCH /api/receipts/[id] with the service role (users have
+-- no INSERT/UPDATE grant on receipts since 2026-10-14). Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS edited_fields TEXT[],
+  ADD COLUMN IF NOT EXISTS edit_history JSONB;
+
+-- =============================================================================
+-- 2026-10-15 — private bucket for accountant exports (launch plan action 45)
+--
+-- POST /api/export writes a ZIP (receipts.csv, PDFs, original files) to
+-- `exports/<user_id>/…` with the service role and hands the browser a
+-- 15-minute signed URL; Vercel can't return the ZIP directly (4.5 MB response
+-- cap). Private, no storage policies: users never read or write it directly.
+-- 50 MB per file is the Supabase Free plan's global maximum; exports are split
+-- into parts of at most 40 MB. The daily cron deletes exports after 24 hours,
+-- and account deletion removes the user's folder. Idempotent.
+-- =============================================================================
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('exports', 'exports', false, 52428800, ARRAY['application/zip'])
+ON CONFLICT (id) DO UPDATE
+  SET public = false,
+      file_size_limit = EXCLUDED.file_size_limit,
+      allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- =============================================================================
+-- 2026-10-15 — retention job + extra-receipt retry sweep (launch plan 58, P5)
+--
+-- Retention (privacy page, "How long we keep it"): after a cancellation the
+-- account stays 90 days, we email a reminder ~14 days before, then delete.
+--   subscriptions.ended_at  — when Stripe ended the subscription (from the
+--                             webhook); the 90 days count from here.
+--   account_retention       — one row per user once the reminder email went
+--                             out, tied to the ended_at it was about, so a
+--                             customer who resubscribes and cancels again
+--                             gets a fresh reminder. Deletion requires this
+--                             row (never delete without the warning).
+-- Server-only: RLS on, no policies, grants revoked. Users never read it.
+--
+-- Overage sweep: Stripe dedupes meter events on `identifier` for only "a
+-- rolling period of at least 24 hours" (API reference, checked 2026-10-15),
+-- so a daily retry of an event that actually reached Stripe a day earlier
+-- could charge twice.
+--   receipt_usage.overage_attempted_at — set right before each Stripe call;
+--   the sweep retries automatically only inside the dedupe window and
+--   reports older ambiguous rows to Sentry for a person to check.
+-- Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.subscriptions
+  ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+
+ALTER TABLE public.receipt_usage
+  ADD COLUMN IF NOT EXISTS overage_attempted_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS public.account_retention (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  ended_at TIMESTAMPTZ NOT NULL,
+  reminder_sent_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.account_retention ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.account_retention FROM anon, authenticated;
+
+-- =============================================================================
+-- 2026-10-15 — first-run onboarding (launch plan action 47)
+--
+-- profiles.onboarded_at: set once the customer finishes or skips the three
+-- first-run screens on /app (forwarding address → first receipt → done), so
+-- they show once per account rather than once per device. Written only by
+-- POST /api/profile/onboarded with the service role; the existing column
+-- grant (full_name, company_name) is unchanged. Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ;

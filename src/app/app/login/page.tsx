@@ -67,6 +67,12 @@ function LoginPageInner() {
   const topError = searchParams.get("error")
     ? "That sign-in link didn't work. Magic links expire after one click and after one hour — request a new one below."
     : "";
+  const notice =
+    searchParams.get("account") === "deleted"
+      ? "Your account and receipts have been deleted."
+      : searchParams.get("reauth") === "1"
+        ? "Sign in again to continue — then open Settings to finish."
+        : "";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
@@ -81,6 +87,15 @@ function LoginPageInner() {
             Sign in to manage your receipts
           </p>
         </div>
+
+        {notice && !topError ? (
+          <p
+            role="status"
+            className="text-sm text-[var(--ink)] bg-card border border-[var(--hairline)] rounded-md px-3 py-2 mb-4"
+          >
+            {notice}
+          </p>
+        ) : null}
 
         {topError && (
           <p

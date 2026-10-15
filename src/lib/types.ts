@@ -104,8 +104,29 @@ export interface Receipt {
   // or a Stripe line-itemed invoice they go here.
   items: ReceiptItem[] | null;
 
+  // Customer corrections (launch plan 41–42). Set by PATCH only, when a
+  // factual field changes. See src/lib/receipts/edits.ts.
+  edited_at: string | null;
+  edited_fields: string[] | null;
+  edit_history: EditHistoryEntry[] | null;
+
   created_at: string;
   updated_at: string;
+}
+
+export interface EditChange {
+  from: unknown;
+  to: unknown;
+}
+
+export interface EditHistoryEntry {
+  // ISO timestamp of the save.
+  at: string;
+  // auth user id of whoever saved it (absent on entries written before
+  // 2026-10-15's review fix).
+  by?: string;
+  // Column name → value before and after, for each tracked field changed.
+  changes: Record<string, EditChange>;
 }
 
 export interface ReceiptItem {
@@ -168,6 +189,8 @@ export interface Profile {
   email_alias_hash: string | null;
   // Set once the pilot welcome email has gone out, so it's sent only once.
   welcome_email_sent_at: string | null;
+  // Set when the first-run onboarding on /app is finished or skipped.
+  onboarded_at: string | null;
   created_at: string;
   updated_at: string;
 }

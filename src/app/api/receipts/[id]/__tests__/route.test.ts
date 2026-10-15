@@ -194,26 +194,150 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload.status).toBe("pending_review");
   });
 
-  it("refuses to rewrite an already-verified receipt (409)", async () => {
+  const verifiedRow = () => ({
+    id: RECEIPT_ID,
+    user_id: USER_ID,
+    status: "verified",
+    source: "email",
+    merchant_name: "Uber",
+    purchased_at: "2026-05-10T08:14:00.000Z",
+    receipt_date: "2026-05-10",
+    total: 24.9,
+    currency: "EUR",
+    category: "transport",
+    parse_confidence: 0.95,
+    edited_at: null,
+    edited_fields: null,
+    edit_history: null,
+  });
+
+  it("edits a verified receipt and records what changed and when", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: verifiedRow(), error: null });
+
+    const res = await PATCH(req({ amount: 29.9 }), params());
+
+    expect(res.status).toBe(200);
+    const [payload, , , scopeCol, scopeVal] = mocks.updateEq.mock.calls[0];
+    expect([scopeCol, scopeVal]).toEqual(["user_id", USER_ID]);
+    expect(payload.total).toBe(29.9);
+    expect(payload.status).toBe("verified");
+    expect(payload.edited_at).toEqual(expect.any(String));
+    expect(payload.edited_fields).toEqual(["total"]);
+    expect(payload.edit_history).toEqual([
+      {
+        at: payload.edited_at,
+        by: USER_ID,
+        changes: { total: { from: 24.9, to: 29.9 } },
+      },
+    ]);
+  });
+
+  it("keeps earlier edits in the history and the field list", async () => {
     mocks.maybeSingle.mockResolvedValueOnce({
       data: {
-        id: RECEIPT_ID,
-        user_id: USER_ID,
-        status: "verified",
-        merchant_name: "Uber",
-        purchased_at: "2026-05-10T08:14:00.000Z",
-        receipt_date: "2026-05-10",
-        total: 24.9,
-        currency: "EUR",
-        category: "transport",
-        parse_confidence: 0.95,
+        ...verifiedRow(),
+        total: 29.9,
+        edited_at: "2026-05-11T09:00:00.000Z",
+        edited_fields: ["total"],
+        edit_history: [
+          {
+            at: "2026-05-11T09:00:00.000Z",
+            changes: { total: { from: 24.9, to: 29.9 } },
+          },
+        ],
       },
       error: null,
     });
 
-    const res = await PATCH(req({ amount: 2490 }), params());
+    const res = await PATCH(req({ merchant: "Uber BV" }), params());
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.edited_fields).toEqual(["total", "merchant_name"]);
+    expect(payload.edit_history).toHaveLength(2);
+    expect(payload.edit_history[1].changes).toEqual({
+      merchant_name: { from: "Uber", to: "Uber BV" },
+    });
+  });
+
+  it("doesn't mark the receipt as edited when nothing factual changes", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: verifiedRow(), error: null });
+
+    // Same amount, a new category and a note: annotations, not facts.
+    const res = await PATCH(
+      req({ amount: 24.9, category: "travel", notes: "Airport" }),
+      params(),
+    );
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.category).toBe("travel");
+    expect(payload.notes).toBe("Airport");
+    expect(payload).not.toHaveProperty("edited_at");
+    expect(payload).not.toHaveProperty("edit_history");
+  });
+
+  it("edits VAT, payment method and line items, recording each change", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: null, tax_rate: null, payment_method: null, items: null },
+      error: null,
+    });
+    const items = [{ label: "Ride", qty: null, unit_amount: null, total_amount: 24.9 }];
+
+    const res = await PATCH(
+      req({ tax_amount: 2.67, tax_rate: 12, payment_method: "Card", items }),
+      params(),
+    );
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload).toMatchObject({
+      tax_amount: 2.67,
+      tax_rate: 12,
+      payment_method: "Card",
+      items,
+    });
+    expect(payload.edited_fields).toEqual([
+      "tax_amount",
+      "tax_rate",
+      "payment_method",
+      "items",
+    ]);
+  });
+
+  it("clears VAT with null and stores an empty item list as null", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: 5, items: [{ label: "x", total_amount: 1 }] },
+      error: null,
+    });
+
+    const res = await PATCH(req({ tax_amount: null, items: [] }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.tax_amount).toBeNull();
+    expect(payload.items).toBeNull();
+  });
+
+  it("rejects VAT above the resulting total", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: 4 },
+      error: null,
+    });
+
+    // Lowering the total below the stored VAT is refused too.
+    const res = await PATCH(req({ amount: 3 }), params());
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).issues[0].path).toBe("tax_amount");
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
+  it("rejects a VAT rate above 100 and an item without a label", async () => {
+    expect((await PATCH(req({ tax_rate: 101 }), params())).status).toBe(400);
+    expect(
+      (await PATCH(req({ items: [{ label: "", total_amount: 1 }] }), params())).status,
+    ).toBe(400);
     expect(mocks.updateEq).not.toHaveBeenCalled();
   });
 

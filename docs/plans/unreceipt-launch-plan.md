@@ -81,7 +81,7 @@
 - [ ] P2 🤖 S — After 3 months of pilots, read receipts per claimant per month from `receipt_usage` and re-size the allowances.
 - [ ] P3 🤖 M — Stripe customer portal so customers can switch plans themselves. Until then, the hint says "write to us".
 - [ ] P4 🤖 S — Annual prepay at 2 months free. Improves cash flow and reduces churn.
-- [ ] P5 ★ 🤖 S — Daily sweep that re-reports extra receipts whose Stripe meter call failed (`overage_billed_at IS NULL` and above the allowance). Safe to repeat: Stripe dedupes on the receipt id. Needed before payments go live.
+- [x] P5 ★ 🤖 S — Daily sweep that re-reports extra receipts whose Stripe meter call failed (`overage_billed_at IS NULL` and above the allowance). Safe to repeat: Stripe dedupes on the receipt id. Needed before payments go live.
 
 ### 1b. Payment-moment automation (D5): how close to automatic it can get
 
@@ -190,14 +190,14 @@
 - [x] 37 ★ S — Apply D7, so the background matches the design source of truth.
 - [x] 38 ★ M — `/app/settings` shell: profile, company name, sign out.
 - [x] 39 ★ S — Show the forwarding address with a Copy button in settings. Today it only appears when the inbox is empty.
-- [ ] 40 ★ S — Pass VAT amount, VAT rate and payment method from OCR through `CaptureDialog` and `CaptureSchema`. Today they're dropped.
-- [ ] 41 ★ M — Allow editing **verified** receipts, not only ones that need review. Store an `edited_at` / "edited by you" marker and show it on the PDF; the API refuses these edits (409) until this ships.
-- [ ] 42 ★ M — Make VAT and line items editable (extend the PATCH route).
-- [ ] 43 ★ S — Check that iPhone HEIC photos work end to end; convert them if needed.
-- [ ] 44 ★ M — **Account deletion in the app.** This is an App Store requirement. It deletes storage, rows and the auth user, after a warning to export first because of the 7-year bookkeeping duty.
-- [ ] 45 ★ M — Monthly export: a ZIP of PDFs and originals, plus a CSV, for the accountant.
+- [x] 40 ★ S — Pass VAT amount, VAT rate and payment method from OCR through `CaptureDialog` and `CaptureSchema`. Today they're dropped.
+- [x] 41 ★ M — Allow editing **verified** receipts, not only ones that need review. Store an `edited_at` / "edited by you" marker and show it on the PDF; the API refuses these edits (409) until this ships.
+- [x] 42 ★ M — Make VAT and line items editable (extend the PATCH route).
+- [x] 43 ★ S — Check that iPhone HEIC photos work end to end; convert them if needed.
+- [x] 44 ★ M — **Account deletion in the app.** This is an App Store requirement. It deletes storage, rows and the auth user, after a warning to export first because of the 7-year bookkeeping duty.
+- [x] 45 ★ M — Monthly export: a ZIP of PDFs and originals, plus a CSV, for the accountant.
 - [ ] 46 ★ S — Terms of service page, linked from signup and settings. **On hold: waiting for the lawyer's text (2026-10-15). Don't draft it.**
-- [ ] 47 ★ M — First-run onboarding in 3 screens: your forwarding address → snap your first receipt → done.
+- [x] 47 ★ M — First-run onboarding in 3 screens: your forwarding address → snap your first receipt → done.
 - [ ] 48 ★ S — Admin list includes pilot users who have no subscription row.
 - [ ] 49 ★ M — Swedish UI: set up i18n (sv default, en fallback).
 - [ ] 50 ★ M — Swedish UI: translate every customer-facing string and email.
@@ -208,7 +208,7 @@
 - [ ] 55 M — OCR shimmer skeleton and 480 ms reveal, per DESIGN.md.
 - [ ] 56 M — Detail view as a full-screen bottom sheet on mobile, per DESIGN.md.
 - [ ] 57 S — GDPR data export (JSON plus files).
-- [ ] 58 ★ M — Retention job matching the privacy page: 90 days after cancellation, email a download reminder, then delete account, rows and storage. The seven-year BFL duty is the customer's.
+- [x] 58 ★ M — Retention job matching the privacy page: 90 days after cancellation, email a download reminder, then delete account, rows and storage. The seven-year BFL duty is the customer's.
 
 ## Phase 3 — Swedish compliance engine (the moat) (🤖, rules reviewed by the accountant)
 

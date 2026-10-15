@@ -36,6 +36,9 @@ const baseRow = (overrides: Partial<Receipt> = {}): Receipt => ({
   capture_time_seconds: null,
   ocr_confidence: null,
   is_verified: false,
+  edited_at: null,
+  edited_fields: null,
+  edit_history: null,
   original_source_url: null,
   original_source_kind: null,
   intake_ref: null,
@@ -174,5 +177,49 @@ describe("mergeExtraction", () => {
 
     expect(patch.currency).toBeUndefined();
     expect(patch.category).toBeUndefined();
+  });
+
+  it("never overwrites fields the customer corrected, even on a higher-confidence run", () => {
+    const row = baseRow({
+      merchant_name: "ICA Nära",
+      total: 120,
+      receipt_date: "2026-05-14",
+      purchased_at: "2026-05-14T12:00:00.000Z",
+      items: [{ label: "Kaffe", qty: 1, unit_amount: null, total_amount: 120 }],
+      parse_confidence: 0.5,
+      edited_fields: ["total", "receipt_date", "items"],
+    });
+    const { patch } = mergeExtraction(row, {
+      merchant: "ICA Maxi",
+      amount: 999,
+      receipt_date: "2026-01-01",
+      items: [{ label: "Other", total_amount: 999 }],
+      confidence: 0.99,
+    });
+
+    expect(patch.merchant_name).toBe("ICA Maxi");
+    expect(patch).not.toHaveProperty("total");
+    expect(patch).not.toHaveProperty("receipt_date");
+    expect(patch).not.toHaveProperty("purchased_at");
+    expect(patch).not.toHaveProperty("items");
+  });
+
+  it("on a verified receipt, only fills empty fields", () => {
+    const row = baseRow({
+      status: "verified",
+      merchant_name: "ICA Nära",
+      total: 120,
+      tax_amount: null,
+      parse_confidence: 0.5,
+    });
+    const { patch } = mergeExtraction(row, {
+      merchant: "ICA Maxi",
+      amount: 999,
+      tax_amount: 24,
+      confidence: 0.99,
+    });
+    expect(patch).not.toHaveProperty("merchant_name");
+    expect(patch).not.toHaveProperty("total");
+    expect(patch.tax_amount).toBe(24);
   });
 });
