@@ -121,6 +121,10 @@ describe("POST /api/checkout", () => {
       // Dashboard; harmless no-op for jurisdictions where we're not
       // registered yet.
       automatic_tax: { enabled: true },
+      // VAT: businesses enter their VAT number (EU reverse charge) and a
+      // full billing address so Stripe Tax picks the right rate.
+      billing_address_collection: "required",
+      tax_id_collection: { enabled: true },
       allow_promotion_codes: true,
     });
     // A4 — success_url MUST contain the literal Stripe placeholder so /app
@@ -129,6 +133,21 @@ describe("POST /api/checkout", () => {
       "http://localhost:3000/app?session_id={CHECKOUT_SESSION_ID}"
     );
     expect(args.cancel_url).toBe("http://localhost:3000/subscribe?canceled=1");
+  });
+
+  it("adds the metered extra-receipt price when overage billing is configured", async () => {
+    process.env.STRIPE_PRICE_OVERAGE = "price_overage";
+    mocks.getServerUser.mockResolvedValue(adminUser);
+    mocks.createSession.mockResolvedValue({ url: "https://checkout.stripe.com/x" });
+
+    await POST(buildRequest());
+
+    // Metered prices take no quantity.
+    expect(mocks.createSession.mock.calls[0][0].line_items).toEqual([
+      { price: "price_regular", quantity: 1 },
+      { price: "price_overage" },
+    ]);
+    delete process.env.STRIPE_PRICE_OVERAGE;
   });
 
   it("returns 502 when Stripe returns a session without a URL", async () => {
