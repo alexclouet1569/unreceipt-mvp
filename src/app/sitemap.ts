@@ -1,21 +1,21 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/seo";
 
-// Public pages on the marketing host only; product routes on
-// app.unreceipt.com are behind login and stay out of the sitemap.
+// Public marketing pages only; the product (app.unreceipt.com) stays out.
 //
 // lastModified is a fixed date, not `new Date()`: a date that changes on
 // every request tells Google nothing, so it learns to ignore it. Bump the
-// date when the page's content actually changes.
+// date when the page's visible content actually changes.
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: "https://unreceipt.com",
-      lastModified: "2026-10-14",
+      url: SITE_URL,
+      lastModified: "2026-10-15",
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: "https://unreceipt.com/privacy",
+      url: `${SITE_URL}/privacy`,
       lastModified: "2026-10-14",
       changeFrequency: "yearly",
       priority: 0.3,

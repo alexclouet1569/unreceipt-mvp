@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Privacy & data — UnReceipt",
   description:
     "How UnReceipt collects, processes, and stores your data — and your rights under GDPR.",
+  alternates: { canonical: "/privacy" },
 };
 
 const LAST_UPDATED = "2026-10-14";

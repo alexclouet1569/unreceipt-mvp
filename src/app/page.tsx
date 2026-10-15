@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
+import { landingJsonLd } from "@/lib/seo";
 import { LandingPage } from "./_landing";
 
 // PILOT_MODE is read server-side here and passed down so the client
@@ -6,6 +8,21 @@ import { LandingPage } from "./_landing";
 // flips with one redeploy without invalidating a static cache.
 export const dynamic = "force-dynamic";
 
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
+
 export default function Page() {
-  return <LandingPage pilotMode={isPilotMode()} />;
+  const pilotMode = isPilotMode();
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        // Structured data for search engines and AI assistants; built from
+        // the same plans and FAQ the page renders.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd(pilotMode)) }}
+      />
+      <LandingPage pilotMode={pilotMode} />
+    </>
+  );
 }
