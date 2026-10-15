@@ -14,6 +14,12 @@ const mocks = vi.hoisted(() => ({
   storageRemove: vi.fn(),
 }));
 
+const usageMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/lib/usage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/usage")>()),
+  recordReceiptUsage: usageMock,
+}));
+
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({
@@ -131,6 +137,12 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload.merchant_name).toBe("ICA Maxi");
     expect(payload.total).toBe(49);
     expect(payload.purchased_at).toBe("2026-05-12T12:00:00.000Z");
+    // Confirming is when a waiting receipt counts toward the plan.
+    expect(usageMock).toHaveBeenCalledWith({
+      userId: USER_ID,
+      receiptId: RECEIPT_ID,
+      source: "manual",
+    });
   });
 
   it("verifies a low-confidence row once the user saves it with every required field", async () => {

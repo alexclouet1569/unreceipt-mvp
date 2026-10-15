@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+const usageMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
+
 vi.mock("@/lib/require-admin", () => ({
   requireAdmin: mocks.requireAdmin,
   AdminAuthError: mocks.AdminAuthError,
@@ -28,7 +31,9 @@ vi.mock("@/lib/require-admin", () => ({
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({
-      insert: mocks.insert,
+      insert: (row: unknown) => ({
+        select: () => ({ single: () => mocks.insert(row) }),
+      }),
     }),
   }),
 }));
@@ -62,7 +67,8 @@ const buildRequest = (body: unknown) =>
 describe("POST /api/admin/receipts", () => {
   beforeEach(() => {
     mocks.requireAdmin.mockReset();
-    mocks.insert.mockReset().mockResolvedValue({ error: null });
+    mocks.insert.mockReset().mockResolvedValue({ data: { id: "receipt-1" }, error: null });
+    usageMock.mockClear();
   });
 
   it("returns 403 when the caller is not an admin (no DB write)", async () => {
@@ -103,6 +109,12 @@ describe("POST /api/admin/receipts", () => {
     expect(res.status).toBe(200);
     expect(mocks.insert).toHaveBeenCalledTimes(1);
     const row = mocks.insert.mock.calls[0][0];
+    // The customer's receipt counts toward their plan allowance.
+    expect(usageMock).toHaveBeenCalledWith({
+      userId: TARGET_USER_ID,
+      receiptId: "receipt-1",
+      source: "manual",
+    });
     expect(row).toMatchObject({
       user_id: TARGET_USER_ID,
       merchant_name: "Stripe",
@@ -192,7 +204,7 @@ describe("POST /api/admin/receipts", () => {
 
   it("returns 500 when the supabase insert errors", async () => {
     mocks.requireAdmin.mockResolvedValue(ADMIN_USER);
-    mocks.insert.mockResolvedValue({ error: { message: "DB exploded" } });
+    mocks.insert.mockResolvedValue({ data: null, error: { message: "DB exploded" } });
 
     const res = await POST(buildRequest(validBody()));
 

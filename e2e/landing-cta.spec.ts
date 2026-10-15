@@ -72,8 +72,8 @@ test.describe("landing → /app/login funnel", () => {
     const pricing = page.locator("#pricing");
     for (const [name, price] of [
       ["Light", "€5.99"],
-      ["Regular", "€9.99"],
-      ["Heavy", "€15.99"],
+      ["Regular", "€14.99"],
+      ["Heavy", "€29.99"],
     ]) {
       const card = pricing.locator(`[data-plan="${name}"]`);
       await expect(card).toContainText(price);
@@ -151,8 +151,8 @@ test.describe("Swedish landing (/sv)", () => {
     const pricing = page.locator("#pricing");
     for (const [name, price] of [
       ["Light", "69 kr"],
-      ["Regular", "119 kr"],
-      ["Heavy", "179 kr"],
+      ["Regular", "169 kr"],
+      ["Heavy", "329 kr"],
     ]) {
       await expect(pricing.locator(`[data-plan="${name}"]`)).toContainText(price);
     }

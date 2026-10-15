@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/locale";
-import type { PlanId } from "@/lib/plans";
+import { PLANS, type PlanId } from "@/lib/plans";
 
 /**
  * Every visible string on the landing page, per language. The layout,
@@ -110,6 +110,8 @@ export type LandingCopy = {
     perMonth: string;
     /** `{n}` is the plan's receipt allowance. */
     upTo: string;
+    /** `{price}` is the price of one receipt above the allowance. */
+    overage: string;
     wholeCompany: string;
     who: Record<PlanId, string>;
     included: [string, string, string, string, string, string];
@@ -246,16 +248,14 @@ const en: LandingCopy = {
     title: "Pay for the receipts you send",
     lead: "One monthly price for your whole company — no per-user fees. Pick the plan that covers how many receipts you send us each month.",
     slider: "Receipts per month",
-    fits: "{plan} fits you — {price} / month.",
+    fits: "{plan} fits you — {price} / month excl. VAT.",
     fitsBadge: "Fits you",
-    perMonth: "/ month",
+    perMonth: "/ month excl. VAT",
     upTo: "Up to {n} receipts / month",
+    overage: "Then {price} per extra receipt",
     wholeCompany: "Whole company included, no per-user fees.",
-    who: {
-      light: "Freelancers and one-person businesses.",
-      regular: "Small teams with a few people spending.",
-      heavy: "Teams that travel, meet clients or buy often.",
-    },
+    // English plan descriptions live with the plans themselves.
+    who: Object.fromEntries(PLANS.map((p) => [p.id, p.who])) as Record<PlanId, string>,
     included: [
       "Private address — forward any receipt",
       "Photo capture with auto-fill",
@@ -264,8 +264,8 @@ const en: LandingCopy = {
       "Every receipt checked by our concierge",
       "Cancel anytime",
     ],
-    notePilot: "Free during the pilot. The prices above apply once the pilot ends. All prices excl. VAT.",
-    notePaid: "First week free on every plan. All prices excl. VAT.",
+    notePilot: "Free during the pilot. The prices above apply once the pilot ends. All prices excl. VAT; Swedish companies pay 25% moms on top, EU companies with a VAT number are reverse-charged.",
+    notePaid: "First week free on every plan. All prices excl. VAT; Swedish companies pay 25% moms on top, EU companies with a VAT number are reverse-charged.",
   },
   about: {
     eyebrow: "Who it's for",
@@ -431,15 +431,16 @@ const sv: LandingCopy = {
     title: "Betala för kvittona du skickar",
     lead: "Ett månadspris för hela företaget — inga avgifter per användare. Välj planen som täcker hur många kvitton du skickar till oss varje månad.",
     slider: "Kvitton per månad",
-    fits: "{plan} passar dig — {price} / mån.",
+    fits: "{plan} passar dig — {price} / mån exkl. moms.",
     fitsBadge: "Passar dig",
-    perMonth: "/ mån",
+    perMonth: "/ mån exkl. moms",
     upTo: "Upp till {n} kvitton / mån",
+    overage: "Därefter {price} per extra kvitto",
     wholeCompany: "Hela företaget ingår, inga avgifter per användare.",
     who: {
-      light: "Frilansare och enmansföretag.",
-      regular: "Små team där några personer gör inköp.",
-      heavy: "Team som reser, träffar kunder eller handlar ofta.",
+      light: "Frilansare och företag med 1–3 personer.",
+      regular: "Team på upp till cirka 20 personer.",
+      heavy: "Team på upp till cirka 50 personer, eller som reser mycket.",
     },
     included: [
       "Privat adress — vidarebefordra vilket kvitto som helst",
@@ -449,8 +450,8 @@ const sv: LandingCopy = {
       "Varje kvitto kontrolleras av vår concierge",
       "Avsluta när du vill",
     ],
-    notePilot: "Gratis under piloten. Priserna ovan gäller när piloten är slut. Alla priser exkl. moms.",
-    notePaid: "Första veckan gratis på alla planer. Alla priser exkl. moms.",
+    notePilot: "Gratis under piloten. Priserna ovan gäller när piloten är slut. Alla priser exkl. moms; svenska företag betalar 25 % moms ovanpå, EU-företag med momsregistreringsnummer faktureras med omvänd skattskyldighet.",
+    notePaid: "Första veckan gratis på alla planer. Alla priser exkl. moms; svenska företag betalar 25 % moms ovanpå, EU-företag med momsregistreringsnummer faktureras med omvänd skattskyldighet.",
   },
   about: {
     eyebrow: "För vem",

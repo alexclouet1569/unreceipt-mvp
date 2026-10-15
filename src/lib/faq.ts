@@ -1,5 +1,11 @@
 import type { Locale } from "@/lib/locale";
-import { PLANS, formatPrice, formatSek } from "@/lib/plans";
+import {
+  OVERAGE_PRICE,
+  OVERAGE_PRICE_SEK,
+  PLANS,
+  formatPrice,
+  formatSek,
+} from "@/lib/plans";
 
 /**
  * Landing-page FAQ. One source for the visible FAQ section, the FAQPage
@@ -21,7 +27,7 @@ function pricingAnswer(pilotMode: boolean): string {
   const trial = pilotMode
     ? "UnReceipt is free during the pilot."
     : "The first week is free on every plan.";
-  return `One price for the whole company, no per-user fees: ${plans}. Prices exclude VAT. ${trial}`;
+  return `One price for the whole company, no per-user fees: ${plans}. Extra receipts cost ${formatPrice(OVERAGE_PRICE)} each. Prices exclude VAT. ${trial}`;
 }
 
 function pricingAnswerSv(pilotMode: boolean): string {
@@ -31,7 +37,7 @@ function pricingAnswerSv(pilotMode: boolean): string {
   const trial = pilotMode
     ? "UnReceipt är gratis under piloten."
     : "Första veckan är gratis på alla planer.";
-  return `Ett pris för hela företaget, inga avgifter per användare: ${plans}. Priserna är exklusive moms. ${trial}`;
+  return `Ett pris för hela företaget, inga avgifter per användare: ${plans}. Extra kvitton kostar ${formatSek(OVERAGE_PRICE_SEK)} styck. Priserna är exklusive moms. ${trial}`;
 }
 
 export function getFaq(pilotMode: boolean, locale: Locale = "en"): FaqItem[] {

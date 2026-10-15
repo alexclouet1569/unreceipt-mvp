@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { PLANS, formatPrice, type PlanId } from "@/lib/plans";
+import { OVERAGE_PRICE, PLANS, formatPrice, type PlanId } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
 /**
@@ -73,12 +73,14 @@ export function SubscribeButton() {
             </span>
             <span className="font-mono tabular-nums text-sm font-medium whitespace-nowrap">
               {formatPrice(p.price)}
-              <span className="font-sans text-xs text-muted-foreground"> /month</span>
+              <span className="font-sans text-xs text-muted-foreground"> /month excl. VAT</span>
             </span>
           </label>
         ))}
         <p className="text-xs text-muted-foreground pt-1">
-          One price for the whole company — no per-user fees.
+          One price for the whole company — no per-user fees. Extra receipts
+          above your plan are {formatPrice(OVERAGE_PRICE)} each, billed with
+          the next invoice. Prices excl. VAT.
         </p>
       </fieldset>
 

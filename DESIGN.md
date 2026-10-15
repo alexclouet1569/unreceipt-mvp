@@ -77,6 +77,10 @@ Restrained palette. Brand green is an accent, not a background.
 | `--ink-faint` | `#9CA0B8` | Dates, meta, micro caps |
 | `--hairline` | `#E8E5DD` | 1px borders and dividers — warm gray to match the cream |
 | `--negative` | `#C73E4E` | Destructive only (delete) |
+| `--attention` | `#C99440` | "Needs attention" accent: review-needed left rule on receipt cards, over-the-plan progress bar. Friendly honey, never red. |
+| `--attention-tint` | `#FBF1DE` | Background of attention notices (plan-usage notice above the inbox) |
+| `--attention-deep` | `#8C6320` | Text and icons on `--attention-tint` (≈5:1, passes AA) |
+| `--attention-mint` | `#6B9778` | Desaturated mint badge paired with the review-needed slice |
 
 ### Dark mode
 
@@ -256,6 +260,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-05-12 | OCR moment dialed down to single `Reading…` state + collective field reveal | Founder preference: calm, not theatrical. |
 | 2026-05-12 | **Wordmark realigned to brand book**: two-color Manrope ExtraBold (`Un` Deep Space + `Receipt` Green Mint) with the receipt-glyph isotype. Replaces the mono `Un` pill. | Brand book is source of truth for identity; the mono pill was an internal-design choice that diverged from the brand book and was overruled when both surfaces (marketing + product) needed to share one mark. The 2026-05-12 ink-deepening decision is reverted on the same grounds — `--ink` returns to `#303568` (brand-book Deep Space). Contrast on cream stays AAA (8.99:1) for normal text. |
 | 2026-10-14 | **Cream page background confirmed** (launch-plan decision D7). Code had drifted back to mint `#ECF7E7` following an older plan; `globals.css` now matches this file: `--surface`/`--background` `#FAFAF7`, mint only via `--brand-tint`. | One source of truth. Mint as page background reads as marketing. |
+| 2026-10-15 | **"Attention" honey tokens documented** (`--attention`, `-tint`, `-deep`, `-mint`). Already used for review-needed cards; now also for the plan-usage notice and the over-the-plan progress bar. | Usage warnings must read as helpful, not alarming — saving a receipt is never blocked. Red stays reserved for destructive actions. |
 
 ---
 

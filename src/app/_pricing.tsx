@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { appUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/locale";
-import { PLANS, planForReceipts, planPriceLabel } from "@/lib/plans";
+import { PLANS, overagePriceLabel, planForReceipts, planPriceLabel } from "@/lib/plans";
 import { LANDING_COPY, fill } from "./_landing-copy";
 
 /**
@@ -140,6 +140,9 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
               </div>
               <p className={`text-sm font-semibold mt-3 ${active ? "text-[#27BE7B]" : "text-[#1F9D63]"}`}>
                 {fill(t.upTo, { n: plan.receipts })}
+              </p>
+              <p className={`text-xs mt-1 ${active ? "text-white/60" : "text-[#303568]/50"}`}>
+                {fill(t.overage, { price: overagePriceLabel(locale) })}
               </p>
               <div className={`border-t border-dashed my-5 ${active ? "border-white/20" : "border-[#E8E5DD]"}`} />
               <p className={`text-sm mb-6 ${active ? "text-white/65" : "text-[#303568]/60"}`}>

@@ -27,6 +27,12 @@ export type Plan = {
   who: string;
 };
 
+// Sizing (Oct 2026 pricing review, docs/plans/unreceipt-launch-plan.md §1a):
+// about half of an SME's staff ever expense anything, and each of them
+// files roughly 1–5 receipts a month (12/27/62 a year low/base/high). So
+// 15 receipts ≈ a 1–3 person business, 50 ≈ a team of up to ~20, 150 ≈ up
+// to ~50. Per receipt that is €0.40 / €0.30 / €0.20 — Light sits at parity
+// with Fortnox's 4.90 kr, the larger plans below it.
 export const PLANS: readonly Plan[] = [
   {
     id: "light",
@@ -34,25 +40,36 @@ export const PLANS: readonly Plan[] = [
     price: 5.99,
     priceSek: 69,
     receipts: 15,
-    who: "Freelancers and one-person businesses.",
+    who: "Freelancers and businesses of 1–3 people.",
   },
   {
     id: "regular",
     name: "Regular",
-    price: 9.99,
-    priceSek: 119,
-    receipts: 40,
-    who: "Small teams with a few people spending.",
+    price: 14.99,
+    priceSek: 169,
+    receipts: 50,
+    who: "Teams of up to about 20 people.",
   },
   {
     id: "heavy",
     name: "Heavy",
-    price: 15.99,
-    priceSek: 179,
-    receipts: 100,
-    who: "Teams that travel, meet clients or buy often.",
+    price: 29.99,
+    priceSek: 329,
+    receipts: 150,
+    who: "Teams of up to about 50, or that travel a lot.",
   },
 ];
+
+/**
+ * EUR per receipt above the plan's monthly allowance, excl. VAT. Higher
+ * than any plan's own per-receipt price, so a company that keeps going
+ * over is better off on the next plan — and nobody is ever blocked from
+ * saving a receipt (it's a legal document).
+ */
+export const OVERAGE_PRICE = 0.4;
+
+/** The same extra-receipt price in SEK, shown on the Swedish site. */
+export const OVERAGE_PRICE_SEK = 4.9;
 
 export const PLAN_IDS = PLANS.map((p) => p.id) as [PlanId, ...PlanId[]];
 
@@ -61,9 +78,9 @@ export function formatPrice(eur: number): string {
   return `€${eur.toFixed(2)}`;
 }
 
-/** "69 kr" — whole kronor, the way Swedish prices are written. */
+/** "69 kr", or "4,90 kr" with öre — the way Swedish prices are written. */
 export function formatSek(kr: number): string {
-  return `${kr} kr`;
+  return Number.isInteger(kr) ? `${kr} kr` : `${kr.toFixed(2).replace(".", ",")} kr`;
 }
 
 /** A plan's monthly price in the currency of the given site language. */
@@ -71,9 +88,27 @@ export function planPriceLabel(plan: Plan, locale: Locale): string {
   return locale === "sv" ? formatSek(plan.priceSek) : formatPrice(plan.price);
 }
 
+/** The extra-receipt price in the currency of the given site language. */
+export function overagePriceLabel(locale: Locale): string {
+  return locale === "sv" ? formatSek(OVERAGE_PRICE_SEK) : formatPrice(OVERAGE_PRICE);
+}
+
 /** Smallest plan whose allowance covers `receipts`, or the largest plan. */
 export function planForReceipts(receipts: number): Plan {
   return PLANS.find((p) => p.receipts >= receipts) ?? PLANS[PLANS.length - 1];
+}
+
+/** What a month costs on `plan` with `receipts` sent: base + overage. */
+export function monthlyCost(plan: Plan, receipts: number): number {
+  const extra = Math.max(0, receipts - plan.receipts);
+  return Math.round((plan.price + extra * OVERAGE_PRICE) * 100) / 100;
+}
+
+/** The plan with the lowest monthly cost for `receipts`, overage included. */
+export function cheapestPlanFor(receipts: number): Plan {
+  return PLANS.reduce((best, p) =>
+    monthlyCost(p, receipts) < monthlyCost(best, receipts) ? p : best
+  );
 }
 
 export function getPlan(id: PlanId): Plan {

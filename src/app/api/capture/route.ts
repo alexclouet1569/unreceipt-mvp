@@ -9,6 +9,7 @@ import {
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
+import { recordReceiptUsage } from "@/lib/usage";
 import {
   EXTENSION_BY_TYPE,
   MAX_UPLOAD_BYTES,
@@ -196,6 +197,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  await recordReceiptUsage({
+    userId: user.id,
+    receiptId: inserted.id,
+    source,
+  });
 
   return NextResponse.json({ ok: true, id: inserted.id });
 }

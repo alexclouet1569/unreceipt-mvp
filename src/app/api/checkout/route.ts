@@ -48,10 +48,19 @@ export async function POST(request: NextRequest) {
       ? process.env.NEXT_PUBLIC_APP_URL
       : request.nextUrl.origin;
 
+  // Extra receipts above the plan's allowance: a metered price on a Stripe
+  // Billing Meter (src/lib/usage.ts reports the events). Optional until
+  // configured — without it, the allowance is shown but not charged.
+  const overagePriceId = process.env.STRIPE_PRICE_OVERAGE;
+  const lineItems: Array<{ price: string; quantity?: number }> = [
+    { price: priceId, quantity: 1 },
+  ];
+  if (overagePriceId) lineItems.push({ price: overagePriceId });
+
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: lineItems,
       // metadata.user_id rides on the subscription itself so the
       // customer.subscription.updated / .deleted webhooks know whose row
       // to update (client_reference_id only exists on the Checkout session).
@@ -67,9 +76,13 @@ export async function POST(request: NextRequest) {
       // jurisdictions; until that's configured Stripe simply doesn't
       // collect tax for non-registered regions, which is fine.
       automatic_tax: { enabled: true },
-      // billing_address_collection: "required" is implied when
-      // automatic_tax is enabled — Stripe needs the address to compute
-      // the correct rate.
+      // Prices are excl. VAT (Stripe prices must use tax_behavior
+      // "exclusive"). A full billing address lets Stripe Tax pick the
+      // rate: 25% moms for Swedish customers; reverse charge for EU
+      // businesses that enter a valid VAT number below; none outside
+      // the EU. The company name and VAT number also land on the invoice.
+      billing_address_collection: "required",
+      tax_id_collection: { enabled: true },
       // {CHECKOUT_SESSION_ID} is a Stripe placeholder — substituted at
       // redirect time so /app can self-heal the subscription record (plan A4).
       success_url: `${origin}/app?session_id={CHECKOUT_SESSION_ID}`,
