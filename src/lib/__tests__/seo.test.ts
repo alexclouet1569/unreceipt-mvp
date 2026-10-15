@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getFaq } from "@/lib/faq";
-import { PLANS, formatPrice, formatSek } from "@/lib/plans";
+import { OVERAGE_PRICE, PLANS, formatEurFr, formatPrice, formatSek } from "@/lib/plans";
 import { landingJsonLd } from "@/lib/seo";
 import { LANDING_COPY, fill } from "@/app/_landing-copy";
 
@@ -75,8 +75,8 @@ describe("Swedish landing (/sv)", () => {
 });
 
 describe("landing copy", () => {
-  // Every `{placeholder}` in an English string must exist in its Swedish
-  // counterpart, or the Swedish page would print a raw `{price}`.
+  // Every `{placeholder}` in an English string must exist in the other
+  // languages, or those pages would print a raw `{price}`.
   const placeholders = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort();
   const strings = (value: unknown, path = ""): [string, string][] =>
     typeof value === "string"
@@ -85,11 +85,13 @@ describe("landing copy", () => {
         ? Object.entries(value).flatMap(([k, v]) => strings(v, `${path}.${k}`))
         : [];
 
-  it("keeps the same placeholders in both languages", () => {
-    const sv = new Map(strings(LANDING_COPY.sv));
-    for (const [path, en] of strings(LANDING_COPY.en)) {
-      if (!sv.has(path)) continue; // the two endings differ on purpose
-      expect(placeholders(sv.get(path)!), path).toEqual(placeholders(en));
+  it("keeps the same placeholders in every language", () => {
+    for (const locale of ["sv", "fr"] as const) {
+      const other = new Map(strings(LANDING_COPY[locale]));
+      for (const [path, en] of strings(LANDING_COPY.en)) {
+        if (!other.has(path)) continue; // the endings differ on purpose
+        expect(placeholders(other.get(path)!), `${locale}${path}`).toEqual(placeholders(en));
+      }
     }
   });
 
@@ -98,5 +100,45 @@ describe("landing copy", () => {
       "Light fits — 69 kr"
     );
     expect(fill("{missing}", {})).toBe("{missing}");
+  });
+});
+
+describe("French landing (/fr)", () => {
+  const faq = (pilot: boolean) => getFaq(pilot, "fr");
+
+  it("prices every plan in euros, written the French way", () => {
+    const pricing = faq(false).find((i) => i.q.startsWith("Combien coûte"))!;
+    for (const plan of PLANS) {
+      expect(pricing.a).toContain(`${plan.name} ${formatEurFr(plan.price)} HT/mois`);
+      expect(pricing.a).toContain(`jusqu’à ${plan.receipts} reçus`);
+    }
+    expect(pricing.a).toContain(formatEurFr(OVERAGE_PRICE));
+    expect(formatEurFr(5.99)).toBe("5,99\u00a0€");
+    expect(faq(true).find((i) => i.q.startsWith("Combien coûte"))!.a).toMatch(
+      /gratuit pendant la phase pilote/
+    );
+  });
+
+  it("tells French companies to keep their paper receipts", () => {
+    const paper = faq(true).find((i) => i.q.startsWith("Puis-je jeter le ticket"))!;
+    expect(paper.a).toMatch(/^Non\./);
+    expect(paper.a).toContain("A102 B-2");
+  });
+
+  it("FAQPage JSON-LD mirrors the French FAQ and offers EUR prices", () => {
+    const graph = landingJsonLd(true, "fr")["@graph"];
+    const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
+      url: string;
+      mainEntity: { name: string; acceptedAnswer: { text: string } }[];
+    };
+    expect(faqPage.url).toBe("https://unreceipt.com/fr");
+    expect(faqPage.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
+      faq(true).map((i) => [i.q, i.a])
+    );
+    const app = graph.find((n) => n["@type"] === "SoftwareApplication") as {
+      offers: { price: string; priceCurrency: string }[];
+    };
+    expect(app.offers.map((o) => o.price)).toEqual(PLANS.map((p) => p.price.toFixed(2)));
+    expect(app.offers.every((o) => o.priceCurrency === "EUR")).toBe(true);
   });
 });

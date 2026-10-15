@@ -1,6 +1,6 @@
 import { getFaq } from "@/lib/faq";
 import { LOCALE_HOME, type Locale } from "@/lib/locale";
-import { PLANS } from "@/lib/plans";
+import { PLANS, formatEurFr } from "@/lib/plans";
 
 /**
  * Search-engine and AI-assistant facing facts about UnReceipt. Every claim
@@ -23,6 +23,13 @@ export const SV_DESCRIPTION = `Vidarebefordra e-postkvitton eller fota papperskv
 export const SV_SHARE_DESCRIPTION =
   "Skicka vilket kvitto som helst — mejl eller foto — och få ett kontrollerat underlag inom 24 timmar. Byggt för småföretag i Sverige.";
 
+export const FR_TITLE = "UnReceipt — Gestion des reçus et justificatifs pour les petites entreprises";
+
+export const FR_DESCRIPTION = `Transférez vos factures et reçus envoyés par e-mail ou photographiez vos tickets papier. UnReceipt transforme chaque reçu en fiche vérifiée sous 24 heures — fournisseur, lignes, TVA et catégorie. À partir de ${formatEurFr(PLANS[0].price)}\u00a0HT par mois.`;
+
+export const FR_SHARE_DESCRIPTION =
+  "Envoyez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié sous 24 heures, avec sa TVA relevée.";
+
 /**
  * hreflang alternates shared by every language's landing page, so each
  * page points at all the others and at the English default.
@@ -30,13 +37,25 @@ export const SV_SHARE_DESCRIPTION =
 export const LANDING_LANGUAGES = {
   en: LOCALE_HOME.en,
   sv: LOCALE_HOME.sv,
+  fr: LOCALE_HOME.fr,
   "x-default": LOCALE_HOME.en,
+};
+
+const OFFER_TEXT: Record<Locale, (receipts: number) => string> = {
+  en: (n) => `Up to ${n} receipts per month for the whole company`,
+  sv: (n) => `Upp till ${n} kvitton per månad för hela företaget`,
+  fr: (n) => `Jusqu’à ${n} reçus par mois pour toute l’entreprise`,
+};
+
+const PAGE_DESCRIPTION: Record<Locale, string> = {
+  en: DESCRIPTION,
+  sv: SV_DESCRIPTION,
+  fr: FR_DESCRIPTION,
 };
 
 /** JSON-LD for a landing page: organization, site, product and FAQ. */
 export function landingJsonLd(pilotMode: boolean, locale: Locale = "en") {
-  const sv = locale === "sv";
-  const pageUrl = sv ? `${SITE_URL}${LOCALE_HOME.sv}` : SITE_URL;
+  const pageUrl = locale === "en" ? SITE_URL : `${SITE_URL}${LOCALE_HOME[locale]}`;
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -47,14 +66,14 @@ export function landingJsonLd(pilotMode: boolean, locale: Locale = "en") {
         url: SITE_URL,
         logo: `${SITE_URL}/icons/icon-512`,
         email: "support@unreceipt.com",
-        areaServed: "SE",
+        areaServed: ["SE", "FR"],
       },
       {
         "@type": "WebSite",
         "@id": `${SITE_URL}/#website`,
         name: "UnReceipt",
         url: SITE_URL,
-        inLanguage: ["en", "sv"],
+        inLanguage: ["en", "sv", "fr"],
         publisher: { "@id": `${SITE_URL}/#organization` },
       },
       {
@@ -62,27 +81,18 @@ export function landingJsonLd(pilotMode: boolean, locale: Locale = "en") {
         name: "UnReceipt",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
-        description: sv ? SV_DESCRIPTION : DESCRIPTION,
+        description: PAGE_DESCRIPTION[locale],
         url: pageUrl,
         inLanguage: locale,
         publisher: { "@id": `${SITE_URL}/#organization` },
-        offers: PLANS.map((plan) =>
-          sv
-            ? {
-                "@type": "Offer",
-                name: plan.name,
-                price: plan.priceSek.toFixed(2),
-                priceCurrency: "SEK",
-                description: `Upp till ${plan.receipts} kvitton per månad för hela företaget`,
-              }
-            : {
-                "@type": "Offer",
-                name: plan.name,
-                price: plan.price.toFixed(2),
-                priceCurrency: "EUR",
-                description: `Up to ${plan.receipts} receipts per month for the whole company`,
-              }
-        ),
+        // Swedish visitors see SEK; English and French visitors see EUR.
+        offers: PLANS.map((plan) => ({
+          "@type": "Offer",
+          name: plan.name,
+          price: (locale === "sv" ? plan.priceSek : plan.price).toFixed(2),
+          priceCurrency: locale === "sv" ? "SEK" : "EUR",
+          description: OFFER_TEXT[locale](plan.receipts),
+        })),
       },
       {
         "@type": "FAQPage",

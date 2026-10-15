@@ -32,6 +32,7 @@ ${plans}
 ## Links
 - [Website](${SITE_URL})
 - [Svenska / Swedish site, prices in SEK](${SITE_URL}/sv)
+- [Français / French site](${SITE_URL}/fr)
 - [Pricing](${SITE_URL}/#pricing)
 - [How it works](${SITE_URL}/#how)
 - [FAQ](${SITE_URL}/#faq)

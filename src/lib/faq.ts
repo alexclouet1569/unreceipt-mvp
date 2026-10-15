@@ -3,6 +3,7 @@ import {
   OVERAGE_PRICE,
   OVERAGE_PRICE_SEK,
   PLANS,
+  formatEurFr,
   formatPrice,
   formatSek,
 } from "@/lib/plans";
@@ -40,8 +41,20 @@ function pricingAnswerSv(pilotMode: boolean): string {
   return `Ett pris för hela företaget, inga avgifter per användare: ${plans}. Extra kvitton kostar ${formatSek(OVERAGE_PRICE_SEK)} styck. Priserna är exklusive moms. ${trial}`;
 }
 
+function pricingAnswerFr(pilotMode: boolean): string {
+  const plans = PLANS.map(
+    (p) => `${p.name} ${formatEurFr(p.price)} HT/mois (jusqu’à ${p.receipts} reçus)`
+  ).join(", ");
+  const trial = pilotMode
+    ? "UnReceipt est gratuit pendant la phase pilote."
+    : "La première semaine est gratuite sur toutes les formules.";
+  return `Un prix pour toute l’entreprise, sans frais par utilisateur\u00a0: ${plans}. Chaque reçu supplémentaire coûte ${formatEurFr(OVERAGE_PRICE)} HT. ${trial}`;
+}
+
 export function getFaq(pilotMode: boolean, locale: Locale = "en"): FaqItem[] {
-  return locale === "sv" ? faqSv(pilotMode) : faqEn(pilotMode);
+  if (locale === "sv") return faqSv(pilotMode);
+  if (locale === "fr") return faqFr(pilotMode);
+  return faqEn(pilotMode);
 }
 
 function faqEn(pilotMode: boolean): FaqItem[] {
@@ -85,7 +98,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Vad är UnReceipt?",
-      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett kontrollerat underlag i din översikt: säljare, datum, kvittorader, moms och kategori.",
+      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett kontrollerat underlag i din översikt: säljare, datum, kvittorader, moms och kategori. Appen är på engelska än så länge.",
     },
     {
       q: "Hur skickar jag kvitton till UnReceipt?",
@@ -118,6 +131,47 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     {
       q: "Var lagras min data?",
       a: "Kvitton och kontouppgifter lagras hos Supabase inom EU, i Frankfurt i Tyskland. Betalningar hanteras av Stripe — UnReceipt ser aldrig dina kortuppgifter. Läs mer på vår integritetssida.",
+    },
+  ];
+}
+
+function faqFr(pilotMode: boolean): FaqItem[] {
+  return [
+    {
+      q: "Qu’est-ce qu’UnReceipt\u00a0?",
+      a: "UnReceipt est un service de gestion des reçus pour les petites entreprises. Transférez vos factures et reçus envoyés par e-mail à l’adresse UnReceipt privée de votre entreprise ou photographiez un ticket papier\u00a0: sous 24 heures, chacun devient une fiche vérifiée dans votre tableau de bord — fournisseur, date, lignes, TVA et catégorie. L’application est pour l’instant en anglais.",
+    },
+    {
+      q: "Comment envoyer mes reçus à UnReceipt\u00a0?",
+      a: "Transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt privée, ou prenez en photo un ticket papier dans l’application — les champs se remplissent tout seuls. Aucune connexion bancaire ni nouvelle carte n’est nécessaire.",
+    },
+    {
+      q: "Combien coûte UnReceipt\u00a0?",
+      a: pricingAnswerFr(pilotMode),
+    },
+    {
+      q: "Comment la TVA est-elle gérée\u00a0?",
+      a: "Chaque reçu est enregistré avec le montant et le taux de TVA tels qu’ils figurent sur le justificatif. Pour récupérer la TVA, il faut en principe une facture au nom de votre entreprise\u00a0: un simple ticket de caisse ne suffit généralement pas, et certaines dépenses (hébergement du personnel, transport de personnes…) n’ouvrent pas droit à déduction. Demandez une facture au fournisseur\u00a0; votre expert-comptable vous dira ce qui est récupérable.",
+    },
+    {
+      q: "Qui vérifie mes reçus\u00a0?",
+      a: "Chaque reçu est lu automatiquement, puis vérifié par notre équipe sous 24 heures avant d’être marqué comme vérifié.",
+    },
+    {
+      q: "Combien de temps faut-il conserver les justificatifs\u00a0?",
+      a: "Dix ans à compter de la clôture de l’exercice pour les pièces justificatives comptables des commerçants (article L123-22 du Code de commerce). Pour l’administration fiscale, les documents doivent être conservés au moins six ans (article L102 B du Livre des procédures fiscales). Cette obligation reste celle de votre entreprise\u00a0: téléchargez vos reçus si vous quittez UnReceipt.",
+    },
+    {
+      q: "Puis-je jeter le ticket papier après l’avoir photographié\u00a0?",
+      a: "Non. En France, un original papier ne peut être détruit après numérisation que si la copie est une copie fiable\u00a0: reproduction à l’identique de l’image et du contenu, sans retouche, au format PDF, avec cachet serveur ou signature électronique et horodatage (pour les factures, article A102 B-2 du Livre des procédures fiscales). UnReceipt ne produit pas ce type de copie\u00a0: conservez vos tickets et factures papier.",
+    },
+    {
+      q: "Puis-je résilier à tout moment\u00a0?",
+      a: "Oui. Après la résiliation, votre compte et vos reçus restent disponibles pendant 90 jours pour que vous puissiez les télécharger — chaque reçu a son e-mail ou sa photo d’origine et un PDF — et nous vous envoyons un e-mail avant toute suppression. L’obligation de conservation reste celle de votre entreprise\u00a0: transférez vos reçus dans votre propre archive ou à votre expert-comptable.",
+    },
+    {
+      q: "Où sont stockées mes données\u00a0?",
+      a: "Les reçus et les données du compte sont hébergés chez Supabase, dans l’UE, à Francfort (Allemagne). Les paiements sont gérés par Stripe — UnReceipt ne voit jamais vos données de carte. Plus de détails sur notre page de confidentialité (en anglais).",
     },
   ];
 }

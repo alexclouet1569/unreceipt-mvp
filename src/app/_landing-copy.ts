@@ -4,8 +4,9 @@ import { PLANS, type PlanId } from "@/lib/plans";
 /**
  * Every visible string on the landing page, per language. The layout,
  * icons and styling live in _landing.tsx and _pricing.tsx; this file is
- * only words. Fixed-length tuples keep both languages in step: adding a
- * feature in one language without the other is a type error.
+ * only words, plus the example receipts each language shows. Fixed-length
+ * tuples keep the languages in step: adding a feature in one language
+ * without the others is a type error.
  *
  * FAQ answers live in src/lib/faq.ts (shared with structured data and
  * /llms.txt); prices come from src/lib/plans.ts.
@@ -15,6 +16,65 @@ type Item = { title: string; desc: string };
 type Stat = { value: string; label: string };
 type Four<T> = [T, T, T, T];
 type Three<T> = [T, T, T];
+
+type Category = "meals" | "software" | "office" | "travel" | "other" | "transport" | "accommodation";
+
+/** Example receipts in the hero phone and the scrolling ticker. */
+type Samples = {
+  latest: { merchant: string; amount: string };
+  today: Three<{ merchant: string; amount: string; time: string }>;
+  photoCard: { merchant: string; amount: string };
+  emailCard: { merchant: string; amount: string };
+  ticker: { merchant: string; amount: string; category: Category; source: "photo" | "email" }[];
+};
+
+// Swedish shops in kronor, shown on the English and Swedish pages.
+const SWEDISH_SAMPLES: Samples = {
+  latest: { merchant: "ICA Maxi", amount: "342,00 kr" },
+  today: [
+    { merchant: "Uber", amount: "189,00 kr", time: "14:22" },
+    { merchant: "Scandic Hotel", amount: "1 250,00 kr", time: "09:15" },
+    { merchant: "SJ", amount: "895,00 kr", time: "08:30" },
+  ],
+  photoCard: { merchant: "Clas Ohlson", amount: "1 450,00 kr" },
+  emailCard: { merchant: "Spotify", amount: "129,00 kr" },
+  ticker: [
+    { merchant: "ICA Maxi", amount: "342 kr", category: "meals", source: "photo" },
+    { merchant: "Spotify", amount: "129 kr", category: "software", source: "email" },
+    { merchant: "Clas Ohlson", amount: "1 450 kr", category: "office", source: "photo" },
+    { merchant: "SJ", amount: "895 kr", category: "travel", source: "email" },
+    { merchant: "Apoteket", amount: "212 kr", category: "other", source: "photo" },
+    { merchant: "SAS", amount: "2 340 kr", category: "travel", source: "email" },
+    { merchant: "Uber", amount: "189 kr", category: "transport", source: "email" },
+    { merchant: "Pressbyr\u00e5n", amount: "68 kr", category: "meals", source: "photo" },
+    { merchant: "Scandic Hotel", amount: "1 250 kr", category: "accommodation", source: "email" },
+    { merchant: "Coop Konferens", amount: "890 kr", category: "meals", source: "photo" },
+  ],
+};
+
+// French shops in euros, for the French page.
+const FRENCH_SAMPLES: Samples = {
+  latest: { merchant: "Paul", amount: "18,50\u00a0€" },
+  today: [
+    { merchant: "Uber", amount: "23,40\u00a0€", time: "14:22" },
+    { merchant: "Ibis Paris", amount: "89,00\u00a0€", time: "09:15" },
+    { merchant: "SNCF", amount: "64,00\u00a0€", time: "08:30" },
+  ],
+  photoCard: { merchant: "Fnac", amount: "129,99\u00a0€" },
+  emailCard: { merchant: "Spotify", amount: "11,99\u00a0€" },
+  ticker: [
+    { merchant: "Monoprix", amount: "42,00\u00a0€", category: "meals", source: "photo" },
+    { merchant: "Spotify", amount: "11,99\u00a0€", category: "software", source: "email" },
+    { merchant: "Fnac", amount: "129,99\u00a0€", category: "office", source: "photo" },
+    { merchant: "SNCF", amount: "64,00\u00a0€", category: "travel", source: "email" },
+    { merchant: "Pharmacie", amount: "8,90\u00a0€", category: "other", source: "photo" },
+    { merchant: "Air France", amount: "189,00\u00a0€", category: "travel", source: "email" },
+    { merchant: "Uber", amount: "23,40\u00a0€", category: "transport", source: "email" },
+    { merchant: "Relay", amount: "4,50\u00a0€", category: "meals", source: "photo" },
+    { merchant: "Ibis Paris", amount: "89,00\u00a0€", category: "accommodation", source: "email" },
+    { merchant: "Paul", amount: "18,50\u00a0€", category: "meals", source: "photo" },
+  ],
+};
 
 type Ending =
   | {
@@ -52,8 +112,6 @@ export type LandingCopy = {
     openMenu: string;
     closeMenu: string;
   };
-  /** Link to the other language, shown in the nav and footer. */
-  switchTo: { label: string; short: string; aria: string };
   hero: {
     badge: string;
     titleLine1: string;
@@ -75,18 +133,11 @@ export type LandingCopy = {
     snap: string;
     forwarded: string;
   };
+  samples: Samples;
   stats: Four<Stat>;
   ticker: {
     verified: string;
-    categories: {
-      meals: string;
-      software: string;
-      office: string;
-      travel: string;
-      other: string;
-      transport: string;
-      accommodation: string;
-    };
+    categories: Record<Category, string>;
   };
   features: { eyebrow: string; title: string; items: Three<Item> };
   how: { eyebrow: string; title: string; lead: string; step: string; items: Three<Item> };
@@ -147,7 +198,6 @@ const en: LandingCopy = {
     openMenu: "Open menu",
     closeMenu: "Close menu",
   },
-  switchTo: { label: "Svenska", short: "SV", aria: "På svenska" },
   hero: {
     badge: "Paper is Past",
     titleLine1: "From Chaos",
@@ -168,6 +218,7 @@ const en: LandingCopy = {
     snap: "Snap a receipt",
     forwarded: "Forwarded",
   },
+  samples: SWEDISH_SAMPLES,
   stats: [
     { value: "24 h", label: "from forwarded receipt to VAT-ready record" },
     { value: "1", label: "private receipt address for your company" },
@@ -330,7 +381,6 @@ const sv: LandingCopy = {
     openMenu: "Öppna menyn",
     closeMenu: "Stäng menyn",
   },
-  switchTo: { label: "English", short: "EN", aria: "In English" },
   hero: {
     badge: "Paper is Past",
     titleLine1: "Från kaos",
@@ -351,6 +401,7 @@ const sv: LandingCopy = {
     snap: "Fota ett kvitto",
     forwarded: "Vidarebefordrat",
   },
+  samples: SWEDISH_SAMPLES,
   stats: [
     { value: "24 h", label: "från skickat kvitto till kontrollerat underlag" },
     { value: "1", label: "privat kvittoadress för ditt företag" },
@@ -496,7 +547,187 @@ const sv: LandingCopy = {
   },
 };
 
-export const LANDING_COPY: Record<Locale, LandingCopy> = { en, sv };
+const fr: LandingCopy = {
+  nav: {
+    backToTop: "UnReceipt — retour en haut",
+    solutions: "Fonctionnalités",
+    how: "Comment ça marche",
+    pricing: "Tarifs",
+    about: "Pour qui",
+    faq: "FAQ",
+    signIn: "Se connecter",
+    ctaPilot: "Je participe",
+    ctaPaid: "Essai gratuit",
+    openMenu: "Ouvrir le menu",
+    closeMenu: "Fermer le menu",
+  },
+  hero: {
+    badge: "Le papier, c’est du passé",
+    titleLine1: "Du chaos",
+    titleLine2: "à la clarté —",
+    titleAccent: "automatiquement.",
+    lead: "Conçu pour les petites entreprises qui en ont assez de courir après les justificatifs. Transférez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié, avec le montant et le taux de TVA relevés, dans votre tableau de bord sous 24 heures.",
+    ctaPilot: "Rejoindre la phase pilote",
+    ctaPaid: "Essayer gratuitement une semaine",
+    secondary: "Voir comment ça marche",
+    notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price}\u00a0HT par mois.",
+    notePaid: "À partir de {price}\u00a0HT par mois après la semaine gratuite. Sans engagement.",
+  },
+  phone: {
+    verified: "Vérifié",
+    latestMeta: "Repas · TVA 10 % 1,68 €",
+    today: "Aujourd’hui",
+    todayCount: "3 reçus",
+    snap: "Photographier un ticket",
+    forwarded: "Transféré",
+  },
+  samples: FRENCH_SAMPLES,
+  stats: [
+    { value: "24\u00a0h", label: "entre l’envoi d’un reçu et sa fiche vérifiée" },
+    { value: "1", label: "adresse privée pour les reçus de votre entreprise" },
+    { value: "8", label: "catégories de dépenses — vos reçus sont triés pour vous" },
+    { value: "0", label: "connexion bancaire ou nouvelle carte nécessaire" },
+  ],
+  ticker: {
+    verified: "Vérifié",
+    categories: {
+      meals: "Repas",
+      software: "Logiciels",
+      office: "Fournitures",
+      travel: "Déplacements",
+      other: "Autre",
+      transport: "Transport",
+      accommodation: "Hébergement",
+    },
+  },
+  features: {
+    eyebrow: "Pourquoi UnReceipt",
+    title: "Concentrez-vous sur l’essentiel",
+    items: [
+      {
+        title: "Une seule adresse pour tous vos reçus",
+        desc: "Votre entreprise reçoit une adresse UnReceipt privée. Transférez-y vos reçus par e-mail, ou photographiez vos tickets papier avec votre téléphone.",
+      },
+      {
+        title: "Chaque ligne, avec la TVA du ticket",
+        desc: "Fournisseur, date, lignes, montant et taux de TVA — lus, vérifiés et enregistrés sous 24 heures.",
+      },
+      {
+        title: "Tout retrouver, au même endroit",
+        desc: "Vos reçus triés par date et par catégorie. Ouvrez-en un pour voir le reçu d’origine, ou téléchargez-le en PDF pour votre expert-comptable.",
+      },
+    ],
+  },
+  how: {
+    eyebrow: "Comment ça marche",
+    title: "Trois étapes. Aucune installation.",
+    lead: "Pas de connexion bancaire, pas de nouvelle carte. Envoyez-nous simplement vos reçus.",
+    step: "ÉTAPE",
+    items: [
+      {
+        title: "Transférez ou photographiez",
+        desc: "Transférez vos reçus par e-mail à votre adresse privée, ou prenez en photo un ticket papier — les champs se remplissent tout seuls.",
+      },
+      {
+        title: "Nous vérifions chaque reçu",
+        desc: "Sous 24 heures, chaque reçu est lu, classé et sa TVA relevée, puis vérifié par notre équipe.",
+      },
+      {
+        title: "Prêt pour votre expert-comptable",
+        desc: "Chaque reçu vous attend dans votre tableau de bord, vérifié, avec le reçu d’origine et un PDF à portée de clic.",
+      },
+    ],
+  },
+  difference: {
+    eyebrow: "La différence",
+    title: "Le papier s’efface. La simplicité reste.",
+    lead: "Pourquoi les petites entreprises passent à UnReceipt",
+    oldTitle: "Avant",
+    old: [
+      "Des tickets perdus dans les portefeuilles et les voitures",
+      "Des reçus par e-mail éparpillés dans plusieurs boîtes",
+      "Des montants et de la TVA saisis à la main dans un tableur",
+      "Des relances aux collègues en fin de mois",
+    ],
+    newTitle: "UnReceipt",
+    new: [
+      "Une adresse privée pour tous vos reçus",
+      "Les tickets papier capturés en une photo",
+      "La TVA relevée et vérifiée pour vous",
+      "Tout dans un tableau de bord, avec le reçu d’origine",
+    ],
+  },
+  pricing: {
+    eyebrow: "Tarifs",
+    title: "Payez pour les reçus que vous envoyez",
+    lead: "Un prix mensuel pour toute l’entreprise — sans frais par utilisateur. Choisissez la formule qui couvre le nombre de reçus que vous nous envoyez chaque mois.",
+    slider: "Reçus par mois",
+    fits: "{plan} vous convient — {price}\u00a0HT/mois.",
+    fitsBadge: "Pour vous",
+    perMonth: "HT/mois",
+    upTo: "Jusqu’à {n} reçus / mois",
+    overage: "Puis {price}\u00a0HT par reçu supplémentaire",
+    wholeCompany: "Toute l’entreprise incluse, sans frais par utilisateur.",
+    who: {
+      light: "Indépendants et entreprises de 1 à 3 personnes.",
+      regular: "Équipes jusqu’à une vingtaine de personnes.",
+      heavy: "Équipes jusqu’à une cinquantaine de personnes, ou qui voyagent beaucoup.",
+    },
+    included: [
+      "Adresse privée — transférez n’importe quel reçu",
+      "Photo avec remplissage automatique",
+      "Fiches vérifiées sous 24 heures",
+      "Reçu d’origine + PDF pour chaque reçu",
+      "Chaque reçu vérifié par notre équipe",
+      "Sans engagement",
+    ],
+    notePilot: "Gratuit pendant la phase pilote. Les prix ci-dessus s’appliqueront à la fin du pilote. Tous les prix sont hors taxes\u00a0; la TVA applicable est calculée au paiement.",
+    notePaid: "Première semaine gratuite sur toutes les formules. Tous les prix sont hors taxes\u00a0; la TVA applicable est calculée au paiement.",
+  },
+  about: {
+    eyebrow: "Pour qui",
+    title: "Conçu pour les petites équipes",
+    items: [
+      {
+        title: "Pour les salariés",
+        desc: "Transférez l’e-mail ou photographiez le ticket. Aucun formulaire à remplir, rien à retenir en fin de mois.",
+      },
+      {
+        title: "Pour qui tient la comptabilité",
+        desc: "Tous les reçus au même endroit, avec commerçant, catégorie et TVA, prêts à transmettre à votre expert-comptable.",
+      },
+      {
+        title: "Pour les dirigeants",
+        desc: "Les reçus et les dépenses du mois en un coup d’œil, sans ouvrir de tableur.",
+      },
+    ],
+  },
+  faq: { eyebrow: "FAQ", title: "Vos questions, nos réponses" },
+  badges: [
+    "Adresse privée par entreprise",
+    "Reçu d’origine consultable",
+    "Un PDF pour chaque reçu",
+    "Sans engagement",
+  ],
+  ending: {
+    kind: "cta",
+    badge: "Le papier, c’est du passé",
+    title: "Fini la chasse aux reçus",
+    leadPilot: "UnReceipt est gratuit pendant la phase pilote.",
+    leadPaid: "Essayez gratuitement pendant une semaine. Sans engagement.",
+  },
+  footer: {
+    tagline: "Des reçus vérifiés pour les petites entreprises. Le papier, c’est du passé.",
+    product: "Produit",
+    company: "Entreprise",
+    contact: "Contact",
+    privacy: "Confidentialité",
+    rights: "Tous droits réservés.",
+    made: "Développé en Europe.",
+  },
+};
+
+export const LANDING_COPY: Record<Locale, LandingCopy> = { en, sv, fr };
 
 /** Fills `{name}` placeholders in a copy string. */
 export function fill(template: string, values: Record<string, string | number>): string {
