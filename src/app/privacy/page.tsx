@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Privacy & data — UnReceipt",
+  title: "Privacy & data",
   description:
     "How UnReceipt collects, processes, and stores your data — and your rights under GDPR.",
   alternates: { canonical: "/privacy" },
