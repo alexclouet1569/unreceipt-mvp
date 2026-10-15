@@ -196,7 +196,7 @@
 - [ ] 43 ★ S — Check that iPhone HEIC photos work end to end; convert them if needed.
 - [ ] 44 ★ M — **Account deletion in the app.** This is an App Store requirement. It deletes storage, rows and the auth user, after a warning to export first because of the 7-year bookkeeping duty.
 - [ ] 45 ★ M — Monthly export: a ZIP of PDFs and originals, plus a CSV, for the accountant.
-- [ ] 46 ★ S — Terms of service page, linked from signup and settings.
+- [ ] 46 ★ S — Terms of service page, linked from signup and settings. **On hold: waiting for the lawyer's text (2026-10-15). Don't draft it.**
 - [ ] 47 ★ M — First-run onboarding in 3 screens: your forwarding address → snap your first receipt → done.
 - [ ] 48 ★ S — Admin list includes pilot users who have no subscription row.
 - [ ] 49 ★ M — Swedish UI: set up i18n (sv default, en fallback).
