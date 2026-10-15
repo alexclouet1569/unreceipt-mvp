@@ -24,7 +24,7 @@ import {
   Globe,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { appUrl } from "@/lib/app-url";
+import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
@@ -279,7 +279,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               {t.nav.signIn}
             </a>
             <a
-              href={appUrl("/app/login")}
+              href={appUrl(SIGNUP_PATH)}
               className={cn(buttonVariants({
                 size: "sm",
                 className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
@@ -327,7 +327,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               </a>
             ))}
             <a
-              href={appUrl("/app/login")}
+              href={appUrl(SIGNUP_PATH)}
               onClick={() => setMobileMenuOpen(false)}
               className={cn(buttonVariants({
                 className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
@@ -361,7 +361,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
-                  href={appUrl("/app/login")}
+                  href={appUrl(SIGNUP_PATH)}
                   className={cn(buttonVariants({
                     size: "lg",
                     className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
@@ -719,7 +719,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 {pilotMode ? t.ending.leadPilot : t.ending.leadPaid}
               </p>
               <a
-                href={appUrl("/app/login")}
+                href={appUrl(SIGNUP_PATH)}
                 className={cn(buttonVariants({
                   size: "lg",
                   className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
@@ -766,7 +766,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               ) : null}
               <p className="text-xs text-white/40 mt-5">
                 {t.ending.skipPrefix}{" "}
-                <a href={appUrl("/app/login")} className="underline hover:text-white">
+                <a href={appUrl(SIGNUP_PATH)} className="underline hover:text-white">
                   {heroCta.toLowerCase()}
                 </a>
                 .

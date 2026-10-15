@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { appUrl } from "@/lib/app-url";
+import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { isPilotMode } from "@/lib/pilot";
 import { founderReplyTo, sendEmail } from "@/lib/email/send";
 import { waitlistEmail } from "@/lib/email/templates";
@@ -16,7 +16,7 @@ const bodySchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
 });
 
-const JOIN_URL_FALLBACK = "https://app.unreceipt.com/app/login";
+const JOIN_URL_FALLBACK = `https://app.unreceipt.com${SIGNUP_PATH}`;
 
 export async function POST(request: NextRequest) {
   const limited = await rateLimit("waitlist", clientIp(request));
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   }
 
   // A failed email never fails the signup — it's logged in sendEmail().
-  const joinUrl = appUrl("/app/login");
+  const joinUrl = appUrl(SIGNUP_PATH);
   const replyTo = founderReplyTo();
   await sendEmail({
     to: email,

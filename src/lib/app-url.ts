@@ -20,3 +20,7 @@ export function appUrl(path: string): string {
   }
   return base.replace(/\/+$/, "") + path;
 }
+
+// Where "Join the pilot" / sign-up CTAs land: the login page, opened on
+// "Create account" instead of "Sign in".
+export const SIGNUP_PATH = "/app/login?mode=signup";

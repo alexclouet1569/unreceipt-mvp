@@ -80,13 +80,13 @@ test.describe("self-service capture regression", () => {
     await stubSupabase(page);
     await page.goto("/app/login");
 
-    await expect(page.getByRole("heading", { name: "UnReceipt" })).toBeVisible();
-    await expect(page.getByText("Sign in to manage your receipts")).toBeVisible();
+    await expect(page.getByRole("img", { name: "UnReceipt" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     // Default Sign in tab — email + password fields visible.
     await expect(page.getByLabel(/Email address/i).first()).toBeVisible();
     await expect(page.getByLabel(/^Password$/i)).toBeVisible();
-    // The Sign up tab is reachable.
-    await expect(page.getByRole("tab", { name: /Sign up/i })).toBeVisible();
+    // The Create account tab is reachable.
+    await expect(page.getByRole("tab", { name: "Create account" })).toBeVisible();
   });
 
   test("magic-link fallback (Forgot password?) shows the check-your-email state", async ({
@@ -103,11 +103,11 @@ test.describe("self-service capture regression", () => {
 
     await page.getByText(/Forgot password\?/i).click();
     await expect(
-      page.getByRole("button", { name: /Send Magic Link/i })
+      page.getByRole("button", { name: /Email me a sign-in link/i })
     ).toBeVisible();
 
     await page.getByPlaceholder("you@company.com").fill("test@unreceipt.io");
-    await page.getByRole("button", { name: /Send Magic Link/i }).click();
+    await page.getByRole("button", { name: /Email me a sign-in link/i }).click();
 
     await expect(
       page.getByRole("heading", { name: "Check your email" })

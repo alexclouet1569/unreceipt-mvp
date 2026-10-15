@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 
 /**
  * The landing page now has to close the funnel — every CTA in the hero,
- * the nav, and the pricing card must take a cold visitor to /app/login
- * (sign-in-first flow per plan A3). Pin those routes here so a future
- * copy edit doesn't silently break signup.
+ * the nav, and the pricing card must take a cold visitor to
+ * /app/login?mode=signup, which opens on "Create account". Pin those routes
+ * here so a future copy edit doesn't silently break signup.
  */
 test.describe("landing → /app/login funnel", () => {
   test("the hero primary CTA navigates to /app/login", async ({ page }) => {
@@ -14,13 +14,13 @@ test.describe("landing → /app/login funnel", () => {
     await expect(cta).toBeVisible();
     await cta.click();
 
-    await expect(page).toHaveURL(/\/app\/login$/);
-    // /app/login defaults to the password Sign-in tab; magic-link is the
-    // "Forgot password?" fallback. Assert the Sign in tab + button is the
-    // primary surface a redirected hero visitor sees.
-    await expect(page.getByRole("tab", { name: /Sign in/i })).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/login\?mode=signup$/);
+    // A hero visitor is new: the form opens on "Create account".
     await expect(
-      page.getByRole("button", { name: /^Sign in$/i })
+      page.getByRole("tab", { name: "Create account" })
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("button", { name: /^Create account$/i })
     ).toBeVisible();
   });
 
@@ -39,7 +39,7 @@ test.describe("landing → /app/login funnel", () => {
     await expect(navCta).toBeVisible();
     await navCta.click();
 
-    await expect(page).toHaveURL(/\/app\/login$/);
+    await expect(page).toHaveURL(/\/app\/login\?mode=signup$/);
   });
 
   test("the pricing card CTA also routes to /app/login", async ({ page }) => {
@@ -61,7 +61,7 @@ test.describe("landing → /app/login funnel", () => {
     );
     await cta.click();
 
-    await expect(page).toHaveURL(/\/app\/login$/);
+    await expect(page).toHaveURL(/\/app\/login\?mode=signup$/);
   });
 
   test("pricing shows the three flat monthly plans with first-week-free", async ({
@@ -168,7 +168,7 @@ test.describe("Swedish landing (/sv)", () => {
     const cta = page.getByRole("link", { name: /Prova gratis i en vecka/i }).first();
     await expect(cta).toBeVisible();
     await cta.click();
-    await expect(page).toHaveURL(/\/app\/login$/);
+    await expect(page).toHaveURL(/\/app\/login\?mode=signup$/);
   });
 });
 
@@ -207,6 +207,6 @@ test.describe("French landing (/fr)", () => {
     const cta = page.getByRole("link", { name: /Essayer gratuitement une semaine/i }).first();
     await expect(cta).toBeVisible();
     await cta.click();
-    await expect(page).toHaveURL(/\/app\/login$/);
+    await expect(page).toHaveURL(/\/app\/login\?mode=signup$/);
   });
 });
