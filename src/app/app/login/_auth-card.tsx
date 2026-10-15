@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { z } from "zod";
 import {
@@ -13,7 +13,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { PerfEdge } from "@/components/brand/PerfEdge";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { withTimeout } from "@/lib/with-timeout";
 import { cn } from "@/lib/utils";
@@ -85,11 +84,15 @@ function callbackUrl(): string {
 export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showLinkError, setShowLinkError] = useState(linkError);
+  // Autofocus the first field on page load only; after a tab switch focus
+  // stays on the tab the person just used.
+  const [switched, setSwitched] = useState(false);
   // Shared so switching tabs keeps what the person already typed.
   const [email, setEmail] = useState("");
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
+    setSwitched(true);
     setShowLinkError(false);
     // Keep the URL shareable and the back button honest.
     const url = new URL(window.location.href);
@@ -131,42 +134,48 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
           aria-labelledby="auth-title"
           className="bg-card border border-[var(--hairline)] rounded-[16px] overflow-hidden"
         >
-          <PerfEdge direction="top" />
-          <div className="px-5 pt-6 pb-7 sm:px-8 sm:pt-7 sm:pb-8">
+          <div className="px-5 pt-6 pb-8 sm:px-8 sm:pt-8">
             <h1
               id="auth-title"
-              className="font-display text-[26px] leading-[1.15] tracking-[-0.02em] font-bold text-[var(--ink)]"
+              className="font-display text-[24px] leading-[1.15] tracking-[-0.02em] font-bold text-[var(--ink)]"
             >
               {heading.title}
             </h1>
-            <p className="font-accent italic text-[15px] text-[var(--ink-muted)] mt-1.5">
+            <p className="font-accent italic text-[15px] text-[var(--ink-muted)] mt-1">
               {heading.sub}
             </p>
 
             <ModeSwitch mode={mode} onChange={switchMode} />
 
-            {mode === "signin" ? (
-              <SignInPanel email={email} setEmail={setEmail} />
-            ) : (
-              <SignUpPanel
-                email={email}
-                setEmail={setEmail}
-                onSignIn={() => switchMode("signin")}
-              />
-            )}
+            <div
+              role="tabpanel"
+              id="auth-panel"
+              aria-labelledby={`auth-tab-${mode}`}
+            >
+              {mode === "signin" ? (
+                <SignInPanel email={email} setEmail={setEmail} autoFocus={!switched} />
+              ) : (
+                <SignUpPanel
+                  email={email}
+                  setEmail={setEmail}
+                  autoFocus={!switched}
+                  onSignIn={() => switchMode("signin")}
+                />
+              )}
+            </div>
           </div>
         </section>
 
-        <p className="flex items-center justify-center gap-1.5 text-[13px] text-[var(--ink-faint)] mt-5">
+        <p className="flex items-center justify-center gap-2 text-[13px] text-[var(--ink-muted)] mt-6">
           <ShieldCheck className="w-4 h-4" aria-hidden="true" />
           Your receipts are stored in the EU.
         </p>
 
-        <div className="flex flex-col items-center gap-3 mt-6">
+        <div className="flex flex-col items-center gap-1 mt-4">
           <ResetSessionLink />
           <Link
             href="/"
-            className="text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] inline-flex items-center gap-1 min-h-[44px]"
+            className="text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] inline-flex items-center gap-1 min-h-[44px] px-2 rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             Back to unreceipt.com
@@ -188,10 +197,33 @@ function ModeSwitch({
     { id: "signin", label: "Sign in" },
     { id: "signup", label: "Create account" },
   ];
+  const refs = useRef<Record<AuthMode, HTMLButtonElement | null>>({
+    signin: null,
+    signup: null,
+  });
+
+  // WAI-ARIA tabs: arrows / Home / End move between the two tabs and
+  // activate them; only the active tab is in the Tab order.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const keys: Record<string, AuthMode | "toggle"> = {
+      ArrowLeft: "toggle",
+      ArrowRight: "toggle",
+      Home: "signin",
+      End: "signup",
+    };
+    const k = keys[e.key];
+    if (!k) return;
+    e.preventDefault();
+    const next = k === "toggle" ? (mode === "signin" ? "signup" : "signin") : k;
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+
   return (
     <div
       role="tablist"
       aria-label="Sign in or create an account"
+      onKeyDown={onKeyDown}
       className="grid grid-cols-2 gap-1 p-1 mt-6 mb-6 rounded-[10px] bg-[var(--surface)] border border-[var(--hairline)]"
     >
       {tabs.map((t) => {
@@ -199,12 +231,18 @@ function ModeSwitch({
         return (
           <button
             key={t.id}
+            ref={(el) => {
+              refs.current[t.id] = el;
+            }}
+            id={`auth-tab-${t.id}`}
             type="button"
             role="tab"
             aria-selected={active}
+            aria-controls="auth-panel"
+            tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.id)}
             className={cn(
-              "h-10 rounded-[8px] text-[14px] font-semibold transition-colors duration-100",
+              "h-11 rounded-[6px] text-[15px] font-semibold transition-colors duration-100",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
               active
                 ? "bg-card text-[var(--ink)] border border-[var(--hairline)]"
@@ -236,11 +274,11 @@ function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="flex items-baseline justify-between text-[13px] font-semibold text-[var(--ink)] mb-1.5"
+        className="flex items-baseline justify-between text-[13px] font-semibold text-[var(--ink)] mb-2"
       >
         <span>{label}</span>
         {hint ? (
-          <span className="font-medium text-[var(--ink-faint)]">{hint}</span>
+          <span className="font-medium text-[var(--ink-muted)]">{hint}</span>
         ) : null}
       </label>
       {children}
@@ -251,7 +289,8 @@ function Field({
 const inputClass =
   "w-full h-11 rounded-[6px] border border-[var(--hairline)] bg-card px-3 text-[16px] sm:text-[15px] text-[var(--ink)] " +
   "placeholder:text-[var(--ink-faint)] outline-none transition-colors duration-100 " +
-  "focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/20";
+  "focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]/20 " +
+  "aria-invalid:border-[var(--attention)]";
 
 function TextInput(props: React.ComponentProps<"input">) {
   return <input {...props} className={cn(inputClass, props.className)} />;
@@ -272,7 +311,7 @@ function PasswordInput(
         type="button"
         onClick={() => setShow((v) => !v)}
         aria-label={show ? "Hide password" : "Show password"}
-        className="absolute right-0 top-0 h-11 w-11 inline-flex items-center justify-center text-[var(--ink-faint)] hover:text-[var(--ink)]"
+        className="absolute right-0 top-0 h-11 w-11 inline-flex items-center justify-center rounded-[6px] text-[var(--ink-muted)] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
       >
         {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
       </button>
@@ -294,7 +333,7 @@ function SubmitButton({
       type="submit"
       disabled={loading}
       className={cn(
-        "w-full h-12 rounded-[10px] bg-[var(--brand)] text-white text-[15px] font-bold",
+        "w-full h-12 rounded-[10px] bg-[var(--brand)] text-primary-foreground text-[15px] font-bold",
         "inline-flex items-center justify-center gap-2 transition-colors duration-100",
         "hover:bg-[var(--brand-deep)] disabled:opacity-70",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--ring)]"
@@ -316,16 +355,19 @@ function Notice({
   tone,
   children,
   className,
+  id,
 }: {
   tone: "attention" | "neutral";
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <p
+      id={id}
       role={tone === "attention" ? "alert" : "status"}
       className={cn(
-        "flex gap-2 text-[14px] leading-[1.45] rounded-[10px] px-3 py-2.5",
+        "flex gap-2 text-[15px] leading-[1.45] rounded-[10px] px-3 py-3",
         tone === "attention"
           ? "bg-[var(--attention-tint)] text-[var(--attention-deep)]"
           : "bg-card border border-[var(--hairline)] text-[var(--ink)]",
@@ -351,7 +393,7 @@ function TextLink({
     <button
       type="button"
       onClick={onClick}
-      className="text-[13px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] underline-offset-4 hover:underline min-h-[44px] px-2"
+      className="text-[13px] font-medium text-[var(--ink-muted)] hover:text-[var(--ink)] underline-offset-4 hover:underline min-h-[44px] px-2 rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
     >
       {children}
     </button>
@@ -374,21 +416,28 @@ function EmailSent({
   onResend?: () => Promise<boolean>;
 }) {
   const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // The form that had focus just unmounted; land on the new heading.
+  useEffect(() => headingRef.current?.focus(), []);
 
   return (
-    <div className="text-center py-2" role="status">
+    <div className="text-center py-2">
       <div className="w-14 h-14 rounded-[14px] bg-[var(--surface)] border border-[var(--hairline)] flex items-center justify-center mx-auto mb-4">
         <MailCheck className="w-6 h-6 text-[var(--ink)]" aria-hidden="true" />
       </div>
-      <h2 className="font-display text-[18px] font-bold text-[var(--ink)] mb-1.5">
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="font-display text-[18px] font-bold text-[var(--ink)] mb-2 outline-none"
+      >
         {title}
       </h2>
-      <p className="text-[14px] text-[var(--ink-muted)]">
+      <p role="status" className="text-[15px] text-[var(--ink-muted)]">
         We sent a link to{" "}
         <span className="font-semibold text-[var(--ink)] break-all">{email}</span>.
       </p>
-      <p className="text-[14px] text-[var(--ink-muted)] mt-1">{body}</p>
-      <p className="font-accent italic text-[13px] text-[var(--ink-faint)] mt-3">
+      <p className="text-[15px] text-[var(--ink-muted)] mt-1">{body}</p>
+      <p className="font-accent italic text-[13px] text-[var(--ink-muted)] mt-3">
         Not there? Check your spam folder.
       </p>
       <div className="flex flex-col items-center mt-4">
@@ -419,27 +468,57 @@ function EmailSent({
   );
 }
 
+// One error per form. A validation error names its field: that input is
+// marked invalid, points at the message, and takes focus.
+function useFormError(ids: string) {
+  const [state, setState] = useState<{ message: string; field: string | null; n: number }>({
+    message: "",
+    field: null,
+    n: 0,
+  });
+  const errorId = `${ids}-error`;
+
+  useEffect(() => {
+    if (state.field) document.getElementById(`${ids}-${state.field}`)?.focus();
+  }, [ids, state.field, state.n]);
+
+  return {
+    error: state.message,
+    errorId,
+    fail: (message: string, field: string | null = null) =>
+      setState((s) => ({ message, field, n: s.n + 1 })),
+    clear: () => setState((s) => ({ message: "", field: null, n: s.n })),
+    invalid: (field: string) =>
+      state.field === field
+        ? { "aria-invalid": true as const, "aria-describedby": errorId }
+        : {},
+  };
+}
+
 // ─── Sign in ────────────────────────────────────────────────────────────────
 
 function SignInPanel({
   email,
   setEmail,
+  autoFocus,
 }: {
   email: string;
   setEmail: (v: string) => void;
+  autoFocus: boolean;
 }) {
   const ids = useId();
   const [view, setView] = useState<"password" | "magic" | "magic-sent">("password");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const { error, errorId, fail, clear, invalid } = useFormError(ids);
   const [loading, setLoading] = useState(false);
 
   const handlePasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    clear();
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check your details");
+      const issue = parsed.error.issues[0];
+      fail(issue?.message ?? "Check your details", String(issue?.path[0] ?? "email"));
       return;
     }
 
@@ -449,10 +528,10 @@ function SignInPanel({
     );
     if (authError) {
       setLoading(false);
-      if (isUnreachable(authError)) setError(UNREACHABLE);
+      if (isUnreachable(authError)) fail(UNREACHABLE);
       else if (authError.code === "email_not_confirmed")
-        setError("Confirm your email first — open the link we sent you, then sign in.");
-      else setError("Email or password is wrong. Try again.");
+        fail("Confirm your email first — open the link we sent you, then sign in.");
+      else fail("Email or password is wrong. Try again.");
       return;
     }
 
@@ -464,10 +543,10 @@ function SignInPanel({
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    clear();
     const parsed = emailSchema.safeParse(email);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Enter a valid email");
+      fail(parsed.error.issues[0]?.message ?? "Enter a valid email", "magic-email");
       return;
     }
 
@@ -480,7 +559,7 @@ function SignInPanel({
     );
     setLoading(false);
     if (authError) {
-      setError(
+      fail(
         isUnreachable(authError)
           ? UNREACHABLE
           : "We couldn't send the link. Check the address and try again."
@@ -505,7 +584,7 @@ function SignInPanel({
   if (view === "magic") {
     return (
       <form onSubmit={handleMagicLink} className="space-y-4" noValidate>
-        <p className="text-[14px] text-[var(--ink-muted)]">
+        <p className="text-[15px] text-[var(--ink-muted)]">
           We&apos;ll email you a link that signs you in — no password needed.
         </p>
         <Field label="Email address" htmlFor={`${ids}-magic-email`}>
@@ -519,9 +598,10 @@ function SignInPanel({
             onChange={(e) => setEmail(e.target.value)}
             required
             autoFocus
+            {...invalid("magic-email")}
           />
         </Field>
-        {error ? <Notice tone="attention">{error}</Notice> : null}
+        {error ? <Notice tone="attention" id={errorId}>{error}</Notice> : null}
         <SubmitButton loading={loading} loadingLabel="Sending…">
           Email me a sign-in link
         </SubmitButton>
@@ -529,7 +609,7 @@ function SignInPanel({
           <TextLink
             onClick={() => {
               setView("password");
-              setError("");
+              clear();
             }}
           >
             Back to password sign-in
@@ -551,7 +631,8 @@ function SignInPanel({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          autoFocus
+          autoFocus={autoFocus}
+          {...invalid("email")}
         />
       </Field>
       <Field label="Password" htmlFor={`${ids}-password`}>
@@ -561,9 +642,10 @@ function SignInPanel({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          {...invalid("password")}
         />
       </Field>
-      {error ? <Notice tone="attention">{error}</Notice> : null}
+      {error ? <Notice tone="attention" id={errorId}>{error}</Notice> : null}
       <SubmitButton loading={loading} loadingLabel="Signing in…">
         Sign in
       </SubmitButton>
@@ -571,7 +653,7 @@ function SignInPanel({
         <TextLink
           onClick={() => {
             setView("magic");
-            setError("");
+            clear();
           }}
         >
           Forgot password? Email me a sign-in link
@@ -583,27 +665,37 @@ function SignInPanel({
 
 // ─── Sign up ────────────────────────────────────────────────────────────────
 
+// Zod path → input id suffix.
+const SIGNUP_FIELD: Record<string, string> = {
+  full_name: "name",
+  company_name: "company",
+  email: "email",
+  password: "password",
+};
+
 function SignUpPanel({
   email,
   setEmail,
+  autoFocus,
   onSignIn,
 }: {
   email: string;
   setEmail: (v: string) => void;
+  autoFocus: boolean;
   onSignIn: () => void;
 }) {
   const ids = useId();
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const { error, errorId, fail, clear, invalid } = useFormError(ids);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    clear();
     setAlreadyRegistered(false);
     const parsed = signUpSchema.safeParse({
       full_name: fullName,
@@ -612,7 +704,11 @@ function SignUpPanel({
       password,
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check your details");
+      const issue = parsed.error.issues[0];
+      fail(
+        issue?.message ?? "Check your details",
+        SIGNUP_FIELD[String(issue?.path[0])] ?? null
+      );
       return;
     }
 
@@ -637,13 +733,13 @@ function SignUpPanel({
     if (authError) {
       const msg = (authError.message ?? "").toLowerCase();
       if (isUnreachable(authError)) {
-        setError(UNREACHABLE);
+        fail(UNREACHABLE);
       } else if (msg.includes("already") || msg.includes("registered")) {
         setAlreadyRegistered(true);
       } else if (msg.includes("password")) {
-        setError("Choose a stronger password — at least 8 characters.");
+        fail("Choose a stronger password — at least 8 characters.", "password");
       } else {
-        setError("We couldn't create your account. Try again in a moment.");
+        fail("We couldn't create your account. Try again in a moment.");
       }
       return;
     }
@@ -684,7 +780,8 @@ function SignUpPanel({
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
-          autoFocus
+          autoFocus={autoFocus}
+          {...invalid("name")}
         />
       </Field>
       <Field label="Company" hint="Optional" htmlFor={`${ids}-company`}>
@@ -695,6 +792,7 @@ function SignUpPanel({
           placeholder="Acme AB"
           value={companyName}
           onChange={(e) => setCompanyName(e.target.value)}
+          {...invalid("company")}
         />
       </Field>
       <Field label="Work email" htmlFor={`${ids}-email`}>
@@ -707,6 +805,7 @@ function SignUpPanel({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
+          {...invalid("email")}
         />
       </Field>
       <Field label="Password" hint="8+ characters" htmlFor={`${ids}-password`}>
@@ -717,28 +816,25 @@ function SignUpPanel({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          {...invalid("password")}
         />
       </Field>
       {alreadyRegistered ? (
-        <Notice tone="attention">
-          That email already has an account.{" "}
-          <button
-            type="button"
-            onClick={onSignIn}
-            className="font-semibold underline underline-offset-2"
-          >
-            Sign in instead
-          </button>
-        </Notice>
+        <div>
+          <Notice tone="attention">That email already has an account.</Notice>
+          <div className="flex justify-center">
+            <TextLink onClick={onSignIn}>Sign in instead</TextLink>
+          </div>
+        </div>
       ) : error ? (
-        <Notice tone="attention">{error}</Notice>
+        <Notice tone="attention" id={errorId}>{error}</Notice>
       ) : null}
       <SubmitButton loading={loading} loadingLabel="Creating your account…">
         Create account
       </SubmitButton>
-      <p className="text-[12px] leading-[1.45] text-[var(--ink-faint)] text-center">
+      <p className="text-[13px] leading-[1.45] text-[var(--ink-muted)] text-center">
         How we handle your data is explained in our{" "}
-        <a href="/privacy" className="underline underline-offset-2 hover:text-[var(--ink)]">
+        <a href="/privacy" className="underline underline-offset-2 hover:text-[var(--ink)] rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
           privacy notice
         </a>
         .
@@ -761,7 +857,7 @@ function ResetSessionLink() {
         window.location.reload();
       }}
       disabled={busy}
-      className="text-[12px] text-[var(--ink-faint)] hover:text-[var(--ink-muted)] disabled:opacity-50"
+      className="text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] disabled:opacity-50 min-h-[44px] px-2 rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
     >
       {busy ? "Resetting…" : "Trouble signing in? Reset your session"}
     </button>

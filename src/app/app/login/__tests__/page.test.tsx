@@ -88,6 +88,21 @@ describe("/app/login — modes", () => {
     expect(screen.getByLabelText(/Work email/i)).toHaveValue("alex@example.se");
   });
 
+  it("switches modes with the arrow keys and keeps one tab in the Tab order", async () => {
+    const user = userEvent.setup();
+    renderCard();
+    const signIn = screen.getByRole("tab", { name: "Sign in" });
+    const signUp = screen.getByRole("tab", { name: "Create account" });
+    expect(signIn).toHaveAttribute("tabindex", "0");
+    expect(signUp).toHaveAttribute("tabindex", "-1");
+
+    signIn.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(signUp).toHaveAttribute("aria-selected", "true");
+    expect(signUp).toHaveFocus();
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", signUp.id);
+  });
+
   it("explains a broken email link", () => {
     renderCard({ linkError: true });
     expect(screen.getByRole("alert")).toHaveTextContent(/link didn.t work/i);
@@ -179,6 +194,9 @@ describe("/app/login — Create account flow", () => {
     await user.click(screen.getByRole("button", { name: /Create account/i }));
 
     expect(await screen.findByText(/Full name is required/i)).toBeInTheDocument();
+    const name = screen.getByLabelText(/Full name/i);
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveFocus();
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
