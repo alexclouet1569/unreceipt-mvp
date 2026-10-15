@@ -224,7 +224,11 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload.edited_at).toEqual(expect.any(String));
     expect(payload.edited_fields).toEqual(["total"]);
     expect(payload.edit_history).toEqual([
-      { at: payload.edited_at, changes: { total: { from: 24.9, to: 29.9 } } },
+      {
+        at: payload.edited_at,
+        by: USER_ID,
+        changes: { total: { from: 24.9, to: 29.9 } },
+      },
     ]);
   });
 

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
   deleteAccount: vi.fn(),
   cookies: [] as Array<{ name: string; value: string }>,
+  authTime: 0,
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: mocks.getServerUser }));
@@ -25,6 +26,16 @@ vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ getAll: () => mocks.cookies }),
 }));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: () => ({
+    auth: {
+      getClaims: async () => ({
+        data: { claims: { amr: [{ method: "password", timestamp: mocks.authTime }] } },
+        error: null,
+      }),
+    },
+  }),
+}));
 
 import { POST } from "@/app/api/account/delete/route";
 import { AccountDeletionError } from "@/lib/account-deletion";
@@ -54,6 +65,10 @@ beforeEach(() => {
   mocks.rateLimit.mockResolvedValue({ ok: true });
   mocks.deleteAccount.mockResolvedValue({ canceledSubscriptions: 0, removedFiles: 3 });
   mocks.cookies = [{ name: "sb-proj-auth-token", value: "x" }];
+  // This session signed in 5 minutes ago.
+  mocks.authTime = Math.floor(Date.now() / 1000) - 5 * 60;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://x.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
 });
 
 describe("POST /api/account/delete", () => {
@@ -86,11 +101,9 @@ describe("POST /api/account/delete", () => {
     expect(mocks.deleteAccount).not.toHaveBeenCalled();
   });
 
-  it("asks for a fresh sign-in when the last one is older than 30 minutes", async () => {
-    mocks.getServerUser.mockResolvedValueOnce({
-      ...freshUser(),
-      last_sign_in_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    });
+  it("asks for a fresh sign-in when this session signed in over 30 minutes ago", async () => {
+    // Even if the user signed in elsewhere just now: the check is per session.
+    mocks.authTime = Math.floor(Date.now() / 1000) - 2 * 60 * 60;
     const res = await POST(req({ confirm: "DELETE" }));
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "reauth_required" });

@@ -138,13 +138,20 @@ describe("ReceiptPdf — edited receipts", () => {
     );
     expect(html).toContain("Edited by you on Oct 15, 2026");
     expect(html).toContain("Total — originally: €49.00");
-    expect(html).toContain("The original file is unchanged.");
-    expect(html).not.toContain("This is a faithful digital copy");
+    // Manual receipt: no original file to speak of.
+    expect(html).not.toContain("original file is unchanged");
+    expect(html).toContain("Entered by hand, with the edits listed above.");
   });
 
-  it("keeps the faithful-copy wording when nothing was edited", () => {
-    const html = renderToString(<ReceiptPdf receipt={baseReceipt()} />);
-    expect(html).not.toContain("Edited by you");
-    expect(html).toContain("This is a faithful digital copy");
+  it("only mentions an original file when one is stored", () => {
+    const manual = renderToString(<ReceiptPdf receipt={baseReceipt()} />);
+    expect(manual).not.toContain("Edited by you");
+    expect(manual).toContain("There is no original file for this receipt.");
+
+    const photo = renderToString(
+      <ReceiptPdf receipt={baseReceipt({ source: "paper", image_url: "u/a.jpg" })} />
+    );
+    expect(photo).toContain("Data read from the original receipt. The original file is the evidence");
+    expect(photo).not.toContain("faithful");
   });
 });

@@ -48,13 +48,14 @@ export async function POST(request: NextRequest) {
     const result = await buildExport(user.id, period);
     return NextResponse.json({
       receiptCount: result.receiptCount,
+      missing: result.missing,
       parts: result.parts.map(({ filename, url, bytes }) => ({ filename, url, bytes })),
     });
   } catch (err) {
     if (err instanceof ExportTooLargeError) {
       return NextResponse.json(
         {
-          error: `You have more than ${MAX_EXPORT_RECEIPTS} receipts in this export. Export one month at a time.`,
+          error: `There are more than ${MAX_EXPORT_RECEIPTS} receipts in this period. Export one year or one month at a time.`,
         },
         { status: 413 },
       );

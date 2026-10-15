@@ -203,4 +203,23 @@ describe("mergeExtraction", () => {
     expect(patch).not.toHaveProperty("purchased_at");
     expect(patch).not.toHaveProperty("items");
   });
+
+  it("on a verified receipt, only fills empty fields", () => {
+    const row = baseRow({
+      status: "verified",
+      merchant_name: "ICA Nära",
+      total: 120,
+      tax_amount: null,
+      parse_confidence: 0.5,
+    });
+    const { patch } = mergeExtraction(row, {
+      merchant: "ICA Maxi",
+      amount: 999,
+      tax_amount: 24,
+      confidence: 0.99,
+    });
+    expect(patch).not.toHaveProperty("merchant_name");
+    expect(patch).not.toHaveProperty("total");
+    expect(patch.tax_amount).toBe(24);
+  });
 });

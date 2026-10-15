@@ -204,6 +204,13 @@ async function upsertSubscription(row: SubscriptionRow) {
     .upsert(row, { onConflict: "stripe_subscription_id" });
 
   if (error) {
+    // 23503: the user no longer exists (account deleted; deleteAccount()
+    // cancels the subscription, and Stripe's event arrives afterwards).
+    // Nothing left to update — acknowledge instead of 500 + 3 days of retries.
+    if (error.code === "23503") {
+      console.warn("[stripe webhook] subscription for a deleted user, ignoring");
+      return;
+    }
     throw new Error(`subscriptions upsert failed: ${error.message}`);
   }
 }

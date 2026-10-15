@@ -122,6 +122,9 @@ export interface EditChange {
 export interface EditHistoryEntry {
   // ISO timestamp of the save.
   at: string;
+  // auth user id of whoever saved it (absent on entries written before
+  // 2026-10-15's review fix).
+  by?: string;
   // Column name → value before and after, for each tracked field changed.
   changes: Record<string, EditChange>;
 }

@@ -313,6 +313,8 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
     receipt.tax_rate != null ? `VAT (${receipt.tax_rate}%)` : "VAT";
 
   const editedOn = editedOnLabel(receipt);
+  // Only claim an original when one is stored: manual entries have none.
+  const hasOriginal = Boolean(receipt.image_url || receipt.original_source_url);
   const wasValues = editedOn ? originalValues(receipt) : [];
 
   const sourceRef =
@@ -455,8 +457,9 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
                 {`Edited by you on ${editedOn}`}
               </Text>
               <Text style={styles.editedLine}>
-                These fields were changed by the account holder after the
-                receipt was captured. The original file is unchanged.
+                {hasOriginal
+                  ? "These fields were changed by the account holder after the receipt was captured. The original file is unchanged."
+                  : "These fields were changed by the account holder after the receipt was entered."}
               </Text>
               {wasValues.map(({ label, was }) => (
                 <Text key={label} style={styles.editedLine}>
@@ -467,14 +470,25 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
           ) : null}
 
           <Text style={styles.disclaimer}>
-            {editedOn
-              ? "Captured by UnReceipt · unreceipt.com — Digital copy of the original receipt, with the edits listed above; the original is retained on file."
-              : "Captured by UnReceipt · unreceipt.com — This is a faithful digital copy of the original receipt; the original is retained on file."}
+            {disclaimerText(hasOriginal, Boolean(editedOn))}
           </Text>
         </View>
       </Page>
     </Document>
   );
+}
+
+/**
+ * The closing line. Says only what is true for this receipt: whether there
+ * is an original file at all, and whether the data was edited. The data is
+ * read from the original (by OCR or a parser), so it isn't called a
+ * "faithful copy"; the original file is the evidence.
+ */
+export function disclaimerText(hasOriginal: boolean, edited: boolean): string {
+  const edits = edited ? ", with the edits listed above" : "";
+  return hasOriginal
+    ? `UnReceipt · unreceipt.com — Data read from the original receipt${edits}. The original file is the evidence: it is stored in UnReceipt while the account is active and included in exports.`
+    : `UnReceipt · unreceipt.com — Entered by hand${edits}. There is no original file for this receipt.`;
 }
 
 function BodyRow({ label, value }: { label: string; value: string }) {

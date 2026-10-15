@@ -29,7 +29,10 @@ export const SIGNED_URL_SECONDS = 15 * 60;
 // Exports are deleted by the daily cron after this long.
 export const EXPORT_TTL_HOURS = 24;
 
-export type ExportPeriod = { kind: "month"; month: string } | { kind: "all" };
+export type ExportPeriod =
+  | { kind: "month"; month: string }
+  | { kind: "year"; year: string }
+  | { kind: "all" };
 
 export class ExportTooLargeError extends Error {
   constructor() {
@@ -38,10 +41,18 @@ export class ExportTooLargeError extends Error {
   }
 }
 
-/** "2026-10" → month; "all" → everything; anything else → null. */
+/**
+ * "2026-10" → month; "2026" → calendar year; "all" → everything; anything
+ * else → null. Strict, because the value ends up in a PostgREST filter.
+ */
 export function parsePeriod(input: unknown): ExportPeriod | null {
   if (input === "all") return { kind: "all" };
   if (typeof input !== "string") return null;
+  const y = /^(\d{4})$/.exec(input);
+  if (y) {
+    const year = Number(y[1]);
+    return year >= 2000 && year <= 2100 ? { kind: "year", year: input } : null;
+  }
   const m = /^(\d{4})-(\d{2})$/.exec(input);
   if (!m) return null;
   const month = Number(m[2]);
@@ -58,9 +69,17 @@ export function monthRange(month: string): { start: string; end: string } {
 }
 
 export function periodLabel(period: ExportPeriod, now: Date): string {
-  return period.kind === "month"
-    ? period.month
-    : `all-receipts-${now.toISOString().slice(0, 10)}`;
+  if (period.kind === "month") return period.month;
+  if (period.kind === "year") return period.year;
+  return `all-receipts-${now.toISOString().slice(0, 10)}`;
+}
+
+function periodRange(period: ExportPeriod): { start: string; end: string } | null {
+  if (period.kind === "month") return monthRange(period.month);
+  if (period.kind === "year") {
+    return { start: `${period.year}-01-01`, end: `${Number(period.year) + 1}-01-01` };
+  }
+  return null;
 }
 
 /** File base name shared by a receipt's PDF and original: date_merchant_id. */
@@ -80,8 +99,9 @@ async function loadReceipts(userId: string, period: ExportPeriod): Promise<Recei
     .from("receipts")
     .select("*")
     .eq("user_id", userId);
-  if (period.kind === "month") {
-    const { start, end } = monthRange(period.month);
+  const range = periodRange(period);
+  if (range) {
+    const { start, end } = range;
     // Purchase date decides the month; rows from before purchased_at
     // existed fall back to receipt_date.
     query = query.or(
@@ -107,8 +127,9 @@ async function download(bucket: string, path: string): Promise<Uint8Array | null
 async function collectReceipt(
   userId: string,
   r: Receipt,
-): Promise<{ row: CsvRow; files: ZipEntry[] }> {
+): Promise<{ row: CsvRow; files: ZipEntry[]; missing: number }> {
   const base = fileBase(r);
+  let missing = 0;
   const when = new Date(r.created_at);
   const files: ZipEntry[] = [];
   let pdfFile: string | null = null;
@@ -122,6 +143,8 @@ async function collectReceipt(
       pdfFile = `pdf/${base}.pdf`;
       files.push({ name: pdfFile, data: new Uint8Array(pdf), date: when });
     } catch (err) {
+      missing++;
+      pdfFile = "(could not be created)";
       console.error("[export] pdf render failed", { receipt: r.id, err: String(err) });
     }
   }
@@ -134,6 +157,7 @@ async function collectReceipt(
     if (!path || !isOwnedStoragePath(path, userId)) continue;
     const data = await download(bucket, path);
     if (!data) {
+      missing++;
       originals.push("(missing)");
       continue;
     }
@@ -145,6 +169,7 @@ async function collectReceipt(
   return {
     row: { receipt: r, pdfFile, originalFile: originals.join(" | ") || null },
     files,
+    missing,
   };
 }
 
@@ -153,10 +178,18 @@ function readme(
   receiptCount: number,
   partNo: number | null,
   now: Date,
+  missing: number | null,
 ): string {
   return [
     `UnReceipt export — ${label}`,
     `Created ${now.toISOString().slice(0, 16).replace("T", " ")} UTC · ${receiptCount} receipt(s)`,
+    ...(missing
+      ? [
+          "",
+          `WARNING: ${missing} file(s) could not be included. They are marked in`,
+          "receipts.csv. Try the export again, or write to support@unreceipt.com.",
+        ]
+      : []),
     ...(partNo != null
       ? [`This is part ${partNo}. receipts.csv, in the last part, lists every receipt.`]
       : []),
@@ -165,8 +198,11 @@ function readme(
     "              directly in Excel or Numbers set to Swedish).",
     "pdf/          The digital receipt for every receipt that is ready. Receipts you",
     "              edited say so on the PDF, with the original values.",
-    "originals/    Each receipt's original file exactly as we received it: the photo",
-    "              or PDF you captured, or the forwarded email (.eml).",
+    "originals/    Each receipt's original file as it was uploaded or received: the",
+    "              photo or PDF you captured (large photos are resized on your phone",
+    "              before upload), or the forwarded email (.eml), byte for byte.",
+    "edit-history.json  For receipts you corrected: every change, when, and the",
+    "              value before. Only present when something was edited.",
     "",
     'Receipts marked "Needs review" in the CSV have no PDF yet: open them in the',
     "app and complete them.",
@@ -175,7 +211,20 @@ function readme(
 }
 
 export type ExportPart = { path: string; filename: string; url: string; bytes: number };
-export type ExportResult = { receiptCount: number; parts: ExportPart[] };
+export type ExportResult = {
+  receiptCount: number;
+  // PDFs that failed to render plus originals that couldn't be read.
+  missing: number;
+  parts: ExportPart[];
+};
+
+async function removePreviousExports(userId: string): Promise<void> {
+  const storage = getSupabaseAdmin().storage.from(EXPORT_BUCKET);
+  const { data, error } = await storage.list(userId, { limit: 1000 });
+  if (error || !data || data.length === 0) return;
+  const paths = data.filter((f) => f.id != null).map((f) => `${userId}/${f.name}`);
+  if (paths.length > 0) await storage.remove(paths);
+}
 
 export async function buildExport(
   userId: string,
@@ -183,7 +232,10 @@ export async function buildExport(
   now: Date = new Date(),
 ): Promise<ExportResult> {
   const receipts = await loadReceipts(userId, period);
-  if (receipts.length === 0) return { receiptCount: 0, parts: [] };
+  if (receipts.length === 0) return { receiptCount: 0, missing: 0, parts: [] };
+  // Keep at most one export per user in storage: each one copies every
+  // file, and storage is shared (Supabase Free: 1 GB for everything).
+  await removePreviousExports(userId);
   const label = periodLabel(period, now);
   const enc = new TextEncoder();
   const stamp = now.toISOString().replace(/[:.]/g, "-");
@@ -191,14 +243,19 @@ export async function buildExport(
 
   const parts: ExportPart[] = [];
   const rows: CsvRow[] = [];
+  let missing = 0;
   let pending: ZipEntry[] = [];
   let pendingBytes = 0;
 
   // Zips and uploads what's collected so far. `partNo` is null only when
   // the whole export fits in one file.
-  const flush = async (partNo: number | null, extra: ZipEntry[]) => {
+  const flush = async (partNo: number | null, extra: ZipEntry[], missingNow: number | null) => {
     const entries: ZipEntry[] = [
-      { name: "README.txt", data: enc.encode(readme(label, receipts.length, partNo, now)), date: now },
+      {
+        name: "README.txt",
+        data: enc.encode(readme(label, receipts.length, partNo, now, missingNow)),
+        date: now,
+      },
       ...extra,
       ...pending,
     ];
@@ -224,22 +281,41 @@ export async function buildExport(
   // One receipt at a time; a part is uploaded as soon as the next receipt
   // would push it past the target, so memory holds about one part.
   for (const r of receipts) {
-    const { row, files } = await collectReceipt(userId, r);
+    const { row, files, missing: m } = await collectReceipt(userId, r);
+    missing += m;
     rows.push(row);
     const size = zipSize(files.map((f) => ({ name: f.name, size: f.data.length })));
     if (pending.length > 0 && pendingBytes + size > PART_TARGET_BYTES) {
-      await flush(parts.length + 1, []);
+      await flush(parts.length + 1, [], null);
     }
     pending.push(...files);
     pendingBytes += size;
   }
 
-  const csv: ZipEntry = {
-    name: "receipts.csv",
-    data: enc.encode(buildReceiptsCsv(rows)),
-    date: now,
-  };
-  await flush(parts.length > 0 ? parts.length + 1 : null, [csv]);
+  const last: ZipEntry[] = [
+    { name: "receipts.csv", data: enc.encode(buildReceiptsCsv(rows)), date: now },
+  ];
+  // The full correction trail (who/when/before/after), so it survives the
+  // account: the PDF shows the original values, this shows every step.
+  const edited = receipts
+    .filter((r) => Array.isArray(r.edit_history) && r.edit_history.length > 0)
+    .map((r) => ({
+      receipt_id: r.id,
+      merchant: r.merchant_name,
+      date: receiptDate(r),
+      edits: r.edit_history,
+    }));
+  if (edited.length > 0) {
+    last.push({
+      name: "edit-history.json",
+      data: enc.encode(JSON.stringify(edited, null, 2)),
+      date: now,
+    });
+  }
+  await flush(parts.length > 0 ? parts.length + 1 : null, last, missing);
+  if (missing > 0) {
+    console.error("[export] files missing from export", { count: missing });
+  }
 
-  return { receiptCount: receipts.length, parts };
+  return { receiptCount: receipts.length, missing, parts };
 }

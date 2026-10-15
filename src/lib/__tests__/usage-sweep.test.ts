@@ -36,9 +36,12 @@ vi.mock("@/lib/supabase-admin", () => ({
         order: () => c,
         limit: async () => ({ data: state.usage, error: null }),
         update: (patch: unknown) => ({
-          eq: async (_col: string, id: string) => {
-            state.updates.push({ patch, id });
-            return { error: null };
+          eq: (_col: string, id: string) => {
+            const p = Promise.resolve().then(() => {
+              state.updates.push({ patch, id });
+              return { error: null };
+            });
+            return Object.assign(p, { is: () => p });
           },
         }),
       };

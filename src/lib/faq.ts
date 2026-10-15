@@ -72,7 +72,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Can I cancel at any time?",
-      a: "Yes. After you cancel, your account and receipts stay available for 90 days so you can download them — every receipt has its image and a PDF — and we email you before anything is deleted. The duty to keep receipts stays with your company, so move them to your own archive or your accountant.",
+      a: "Yes. After you cancel, your account and receipts stay available for 90 days so you can download them — one ZIP per month, year or everything, with each receipt's original file and a PDF of every completed receipt — and we email you before anything is deleted. The duty to keep receipts stays with your company, so move them to your own archive or your accountant.",
     },
     {
       q: "Where is my data stored?",
@@ -113,7 +113,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Kan jag avsluta när jag vill?",
-      a: "Ja. När du har avslutat finns ditt konto och dina kvitton kvar i 90 dagar så att du kan ladda ner dem — varje kvitto har sin kvittobild och en PDF — och vi mejlar dig innan något raderas. Skyldigheten att spara kvittona ligger kvar hos företaget, så flytta dem till ditt eget arkiv eller till din redovisningskonsult.",
+      a: "Ja. När du har avslutat finns ditt konto och dina kvitton kvar i 90 dagar så att du kan ladda ner dem — en ZIP-fil per månad, år eller alltihop, med varje kvittos originalfil och en PDF för varje färdigt kvitto — och vi mejlar dig innan något raderas. Skyldigheten att spara kvittona ligger kvar hos företaget, så flytta dem till ditt eget arkiv eller till din redovisningskonsult.",
     },
     {
       q: "Var lagras min data?",

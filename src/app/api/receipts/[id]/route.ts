@@ -202,7 +202,7 @@ export async function PATCH(
   }
 
   update.status = computeReceiptStatus(merged);
-  Object.assign(update, editMarker(existingRow, update));
+  Object.assign(update, editMarker(existingRow, update, new Date(), user.id));
 
   // The row was read under RLS above, so it belongs to this user. The write
   // itself goes through the service role: users have no direct UPDATE on

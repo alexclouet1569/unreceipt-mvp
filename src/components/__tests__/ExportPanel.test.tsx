@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ExportPanel, recentMonths } from "@/components/ExportPanel";
+import { ExportPanel, exportPeriods, recentMonths } from "@/components/ExportPanel";
 
 const fetchMock = vi.fn();
 const ok = (body: unknown) =>
@@ -23,6 +23,18 @@ describe("ExportPanel", () => {
     expect(months[0]).toBe("2026-01");
     expect(months[1]).toBe("2025-12");
     expect(months[12]).toBe("2025-01");
+  });
+
+  it("reaches back to the first receipt, with whole years too", () => {
+    const { months, years } = exportPeriods(
+      new Date("2026-10-15T00:00:00Z"),
+      "2023-03-04T12:00:00Z",
+    );
+    expect(months[0]).toBe("2026-10");
+    expect(months.at(-1)).toBe("2023-03");
+    expect(years).toEqual(["2026", "2025", "2024", "2023"]);
+    // New accounts still get the last 13 months.
+    expect(exportPeriods(new Date("2026-10-15T00:00:00Z"), null).months).toHaveLength(13);
   });
 
   it("exports the chosen month and shows the download links", async () => {

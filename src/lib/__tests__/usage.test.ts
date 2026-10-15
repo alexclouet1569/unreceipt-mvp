@@ -45,7 +45,11 @@ vi.mock("@/lib/supabase-admin", () => ({
         }),
         select: () => countChain,
         update: (patch: unknown) => ({
-          eq: async (col: string, val: string) => mocks.update(patch, col, val),
+          // Billed-at update awaits .eq(); the attempt marker adds .is().
+          eq: (col: string, val: string) => {
+            const p = Promise.resolve().then(() => mocks.update(patch, col, val));
+            return Object.assign(p, { is: () => p });
+          },
         }),
       };
     },

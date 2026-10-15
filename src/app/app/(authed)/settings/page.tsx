@@ -33,6 +33,18 @@ async function loadProfile(userId: string) {
   return data as { full_name: string | null; company_name: string | null } | null;
 }
 
+// Earliest purchase date, so the export can reach every month back to it.
+async function loadFirstReceiptDate(userId: string): Promise<string | null> {
+  const { data } = await getSupabaseAdmin()
+    .from("receipts")
+    .select("purchased_at, receipt_date")
+    .eq("user_id", userId)
+    .order("purchased_at", { ascending: true, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.purchased_at as string | null) ?? (data?.receipt_date as string | null) ?? null;
+}
+
 async function loadUsage(userId: string): Promise<Usage | null> {
   try {
     return await getUsage(userId);
@@ -46,10 +58,11 @@ export default async function SettingsPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [profile, aliasHash, usage] = await Promise.all([
+  const [profile, aliasHash, usage, firstReceiptDate] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
     loadUsage(user.id),
+    loadFirstReceiptDate(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -131,10 +144,10 @@ export default async function SettingsPage() {
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
           >
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-              One ZIP with a spreadsheet of the month&apos;s receipts, every
+              One ZIP with a spreadsheet of the period&apos;s receipts, every
               receipt as a PDF and each original photo, PDF or email.
             </p>
-            <ExportPanel />
+            <ExportPanel firstReceiptDate={firstReceiptDate} />
           </div>
         </section>
 

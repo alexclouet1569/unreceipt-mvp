@@ -139,23 +139,27 @@ export default function PrivacyPage() {
         <Section title="How long we keep it">
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong>Active accounts:</strong> for as long as your subscription
-              is active or you&apos;ve used the service in the last 12 months.
+              <strong>Open accounts:</strong> while your account is open —
+              with a subscription or in the free pilot — we keep your
+              receipts and their original files.
             </li>
             <li>
-              <strong>After cancellation:</strong> your account and receipts
-              stay available for 90 days so you can download them, and we
-              email you before anything is deleted. After that they are
-              permanently deleted. Billing records that we must keep for our
-              own accounts (invoices, via Stripe) are kept as the law
-              requires.
+              <strong>After a subscription ends:</strong> your account and
+              receipts stay available for 90 days so you can download them
+              (Settings → Export for your accountant). If receipts keep
+              arriving, the 90 days count from the last one. We email you
+              about 14 days before anything is deleted; after that your
+              account, receipts and files are permanently deleted. Copies in
+              our providers&apos; backups disappear when those backups
+              expire. Billing records that we must keep for our own accounts
+              (invoices, via Stripe) are kept as the law requires.
             </li>
             <li>
               <strong>Your bookkeeping obligation:</strong> under Swedish
               bookkeeping law (bokföringslagen), a business must keep its
-              receipts for seven years. That obligation stays with your
-              company, so download your receipts — or ask us for a copy —
-              before you close your account.
+              receipts until the end of the seventh year after the financial
+              year they belong to. That obligation stays with your company,
+              so download your receipts before you close your account.
             </li>
             <li>
               <strong>Delete your account at any time</strong> in the app

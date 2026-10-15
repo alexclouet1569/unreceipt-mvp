@@ -16,6 +16,29 @@ export function recentMonths(now: Date, count = 13): string[] {
   return out;
 }
 
+/**
+ * Every month from now back to the first receipt (at least the last 13,
+ * at most 10 years), and every calendar year in that span — so receipts of
+ * any age can be exported, also by accounts too big for "All receipts".
+ */
+export function exportPeriods(
+  now: Date,
+  firstReceiptDate: string | null | undefined,
+): { months: string[]; years: string[] } {
+  const first = firstReceiptDate ? new Date(firstReceiptDate) : null;
+  let count = 13;
+  if (first && !Number.isNaN(first.getTime())) {
+    const span =
+      (now.getUTCFullYear() - first.getUTCFullYear()) * 12 +
+      (now.getUTCMonth() - first.getUTCMonth()) +
+      1;
+    count = Math.min(120, Math.max(13, span));
+  }
+  const months = recentMonths(now, count);
+  const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+  return { months, years };
+}
+
 function monthLabel(month: string): string {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", {
@@ -39,15 +62,25 @@ function sizeLabel(bytes: number): string {
  * `fixedPeriod="all"` renders just the button — used inside the
  * delete-account flow, where the point is "download everything first".
  */
-export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
+export function ExportPanel({
+  fixedPeriod,
+  firstReceiptDate,
+}: {
+  fixedPeriod?: "all";
+  // Earliest purchase date on the account; widens the period list.
+  firstReceiptDate?: string | null;
+}) {
   const [period, setPeriod] = useState<string>(
     () => fixedPeriod ?? recentMonths(new Date())[0],
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ receiptCount: number; parts: ExportPart[] } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    receiptCount: number;
+    missing: number;
+    parts: ExportPart[];
+  } | null>(null);
+  const { months, years } = exportPeriods(new Date(), firstReceiptDate);
 
   const run = async () => {
     setBusy(true);
@@ -62,6 +95,7 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
         receiptCount?: number;
+        missing?: number;
         parts?: ExportPart[];
       };
       if (!res.ok) {
@@ -71,7 +105,11 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
             : (body.error ?? "Couldn't create the export. Please try again."),
         );
       } else {
-        setResult({ receiptCount: body.receiptCount ?? 0, parts: body.parts ?? [] });
+        setResult({
+          receiptCount: body.receiptCount ?? 0,
+          missing: body.missing ?? 0,
+          parts: body.parts ?? [],
+        });
       }
     } catch {
       setError("Network error. Check your connection and try again.");
@@ -99,11 +137,20 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
               setResult(null);
             }}
           >
-            {recentMonths(new Date()).map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
+            <optgroup label="Month">
+              {months.map((m) => (
+                <option key={m} value={m}>
+                  {monthLabel(m)}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Whole year">
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </optgroup>
             <option value="all">All receipts</option>
           </select>
         </div>
@@ -144,6 +191,16 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
                 : ""}{" "}
               The link works for 15 minutes.
             </p>
+            {result.missing > 0 ? (
+              <p
+                className="rounded-md px-3 py-2 bg-[var(--attention-tint)] text-[var(--attention-deep)]"
+                style={{ fontSize: "14px" }}
+              >
+                {result.missing} file{result.missing === 1 ? "" : "s"} couldn&apos;t
+                be included (marked in receipts.csv). Try again, or write to
+                support@unreceipt.com before deleting anything.
+              </p>
+            ) : null}
             <ul className="space-y-2">
               {result.parts.map((p) => (
                 <li key={p.url}>

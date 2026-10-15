@@ -188,6 +188,7 @@ export async function POST(
 //   - `items` are special: if the row currently has no items at all,
 //     write whatever the new extraction returned. This is the whole
 //     point of the backfill — populate the empty digital twin.
+//   - On a verified receipt, only empty fields are filled.
 //   - Fields the customer corrected (`edited_fields`) are never
 //     overwritten: their correction beats any extraction.
 //   - Status is recomputed from the merged result.
@@ -200,7 +201,9 @@ export function mergeExtraction(
 
   const newConf = typeof fresh.confidence === "number" ? fresh.confidence : 0;
   const oldConf = existing.parse_confidence ?? 0;
-  const winsOnConfidence = newConf >= oldConf;
+  // A ready (verified) receipt may already be booked or exported: a re-run
+  // only fills fields that are empty, never rewrites a value silently.
+  const winsOnConfidence = existing.status !== "verified" && newConf >= oldConf;
 
   const editedByCustomer = new Set(existing.edited_fields ?? []);
 

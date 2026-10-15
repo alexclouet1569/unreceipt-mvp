@@ -4,13 +4,15 @@
 // again and runs deleteAccount() (src/lib/account-deletion.ts).
 //
 // Guards, in order: signed in, same-origin (a cross-site form can't trigger
-// it), rate limit, explicit confirmation, and a fresh sign-in — a session
-// left open on a shared computer must not be enough to wipe an account.
+// it), rate limit, explicit confirmation, and a fresh sign-in *in this
+// session* (the token's amr time) — a session left open on a shared
+// computer must not be enough to wipe an account.
 // No subscription check on purpose: a lapsed customer can always delete.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
@@ -18,6 +20,7 @@ import {
   AccountDeletionError,
   deleteAccount,
   isFreshSignIn,
+  sessionAuthTime,
 } from "@/lib/account-deletion";
 
 export const runtime = "nodejs";
@@ -60,7 +63,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "confirmation_required" }, { status: 400 });
   }
 
-  if (!isFreshSignIn(user.last_sign_in_at)) {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
+  );
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (!isFreshSignIn(sessionAuthTime(claimsData?.claims))) {
     return NextResponse.json({ error: "reauth_required" }, { status: 401 });
   }
 
@@ -78,7 +88,6 @@ export async function POST(request: NextRequest) {
 
   // The auth user is gone; clear the session cookies on the way out.
   const response = NextResponse.json({ ok: true });
-  const cookieStore = await cookies();
   for (const cookie of cookieStore.getAll()) {
     if (cookie.name.startsWith("sb-")) {
       response.cookies.set({ name: cookie.name, value: "", maxAge: 0 });

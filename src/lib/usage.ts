@@ -221,10 +221,13 @@ async function reportExtraReceipt(input: {
   timeoutMs: number;
 }): Promise<void> {
   const db = getSupabaseAdmin();
+  // First attempt only: Stripe's dedupe window runs from the first event
+  // it may have received, so later retries must not move the marker.
   const { error: markError } = await db
     .from("receipt_usage")
     .update({ overage_attempted_at: new Date().toISOString() })
-    .eq("receipt_id", input.receiptId);
+    .eq("receipt_id", input.receiptId)
+    .is("overage_attempted_at", null);
   // Without the marker a later retry can't tell whether this call reached
   // Stripe, so don't make it.
   if (markError) throw new Error(`usage attempt mark failed: ${markError.code ?? "unknown"}`);
@@ -247,8 +250,8 @@ async function reportExtraReceipt(input: {
     .eq("receipt_id", input.receiptId);
 }
 
-// A retry is only safe while Stripe still dedupes the earlier attempt
-// (at least 24 hours); keep a margin for clock skew and slow requests.
+// A retry is only safe while Stripe still dedupes the first attempt (at
+// least 24 hours from it); keep a margin for clock skew and slow requests.
 export const SAFE_RETRY_WINDOW_MS = 20 * 60 * 60 * 1000;
 
 export type OverageSweepResult = {

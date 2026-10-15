@@ -261,8 +261,8 @@ export function retentionReminderEmail(opts: {
   const intro = `Your UnReceipt subscription ended on ${opts.endedOn}. As promised in our privacy policy, we've kept your account and receipts for 90 days after cancellation so you can download them.`;
   const warning = `On ${opts.deleteOn} we will permanently delete your account, every receipt and every original file. This can't be undone.`;
   const duty =
-    "Swedish bookkeeping law requires your company to keep its receipts for seven years. Download them before that date: in Settings, choose Export for your accountant → All receipts. You get a ZIP with every receipt as a PDF, the original photos and emails, and a spreadsheet.";
-  const stay = "Want to keep using UnReceipt instead? Choose a plan and nothing is deleted.";
+    "Swedish bookkeeping law requires your company to keep its receipts until the end of the seventh year after the financial year they belong to. Download them before that date: in Settings, choose Export for your accountant → All receipts (or one year at a time if you have more than 1,000). You get a ZIP with the original photos and emails, a PDF of every completed receipt, and a spreadsheet.";
+  const stay = "Want to keep using UnReceipt instead? Choose a plan before that date and nothing is deleted.";
 
   const bodyHtml = [
     `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">Your receipts will be deleted on ${esc(opts.deleteOn)}</h1>`,

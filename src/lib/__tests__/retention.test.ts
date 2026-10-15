@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   subs: [] as unknown[],
+  freshSubs: null as unknown[] | null,
+  lastReceipt: null as null | { created_at: string },
   records: [] as unknown[],
   users: {} as Record<string, string | null>,
   upserts: [] as unknown[],
@@ -19,16 +21,40 @@ vi.mock("@/lib/email/send", () => ({
 }));
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
-    from: (table: string) =>
-      table === "subscriptions"
-        ? { select: async () => ({ data: state.subs, error: null }) }
-        : {
-            select: () => ({ in: async () => ({ data: state.records, error: null }) }),
-            upsert: async (row: unknown) => {
-              state.upserts.push(row);
-              return { error: null };
-            },
-          },
+    from: (table: string) => {
+      if (table === "subscriptions") {
+        const q = {
+          select: () => q,
+          order: () => q,
+          range: async () => ({ data: state.subs, error: null }),
+          // Per-user re-check.
+          eq: async (_c: string, id: string) => ({
+            data: (state.freshSubs ?? state.subs).filter(
+              (r) => (r as { user_id: string }).user_id === id,
+            ),
+            error: null,
+          }),
+        };
+        return q;
+      }
+      if (table === "receipt_usage") {
+        const q = {
+          select: () => q,
+          eq: () => q,
+          order: () => q,
+          limit: () => q,
+          maybeSingle: async () => ({ data: state.lastReceipt, error: null }),
+        };
+        return q;
+      }
+      return {
+        select: () => ({ in: async () => ({ data: state.records, error: null }) }),
+        upsert: async (row: unknown) => {
+          state.upserts.push(row);
+          return { error: null };
+        },
+      };
+    },
     auth: {
       admin: {
         getUserById: async (id: string) => ({
@@ -110,6 +136,9 @@ describe("retentionAction", () => {
 
 describe("runRetention", () => {
   beforeEach(() => {
+    delete process.env.PILOT_MODE;
+    state.freshSubs = null;
+    state.lastReceipt = null;
     state.subs = [sub()];
     state.records = [];
     state.users = { [U1]: "owner@example.se" };
@@ -146,7 +175,10 @@ describe("runRetention", () => {
     ];
     const res = await runRetention(at(91));
     expect(res.deleted).toBe(1);
-    expect(state.deleteAccount).toHaveBeenCalledWith(U1, { email: "owner@example.se" });
+    expect(state.deleteAccount).toHaveBeenCalledWith(U1, {
+      email: "owner@example.se",
+      refuseIfLive: true,
+    });
   });
 
   it("never deletes an admin account", async () => {
@@ -159,5 +191,42 @@ describe("runRetention", () => {
     expect(res.skipped).toBe(1);
     expect(state.deleteAccount).not.toHaveBeenCalled();
     delete process.env.CONCIERGE_ADMIN_EMAILS;
+  });
+
+  it("does nothing at all in pilot mode", async () => {
+    process.env.PILOT_MODE = "true";
+    state.records = [
+      { user_id: U1, ended_at: ENDED.toISOString(), reminder_sent_at: at(76).toISOString() },
+    ];
+    const res = await runRetention(at(200));
+    expect(res).toEqual({ reminded: 0, deleted: 0, waiting: 0, skipped: 0, failed: 0 });
+    expect(state.deleteAccount).not.toHaveBeenCalled();
+    expect(state.sendEmail).not.toHaveBeenCalled();
+    delete process.env.PILOT_MODE;
+  });
+
+  it("re-checks the account before acting: a live subscription stops it", async () => {
+    state.freshSubs = [sub(), sub({ status: "active", ended_at: null })];
+    state.records = [
+      { user_id: U1, ended_at: ENDED.toISOString(), reminder_sent_at: at(76).toISOString() },
+    ];
+    const res = await runRetention(at(120));
+    expect(res.skipped).toBe(1);
+    expect(state.deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("restarts the clock while receipts keep arriving", async () => {
+    // Reminded for the cancellation, but a receipt came in on day 80.
+    state.lastReceipt = { created_at: at(80).toISOString() };
+    state.records = [
+      { user_id: U1, ended_at: ENDED.toISOString(), reminder_sent_at: at(76).toISOString() },
+    ];
+    const res = await runRetention(at(95));
+    expect(state.deleteAccount).not.toHaveBeenCalled();
+    expect(res.deleted).toBe(0);
+    // Day 80 + 76 = day 156: a new reminder about the new date.
+    const later = await runRetention(at(157));
+    expect(later.reminded).toBe(1);
+    expect(state.upserts.at(-1)).toMatchObject({ ended_at: at(80).toISOString() });
   });
 });

@@ -142,8 +142,11 @@ export function DeleteAccountSection({
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
           Swedish bookkeeping law requires your company to keep its receipts
-          for seven years. Once your account is deleted we can&apos;t send
-          you a copy.
+          until the end of the seventh year after the financial year they
+          belong to. Download every part of the export and check it opens
+          before you delete: deleting also removes the download links, and
+          we can&apos;t send you a copy afterwards. Over 1,000 receipts?
+          Export year by year above.
         </p>
         {exportSlot}
         <label className="flex items-start gap-3 cursor-pointer" style={{ minHeight: "44px" }}>

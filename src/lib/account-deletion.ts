@@ -30,6 +30,7 @@ const CHARGEABLE_STATUSES = new Set([
   "past_due",
   "incomplete",
   "unpaid",
+  "paused",
 ]);
 
 export class AccountDeletionError extends Error {
@@ -80,25 +81,56 @@ export async function listAllPaths(
   return paths;
 }
 
+/**
+ * Cancels every subscription Stripe can still charge for this user. Asks
+ * Stripe per customer rather than trusting our rows: a subscription whose
+ * checkout webhook hasn't arrived yet has no row, but must not keep
+ * charging a deleted customer. With `refuseIfLive` (the retention job) a
+ * live subscription aborts the deletion instead: someone who is paying
+ * again must not be deleted for an older cancellation.
+ */
 async function cancelStripeSubscriptions(
   supabase: SupabaseClient,
   userId: string,
+  { refuseIfLive }: { refuseIfLive: boolean },
 ): Promise<number> {
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("stripe_subscription_id, status")
+    .select("stripe_customer_id, stripe_subscription_id, status")
     .eq("user_id", userId);
   if (error) throw new AccountDeletionError("stripe", "subscription lookup failed");
-
-  const live = (data ?? []).filter(
-    (s) => s.stripe_subscription_id && CHARGEABLE_STATUSES.has(s.status),
-  );
-  if (live.length === 0) return 0;
+  const rows = data ?? [];
+  if (rows.length === 0) return 0;
 
   const stripe = getStripe();
-  for (const sub of live) {
+  const live = new Set<string>();
+  const customers = [...new Set(rows.map((r) => r.stripe_customer_id).filter(Boolean))];
+  try {
+    for (const customer of customers) {
+      for await (const sub of stripe.subscriptions.list({ customer, status: "all", limit: 100 })) {
+        if (CHARGEABLE_STATUSES.has(sub.status)) live.add(sub.id);
+      }
+    }
+  } catch (err) {
+    // A customer deleted on Stripe's side has nothing left to charge.
+    if ((err as { code?: string }).code !== "resource_missing") {
+      throw new AccountDeletionError("stripe", "subscription list failed");
+    }
+  }
+  // Rows we hold are cancelled too, in case the list missed one.
+  for (const r of rows) {
+    if (r.stripe_subscription_id && CHARGEABLE_STATUSES.has(r.status)) {
+      live.add(r.stripe_subscription_id);
+    }
+  }
+  if (live.size === 0) return 0;
+  if (refuseIfLive) {
+    throw new AccountDeletionError("stripe", "live subscription, not deleting");
+  }
+
+  for (const id of live) {
     try {
-      await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+      await stripe.subscriptions.cancel(id);
     } catch (err) {
       // Already gone on Stripe's side is the outcome we want.
       const code = (err as { code?: string }).code;
@@ -106,7 +138,7 @@ async function cancelStripeSubscriptions(
       throw new AccountDeletionError("stripe", "subscription cancel failed");
     }
   }
-  return live.length;
+  return live.size;
 }
 
 async function removeUserFiles(
@@ -139,6 +171,23 @@ export function isFreshSignIn(
   return Number.isFinite(t) && now - t <= FRESH_SIGN_IN_MS;
 }
 
+/**
+ * When *this session* last authenticated, from the access token's `amr`
+ * claim ({ method, timestamp } entries). Per session on purpose: the user's
+ * last_sign_in_at moves when they sign in anywhere, so an old session left
+ * open elsewhere would pass a check based on it.
+ */
+export function sessionAuthTime(claims: { amr?: unknown } | null | undefined): string | null {
+  const amr = claims?.amr;
+  if (!Array.isArray(amr)) return null;
+  let latest = 0;
+  for (const entry of amr) {
+    const t = (entry as { timestamp?: unknown })?.timestamp;
+    if (typeof t === "number" && t > latest) latest = t;
+  }
+  return latest > 0 ? new Date(latest * 1000).toISOString() : null;
+}
+
 export type AccountDeletionResult = {
   canceledSubscriptions: number;
   removedFiles: number;
@@ -146,14 +195,19 @@ export type AccountDeletionResult = {
 
 export async function deleteAccount(
   userId: string,
-  { email }: { email?: string | null } = {},
+  {
+    email,
+    refuseIfLive = false,
+  }: { email?: string | null; refuseIfLive?: boolean } = {},
 ): Promise<AccountDeletionResult> {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) {
     throw new AccountDeletionError("auth", "invalid user id");
   }
   const supabase = getSupabaseAdmin();
 
-  const canceledSubscriptions = await cancelStripeSubscriptions(supabase, userId);
+  const canceledSubscriptions = await cancelStripeSubscriptions(supabase, userId, {
+    refuseIfLive,
+  });
   const removedFiles = await removeUserFiles(supabase, userId);
 
   const { error: receiptsError } = await supabase

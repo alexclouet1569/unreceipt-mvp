@@ -5,8 +5,15 @@
 // before anything is deleted, then everything is permanently deleted.
 //
 // Safety rules, because deletion can't be undone:
-// - Only accounts whose every subscription has ended. Pilot users (no
-//   subscription row) and anyone with a live subscription are never touched.
+// - Nothing runs while PILOT_MODE is on: the app lets everyone in for free
+//   then, so a cancelled subscription doesn't mean the account is unused.
+// - Only accounts whose every subscription has ended. Users without a
+//   subscription row and anyone with a live subscription are never touched.
+//   Each account is re-checked on its own right before acting (the bulk read
+//   is only a shortlist), and deleteAccount() refuses if Stripe still has a
+//   live subscription.
+// - Receipts keep arriving (an auto-forward rule) → still in use: the clock
+//   runs from the later of the cancellation and the last receipt.
 // - Never delete without a reminder email about *this* cancellation (the
 //   account_retention row records which ended_at it was about), and never
 //   sooner than REMINDER_DAYS after that email, even if the job was down.
@@ -17,6 +24,7 @@ import * as Sentry from "@sentry/nextjs";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { isAdminEmail } from "./auth-admin";
 import { deleteAccount } from "./account-deletion";
+import { isPilotMode } from "./pilot";
 import { appUrl } from "./app-url";
 import { founderReplyTo, sendEmail } from "./email/send";
 import { retentionReminderEmail } from "./email/templates";
@@ -97,6 +105,52 @@ function stockholmDate(d: Date): string {
   });
 }
 
+const PAGE = 1000;
+
+async function loadAllSubscriptions(): Promise<RetentionSubscription[]> {
+  const db = getSupabaseAdmin();
+  const rows: RetentionSubscription[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from("subscriptions")
+      .select("user_id, status, ended_at, current_period_end, updated_at")
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`subscriptions read failed (${error.code})`);
+    rows.push(...((data ?? []) as RetentionSubscription[]));
+    if ((data ?? []).length < PAGE) return rows;
+  }
+}
+
+/**
+ * This user's retention clock start, read fresh: when their last
+ * subscription ended or their last receipt arrived, whichever is later.
+ * Null when they have a live subscription (or none at all).
+ */
+export async function currentClockStart(userId: string): Promise<Date | null> {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
+    .from("subscriptions")
+    .select("user_id, status, ended_at, current_period_end, updated_at")
+    .eq("user_id", userId);
+  if (error) throw new Error(`subscriptions read failed (${error.code})`);
+  const ended = endedAccounts((data ?? []) as RetentionSubscription[]).get(userId);
+  if (!ended) return null;
+
+  const { data: last, error: usageError } = await db
+    .from("receipt_usage")
+    .select("created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (usageError) throw new Error(`usage read failed (${usageError.code})`);
+  const lastReceipt = last?.created_at ? Date.parse(last.created_at as string) : NaN;
+  return Number.isFinite(lastReceipt) && lastReceipt > ended.getTime()
+    ? new Date(lastReceipt)
+    : ended;
+}
+
 export type RetentionRunResult = {
   reminded: number;
   deleted: number;
@@ -109,37 +163,46 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionRun
   const db = getSupabaseAdmin();
   const result: RetentionRunResult = { reminded: 0, deleted: 0, waiting: 0, skipped: 0, failed: 0 };
 
-  const { data: subs, error } = await db
-    .from("subscriptions")
-    .select("user_id, status, ended_at, current_period_end, updated_at");
-  if (error) throw new Error(`subscriptions read failed (${error.code})`);
+  if (isPilotMode()) return result;
 
-  const ended = endedAccounts((subs ?? []) as RetentionSubscription[]);
+  // Shortlist only: every candidate is re-checked on its own below.
+  const ended = endedAccounts(await loadAllSubscriptions());
   if (ended.size === 0) return result;
 
-  const { data: records, error: recError } = await db
-    .from("account_retention")
-    .select("user_id, ended_at, reminder_sent_at")
-    .in("user_id", [...ended.keys()]);
-  if (recError) throw new Error(`account_retention read failed (${recError.code})`);
-  const recordByUser = new Map(
-    (records ?? []).map((r) => [r.user_id as string, r as RetentionRecord]),
-  );
+  const recordByUser = new Map<string, RetentionRecord>();
+  const ids = [...ended.keys()];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: records, error: recError } = await db
+      .from("account_retention")
+      .select("user_id, ended_at, reminder_sent_at")
+      .in("user_id", ids.slice(i, i + 200));
+    if (recError) throw new Error(`account_retention read failed (${recError.code})`);
+    for (const r of records ?? []) recordByUser.set(r.user_id as string, r as RetentionRecord);
+  }
 
-  for (const [userId, endedAt] of ended) {
+  for (const [userId, shortlistEndedAt] of ended) {
     const record = recordByUser.get(userId) ?? null;
-    const action = retentionAction(endedAt, record, now);
-    if (action === "none") continue;
-    if (action === "wait") {
-      result.waiting++;
-      continue;
-    }
-    if (action === "delete" && result.deleted >= MAX_DELETIONS_PER_RUN) {
-      result.waiting++;
-      continue;
-    }
-
+    // Cheap pre-filter on the shortlist date; the real decision uses the
+    // fresh per-user clock (which can only be later).
+    if (retentionAction(shortlistEndedAt, record, now) === "none") continue;
+    let action: RetentionAction = "none";
     try {
+      const endedAt = await currentClockStart(userId);
+      if (!endedAt) {
+        result.skipped++;
+        continue;
+      }
+      action = retentionAction(endedAt, record, now);
+      if (action === "none") continue;
+      if (action === "wait") {
+        result.waiting++;
+        continue;
+      }
+      if (action === "delete" && result.deleted >= MAX_DELETIONS_PER_RUN) {
+        result.waiting++;
+        continue;
+      }
+
       const { data: userData, error: userError } = await db.auth.admin.getUserById(userId);
       if (userError || !userData?.user) {
         result.skipped++;
@@ -182,7 +245,7 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionRun
         if (upsertError) throw new Error(`account_retention write failed (${upsertError.code})`);
         result.reminded++;
       } else {
-        await deleteAccount(userId, { email });
+        await deleteAccount(userId, { email, refuseIfLive: true });
         result.deleted++;
       }
     } catch (err) {

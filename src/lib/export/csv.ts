@@ -20,12 +20,15 @@ export const CSV_COLUMNS = [
   "VAT rate %",
   "Category",
   "Payment method",
+  "Card last 4",
+  "Merchant VAT no.",
   "Status",
   "Source",
   "Edited by you",
   "Notes",
   "PDF file",
   "Original file",
+  "Captured at",
   "Receipt ID",
 ] as const;
 
@@ -56,8 +59,25 @@ function csvNumber(value: number | string | null | undefined): string {
   return Number.isFinite(n) ? String(n).replace(".", ",") : "";
 }
 
+/**
+ * The purchase date as YYYY-MM-DD in Swedish time: an email receipt paid
+ * at 00:30 in Stockholm is stored as the previous day in UTC.
+ */
 export function receiptDate(r: Pick<Receipt, "purchased_at" | "receipt_date">): string {
-  return (r.purchased_at ?? r.receipt_date ?? "").slice(0, 10);
+  if (r.purchased_at) {
+    const d = new Date(r.purchased_at);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
+    }
+  }
+  return (r.receipt_date ?? "").slice(0, 10);
+}
+
+function stockholmDateTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("sv-SE", { timeZone: "Europe/Stockholm" }).slice(0, 16);
 }
 
 export function buildReceiptsCsv(rows: CsvRow[]): string {
@@ -73,12 +93,15 @@ export function buildReceiptsCsv(rows: CsvRow[]): string {
         csvNumber(r.tax_rate),
         csvCell(CATEGORY_CONFIG[r.category]?.label ?? r.category),
         csvCell(r.payment_method),
+        csvCell(r.card_last_four),
+        csvCell(r.merchant_vat_number),
         csvCell(r.status === "verified" ? "Ready" : "Needs review"),
         csvCell(r.source),
         csvCell(r.edited_at ? r.edited_at.slice(0, 10) : ""),
         csvCell(r.notes),
         csvCell(pdfFile),
         csvCell(originalFile),
+        csvCell(stockholmDateTime(r.created_at)),
         csvCell(r.id),
       ].join(";"),
     );

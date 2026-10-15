@@ -51,12 +51,12 @@ describe("editMarker", () => {
     );
   });
 
-  it("stamps the time, the field and a history entry", () => {
-    expect(editMarker({ total: 49 }, { total: 59 }, NOW)).toEqual({
+  it("stamps the time, who, the field and a history entry", () => {
+    expect(editMarker({ total: 49 }, { total: 59 }, NOW, "user-1")).toEqual({
       edited_at: NOW.toISOString(),
       edited_fields: ["total"],
       edit_history: [
-        { at: NOW.toISOString(), changes: { total: { from: 49, to: 59 } } },
+        { at: NOW.toISOString(), by: "user-1", changes: { total: { from: 49, to: 59 } } },
       ],
     });
   });
@@ -73,6 +73,9 @@ describe("editMarker", () => {
     );
     expect(marker.edit_history).toHaveLength(MAX_EDIT_HISTORY);
     expect(marker.edit_history!.at(-1)!.at).toBe(NOW.toISOString());
+    // The first entry (the originally captured values) is never dropped.
+    expect(marker.edit_history![0].at).toBe("t0");
+    expect(marker.edit_history![1].at).toBe("t2");
   });
 });
 

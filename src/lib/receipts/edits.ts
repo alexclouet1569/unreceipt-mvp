@@ -93,6 +93,7 @@ export function editMarker(
   existing: Partial<Receipt>,
   update: Record<string, unknown>,
   now: Date = new Date(),
+  by?: string,
 ): {
   edited_at?: string;
   edited_fields?: string[];
@@ -108,8 +109,17 @@ export function editMarker(
   return {
     edited_at: at,
     edited_fields: Array.from(new Set([...previousFields, ...fields])),
-    edit_history: [...history, { at, changes }].slice(-MAX_EDIT_HISTORY),
+    edit_history: capHistory([...history, { at, ...(by ? { by } : {}), changes }]),
   };
+}
+
+/**
+ * Caps the trail at MAX_EDIT_HISTORY entries but always keeps the first
+ * one: it holds the values as originally captured, which the PDF shows.
+ */
+function capHistory(history: EditHistoryEntry[]): EditHistoryEntry[] {
+  if (history.length <= MAX_EDIT_HISTORY) return history;
+  return [history[0], ...history.slice(-(MAX_EDIT_HISTORY - 1))];
 }
 
 /**

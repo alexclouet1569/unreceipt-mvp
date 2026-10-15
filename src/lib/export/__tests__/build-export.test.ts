@@ -9,6 +9,8 @@ const state = vi.hoisted(() => ({
   orFilter: null as string | null,
   files: {} as Record<string, Uint8Array>,
   uploads: [] as Array<{ bucket: string; path: string; size: number }>,
+  previous: [] as Array<{ name: string; id: string | null }>,
+  removed: [] as string[][],
 }));
 
 vi.mock("@react-pdf/renderer", async (importOriginal) => ({
@@ -38,6 +40,11 @@ vi.mock("@/lib/supabase-admin", () => ({
           return bytes
             ? { data: new Blob([bytes as BlobPart]), error: null }
             : { data: null, error: { message: "not found" } };
+        },
+        list: async () => ({ data: state.previous, error: null }),
+        remove: async (paths: string[]) => {
+          state.removed.push(paths);
+          return { error: null };
         },
         upload: async (path: string, data: Uint8Array) => {
           state.uploads.push({ bucket, path, size: data.length });
@@ -84,6 +91,8 @@ beforeEach(() => {
   state.orFilter = null;
   state.files = {};
   state.uploads = [];
+  state.previous = [];
+  state.removed = [];
 });
 
 describe("export helpers", () => {
@@ -92,6 +101,8 @@ describe("export helpers", () => {
     expect(parsePeriod("all")).toEqual({ kind: "all" });
     expect(parsePeriod("2026-13")).toBeNull();
     expect(parsePeriod("2026-10-01")).toBeNull();
+    expect(parsePeriod("2024")).toEqual({ kind: "year", year: "2024" });
+    expect(parsePeriod("1999")).toBeNull();
     expect(parsePeriod("2026-10),or(user_id.neq.x")).toBeNull();
     expect(parsePeriod(42)).toBeNull();
   });
@@ -110,6 +121,7 @@ describe("buildExport", () => {
   it("returns no parts when the period is empty", async () => {
     expect(await buildExport(USER_ID, { kind: "month", month: "2026-10" })).toEqual({
       receiptCount: 0,
+      missing: 0,
       parts: [],
     });
     expect(state.orFilter).toContain("purchased_at.gte.2026-10-01");
@@ -164,5 +176,17 @@ describe("buildExport", () => {
   it("refuses more than the receipt cap", async () => {
     state.rows = Array.from({ length: MAX_EXPORT_RECEIPTS + 1 }, (_, i) => row(i));
     await expect(buildExport(USER_ID, { kind: "all" })).rejects.toThrow(/too many/);
+  });
+
+  it("replaces the user's previous export and counts files it couldn't read", async () => {
+    state.previous = [{ name: "old.zip", id: "1" }];
+    state.rows = [row(1)]; // its photo isn't in storage
+
+    const res = await buildExport(USER_ID, { kind: "year", year: "2026" });
+
+    expect(state.removed).toEqual([[`${USER_ID}/old.zip`]]);
+    expect(res.missing).toBe(1);
+    expect(state.orFilter).toContain("purchased_at.gte.2026-01-01");
+    expect(state.orFilter).toContain("purchased_at.lt.2027-01-01");
   });
 });

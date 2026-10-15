@@ -8,7 +8,12 @@ type Call = { op: string; args: unknown[] };
 
 const state = vi.hoisted(() => ({
   calls: [] as Array<{ op: string; args: unknown[] }>,
-  subscriptions: [] as Array<{ stripe_subscription_id: string; status: string }>,
+  subscriptions: [] as Array<{
+    stripe_customer_id?: string;
+    stripe_subscription_id: string;
+    status: string;
+  }>,
+  stripeSubs: [] as Array<{ id: string; status: string }>,
   files: {} as Record<string, Record<string, Array<{ name: string; id: string | null }>>>,
   removeError: null as null | { message: string },
   deleteUserError: null as null | { message: string },
@@ -16,7 +21,16 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({ subscriptions: { cancel: state.cancel } }),
+  getStripe: () => ({
+    subscriptions: {
+      cancel: state.cancel,
+      list: () => ({
+        async *[Symbol.asyncIterator]() {
+          yield* state.stripeSubs;
+        },
+      }),
+    },
+  }),
 }));
 
 vi.mock("@/lib/supabase-admin", () => ({
@@ -66,6 +80,7 @@ import {
   AccountDeletionError,
   deleteAccount,
   isFreshSignIn,
+  sessionAuthTime,
 } from "@/lib/account-deletion";
 
 const ops = () => state.calls.map((c: Call) => c.op);
@@ -73,6 +88,7 @@ const ops = () => state.calls.map((c: Call) => c.op);
 beforeEach(() => {
   state.calls = [];
   state.subscriptions = [];
+  state.stripeSubs = [];
   state.files = {};
   state.removeError = null;
   state.deleteUserError = null;
@@ -82,8 +98,12 @@ beforeEach(() => {
 describe("deleteAccount", () => {
   it("cancels live subscriptions, removes files in every bucket, then rows and the user", async () => {
     state.subscriptions = [
-      { stripe_subscription_id: "sub_live", status: "active" },
-      { stripe_subscription_id: "sub_old", status: "canceled" },
+      { stripe_customer_id: "cus_1", stripe_subscription_id: "sub_live", status: "active" },
+      { stripe_customer_id: "cus_1", stripe_subscription_id: "sub_old", status: "canceled" },
+    ];
+    state.stripeSubs = [
+      { id: "sub_live", status: "active" },
+      { id: "sub_old", status: "canceled" },
     ];
     state.files = {
       receipts: { [USER_ID]: [{ name: "a.jpg", id: "1" }] },
@@ -116,7 +136,9 @@ describe("deleteAccount", () => {
   });
 
   it("stops before deleting anything when Stripe can't cancel", async () => {
-    state.subscriptions = [{ stripe_subscription_id: "sub_live", status: "trialing" }];
+    state.subscriptions = [
+      { stripe_customer_id: "cus_1", stripe_subscription_id: "sub_live", status: "trialing" },
+    ];
     state.cancel.mockRejectedValueOnce(Object.assign(new Error("down"), { code: "api_error" }));
 
     await expect(deleteAccount(USER_ID)).rejects.toMatchObject({ step: "stripe" });
@@ -124,13 +146,39 @@ describe("deleteAccount", () => {
   });
 
   it("treats a subscription Stripe no longer has as cancelled", async () => {
-    state.subscriptions = [{ stripe_subscription_id: "sub_gone", status: "active" }];
+    state.subscriptions = [
+      { stripe_customer_id: "cus_1", stripe_subscription_id: "sub_gone", status: "active" },
+    ];
     state.cancel.mockRejectedValueOnce(
       Object.assign(new Error("No such subscription"), { code: "resource_missing" }),
     );
 
     await deleteAccount(USER_ID);
     expect(ops()).toContain("deleteUser");
+  });
+
+  it("cancels a subscription Stripe has but we have no row for yet", async () => {
+    state.subscriptions = [
+      { stripe_customer_id: "cus_1", stripe_subscription_id: "sub_old", status: "canceled" },
+    ];
+    state.stripeSubs = [{ id: "sub_new_unsynced", status: "active" }];
+
+    const res = await deleteAccount(USER_ID);
+    expect(state.cancel).toHaveBeenCalledWith("sub_new_unsynced");
+    expect(res.canceledSubscriptions).toBe(1);
+  });
+
+  it("refuses (retention) when anything is still live, before touching data", async () => {
+    state.subscriptions = [
+      { stripe_customer_id: "cus_1", stripe_subscription_id: "sub_old", status: "canceled" },
+    ];
+    state.stripeSubs = [{ id: "sub_new", status: "active" }];
+
+    await expect(deleteAccount(USER_ID, { refuseIfLive: true })).rejects.toMatchObject({
+      step: "stripe",
+    });
+    expect(state.cancel).not.toHaveBeenCalled();
+    expect(ops()).toEqual([]);
   });
 
   it("keeps the rows and the user when a file can't be removed", async () => {
@@ -154,5 +202,20 @@ describe("isFreshSignIn", () => {
     expect(isFreshSignIn("2026-10-15T11:20:00Z", now)).toBe(false);
     expect(isFreshSignIn(null, now)).toBe(false);
     expect(isFreshSignIn("garbage", now)).toBe(false);
+  });
+});
+
+describe("sessionAuthTime", () => {
+  it("takes the latest amr timestamp, or null without one", () => {
+    expect(
+      sessionAuthTime({
+        amr: [
+          { method: "password", timestamp: 1_790_000_000 },
+          { method: "otp", timestamp: 1_790_000_600 },
+        ],
+      }),
+    ).toBe(new Date(1_790_000_600 * 1000).toISOString());
+    expect(sessionAuthTime({ amr: ["pwd"] })).toBeNull();
+    expect(sessionAuthTime(null)).toBeNull();
   });
 });
