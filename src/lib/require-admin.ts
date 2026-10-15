@@ -7,6 +7,7 @@
 // is the gate that actually protects the data.
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 
@@ -57,4 +58,19 @@ export async function requireAdmin(): Promise<User> {
   if (!isAdminEmail(user.email)) throw new AdminAuthError("not_admin");
 
   return user;
+}
+
+/**
+ * For admin pages and layouts: same gate as requireAdmin(), but a
+ * non-admin is redirected to /app (which bounces to /app/login when
+ * signed out) instead of seeing an error. Call it in every admin page,
+ * not only the layout — layouts don't re-run on client navigations.
+ */
+export async function requireAdminPage(): Promise<User> {
+  try {
+    return await requireAdmin();
+  } catch (err) {
+    if (err instanceof AdminAuthError) redirect("/app");
+    throw err;
+  }
 }

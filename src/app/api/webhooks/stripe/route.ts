@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
@@ -49,7 +50,11 @@ export async function POST(request: NextRequest) {
       }
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
+        // Stripe doesn't guarantee delivery order, so a late or retried
+        // event can carry an old state (e.g. "active" arriving after the
+        // cancellation). Write what Stripe says *now*, not the payload.
+        const eventSub = event.data.object as Stripe.Subscription;
+        const sub = await getStripe().subscriptions.retrieve(eventSub.id);
         const row = await withResolvedUser(extractFromSubscription(sub));
         if (row) await upsertSubscription(row);
         break;
@@ -67,6 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error(`Webhook handler error for ${event.type}:`, err);
+    Sentry.captureException(err, { tags: { area: "stripe-webhook", event: event.type } });
     // 500 → Stripe retries with exponential backoff. Our upsert is idempotent
     // (unique on stripe_subscription_id) so the retry is safe.
     return NextResponse.json({ error: "handler failure" }, { status: 500 });

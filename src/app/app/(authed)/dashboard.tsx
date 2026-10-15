@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Check, Copy, LogOut, Plus, Receipt as ReceiptIcon } from "lucide-react";
-import { useCallback } from "react";
-import { getSupabaseClient } from "@/lib/supabase-client";
+import { Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { CaptureFab } from "@/components/CaptureFab";
-import { cn } from "@/lib/utils";
+import { IntakeRow } from "@/components/IntakeRow";
 import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
@@ -36,15 +33,9 @@ export function Dashboard({
   forwardingEmail,
   intakeSmsNumber,
 }: DashboardProps) {
-  const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-
-  const handleLogout = async () => {
-    await getSupabaseClient().auth.signOut();
-    router.replace("/app/login");
-  };
 
   const reviewCount = useMemo(
     () => receipts.filter((r) => r.status === "pending_review").length,
@@ -98,15 +89,14 @@ export function Dashboard({
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <Wordmark />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs gap-1.5 text-muted-foreground"
-            onClick={handleLogout}
+          <Link
+            href="/app/settings"
+            aria-label="Settings"
+            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+            style={{ width: "44px", height: "44px", borderRadius: "10px" }}
           >
-            <LogOut className="w-3.5 h-3.5" />
-            Sign out
-          </Button>
+            <Settings className="w-5 h-5" />
+          </Link>
         </div>
       </header>
 
@@ -289,85 +279,6 @@ function EmptyState({
       >
         Paper is past.
       </p>
-    </div>
-  );
-}
-
-function IntakeRow({
-  callout,
-  value,
-  mono,
-  copyLabel,
-}: {
-  callout: string;
-  value: string;
-  mono: boolean;
-  copyLabel: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* secure-context fallback: user can long-press to select */
-    }
-  }, [value]);
-
-  return (
-    <div className="text-left">
-      <p
-        className="font-accent italic text-[var(--ink-muted)]"
-        style={{ fontSize: "12px", marginBottom: "6px" }}
-      >
-        {callout}
-      </p>
-      <div
-        className="flex items-center gap-3 bg-card"
-        style={{
-          border: "1px solid var(--hairline)",
-          borderRadius: "12px",
-          padding: "12px 14px",
-        }}
-      >
-        <span
-          className={cn(
-            "flex-1 min-w-0 text-[var(--ink)] truncate",
-            mono ? "font-mono" : "",
-          )}
-          style={{ fontSize: "14px", fontWeight: 500 }}
-        >
-          {value}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="shrink-0 inline-flex items-center gap-1.5 text-white"
-          style={{
-            background: copied
-              ? "var(--brand-deep, #1F9D63)"
-              : "var(--primary)",
-            padding: "6px 10px",
-            borderRadius: "9px",
-            fontSize: "13px",
-            fontWeight: 600,
-            transition: "background 160ms ease-out",
-          }}
-          aria-label={copyLabel}
-        >
-          {copied ? (
-            <>
-              <Check className="w-3.5 h-3.5" /> Copied
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5" /> Copy
-            </>
-          )}
-        </button>
-      </div>
     </div>
   );
 }

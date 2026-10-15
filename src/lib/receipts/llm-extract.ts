@@ -149,6 +149,9 @@ export async function llmExtract(
   try {
     return JSON.parse(cleaned) as LlmExtractResult;
   } catch {
-    throw new Error(`LLM returned non-JSON: ${cleaned.slice(0, 200)}`);
+    // Don't echo the model's output: it's receipt content (merchant,
+    // address, card digits, email text) and this message reaches logs and
+    // Sentry.
+    throw new Error(`LLM returned non-JSON (${cleaned.length} chars)`);
   }
 }

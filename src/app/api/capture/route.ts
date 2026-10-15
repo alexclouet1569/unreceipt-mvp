@@ -1,9 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import {
+  hasProductAccess,
+  subscriptionRequiredResponse,
+} from "@/lib/subscription-gate";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
+import {
+  EXTENSION_BY_TYPE,
+  MAX_UPLOAD_BYTES,
+  isAllowedUploadType,
+} from "@/lib/receipts/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,18 +39,19 @@ const CaptureSchema = z.object({
   items: z.array(ItemSchema).max(200).optional(),
 });
 
-const fileExt = (name: string): string => {
-  const i = name.lastIndexOf(".");
-  if (i < 0) return "jpg";
-  const ext = name.slice(i + 1).toLowerCase();
-  return /^[a-z0-9]{1,5}$/.test(ext) ? ext : "jpg";
-};
 
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  if (!(await hasProductAccess(user.id))) {
+    return subscriptionRequiredResponse();
+  }
+
+  const limited = await rateLimit("capture", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   let form: FormData;
   try {
@@ -98,19 +109,32 @@ export async function POST(request: NextRequest) {
   // entry (Blob with optional filename). Avoid `instanceof File` because
   // the global File can differ across runtimes (jsdom vs undici in tests).
   if (image && typeof image !== "string" && image.size > 0) {
-    const filename = "name" in image && typeof image.name === "string" ? image.name : "upload";
-    const path = `${user.id}/${crypto.randomUUID()}.${fileExt(filename)}`;
+    // Same allowlist and cap as /api/ocr. The extension comes from the
+    // checked MIME type, never from the client's filename.
+    if (!isAllowedUploadType(image.type)) {
+      return NextResponse.json(
+        { error: "unsupported file type" },
+        { status: 400 }
+      );
+    }
+    if (image.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: "file too large (max 4 MB)" },
+        { status: 400 }
+      );
+    }
+    const path = `${user.id}/${crypto.randomUUID()}.${EXTENSION_BY_TYPE[image.type]}`;
     const { error: uploadError } = await supabase.storage
       .from("receipts")
       .upload(path, image as Blob, {
         cacheControl: "3600",
         upsert: false,
-        contentType: image.type || undefined,
+        contentType: image.type,
       });
     if (uploadError) {
       console.error("[/api/capture] upload failed:", uploadError);
       return NextResponse.json(
-        { error: `Storage upload failed: ${uploadError.message ?? "unknown"}` },
+        { error: "Couldn't store the file. Please try again." },
         { status: 500 }
       );
     }
@@ -168,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
     console.error("[/api/capture] insert failed:", insertError);
     return NextResponse.json(
-      { error: `Save failed: ${insertError?.message ?? "unknown"}` },
+      { error: "Couldn't save the receipt. Please try again." },
       { status: 500 }
     );
   }

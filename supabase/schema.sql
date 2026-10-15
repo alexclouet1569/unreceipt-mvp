@@ -704,3 +704,125 @@ UPDATE public.profiles SET user_id = id WHERE user_id IS NULL;
 
 -- public.waitlist: RLS on with no policies is intentional — only
 -- /api/waitlist writes to it, through the service-role client.
+
+-- =============================================================================
+-- 2026-10-14 — rate limits (launch plan actions 17–19)
+--
+-- Fixed-window counters for the routes that spend money (Claude OCR, re-run,
+-- inbound email) or write to storage. Read and written only by the server
+-- through rate_limit_hit() with the service-role key: RLS on, no policies,
+-- function not callable by anon/authenticated. See src/lib/rate-limit.ts.
+-- Idempotent — safe to re-run.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.rate_limits (
+  key TEXT NOT NULL,
+  window_start TIMESTAMPTZ NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, window_start)
+);
+
+ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY;
+
+-- Counts one hit and returns TRUE while the window is still within p_limit.
+-- Windows are aligned to the epoch so the app can compute Retry-After.
+CREATE OR REPLACE FUNCTION public.rate_limit_hit(
+  p_key TEXT,
+  p_window_seconds INTEGER,
+  p_limit INTEGER
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_window TIMESTAMPTZ := to_timestamp(
+    floor(extract(epoch FROM now()) / p_window_seconds) * p_window_seconds
+  );
+  v_count INTEGER;
+BEGIN
+  INSERT INTO public.rate_limits AS r (key, window_start, count)
+  VALUES (p_key, v_window, 1)
+  ON CONFLICT (key, window_start) DO UPDATE SET count = r.count + 1
+  RETURNING r.count INTO v_count;
+
+  -- Opportunistic cleanup (~1% of calls) instead of a cron job.
+  IF random() < 0.01 THEN
+    DELETE FROM public.rate_limits
+     WHERE window_start < now() - interval '2 days';
+  END IF;
+
+  RETURN v_count <= p_limit;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.rate_limit_hit(TEXT, INTEGER, INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.rate_limit_hit(TEXT, INTEGER, INTEGER)
+  TO service_role;
+
+-- =============================================================================
+-- 2026-10-14 — intake dedupe per user (launch plan action 21)
+--
+-- intake_ref (Message-Id) is sender-controlled, so a globally unique key let
+-- one user's row block another user's copy of the same email — and a user
+-- could set intake_ref on their own row to pre-empt someone else's mail.
+-- Uniqueness is now per user. Create the new index before dropping the old
+-- one so there is no window without a dedupe guarantee. Idempotent.
+-- =============================================================================
+
+CREATE UNIQUE INDEX IF NOT EXISTS receipts_user_intake_ref_unique
+  ON public.receipts(user_id, intake_ref)
+  WHERE intake_ref IS NOT NULL;
+
+DROP INDEX IF EXISTS public.receipts_intake_ref_unique;
+
+-- =============================================================================
+-- 2026-10-14 — waitlist RLS (launch plan action 24)
+--
+-- The 2026-04 block created public.waitlist without RLS, so a database built
+-- from this file exposed waitlist emails to the anon key. Production already
+-- has RLS on (security advisor, 2026-10-14). No policies: only /api/waitlist
+-- writes, through the service-role client. Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.waitlist ENABLE ROW LEVEL SECURITY;
+
+-- =============================================================================
+-- 2026-10-14 — receipts bucket limits (launch plan action 25)
+--
+-- The storage policies let a signed-in user upload straight to their folder in
+-- the `receipts` bucket with the anon key, bypassing /api/capture's checks.
+-- Enforce the same rules at the bucket: 4 MB, receipt image/PDF types only
+-- (src/lib/receipts/upload-limits.ts). Idempotent.
+-- =============================================================================
+
+UPDATE storage.buckets
+   SET file_size_limit = 4194304,
+       allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+ WHERE id = 'receipts';
+
+-- =============================================================================
+-- 2026-10-14 — trust fields are server-only (launch plan action 29)
+--
+-- The owner RLS policies let a signed-in user write any column of their own
+-- rows straight through the REST API with the anon key — including
+-- receipts.status ('verified'), intake_ref, parse_confidence and totals of an
+-- already-verified receipt, and profiles.email_alias_hash /
+-- welcome_email_sent_at. For a product whose PDFs say "faithful digital copy",
+-- a user must not be able to mint or rewrite a verified receipt.
+--
+-- Every receipt write now goes through server routes with the service role
+-- (/api/capture, /api/intake/email, PATCH/DELETE /api/receipts/[id],
+-- /reprocess), so users keep SELECT and DELETE only. Profiles keep a column
+-- grant for the fields a settings page may edit. Direct uploads to the
+-- receipts bucket are dropped too (/api/capture uploads server-side).
+-- Idempotent.
+-- =============================================================================
+
+REVOKE INSERT, UPDATE ON public.receipts FROM anon, authenticated;
+
+REVOKE UPDATE ON public.profiles FROM anon, authenticated;
+GRANT UPDATE (full_name, company_name) ON public.profiles TO authenticated;
+
+DROP POLICY IF EXISTS "Users can upload receipt images" ON storage.objects;

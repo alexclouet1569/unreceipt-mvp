@@ -63,8 +63,12 @@
 }
 
 :root {
-  /* Brand book pp. 12 — Green Mint, Deep Space, White Mist, Carbon. */
-  --surface: #ECF7E7;
+  /* Brand book pp. 12 — Green Mint, Deep Space, White Mist, Carbon.
+     Page background is cream (DESIGN.md, decision D7 2026-10-14); White
+     Mist is --brand-tint, reserved for the empty-state hero, pilot banner
+     and VAT panel. */
+  --surface: #FAFAF7;
+  --brand-tint: #ECF7E7;
   --ink: #303568;
   /* Single muted variant derived from Deep Space — replaces the prior
      Nordic-Quiet --ink-muted / --ink-faint pair. */
@@ -76,13 +80,13 @@
      desaturated mint badge. Chosen so the cue reads as friendly
      rather than alarming (no red), and sits inside the brand-book
      palette of cream + mint + navy + carbon. AA-contrast against
-     White Mist (#FAFAF7) verified. */
+     the cream surface (#FAFAF7) verified. */
   --attention: #C99440;
   --attention-tint: #FBF1DE;
   --attention-deep: #8C6320;
   --attention-mint: #6B9778;
   /* shadcn token mapping */
-  --background: #ECF7E7;
+  --background: var(--surface);
   --foreground: #303568;
   --card: #ffffff;
   --card-foreground: #303568;
@@ -90,11 +94,11 @@
   --popover-foreground: #303568;
   --primary: #27BE7B;
   --primary-foreground: #ffffff;
-  --secondary: #ECF7E7;
+  --secondary: var(--brand-tint);
   --secondary-foreground: #303568;
-  --muted: #ECF7E7;
+  --muted: var(--brand-tint);
   --muted-foreground: var(--foreground-muted);
-  --accent: #ECF7E7;
+  --accent: var(--brand-tint);
   --accent-foreground: #303568;
   --destructive: #C73E4E;
   --border: var(--hairline);
@@ -106,11 +110,11 @@
   --chart-4: #6dd4a0;
   --chart-5: #1F9D63;
   --radius: 0.75rem;
-  --sidebar: #ECF7E7;
+  --sidebar: var(--surface);
   --sidebar-foreground: #303568;
   --sidebar-primary: #27BE7B;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ECF7E7;
+  --sidebar-accent: var(--brand-tint);
   --sidebar-accent-foreground: #303568;
   --sidebar-border: var(--hairline);
   --sidebar-ring: #27BE7B;

@@ -5,27 +5,11 @@ import type { Receipt } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   router: { refresh: vi.fn(), replace: vi.fn(), push: vi.fn() },
-  remove: vi.fn(),
-  deleteEq: vi.fn(),
+  fetch: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => mocks.router,
-}));
-
-vi.mock("@/lib/supabase-client", () => ({
-  getSupabaseClient: () => ({
-    storage: {
-      from: () => ({
-        remove: mocks.remove,
-      }),
-    },
-    from: () => ({
-      delete: () => ({
-        eq: mocks.deleteEq,
-      }),
-    }),
-  }),
 }));
 
 import { ReceiptDetailDialog } from "@/app/app/(authed)/ReceiptDetailDialog";
@@ -88,61 +72,34 @@ const renderDialog = (overrides: Partial<Receipt> = {}) => {
 describe("ReceiptDetailDialog (CQ2)", () => {
   beforeEach(() => {
     mocks.router.refresh.mockReset();
-    mocks.remove.mockReset();
-    mocks.deleteEq.mockReset();
+    mocks.fetch.mockReset();
+    vi.stubGlobal("fetch", mocks.fetch);
   });
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
   });
 
-  it("deletes the storage object first, then the row, then closes + refreshes", async () => {
+  it("deletes through the server route, then closes + refreshes", async () => {
     const user = userEvent.setup();
-    mocks.remove.mockResolvedValue({ error: null });
-    mocks.deleteEq.mockResolvedValue({ error: null });
+    mocks.fetch.mockResolvedValue({ ok: true, status: 200 });
 
     const { onOpenChange } = renderDialog();
 
     await user.click(screen.getByRole("button", { name: /Delete receipt/i }));
     await user.click(screen.getByRole("button", { name: /Confirm delete/i }));
 
-    expect(mocks.remove).toHaveBeenCalledWith(["user-1/abc.jpg"]);
-    expect(mocks.deleteEq).toHaveBeenCalledWith("id", "rec-1");
-    // Storage delete must precede row delete so a transient storage failure
-    // doesn't leave the image orphaned with no row to track it back to.
-    expect(mocks.remove.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.deleteEq.mock.invocationCallOrder[0]
-    );
+    expect(mocks.fetch).toHaveBeenCalledWith("/api/receipts/rec-1", {
+      method: "DELETE",
+    });
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("aborts before the row delete when storage delete fails (no row delete attempted)", async () => {
+  it("surfaces an error and keeps the dialog open when the delete fails, then retries", async () => {
     const user = userEvent.setup();
-    mocks.remove.mockResolvedValue({
-      error: { message: "storage backend down" },
-    });
-
-    const { onOpenChange } = renderDialog();
-
-    await user.click(screen.getByRole("button", { name: /Delete receipt/i }));
-    await user.click(screen.getByRole("button", { name: /Confirm delete/i }));
-
-    expect(mocks.remove).toHaveBeenCalledTimes(1);
-    expect(mocks.deleteEq).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /Could not delete receipt/i
-    );
-    expect(onOpenChange).not.toHaveBeenCalled();
-    expect(mocks.router.refresh).not.toHaveBeenCalled();
-  });
-
-  it("surfaces an error and leaves the row when row delete fails (image already gone)", async () => {
-    const user = userEvent.setup();
-    mocks.remove.mockResolvedValue({ error: null });
-    mocks.deleteEq.mockResolvedValue({
-      error: { message: "fk constraint" },
-    });
+    mocks.fetch.mockResolvedValueOnce({ ok: false, status: 500 });
 
     const { onOpenChange } = renderDialog();
 
@@ -155,28 +112,11 @@ describe("ReceiptDetailDialog (CQ2)", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(mocks.router.refresh).not.toHaveBeenCalled();
 
-    // Retry button is enabled and labeled "Try again" — second attempt
-    // succeeds (storage call is a no-op since path is already gone, which
-    // Supabase treats as success).
-    mocks.remove.mockResolvedValue({ error: null });
-    mocks.deleteEq.mockResolvedValue({ error: null });
+    mocks.fetch.mockResolvedValueOnce({ ok: true, status: 200 });
     await user.click(screen.getByRole("button", { name: /Try again/i }));
 
-    expect(mocks.deleteEq).toHaveBeenCalledTimes(2);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips storage delete entirely for receipts without an image_url", async () => {
-    const user = userEvent.setup();
-    mocks.deleteEq.mockResolvedValue({ error: null });
-
-    renderDialog({ image_url: null });
-
-    await user.click(screen.getByRole("button", { name: /Delete receipt/i }));
-    await user.click(screen.getByRole("button", { name: /Confirm delete/i }));
-
-    expect(mocks.remove).not.toHaveBeenCalled();
-    expect(mocks.deleteEq).toHaveBeenCalledWith("id", "rec-1");
   });
 });

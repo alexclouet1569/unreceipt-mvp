@@ -9,6 +9,7 @@
 //   "not_paid"     — checkout wasn't completed, /app should bounce to /subscribe
 //   "stripe_down"  — Stripe API failed; show the spinner + retry path
 
+import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { getSupabaseAdmin } from "./supabase-admin";
@@ -32,10 +33,15 @@ export async function handleSelfHeal(
       expand: ["subscription"],
     });
   } catch (err) {
-    // TODO(step-11): Sentry.captureException(err, { tags: { area: "self-heal" } });
+    Sentry.captureException(err, { tags: { area: "self-heal" } });
     console.error("[self-heal] stripe lookup failed", err);
     return "stripe_down";
   }
+
+  // The session must belong to the signed-in user. Without this check a
+  // leaked `cs_…` id (history, Referer, screenshot) would let any account
+  // re-point someone else's subscription row at itself via the upsert below.
+  if (session.client_reference_id !== userId) return "not_paid";
 
   // A trialing subscription is "paid" with no charge; use status as a backstop.
   const looksPaid =
@@ -79,7 +85,7 @@ export async function handleSelfHeal(
     );
 
   if (error) {
-    // TODO(step-11): Sentry.captureException(error, { tags: { area: "self-heal" } });
+    Sentry.captureException(error, { tags: { area: "self-heal" } });
     console.error("[self-heal] upsert failed", error);
     // Treat a DB write failure the same as Stripe-down — show the spinner
     // and re-run the gate. The webhook will still try to upsert separately.

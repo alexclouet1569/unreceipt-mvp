@@ -19,13 +19,23 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => mocks.cookieStore),
 }));
 
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((to: string) => {
+    throw new Error(`NEXT_REDIRECT:${to}`);
+  }),
+}));
+
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn(() => ({
     auth: { getUser: mocks.getUser },
   })),
 }));
 
-import { AdminAuthError, requireAdmin } from "@/lib/require-admin";
+import {
+  AdminAuthError,
+  requireAdmin,
+  requireAdminPage,
+} from "@/lib/require-admin";
 
 describe("requireAdmin", () => {
   const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -91,5 +101,29 @@ describe("requireAdmin", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("AdminAuthError");
     expect(err.reason).toBe("no_user");
+  });
+});
+
+describe("requireAdminPage", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    process.env.CONCIERGE_ADMIN_EMAILS = "founder@unreceipt.com";
+    mocks.getUser.mockReset();
+  });
+
+  it("redirects a non-admin to /app instead of rendering", async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "intruder@example.com" } },
+    });
+
+    await expect(requireAdminPage()).rejects.toThrow("NEXT_REDIRECT:/app");
+  });
+
+  it("returns the admin user", async () => {
+    const adminUser = { id: "user-2", email: "founder@unreceipt.com" };
+    mocks.getUser.mockResolvedValue({ data: { user: adminUser } });
+
+    await expect(requireAdminPage()).resolves.toEqual(adminUser);
   });
 });

@@ -42,6 +42,16 @@ export type {
 const CONFIDENCE_FLOOR = 0.75;
 const TEMPLATE_HIT_CONFIDENCE = 0.95;
 const TEMPLATE_PARTIAL_CONFIDENCE = 0.7;
+// Email and SMS bodies are written by whoever sends them, and the model's
+// confidence is self-reported — a crafted email can simply say "confidence
+// 1.0". When no template vouched for the content, cap it below the floor:
+// the fields still pre-fill the row, but it lands as pending_review and a
+// person confirms it before it can be exported as a verified receipt.
+// Applies whenever the model contributed fields, including partial
+// template hits. Full template hits are still trusted on the template's
+// own match, which keys on sender/subject text — see the launch plan's
+// "verify inbound DKIM" action before trusting those for auto-export.
+const UNTRUSTED_LLM_CONFIDENCE_CAP = 0.7;
 
 // Zod for the LLM output. Mirrors LlmExtractResult but stricter so a
 // hallucinated invalid currency lands as pending_review rather than
@@ -104,12 +114,15 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
       emailToText(raw),
       describeHint(fields, template.name)
     );
-    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE);
+    // The model filled the gaps, so its self-report must not decide trust.
+    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE, {
+      untrusted: true,
+    });
   }
 
   // 2. No template matched — LLM-extract on the body.
   const llmResult = await tryLlm("email", emailToText(raw));
-  return mergeAndFinalize({}, llmResult, 0);
+  return mergeAndFinalize({}, llmResult, 0, { untrusted: true });
 }
 
 function emailToText(raw: EmailRaw): string {
@@ -147,11 +160,13 @@ async function parseSms(raw: SmsRaw): Promise<ParseResult> {
       return finalize(fields, TEMPLATE_HIT_CONFIDENCE);
     }
     const llmResult = await tryLlm("sms", raw.body);
-    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE);
+    return mergeAndFinalize(fields, llmResult, TEMPLATE_PARTIAL_CONFIDENCE, {
+      untrusted: true,
+    });
   }
 
   const llmResult = await tryLlm("sms", raw.body);
-  return mergeAndFinalize({}, llmResult, 0);
+  return mergeAndFinalize({}, llmResult, 0, { untrusted: true });
 }
 
 // ----------------------------------------------------------------------
@@ -199,7 +214,8 @@ function describeHint(fields: PartialFields, templateName: string): string {
 function mergeAndFinalize(
   templatePartial: PartialFields,
   llmRaw: LlmExtractResult | null,
-  templateConfidence: number
+  templateConfidence: number,
+  { untrusted = false }: { untrusted?: boolean } = {}
 ): ParseResult {
   if (!llmRaw) {
     return hasAllRequired(templatePartial)
@@ -269,12 +285,18 @@ function mergeAndFinalize(
     return { status: "pending_review" };
   }
 
+  // Keep the fields as a pre-filled draft, but never let a third party's
+  // text alone produce a verified receipt (see UNTRUSTED_LLM_CONFIDENCE_CAP).
+  const effectiveConfidence = untrusted
+    ? Math.min(confidence, UNTRUSTED_LLM_CONFIDENCE_CAP)
+    : confidence;
+
   const category =
     llm.category && (CATEGORY_KEYS as readonly string[]).includes(llm.category)
       ? llm.category
       : null;
 
-  return finalize(merged, confidence, category);
+  return finalize(merged, effectiveConfidence, category);
 }
 
 function finalize(

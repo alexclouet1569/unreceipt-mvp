@@ -43,7 +43,6 @@ function useReveal() {
     if (reduced || inViewport) {
       // Needs the element's measured position, which only exists after
       // mount — one extra render on load is the intended cost here.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(true);
       return;
     }

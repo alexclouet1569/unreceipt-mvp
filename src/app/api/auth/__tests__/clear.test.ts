@@ -66,6 +66,30 @@ describe("POST /api/auth/clear", () => {
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalKey;
   });
 
+  it("refuses a cross-site POST (logout CSRF) without signing out", async () => {
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/auth/clear", {
+        method: "POST",
+        headers: { origin: "https://evil.example", host: "localhost:3000" },
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(mocks.signOut).not.toHaveBeenCalled();
+  });
+
+  it("accepts a same-origin POST from the login page", async () => {
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/auth/clear", {
+        method: "POST",
+        headers: { origin: "http://localhost:3000", host: "localhost:3000" },
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.signOut).toHaveBeenCalled();
+  });
+
   it("returns 500 when Supabase env vars are missing", async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     const res = await POST(buildRequest());

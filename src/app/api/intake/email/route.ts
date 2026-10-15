@@ -11,7 +11,7 @@
 //   3b. Load the body, headers and original .eml from Resend's Receiving
 //      API by email_id — the webhook itself carries metadata only.
 //   4. Compute intake_ref = Message-Id header || sha256(raw .eml).
-//   5. Upsert by intake_ref. Existing row → 200 idempotent.
+//   5. Upsert by (user_id, intake_ref). Existing row → 200 idempotent.
 //   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
 //   7. Run parser. Parser throw → fall back to pending_review (row still
 //      inserted with nullable canonical fields so the user can complete).
@@ -23,9 +23,11 @@
 // provider's retry logic kicks in (real signing issues are usually
 // transient config drift on the provider side).
 
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
   findUserByAliasHash,
@@ -185,19 +187,26 @@ export async function POST(request: NextRequest) {
     }
   }
   if (!aliasHash) {
+    // No addresses in logs: they're personal data, and the recipient
+    // count is enough to debug routing.
     console.warn("[intake/email] no forwarding alias among recipients", {
-      to: recipients,
-      from: fromAddr,
+      recipientCount: recipients.length,
     });
     return genericNotFound();
   }
 
   const owner = await findUserByAliasHash(aliasHash);
   if (!owner) {
-    console.warn("[intake/email] unknown alias hash", { aliasHash, from: fromAddr });
+    console.warn("[intake/email] unknown alias hash", { aliasHash });
     return genericNotFound();
   }
   const userId = owner.user_id;
+
+  // Per-alias daily cap, checked before loading the email or calling the
+  // parser so a flood to a leaked alias stays cheap. 429 → Resend retries
+  // later, so a real (very busy) inbox doesn't lose mail.
+  const limited = await rateLimit("intakeEmail", aliasHash);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   // Loaded only after the alias resolves, so spam to random addresses
   // costs no API call. A failed load → 502 so Resend retries the webhook.
@@ -235,10 +244,13 @@ export async function POST(request: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  // Idempotency: existing row → 200 with its id, no side effects.
+  // Idempotency: existing row → 200 with its id, no side effects. Scoped
+  // to the user: Message-Id is sender-controlled, so a global key would let
+  // one user's row swallow another user's copy of the same email.
   const { data: existing, error: existingError } = await supabase
     .from("receipts")
     .select("id")
+    .eq("user_id", userId)
     .eq("intake_ref", intakeRef)
     .maybeSingle();
   if (existingError) {
@@ -264,6 +276,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("[intake/email] parser threw", err);
+    Sentry.captureException(err, { tags: { area: "intake-parse" } });
     parseResult = { status: "pending_review" };
   }
 
@@ -335,7 +348,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (insertError || !inserted) {
-    // 23505 = unique_violation on intake_ref — concurrent retry won the
+    // 23505 = unique_violation on (user_id, intake_ref) — concurrent retry won the
     // race. Best-effort delete the orphan blob and return the existing
     // row's id so the provider stops retrying.
     if (insertError && (insertError as { code?: string }).code === "23505") {
@@ -348,6 +361,7 @@ export async function POST(request: NextRequest) {
       const { data: winner } = await supabase
         .from("receipts")
         .select("id")
+        .eq("user_id", userId)
         .eq("intake_ref", intakeRef)
         .maybeSingle();
       if (winner) {
@@ -356,6 +370,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("[intake/email] insert failed", insertError);
+    Sentry.captureException(new Error("intake insert failed"), {
+      tags: { area: "intake-insert" },
+      extra: { code: (insertError as { code?: string } | null)?.code },
+    });
     if (hasRaw) {
       await supabase.storage
         .from("receipt-originals")

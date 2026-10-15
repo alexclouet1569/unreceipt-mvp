@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Download, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
-import { getSupabaseClient } from "@/lib/supabase-client";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -40,13 +39,17 @@ export function ReceiptDetailDialog({
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessError, setReprocessError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Fresh action state for each receipt opened (adjusted during render,
+  // React's "reset state when a prop changes" pattern).
+  const [prevReceiptId, setPrevReceiptId] = useState(receipt?.id);
+  if (receipt?.id !== prevReceiptId) {
+    setPrevReceiptId(receipt?.id);
     setConfirming(false);
     setDeleting(false);
     setDeleteError(null);
     setReprocessing(false);
     setReprocessError(null);
-  }, [receipt?.id]);
+  }
 
   const open = receipt !== null;
   const pending = receipt?.status === "pending_review";
@@ -105,25 +108,14 @@ export function ReceiptDetailDialog({
     setDeleteError(null);
     setDeleting(true);
 
-    const supabase = getSupabaseClient();
-
     try {
-      if (receipt.image_url) {
-        const { error: storageError } = await supabase.storage
-          .from("receipts")
-          .remove([receipt.image_url]);
-        if (storageError) {
-          throw storageError;
-        }
-      }
-
-      const { error: rowError } = await supabase
-        .from("receipts")
-        .delete()
-        .eq("id", receipt.id);
-
-      if (rowError) {
-        throw rowError;
+      // Server-side so the forwarded email / PDF original is deleted too —
+      // the browser can't remove files from `receipt-originals`.
+      const res = await fetch(`/api/receipts/${receipt.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error(`delete failed (HTTP ${res.status})`);
       }
 
       onOpenChange(false);
@@ -324,10 +316,12 @@ function CompleteForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [prevReceipt, setPrevReceipt] = useState(receipt);
+  if (receipt !== prevReceipt) {
+    setPrevReceipt(receipt);
     setForm(deriveFormState(receipt));
     setError(null);
-  }, [receipt]);
+  }
 
   const update = <K extends keyof CompleteFormState>(
     key: K,

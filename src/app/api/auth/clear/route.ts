@@ -23,7 +23,16 @@ import { createServerClient } from "@supabase/ssr";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
+  // Logout CSRF guard: another site could otherwise POST here (e.g. an
+  // auto-submitting form) and sign the user out. Browsers always send
+  // Origin on cross-site POSTs; a request without one isn't a browser
+  // forgery.
+  const origin = request.headers.get("origin");
+  if (origin && !isSameHost(origin, request.headers.get("host"))) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) {
@@ -56,4 +65,12 @@ export async function POST(_request: NextRequest) {
   }
 
   return response;
+}
+
+function isSameHost(origin: string, host: string | null): boolean {
+  try {
+    return host !== null && new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }

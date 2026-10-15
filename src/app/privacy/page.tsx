@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-05-05";
+const LAST_UPDATED = "2026-10-14";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -43,13 +43,17 @@ export default function PrivacyPage() {
         <Section title="What we collect">
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              <strong>Account email.</strong> Used to send you sign-in magic
-              links and product communications.
+              <strong>Account details.</strong> Your email, name and company,
+              and a password if you set one (stored only as a secure hash by
+              our authentication provider). Used to sign you in (password or
+              one-time sign-in link) and for product communications.
             </li>
             <li>
-              <strong>Receipts you forward or upload.</strong> The image plus
-              the structured fields we extract or you provide (merchant,
-              amount, date, category, notes).
+              <strong>Receipts you forward or upload.</strong> The photo or
+              PDF, or the full forwarded email (kept unaltered as the
+              original evidence), plus the structured fields we extract or
+              you provide (merchant, amount, VAT, line items, date, category,
+              notes, the last four digits of a payment card).
             </li>
             <li>
               <strong>Subscription status.</strong> Whether you&apos;re trialing,
@@ -68,6 +72,13 @@ export default function PrivacyPage() {
             <li>
               <strong>To deliver the service</strong> — we can&apos;t build a
               dashboard of your receipts without storing your receipts. Legal
+              basis: contract performance.
+            </li>
+            <li>
+              <strong>To read your receipts automatically</strong> — the
+              receipt image or email text is sent to Anthropic&apos;s Claude
+              model, which returns the structured fields. Anthropic processes
+              it on our behalf and does not use it to train its models. Legal
               basis: contract performance.
             </li>
             <li>
@@ -102,10 +113,27 @@ export default function PrivacyPage() {
               CDN.
             </li>
             <li>
-              <strong>Resend</strong> — transactional email delivery (welcome
-              emails, magic links).
+              <strong>Resend</strong> — sending our emails (welcome emails,
+              sign-in links) and receiving the receipts you forward to your
+              UnReceipt address.
+            </li>
+            <li>
+              <strong>Anthropic</strong> — the Claude AI model that reads
+              receipt images and emails to extract their fields.
+            </li>
+            <li>
+              <strong>Sentry</strong> — error monitoring, EU region. Error
+              reports are stripped of request contents, cookies and personal
+              details before they are sent.
             </li>
           </ul>
+          <p className="mt-3">
+            Some of these providers are US companies (Anthropic, Resend,
+            Stripe, Vercel). Where personal data is transferred outside the
+            EU/EEA, the transfer relies on the EU–US Data Privacy Framework
+            for certified providers, or on the European Commission&apos;s
+            Standard Contractual Clauses.
+          </p>
         </Section>
 
         <Section title="How long we keep it">
@@ -115,10 +143,19 @@ export default function PrivacyPage() {
               is active or you&apos;ve used the service in the last 12 months.
             </li>
             <li>
-              <strong>After cancellation:</strong> 30 days for billing
-              reconciliation, then your account and receipts are permanently
-              deleted unless legal record-keeping requires longer (e.g.,
-              Swedish bookkeeping law for invoiced amounts).
+              <strong>After cancellation:</strong> your account and receipts
+              stay available for 90 days so you can download them, and we
+              email you before anything is deleted. After that they are
+              permanently deleted. Billing records that we must keep for our
+              own accounts (invoices, via Stripe) are kept as the law
+              requires.
+            </li>
+            <li>
+              <strong>Your bookkeeping obligation:</strong> under Swedish
+              bookkeeping law (bokföringslagen), a business must keep its
+              receipts for seven years. That obligation stays with your
+              company, so download your receipts — or ask us for a copy —
+              before you close your account.
             </li>
             <li>
               <strong>Request immediate deletion at any time</strong> by
