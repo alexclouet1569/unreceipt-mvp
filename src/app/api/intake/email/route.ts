@@ -27,6 +27,7 @@ import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { recordReceiptUsage } from "@/lib/usage";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
@@ -381,6 +382,15 @@ export async function POST(request: NextRequest) {
         .catch(() => {});
     }
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
+  }
+
+  // Anyone who knows an alias can email it, so an inbound email only
+  // counts toward the plan once it's a verified receipt. Rows that land
+  // in pending_review (spam, newsletters, unparseable mail) count when
+  // the user confirms them (PATCH /api/receipts/[id]); deleting them
+  // costs nothing.
+  if (rowToInsert.status === "verified") {
+    await recordReceiptUsage({ userId, receiptId: inserted.id, source: "email" });
   }
 
   return NextResponse.json({ ok: true, id: inserted.id });

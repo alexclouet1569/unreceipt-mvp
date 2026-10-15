@@ -8,6 +8,9 @@ import {
   getOrCreateAliasForUser,
 } from "@/lib/email-alias";
 import { IntakeRow } from "@/components/IntakeRow";
+import { UsageMeter } from "@/components/UsageMeter";
+import { getUsage, type Usage } from "@/lib/usage";
+import { planSuggestion } from "@/lib/usage-copy";
 import { SignOutButton } from "./SignOutButton";
 
 // Settings is reachable without an active subscription on purpose: a
@@ -28,13 +31,23 @@ async function loadProfile(userId: string) {
   return data as { full_name: string | null; company_name: string | null } | null;
 }
 
+async function loadUsage(userId: string): Promise<Usage | null> {
+  try {
+    return await getUsage(userId);
+  } catch (err) {
+    console.error("[/app/settings] usage load failed", err);
+    return null;
+  }
+}
+
 export default async function SettingsPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [profile, aliasHash] = await Promise.all([
+  const [profile, aliasHash, usage] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
+    loadUsage(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -94,6 +107,20 @@ export default async function SettingsPage() {
             </p>
           </div>
         </section>
+
+        {usage ? (
+          <section aria-labelledby="usage-heading">
+            <SectionLabel id="usage-heading">Receipts this period</SectionLabel>
+            <UsageMeter
+              used={usage.used}
+              plan={usage.plan}
+              extra={usage.extra}
+              overageBilled={usage.overageBilled}
+              periodEnd={usage.periodEnd.toISOString()}
+              suggestion={planSuggestion(usage)}
+            />
+          </section>
+        ) : null}
 
         <section aria-labelledby="account-heading">
           <SectionLabel id="account-heading">Account</SectionLabel>

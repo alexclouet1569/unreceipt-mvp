@@ -5,7 +5,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { appUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
-import { PLANS, formatPrice, planForReceipts } from "@/lib/plans";
+import { OVERAGE_PRICE, PLANS, formatPrice, planForReceipts } from "@/lib/plans";
 
 /**
  * Three flat monthly plans per company, sized by how many receipts the
@@ -68,7 +68,7 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
         />
         <p className="text-sm text-[#303568]/70 mt-2" data-testid="plan-fit">
           <span className="font-semibold text-[#303568]">{fits.name}</span> fits you —{" "}
-          {formatPrice(fits.price)} / month.
+          {formatPrice(fits.price)} / month excl. VAT.
         </p>
         <style jsx>{`
           .receipts-slider {
@@ -139,11 +139,14 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
                   {formatPrice(plan.price)}
                 </span>
                 <span className={`text-sm ${active ? "text-white/60" : "text-[#303568]/50"}`}>
-                  / month
+                  / month excl. VAT
                 </span>
               </div>
               <p className={`text-sm font-semibold mt-3 ${active ? "text-[#27BE7B]" : "text-[#1F9D63]"}`}>
                 Up to {plan.receipts} receipts / month
+              </p>
+              <p className={`text-xs mt-1 ${active ? "text-white/60" : "text-[#303568]/50"}`}>
+                Then {formatPrice(OVERAGE_PRICE)} per extra receipt
               </p>
               <div className={`border-t border-dashed my-5 ${active ? "border-white/20" : "border-[#E8E5DD]"}`} />
               <p className={`text-sm mb-6 ${active ? "text-white/65" : "text-[#303568]/60"}`}>
@@ -178,8 +181,8 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
 
       <p className="text-xs text-[#303568]/50 text-center mt-8">
         {pilotMode
-          ? "Free during the pilot. The prices above apply once the pilot ends. All prices excl. VAT."
-          : "First week free on every plan. All prices excl. VAT."}
+          ? "Free during the pilot. The prices above apply once the pilot ends. All prices excl. VAT; Swedish companies pay 25% moms on top, EU companies with a VAT number are reverse-charged."
+          : "First week free on every plan. All prices excl. VAT; Swedish companies pay 25% moms on top, EU companies with a VAT number are reverse-charged."}
       </p>
     </div>
   );

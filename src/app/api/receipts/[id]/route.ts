@@ -24,6 +24,7 @@ import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import type { Receipt } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -184,6 +185,17 @@ export async function PATCH(
   if (updateError) {
     console.error("[/api/receipts/PATCH] update failed", updateError);
     return NextResponse.json({ error: "update failed" }, { status: 500 });
+  }
+
+  // Confirming a receipt that was waiting for review is when it counts
+  // toward the plan (forwarded emails are only counted once confirmed).
+  // Idempotent: receipts already counted at capture are a no-op.
+  if (update.status === "verified") {
+    await recordReceiptUsage({
+      userId: user.id,
+      receiptId: id,
+      source: usageSource(existingRow.source),
+    });
   }
 
   return NextResponse.json({ ok: true, status: update.status });

@@ -13,6 +13,11 @@ import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { getSupabaseAdmin } from "./supabase-admin";
+import {
+  hasOverageItem,
+  periodStartFromSubscription,
+  planFromSubscription,
+} from "./stripe-plan";
 
 export type SelfHealOutcome = "success" | "not_paid" | "stripe_down";
 
@@ -78,6 +83,9 @@ export async function handleSelfHeal(
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
         status: subscription.status,
+        plan: planFromSubscription(subscription),
+        overage_enabled: hasOverageItem(subscription),
+        current_period_start: periodStartFromSubscription(subscription),
         current_period_end: unixToIso(periodEndUnix),
         trial_end: unixToIso(trialEndUnix),
       },
