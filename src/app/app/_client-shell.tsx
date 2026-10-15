@@ -56,6 +56,9 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     // crashing the tree. Everything that depends on the client lives inside
     // this try; the cleanup only unsubscribes if we got that far.
     let subscription: { unsubscribe: () => void } | undefined;
+    // Set on cleanup so a check still pending from the previous pathname
+    // doesn't redirect after the user has moved on.
+    let cancelled = false;
     try {
       const supabase = getSupabaseClient();
 
@@ -64,6 +67,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       // getUser() round-trips and returns null in that case.
       const validateSession = async () => {
         const { data, error } = await supabase.auth.getUser();
+        if (cancelled) return;
         if (error || !data.user) {
           // Stale cookie. Clear it locally so the next render is clean and
           // we don't ping-pong with the server gate.
@@ -113,7 +117,10 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       setClientUnavailable(true);
     }
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, [router, pathname]);
 
   return (
