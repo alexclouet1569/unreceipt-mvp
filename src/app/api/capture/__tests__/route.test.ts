@@ -279,4 +279,59 @@ describe("POST /api/capture", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.remove).not.toHaveBeenCalled();
   });
+
+  it("stores VAT amount, VAT rate and payment method", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(
+        buildFormData({
+          tax_amount: "9,80",
+          tax_rate: "25",
+          payment_method: "  Swish ",
+        })
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({
+      tax_amount: 9.8,
+      tax_rate: 25,
+      payment_method: "Swish",
+    });
+  });
+
+  it("stores null VAT and payment method when they are left blank", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ tax_amount: "", payment_method: "" }))
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({
+      tax_amount: null,
+      tax_rate: null,
+      payment_method: null,
+    });
+  });
+
+  it("rejects VAT above the total, a rate above 100 and non-numeric VAT", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const tooMuchVat = await POST(
+      buildRequest(buildFormData({ tax_amount: "50" }))
+    );
+    expect(tooMuchVat.status).toBe(400);
+    const body = await tooMuchVat.json();
+    expect(body.issues[0].path).toBe("tax_amount");
+
+    expect(
+      (await POST(buildRequest(buildFormData({ tax_rate: "125" })))).status
+    ).toBe(400);
+    expect(
+      (await POST(buildRequest(buildFormData({ tax_amount: "abc" })))).status
+    ).toBe(400);
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
 });

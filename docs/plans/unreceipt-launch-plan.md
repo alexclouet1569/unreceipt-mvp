@@ -190,7 +190,7 @@
 - [x] 37 ★ S — Apply D7, so the background matches the design source of truth.
 - [x] 38 ★ M — `/app/settings` shell: profile, company name, sign out.
 - [x] 39 ★ S — Show the forwarding address with a Copy button in settings. Today it only appears when the inbox is empty.
-- [ ] 40 ★ S — Pass VAT amount, VAT rate and payment method from OCR through `CaptureDialog` and `CaptureSchema`. Today they're dropped.
+- [x] 40 ★ S — Pass VAT amount, VAT rate and payment method from OCR through `CaptureDialog` and `CaptureSchema`. Today they're dropped.
 - [ ] 41 ★ M — Allow editing **verified** receipts, not only ones that need review. Store an `edited_at` / "edited by you" marker and show it on the PDF; the API refuses these edits (409) until this ships.
 - [ ] 42 ★ M — Make VAT and line items editable (extend the PATCH route).
 - [ ] 43 ★ S — Check that iPhone HEIC photos work end to end; convert them if needed.

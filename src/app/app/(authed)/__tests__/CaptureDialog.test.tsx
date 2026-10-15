@@ -15,7 +15,7 @@ import { CaptureDialog } from "@/app/app/(authed)/CaptureDialog";
 
 const fillRequiredFields = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText(/Merchant/i), "ICA Maxi");
-  await user.type(screen.getByLabelText(/Amount/i), "49");
+  await user.type(screen.getByLabelText(/^Amount/i), "49");
 };
 
 const renderDialog = () => {
@@ -166,6 +166,9 @@ describe("CaptureDialog", () => {
             currency: "SEK",
             receipt_date: "2026-04-12",
             category: "software",
+            tax_amount: 9.9,
+            tax_rate: 25,
+            payment_method: "card",
           })
         );
       }
@@ -193,12 +196,15 @@ describe("CaptureDialog", () => {
 
     // After OCR resolves, empty fields get populated, merchant stays typed.
     await waitFor(() => {
-      expect(screen.getByLabelText(/Amount/i)).toHaveValue(49.5);
+      expect(screen.getByLabelText(/^Amount/i)).toHaveValue(49.5);
     });
     expect(screen.getByLabelText(/Merchant/i)).toHaveValue("My typed name");
     expect(screen.getByLabelText(/Currency/i)).toHaveValue("SEK");
     expect(screen.getByLabelText(/Date/i)).toHaveValue("2026-04-12");
     expect(screen.getByLabelText(/Category/i)).toHaveValue("software");
+    expect(screen.getByLabelText(/VAT amount/i)).toHaveValue(9.9);
+    expect(screen.getByLabelText(/VAT rate/i)).toHaveValue(25);
+    expect(screen.getByLabelText(/Payment method/i)).toHaveValue("card");
 
     // The /api/ocr fetch fired with the image attached.
     const ocrCall = mocks.fetch.mock.calls.find(
@@ -225,9 +231,60 @@ describe("CaptureDialog", () => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
     });
     expect(screen.getByLabelText(/Merchant/i)).toHaveValue("");
-    expect(screen.getByLabelText(/Amount/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/^Amount/i)).toHaveValue(null);
     expect(screen.getByRole("alert")).toHaveTextContent(
       /couldn't recognise this image as a receipt/i
+    );
+  });
+
+  it("sends VAT and payment method with the receipt", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(okResponse());
+    renderDialog();
+
+    await fillRequiredFields(user);
+    await user.type(screen.getByLabelText(/VAT amount/i), "9.80");
+    await user.type(screen.getByLabelText(/VAT rate/i), "25");
+    await user.type(screen.getByLabelText(/Payment method/i), "Swish");
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    const fd = (mocks.fetch.mock.calls[0] as [string, RequestInit])[1]
+      .body as FormData;
+    expect(Number(fd.get("tax_amount"))).toBe(9.8);
+    expect(fd.get("tax_rate")).toBe("25");
+    expect(fd.get("payment_method")).toBe("Swish");
+  });
+
+  it("leaves VAT and payment method out when they are blank", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(okResponse());
+    renderDialog();
+
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    const fd = (mocks.fetch.mock.calls[0] as [string, RequestInit])[1]
+      .body as FormData;
+    expect(fd.get("tax_amount")).toBeNull();
+    expect(fd.get("tax_rate")).toBeNull();
+    expect(fd.get("payment_method")).toBeNull();
+  });
+
+  it("shows the field-level reason when the server rejects the form", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(
+      errorResponse(400, {
+        error: "validation failed",
+        issues: [{ path: "tax_amount", message: "VAT can't be more than the total" }],
+      }),
+    );
+    renderDialog();
+
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /VAT can't be more than the total/,
     );
   });
 });

@@ -11,6 +11,16 @@ import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { recordReceiptUsage } from "@/lib/usage";
 import {
+  MAX_AMOUNT,
+  PaymentMethodSchema,
+  ReceiptItemsSchema,
+  TaxAmountSchema,
+  TaxRateSchema,
+  optionalNumber,
+  optionalString,
+  taxExceedsTotal,
+} from "@/lib/receipts/receipt-fields";
+import {
   EXTENSION_BY_TYPE,
   MAX_UPLOAD_BYTES,
   isAllowedUploadType,
@@ -19,26 +29,29 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ItemSchema = z.object({
-  label: z.string().min(1).max(200),
-  qty: z.number().positive().max(10_000).nullable().optional(),
-  unit_amount: z.number().nonnegative().max(1_000_000).nullable().optional(),
-  total_amount: z.number().nonnegative().max(1_000_000),
-});
-
-const CaptureSchema = z.object({
-  merchant: z.string().trim().min(1).max(200),
-  amount: z.number().positive().max(1_000_000),
-  currency: z.enum(CURRENCY_OPTIONS),
-  receipt_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "receipt_date must be YYYY-MM-DD"),
-  category: z.enum(CATEGORY_KEYS as [string, ...string[]]),
-  notes: z.string().max(2000).optional(),
-  // Line items extracted by OCR on the client. Optional — manual
-  // entries skip this, supermarket scans include the full list.
-  items: z.array(ItemSchema).max(200).optional(),
-});
+const CaptureSchema = z
+  .object({
+    merchant: z.string().trim().min(1).max(200),
+    amount: z.number().positive().max(MAX_AMOUNT),
+    currency: z.enum(CURRENCY_OPTIONS),
+    receipt_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "receipt_date must be YYYY-MM-DD"),
+    category: z.enum(CATEGORY_KEYS as [string, ...string[]]),
+    notes: z.string().max(2000).optional(),
+    // VAT and payment method, pre-filled by OCR and editable in the form.
+    // All optional: plenty of receipts (foreign, VAT-exempt) show none.
+    tax_amount: TaxAmountSchema.optional(),
+    tax_rate: TaxRateSchema.optional(),
+    payment_method: PaymentMethodSchema.optional(),
+    // Line items extracted by OCR on the client. Optional — manual
+    // entries skip this, supermarket scans include the full list.
+    items: ReceiptItemsSchema.optional(),
+  })
+  .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
+    message: "VAT can't be more than the total",
+    path: ["tax_amount"],
+  });
 
 
 export async function POST(request: NextRequest) {
@@ -85,6 +98,9 @@ export async function POST(request: NextRequest) {
       typeof form.get("receipt_date") === "string" ? form.get("receipt_date") : undefined,
     category: typeof form.get("category") === "string" ? form.get("category") : undefined,
     notes: typeof notesRaw === "string" && notesRaw.length > 0 ? notesRaw : undefined,
+    tax_amount: optionalNumber(form.get("tax_amount")),
+    tax_rate: optionalNumber(form.get("tax_rate")),
+    payment_method: optionalString(form.get("payment_method")),
     items: itemsJson,
   });
 
@@ -173,6 +189,9 @@ export async function POST(request: NextRequest) {
       receipt_date: data.receipt_date,
       purchased_at: purchasedAt,
       notes: data.notes?.trim() || null,
+      tax_amount: data.tax_amount ?? null,
+      tax_rate: data.tax_rate ?? null,
+      payment_method: data.payment_method ?? null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
       items: data.items && data.items.length > 0 ? data.items : null,

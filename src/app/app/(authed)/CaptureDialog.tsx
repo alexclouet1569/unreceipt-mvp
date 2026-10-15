@@ -26,6 +26,7 @@ import {
   type CurrencyCode,
 } from "@/lib/receipt-format";
 import type { OcrItem, OcrResult } from "@/lib/ocr";
+import { PAYMENT_METHOD_SUGGESTIONS } from "@/lib/receipts/receipt-fields";
 
 type CaptureDialogProps = {
   open: boolean;
@@ -40,6 +41,9 @@ type FormState = {
   currency: CurrencyCode;
   date: string;
   category: CategoryKey;
+  taxAmount: string;
+  taxRate: string;
+  paymentMethod: string;
   notes: string;
 };
 
@@ -49,8 +53,14 @@ const blankForm = (): FormState => ({
   currency: "EUR",
   date: today(),
   category: "other",
+  taxAmount: "",
+  taxRate: "",
+  paymentMethod: "",
   notes: "",
 });
+
+const isFiniteNumber = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v);
 
 export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
   const router = useRouter();
@@ -132,8 +142,28 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
         if (!prev.merchant && typeof data.merchant === "string") {
           next.merchant = data.merchant;
         }
-        if (!prev.amount && typeof data.amount === "number" && Number.isFinite(data.amount)) {
+        if (!prev.amount && isFiniteNumber(data.amount)) {
           next.amount = String(data.amount);
+        }
+        // VAT and payment method: same rule as merchant/amount — OCR only
+        // fills what the user hasn't typed.
+        if (!prev.taxAmount && isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) {
+          next.taxAmount = String(data.tax_amount);
+        }
+        if (
+          !prev.taxRate &&
+          isFiniteNumber(data.tax_rate) &&
+          data.tax_rate >= 0 &&
+          data.tax_rate <= 100
+        ) {
+          next.taxRate = String(data.tax_rate);
+        }
+        if (
+          !prev.paymentMethod &&
+          typeof data.payment_method === "string" &&
+          data.payment_method.trim()
+        ) {
+          next.paymentMethod = data.payment_method.trim().slice(0, 50);
         }
         if (
           typeof data.currency === "string" &&
@@ -223,6 +253,11 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       fd.append("currency", form.currency);
       fd.append("receipt_date", form.date);
       fd.append("category", form.category);
+      if (form.taxAmount.trim()) fd.append("tax_amount", form.taxAmount.trim());
+      if (form.taxRate.trim()) fd.append("tax_rate", form.taxRate.trim());
+      if (form.paymentMethod.trim()) {
+        fd.append("payment_method", form.paymentMethod.trim());
+      }
       if (form.notes.trim()) fd.append("notes", form.notes.trim());
       if (imageFile) fd.append("image", imageFile);
       if (items && items.length > 0) {
@@ -235,8 +270,18 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Save failed (HTTP ${res.status})`);
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          issues?: Array<{ message?: string }>;
+        };
+        // Validation failures carry a readable reason per field ("VAT
+        // can't be more than the total"); show it rather than the generic
+        // "validation failed".
+        throw new Error(
+          body.issues?.[0]?.message ??
+            body.error ??
+            `Save failed (HTTP ${res.status})`,
+        );
       }
 
       onOpenChange(false);
@@ -464,6 +509,51 @@ export function CaptureDialog({ open, onOpenChange }: CaptureDialogProps) {
               </select>
             </Field>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="VAT amount" htmlFor="cd-tax-amount">
+              <Input
+                id="cd-tax-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={form.taxAmount}
+                onChange={(e) => update("taxAmount", e.target.value)}
+                placeholder="9.80"
+                className="font-mono tabular-nums"
+              />
+            </Field>
+            <Field label="VAT rate %" htmlFor="cd-tax-rate">
+              <Input
+                id="cd-tax-rate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                inputMode="decimal"
+                value={form.taxRate}
+                onChange={(e) => update("taxRate", e.target.value)}
+                placeholder="25"
+              />
+            </Field>
+          </div>
+
+          <Field label="Payment method" htmlFor="cd-payment-method">
+            <Input
+              id="cd-payment-method"
+              list="cd-payment-method-options"
+              value={form.paymentMethod}
+              onChange={(e) => update("paymentMethod", e.target.value)}
+              placeholder="Card"
+              maxLength={50}
+            />
+            <datalist id="cd-payment-method-options">
+              {PAYMENT_METHOD_SUGGESTIONS.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </Field>
 
           </div>
           )}
