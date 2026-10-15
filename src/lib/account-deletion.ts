@@ -21,7 +21,7 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
 
 // Every bucket that stores files under `<user_id>/`.
-export const USER_FILE_BUCKETS = ["receipts", "receipt-originals"] as const;
+export const USER_FILE_BUCKETS = ["receipts", "receipt-originals", "exports"] as const;
 
 // Subscription states Stripe can still charge.
 const CHARGEABLE_STATUSES = new Set([
@@ -62,7 +62,12 @@ export async function listAllPaths(
       const { data, error } = await supabase.storage
         .from(bucket)
         .list(folder, { limit: LIST_PAGE, offset });
-      if (error) throw new AccountDeletionError("storage", `list ${bucket} failed`);
+      if (error) {
+        // A bucket that doesn't exist yet (its SQL not applied) holds
+        // nothing to delete.
+        if (/not found/i.test(error.message ?? "")) return paths;
+        throw new AccountDeletionError("storage", `list ${bucket} failed`);
+      }
       const entries = data ?? [];
       for (const entry of entries) {
         const path = `${folder}/${entry.name}`;

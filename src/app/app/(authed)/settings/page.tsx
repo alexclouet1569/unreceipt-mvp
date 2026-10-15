@@ -13,6 +13,7 @@ import { getUsage, type Usage } from "@/lib/usage";
 import { planSuggestion } from "@/lib/usage-copy";
 import { SignOutButton } from "./SignOutButton";
 import { DeleteAccountSection } from "./DeleteAccountSection";
+import { ExportPanel } from "@/components/ExportPanel";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -123,6 +124,20 @@ export default async function SettingsPage() {
           </section>
         ) : null}
 
+        <section aria-labelledby="export-heading">
+          <SectionLabel id="export-heading">Export for your accountant</SectionLabel>
+          <div
+            className="bg-card space-y-3"
+            style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "14px" }}
+          >
+            <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+              One ZIP with a spreadsheet of the month&apos;s receipts, every
+              receipt as a PDF and each original photo, PDF or email.
+            </p>
+            <ExportPanel />
+          </div>
+        </section>
+
         <section aria-labelledby="account-heading">
           <SectionLabel id="account-heading">Account</SectionLabel>
           <dl
@@ -141,13 +156,7 @@ export default async function SettingsPage() {
 
         <section aria-labelledby="danger-heading">
           <SectionLabel id="danger-heading">Delete account</SectionLabel>
-          <DeleteAccountSection
-            exportSlot={
-              <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-                Open each receipt and tap Download PDF.
-              </p>
-            }
-          />
+          <DeleteAccountSection exportSlot={<ExportPanel fixedPeriod="all" />} />
         </section>
       </main>
     </div>
