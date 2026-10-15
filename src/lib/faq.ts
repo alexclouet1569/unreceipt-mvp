@@ -6,8 +6,8 @@ import { PLANS, formatPrice, formatSek } from "@/lib/plans";
  * structured data and /llms.txt, so search engines and AI assistants see
  * exactly what visitors read. Every answer must stay true to the product.
  *
- * The English FAQ stays general; questions about one country's rules
- * belong on that country's language page.
+ * The English FAQ stays general and gives the short version of each
+ * market's rules; the full answer belongs on that country's language page.
  *
  * Pure data, safe to import from client components.
  */
@@ -54,7 +54,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "What does VAT-ready mean?",
-      a: "Every receipt is saved with its VAT rate and amount split out, plus the merchant's VAT number when it's on the receipt — the details your accountant needs to deduct VAT.",
+      a: "Every receipt is saved with its VAT amount and rate as shown on the receipt, so your accountant sees the VAT at a glance. Whether the VAT can be deducted depends on the purchase — your accountant decides that.",
     },
     {
       q: "Who checks my receipts?",
@@ -62,11 +62,11 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "How long do companies have to keep receipts?",
-      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires seven years after the end of the calendar year in which the financial year ended, and since 1 July 2024 you may throw away the paper original once it's saved digitally in a way that keeps the information intact. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals.",
+      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may only be thrown away if the digital copy carries no risk of the information being changed or lost. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't replace your archive yet, in either country: keep your paper originals, or check with your accountant before throwing any away.",
     },
     {
       q: "Can I cancel at any time?",
-      a: "Yes. Before you leave, download your receipts — every receipt has its original file and a PDF. Your account and receipts are deleted 30 days after you cancel, so move them to your own archive or your accountant first.",
+      a: "Yes. After you cancel, your account and receipts stay available for 90 days so you can download them — every receipt has its image and a PDF — and we email you before anything is deleted. The duty to keep receipts stays with your company, so move them to your own archive or your accountant.",
     },
     {
       q: "Where is my data stored?",
@@ -79,7 +79,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Vad är UnReceipt?",
-      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ert företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett bokföringsklart underlag i er översikt: säljare, datum, rader, moms och kategori.",
+      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett kontrollerat underlag i din översikt: säljare, datum, kvittorader, moms och kategori.",
     },
     {
       q: "Hur skickar jag kvitton till UnReceipt?",
@@ -90,20 +90,20 @@ function faqSv(pilotMode: boolean): FaqItem[] {
       a: pricingAnswerSv(pilotMode),
     },
     {
-      q: "Vad betyder bokföringsklart?",
-      a: "Varje kvitto sparas med momssats och momsbelopp uppdelade, plus säljarens momsregistreringsnummer när det står på kvittot — uppgifterna din redovisningskonsult behöver för att kunna dra av momsen.",
+      q: "Hur hanteras momsen?",
+      a: "Varje kvitto sparas med momsbelopp och momssats som de står på kvittot, så att din redovisningskonsult ser momsen direkt. Om momsen är avdragsgill beror på köpet — det avgör din redovisningskonsult.",
     },
     {
       q: "Vem kontrollerar mina kvitton?",
-      a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som verifierat.",
+      a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som kontrollerat.",
     },
     {
       q: "Hur länge måste företag spara kvitton?",
-      a: "Enligt bokföringslagen ska kvitton och annan räkenskapsinformation sparas i sju år efter utgången av det kalenderår då räkenskapsåret avslutades. Sedan den 1 juli 2024 får du slänga papperskvittot när det har sparats digitalt på ett sätt som bevarar informationen.",
+      a: "Enligt bokföringslagen ska kvitton och annan räkenskapsinformation sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades. De ska förvaras i Sverige, eller i ett annat EU-land på vissa villkor, bland annat att platsen anmäls till Skatteverket. Sedan den 1 juli 2024 får papperskvittot förstöras efter att det har förts över till digital form, men bara om överföringen inte innebär någon risk att uppgifterna ändras eller försvinner — och det ansvaret ligger på företaget. UnReceipt ersätter inte ditt arkiv ännu, så spara papperskvittona eller stäm av med din redovisningskonsult innan du slänger något.",
     },
     {
       q: "Kan jag avsluta när jag vill?",
-      a: "Ja. Ladda ner dina kvitton innan du avslutar — varje kvitto har sin originalfil och en PDF. Ditt konto och dina kvitton raderas 30 dagar efter att du har avslutat, så flytta dem till ditt eget arkiv eller till din redovisningskonsult först.",
+      a: "Ja. När du har avslutat finns ditt konto och dina kvitton kvar i 90 dagar så att du kan ladda ner dem — varje kvitto har sin kvittobild och en PDF — och vi mejlar dig innan något raderas. Skyldigheten att spara kvittona ligger kvar hos företaget, så flytta dem till ditt eget arkiv eller till din redovisningskonsult.",
     },
     {
       q: "Var lagras min data?",

@@ -16,12 +16,12 @@ export const DESCRIPTION =
 export const SHARE_DESCRIPTION =
   "Forward any receipt — email or photo — and get a VAT-ready record within 24 hours. Built for small businesses in Sweden.";
 
-export const SV_TITLE = "UnReceipt — Bokföringsklara kvitton för småföretag";
+export const SV_TITLE = "UnReceipt — Kvittohantering för småföretag";
 
-export const SV_DESCRIPTION = `Vidarebefordra e-postkvitton eller fota papperskvitton. UnReceipt gör varje kvitto till ett bokföringsklart underlag inom 24 timmar — säljare, rader, moms och kategori. Byggt för småföretag i Sverige. Från ${PLANS[0].priceSek} kr/mån.`;
+export const SV_DESCRIPTION = `Vidarebefordra e-postkvitton eller fota papperskvitton. UnReceipt gör varje kvitto till ett kontrollerat underlag inom 24 timmar — säljare, rader, moms och kategori. Byggt för småföretag i Sverige. Från ${PLANS[0].priceSek} kr/mån.`;
 
 export const SV_SHARE_DESCRIPTION =
-  "Skicka vilket kvitto som helst — mejl eller foto — och få ett bokföringsklart underlag inom 24 timmar. Byggt för småföretag i Sverige.";
+  "Skicka vilket kvitto som helst — mejl eller foto — och få ett kontrollerat underlag inom 24 timmar. Byggt för småföretag i Sverige.";
 
 /**
  * hreflang alternates shared by every language's landing page, so each

@@ -33,7 +33,7 @@ export type ReceiptRow =
 /** The receipt's few non-Swedish words, per page language. */
 const WORDS: Record<Locale, { lost: string; chasing: string; stress: string; stamp: string }> = {
   en: { lost: "Lost receipts", chasing: "Hours chasing", stress: "Total stress", stamp: "✓ VAT-ready" },
-  sv: { lost: "Borttappade kvitton", chasing: "Timmar på kvittojakt", stress: "Stress totalt", stamp: "✓ Bokföringsklart" },
+  sv: { lost: "Borttappade kvitton", chasing: "Timmar på kvittojakt", stress: "Stress totalt", stamp: "✓ Kontrollerat" },
 };
 
 function receiptFor(locale: Locale) {

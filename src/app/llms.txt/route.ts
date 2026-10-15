@@ -24,7 +24,7 @@ export function GET() {
 
 > ${DESCRIPTION}
 
-UnReceipt is a receipt service for small businesses in Sweden${pilot ? ", currently in a free pilot" : ""}. Companies forward email receipts to a private UnReceipt address or photograph paper receipts in the app. Each receipt becomes a VAT-ready record (merchant, date, line items, VAT rate and amount, merchant VAT number, category) within 24 hours, checked by a concierge. The original file and a PDF are kept for every receipt.
+UnReceipt is a receipt service for small businesses in Sweden${pilot ? ", currently in a free pilot" : ""}. Companies forward email receipts to a private UnReceipt address or photograph paper receipts in the app. Each receipt becomes a VAT-ready record (merchant, date, line items, VAT amount and rate, category) within 24 hours, checked by a concierge. The receipt image and a PDF are kept for every receipt.
 
 ## Pricing (excl. VAT, one price per company, no per-user fees)
 ${plans}
