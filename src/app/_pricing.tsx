@@ -5,40 +5,35 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { appUrl } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
-import { PLANS, formatPrice, planForReceipts } from "@/lib/plans";
+import type { Locale } from "@/lib/locale";
+import { PLANS, planForReceipts, planPriceLabel } from "@/lib/plans";
+import { LANDING_COPY, fill } from "./_landing-copy";
 
 /**
  * Three flat monthly plans per company, sized by how many receipts the
  * company sends us. The receipts slider highlights the plan that fits.
  * Plans live in src/lib/plans.ts, shared with /subscribe and /api/checkout.
  */
-const INCLUDED = [
-  "Private address — forward any receipt",
-  "Photo capture with auto-fill",
-  "VAT-ready records within 24 hours",
-  "Original file + PDF for every receipt",
-  "Every receipt checked by our concierge",
-  "Cancel anytime",
-];
-
 const MIN_RECEIPTS = 1;
 const MAX_RECEIPTS = PLANS[PLANS.length - 1].receipts;
 
-export function Pricing({ pilotMode }: { pilotMode: boolean }) {
+export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; locale?: Locale }) {
   const [receipts, setReceipts] = useState(10);
-  const cta = pilotMode ? "Join the pilot" : "Start your free week";
+  const all = LANDING_COPY[locale];
+  const t = all.pricing;
+  const cta = pilotMode ? all.hero.ctaPilot : all.hero.ctaPaid;
   const fits = planForReceipts(receipts);
+  const [fitsBefore, fitsAfter = ""] = t.fits.split("{plan}");
 
   return (
     <div className="max-w-5xl mx-auto">
       <div className="text-center mb-10">
-        <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">Pricing</p>
+        <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.eyebrow}</p>
         <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
-          Pay for the receipts you send
+          {t.title}
         </h2>
         <p className="text-[#303568]/60 text-base max-w-xl mx-auto">
-          One monthly price for your whole company — no per-user fees. Pick
-          the plan that covers how many receipts you send us each month.
+          {t.lead}
         </p>
       </div>
 
@@ -46,7 +41,7 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
       <div className="max-w-md mx-auto mb-10 bg-white border border-[#E8E5DD] rounded-2xl px-5 py-4">
         <div className="flex items-baseline justify-between mb-3">
           <label htmlFor="receipts-per-month" className="text-sm font-semibold text-[#303568]">
-            Receipts per month
+            {t.slider}
           </label>
           <span className="font-mono tabular-nums text-lg font-medium text-[#303568]" aria-live="polite">
             {receipts}
@@ -67,8 +62,9 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
           }
         />
         <p className="text-sm text-[#303568]/70 mt-2" data-testid="plan-fit">
-          <span className="font-semibold text-[#303568]">{fits.name}</span> fits you —{" "}
-          {formatPrice(fits.price)} / month.
+          {fitsBefore}
+          <span className="font-semibold text-[#303568]">{fits.name}</span>
+          {fill(fitsAfter, { price: planPriceLabel(fits, locale) })}
         </p>
         <style jsx>{`
           .receipts-slider {
@@ -126,28 +122,28 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
             >
               {active && (
                 <span className="absolute -top-3 left-7 bg-[#27BE7B] text-white text-[10px] font-bold uppercase tracking-[0.18em] rounded-full px-3 py-1">
-                  Fits you
+                  {t.fitsBadge}
                 </span>
               )}
               <h3 className="font-extrabold text-xl">{plan.name}</h3>
               <p className={`text-sm mt-1 mb-6 min-h-[40px] ${active ? "text-white/65" : "text-[#303568]/60"}`}>
-                {plan.who}
+                {t.who[plan.id]}
               </p>
               <div className="flex items-baseline gap-1">
                 {/* Manrope, not mono: mono's wide period reads as "5 . 99". */}
                 <span className="tabular-nums text-4xl font-extrabold tracking-tight">
-                  {formatPrice(plan.price)}
+                  {planPriceLabel(plan, locale)}
                 </span>
                 <span className={`text-sm ${active ? "text-white/60" : "text-[#303568]/50"}`}>
-                  / month
+                  {t.perMonth}
                 </span>
               </div>
               <p className={`text-sm font-semibold mt-3 ${active ? "text-[#27BE7B]" : "text-[#1F9D63]"}`}>
-                Up to {plan.receipts} receipts / month
+                {fill(t.upTo, { n: plan.receipts })}
               </p>
               <div className={`border-t border-dashed my-5 ${active ? "border-white/20" : "border-[#E8E5DD]"}`} />
               <p className={`text-sm mb-6 ${active ? "text-white/65" : "text-[#303568]/60"}`}>
-                Whole company included, no per-user fees.
+                {t.wholeCompany}
               </p>
               <a
                 href={appUrl("/app/login")}
@@ -168,7 +164,7 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
       </div>
 
       <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 max-w-3xl mx-auto">
-        {INCLUDED.map((f) => (
+        {t.included.map((f) => (
           <div key={f} className="flex items-start gap-2.5 text-sm text-[#303568]/80">
             <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#27BE7B]" />
             {f}
@@ -177,9 +173,7 @@ export function Pricing({ pilotMode }: { pilotMode: boolean }) {
       </div>
 
       <p className="text-xs text-[#303568]/50 text-center mt-8">
-        {pilotMode
-          ? "Free during the pilot. The prices above apply once the pilot ends. All prices excl. VAT."
-          : "First week free on every plan. All prices excl. VAT."}
+        {pilotMode ? t.notePilot : t.notePaid}
       </p>
     </div>
   );

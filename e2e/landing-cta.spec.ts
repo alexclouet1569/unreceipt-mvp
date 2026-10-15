@@ -130,3 +130,44 @@ test.describe("landing waitlist (demoted)", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("Swedish landing (/sv)", () => {
+  test("is in Swedish, prices in kronor, and links both languages", async ({
+    page,
+  }) => {
+    await page.goto("/sv");
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://unreceipt.com/sv"
+    );
+    await expect(page.locator('link[rel="alternate"][hreflang="en"]')).toHaveAttribute(
+      "href",
+      "https://unreceipt.com"
+    );
+    await expect(page.locator("h1")).toContainText("Från kaos");
+
+    const pricing = page.locator("#pricing");
+    for (const [name, price] of [
+      ["Light", "69 kr"],
+      ["Regular", "119 kr"],
+      ["Heavy", "179 kr"],
+    ]) {
+      await expect(pricing.locator(`[data-plan="${name}"]`)).toContainText(price);
+    }
+    await expect(pricing).not.toContainText("€");
+    await expect(page.locator("#faq")).toContainText("Hur länge måste företag spara kvitton?");
+
+    // The language switch goes back to English.
+    await expect(page.locator('footer a[hreflang="en"]')).toHaveAttribute("href", "/");
+  });
+
+  test("the hero CTA navigates to /app/login", async ({ page }) => {
+    await page.goto("/sv");
+    const cta = page.getByRole("link", { name: /Prova gratis i en vecka/i }).first();
+    await expect(cta).toBeVisible();
+    await cta.click();
+    await expect(page).toHaveURL(/\/app\/login$/);
+  });
+});

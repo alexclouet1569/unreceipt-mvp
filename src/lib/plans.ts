@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/locale";
+
 /**
  * The three plans: one flat monthly price per company, sized by how many
  * receipts the company sends us. No per-user fees. Single source of truth
@@ -15,6 +17,11 @@ export type Plan = {
   name: string;
   /** EUR per month for the whole company, excl. VAT. */
   price: number;
+  /**
+   * SEK per month for the whole company, excl. VAT, shown on the Swedish
+   * site. Stripe charges it through the price's SEK currency option.
+   */
+  priceSek: number;
   /** Receipts per month, shared by everyone in the company. */
   receipts: number;
   who: string;
@@ -25,6 +32,7 @@ export const PLANS: readonly Plan[] = [
     id: "light",
     name: "Light",
     price: 5.99,
+    priceSek: 69,
     receipts: 15,
     who: "Freelancers and one-person businesses.",
   },
@@ -32,6 +40,7 @@ export const PLANS: readonly Plan[] = [
     id: "regular",
     name: "Regular",
     price: 9.99,
+    priceSek: 119,
     receipts: 40,
     who: "Small teams with a few people spending.",
   },
@@ -39,6 +48,7 @@ export const PLANS: readonly Plan[] = [
     id: "heavy",
     name: "Heavy",
     price: 15.99,
+    priceSek: 179,
     receipts: 100,
     who: "Teams that travel, meet clients or buy often.",
   },
@@ -49,6 +59,16 @@ export const PLAN_IDS = PLANS.map((p) => p.id) as [PlanId, ...PlanId[]];
 /** "€5.99" — prices are shown in EUR with two decimals. */
 export function formatPrice(eur: number): string {
   return `€${eur.toFixed(2)}`;
+}
+
+/** "69 kr" — whole kronor, the way Swedish prices are written. */
+export function formatSek(kr: number): string {
+  return `${kr} kr`;
+}
+
+/** A plan's monthly price in the currency of the given site language. */
+export function planPriceLabel(plan: Plan, locale: Locale): string {
+  return locale === "sv" ? formatSek(plan.priceSek) : formatPrice(plan.price);
 }
 
 /** Smallest plan whose allowance covers `receipts`, or the largest plan. */

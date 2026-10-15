@@ -1,4 +1,5 @@
 import { getFaq } from "@/lib/faq";
+import { LOCALE_HOME, type Locale } from "@/lib/locale";
 import { PLANS } from "@/lib/plans";
 
 /**
@@ -15,8 +16,27 @@ export const DESCRIPTION =
 export const SHARE_DESCRIPTION =
   "Forward any receipt — email or photo — and get a VAT-ready record within 24 hours. Built for small businesses in Sweden.";
 
-/** JSON-LD for the landing page: organization, site, product and FAQ. */
-export function landingJsonLd(pilotMode: boolean) {
+export const SV_TITLE = "UnReceipt — Bokföringsklara kvitton för småföretag";
+
+export const SV_DESCRIPTION = `Vidarebefordra e-postkvitton eller fota papperskvitton. UnReceipt gör varje kvitto till ett bokföringsklart underlag inom 24 timmar — säljare, rader, moms och kategori. Byggt för småföretag i Sverige. Från ${PLANS[0].priceSek} kr/mån.`;
+
+export const SV_SHARE_DESCRIPTION =
+  "Skicka vilket kvitto som helst — mejl eller foto — och få ett bokföringsklart underlag inom 24 timmar. Byggt för småföretag i Sverige.";
+
+/**
+ * hreflang alternates shared by every language's landing page, so each
+ * page points at all the others and at the English default.
+ */
+export const LANDING_LANGUAGES = {
+  en: LOCALE_HOME.en,
+  sv: LOCALE_HOME.sv,
+  "x-default": LOCALE_HOME.en,
+};
+
+/** JSON-LD for a landing page: organization, site, product and FAQ. */
+export function landingJsonLd(pilotMode: boolean, locale: Locale = "en") {
+  const sv = locale === "sv";
+  const pageUrl = sv ? `${SITE_URL}${LOCALE_HOME.sv}` : SITE_URL;
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -34,7 +54,7 @@ export function landingJsonLd(pilotMode: boolean) {
         "@id": `${SITE_URL}/#website`,
         name: "UnReceipt",
         url: SITE_URL,
-        inLanguage: "en",
+        inLanguage: ["en", "sv"],
         publisher: { "@id": `${SITE_URL}/#organization` },
       },
       {
@@ -42,20 +62,33 @@ export function landingJsonLd(pilotMode: boolean) {
         name: "UnReceipt",
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
-        description: DESCRIPTION,
-        url: SITE_URL,
+        description: sv ? SV_DESCRIPTION : DESCRIPTION,
+        url: pageUrl,
+        inLanguage: locale,
         publisher: { "@id": `${SITE_URL}/#organization` },
-        offers: PLANS.map((plan) => ({
-          "@type": "Offer",
-          name: plan.name,
-          price: plan.price.toFixed(2),
-          priceCurrency: "EUR",
-          description: `Up to ${plan.receipts} receipts per month for the whole company`,
-        })),
+        offers: PLANS.map((plan) =>
+          sv
+            ? {
+                "@type": "Offer",
+                name: plan.name,
+                price: plan.priceSek.toFixed(2),
+                priceCurrency: "SEK",
+                description: `Upp till ${plan.receipts} kvitton per månad för hela företaget`,
+              }
+            : {
+                "@type": "Offer",
+                name: plan.name,
+                price: plan.price.toFixed(2),
+                priceCurrency: "EUR",
+                description: `Up to ${plan.receipts} receipts per month for the whole company`,
+              }
+        ),
       },
       {
         "@type": "FAQPage",
-        mainEntity: getFaq(pilotMode).map((item) => ({
+        url: pageUrl,
+        inLanguage: locale,
+        mainEntity: getFaq(pilotMode, locale).map((item) => ({
           "@type": "Question",
           name: item.q,
           acceptedAnswer: { "@type": "Answer", text: item.a },

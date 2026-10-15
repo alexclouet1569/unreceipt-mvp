@@ -1,9 +1,13 @@
-import { PLANS, formatPrice } from "@/lib/plans";
+import type { Locale } from "@/lib/locale";
+import { PLANS, formatPrice, formatSek } from "@/lib/plans";
 
 /**
  * Landing-page FAQ. One source for the visible FAQ section, the FAQPage
  * structured data and /llms.txt, so search engines and AI assistants see
  * exactly what visitors read. Every answer must stay true to the product.
+ *
+ * The English FAQ stays general; questions about one country's rules
+ * belong on that country's language page.
  *
  * Pure data, safe to import from client components.
  */
@@ -20,7 +24,21 @@ function pricingAnswer(pilotMode: boolean): string {
   return `One price for the whole company, no per-user fees: ${plans}. Prices exclude VAT. ${trial}`;
 }
 
-export function getFaq(pilotMode: boolean): FaqItem[] {
+function pricingAnswerSv(pilotMode: boolean): string {
+  const plans = PLANS.map(
+    (p) => `${p.name} ${formatSek(p.priceSek)}/mån (upp till ${p.receipts} kvitton)`
+  ).join(", ");
+  const trial = pilotMode
+    ? "UnReceipt är gratis under piloten."
+    : "Första veckan är gratis på alla planer.";
+  return `Ett pris för hela företaget, inga avgifter per användare: ${plans}. Priserna är exklusive moms. ${trial}`;
+}
+
+export function getFaq(pilotMode: boolean, locale: Locale = "en"): FaqItem[] {
+  return locale === "sv" ? faqSv(pilotMode) : faqEn(pilotMode);
+}
+
+function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
@@ -53,6 +71,43 @@ export function getFaq(pilotMode: boolean): FaqItem[] {
     {
       q: "Where is my data stored?",
       a: "Receipts and account data are stored with Supabase, hosted in the EU. Payments are handled by Stripe — UnReceipt never sees your card details. See our privacy page for the details.",
+    },
+  ];
+}
+
+function faqSv(pilotMode: boolean): FaqItem[] {
+  return [
+    {
+      q: "Vad är UnReceipt?",
+      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ert företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett bokföringsklart underlag i er översikt: säljare, datum, rader, moms och kategori.",
+    },
+    {
+      q: "Hur skickar jag kvitton till UnReceipt?",
+      a: "Vidarebefordra e-postkvitton till din privata UnReceipt-adress, eller ta ett foto av ett papperskvitto i appen — fälten fylls i automatiskt. Ingen bankkoppling eller nytt kort behövs.",
+    },
+    {
+      q: "Vad kostar UnReceipt?",
+      a: pricingAnswerSv(pilotMode),
+    },
+    {
+      q: "Vad betyder bokföringsklart?",
+      a: "Varje kvitto sparas med momssats och momsbelopp uppdelade, plus säljarens momsregistreringsnummer när det står på kvittot — uppgifterna din redovisningskonsult behöver för att kunna dra av momsen.",
+    },
+    {
+      q: "Vem kontrollerar mina kvitton?",
+      a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som verifierat.",
+    },
+    {
+      q: "Hur länge måste företag spara kvitton?",
+      a: "Enligt bokföringslagen ska kvitton och annan räkenskapsinformation sparas i sju år efter utgången av det kalenderår då räkenskapsåret avslutades. Sedan den 1 juli 2024 får du slänga papperskvittot när det har sparats digitalt på ett sätt som bevarar informationen.",
+    },
+    {
+      q: "Kan jag avsluta när jag vill?",
+      a: "Ja. Ladda ner dina kvitton innan du avslutar — varje kvitto har sin originalfil och en PDF. Ditt konto och dina kvitton raderas 30 dagar efter att du har avslutat, så flytta dem till ditt eget arkiv eller till din redovisningskonsult först.",
+    },
+    {
+      q: "Var lagras min data?",
+      a: "Kvitton och kontouppgifter lagras hos Supabase inom EU. Betalningar hanteras av Stripe — UnReceipt ser aldrig dina kortuppgifter. Läs mer på vår integritetssida.",
     },
   ];
 }
