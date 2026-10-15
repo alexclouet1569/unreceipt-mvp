@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Camera, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
@@ -26,6 +27,17 @@ export function FirstRun({
   onFinish: () => void;
 }) {
   const Icon = step === 1 ? Mail : step === 2 ? Camera : Check;
+  // Each step replaces the button that was just pressed; move focus to the
+  // new step's title so keyboard and screen-reader users land on it.
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    titleRef.current?.focus();
+  }, [step]);
 
   return (
     <section
@@ -47,7 +59,8 @@ export function FirstRun({
             style={{
               width: n === step ? "20px" : "6px",
               height: "6px",
-              background: n <= step ? "var(--brand)" : "var(--hairline)",
+              // Ink, not brand green: green appears once per screen (the CTA).
+              background: n <= step ? "var(--ink)" : "var(--hairline)",
               transition: "width 200ms cubic-bezier(0.32, 0.72, 0, 1)",
             }}
           />
@@ -70,7 +83,7 @@ export function FirstRun({
 
       {step === 1 ? (
         <>
-          <Title>Your private receipts address</Title>
+          <Title titleRef={titleRef}>Your private receipts address</Title>
           <Subtitle>
             Forward any email receipt here and it lands in UnReceipt, ready
             for VAT. Save it as a contact, or set an automatic forwarding
@@ -95,7 +108,7 @@ export function FirstRun({
 
       {step === 2 ? (
         <>
-          <Title>Snap your first receipt</Title>
+          <Title titleRef={titleRef}>Snap your first receipt</Title>
           <Subtitle>
             Take a photo of a paper receipt or upload a PDF. We read the shop,
             date, total and VAT for you — you check and save.
@@ -112,7 +125,7 @@ export function FirstRun({
 
       {step === 3 ? (
         <>
-          <Title>You&apos;re all set</Title>
+          <Title titleRef={titleRef}>You&apos;re all set</Title>
           <Subtitle>
             Every receipt you forward or snap shows up here. Open one to
             download its PDF; Settings has a monthly export for your
@@ -129,11 +142,19 @@ export function FirstRun({
   );
 }
 
-function Title({ children }: { children: React.ReactNode }) {
+function Title({
+  children,
+  titleRef,
+}: {
+  children: React.ReactNode;
+  titleRef: React.RefObject<HTMLHeadingElement | null>;
+}) {
   return (
     <h2
       id="first-run-title"
-      className="font-display font-bold text-[var(--ink)]"
+      ref={titleRef}
+      tabIndex={-1}
+      className="font-display font-bold text-[var(--ink)] outline-none"
       style={{ fontSize: "22px", letterSpacing: "-0.02em", marginBottom: "8px" }}
     >
       {children}
@@ -141,11 +162,13 @@ function Title({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Several sentences of guidance: Manrope body, not the italic accent face
+// (DESIGN.md keeps Figtree italic for short callouts).
 function Subtitle({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="font-accent italic text-[var(--ink-muted)] max-w-[300px]"
-      style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
+      className="text-[var(--ink-muted)] max-w-[320px]"
+      style={{ fontSize: "15px", lineHeight: 1.5, marginBottom: "24px" }}
     >
       {children}
     </p>

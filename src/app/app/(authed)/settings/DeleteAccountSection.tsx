@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,17 @@ export function DeleteAccountSection({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsReauth, setNeedsReauth] = useState(false);
+
+  // Opening replaces the trigger with the panel (and Cancel does the
+  // reverse); keep focus where the user is instead of dropping to <body>.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open) headingRef.current?.focus();
+    else if (wasOpen.current) triggerRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
 
   const canDelete = downloaded && typed.trim() === CONFIRM_WORD && !busy;
 
@@ -80,6 +91,7 @@ export function DeleteAccountSection({
   if (!open) {
     return (
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="w-full inline-flex items-center justify-center gap-2 bg-card text-[var(--negative)] hover:bg-[color-mix(in_srgb,var(--negative)_6%,transparent)] transition-colors"
@@ -100,14 +112,16 @@ export function DeleteAccountSection({
   return (
     <div
       className="bg-card space-y-4"
-      style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "16px" }}
+      style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
       role="region"
       aria-labelledby="delete-account-heading"
     >
       <div className="space-y-2">
         <h3
           id="delete-account-heading"
-          className="font-display font-bold text-[var(--ink)]"
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-display font-bold text-[var(--ink)] outline-none"
           style={{ fontSize: "16px" }}
         >
           Delete your account
@@ -201,7 +215,7 @@ export function DeleteAccountSection({
         </Button>
         <Button
           type="button"
-          className="flex-1 h-11 gap-1.5 bg-destructive text-white hover:bg-destructive/90"
+          className="flex-1 h-11 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
           onClick={handleDelete}
           disabled={!canDelete}
         >

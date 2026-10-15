@@ -64,7 +64,8 @@ export function IntakeRow({
             background: copied
               ? "var(--brand-deep, #1F9D63)"
               : "var(--primary)",
-            padding: "6px 10px",
+            padding: "6px 12px",
+            minHeight: "44px",
             borderRadius: "9px",
             fontSize: "13px",
             fontWeight: 600,

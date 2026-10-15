@@ -92,7 +92,7 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
           </label>
           <select
             id="export-period"
-            className="h-11 w-full rounded-md border bg-card px-3 text-sm"
+            className="h-11 w-full rounded-md border bg-card px-3 text-base md:text-sm"
             value={period}
             onChange={(e) => {
               setPeriod(e.target.value);
@@ -125,7 +125,7 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
       </Button>
 
       {error ? (
-        <p role="alert" className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
+        <p role="alert" className="text-sm bg-[var(--attention-tint)] text-[var(--attention-deep)] rounded-md px-3 py-2">
           {error}
         </p>
       ) : null}
@@ -150,7 +150,7 @@ export function ExportPanel({ fixedPeriod }: { fixedPeriod?: "all" }) {
                   <a
                     href={p.url}
                     download={p.filename}
-                    className="flex items-center justify-between gap-3 bg-card text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+                    className="flex items-center justify-between gap-3 bg-card text-[var(--ink)] hover:bg-[color-mix(in_srgb,var(--ink)_4%,transparent)] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     style={{
                       border: "1px solid var(--hairline)",
                       borderRadius: "10px",

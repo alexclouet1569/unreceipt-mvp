@@ -422,7 +422,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             {!ocrLoading && ocrError ? (
               <p
                 role="alert"
-                className="mt-3 text-[13px] text-destructive bg-destructive/10 rounded-md px-3 py-2"
+                className="mt-3 text-[13px] bg-[var(--attention-tint)] text-[var(--attention-deep)] rounded-md px-3 py-2"
               >
                 {ocrError}
               </p>
@@ -446,6 +446,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           >
             <Input
               id="cd-merchant"
+              className="h-11"
               value={form.merchant}
               onChange={(e) => update("merchant", e.target.value)}
               placeholder="ICA Maxi"
@@ -470,7 +471,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 onChange={(e) => update("amount", e.target.value)}
                 placeholder="49.00"
                 required
-                className="font-mono tabular-nums"
+                className="h-11 font-mono tabular-nums"
               />
             </Field>
             <Field
@@ -479,7 +480,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             >
               <select
                 id="cd-currency"
-                className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                className="h-11 w-full rounded-md border bg-transparent px-3 text-base md:text-sm"
                 value={form.currency}
                 onChange={(e) =>
                   update("currency", e.target.value as CurrencyCode)
@@ -502,6 +503,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             >
               <Input
                 id="cd-date"
+                className="h-11"
                 type="date"
                 value={form.date}
                 onChange={(e) => update("date", e.target.value)}
@@ -514,7 +516,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             >
               <select
                 id="cd-category"
-                className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                className="h-11 w-full rounded-md border bg-transparent px-3 text-base md:text-sm"
                 value={form.category}
                 onChange={(e) =>
                   update("category", e.target.value as CategoryKey)
@@ -540,12 +542,13 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 value={form.taxAmount}
                 onChange={(e) => update("taxAmount", e.target.value)}
                 placeholder="9.80"
-                className="font-mono tabular-nums"
+                className="h-11 font-mono tabular-nums"
               />
             </Field>
             <Field label="VAT rate %" htmlFor="cd-tax-rate">
               <Input
                 id="cd-tax-rate"
+                className="h-11"
                 type="number"
                 step="0.01"
                 min="0"
@@ -561,6 +564,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           <Field label="Payment method" htmlFor="cd-payment-method">
             <Input
               id="cd-payment-method"
+              className="h-11"
               list="cd-payment-method-options"
               value={form.paymentMethod}
               onChange={(e) => update("paymentMethod", e.target.value)}
@@ -580,7 +584,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           <Field label="Notes" htmlFor="cd-notes">
             <textarea
               id="cd-notes"
-              className="w-full min-h-[60px] rounded-md border bg-transparent px-3 py-2 text-sm"
+              className="w-full min-h-[60px] rounded-md border bg-transparent px-3 py-2 text-base md:text-sm"
               value={form.notes}
               onChange={(e) => update("notes", e.target.value)}
               placeholder="Anything useful…"
@@ -636,9 +640,11 @@ function Field({
 
 
 function OcrSkeletons() {
-  // Five varied-width skeleton bars per DESIGN.md — collective reveal happens
+  // Varied-width skeleton bars per DESIGN.md — collective reveal happens
   // when ocrLoading flips false and the real fields mount in their place.
-  const widths = ["65%", "35%", "50%", "40%", "30%"];
+  // One bar per field the reveal mounts (merchant, amount + currency,
+  // date + category, VAT amount + rate, payment method).
+  const widths = ["65%", "35%", "50%", "40%", "30%", "45%", "25%", "55%"];
   return (
     <div className="space-y-3" aria-hidden="true">
       {widths.map((w, i) => (

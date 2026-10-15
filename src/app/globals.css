@@ -27,6 +27,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -47,8 +48,8 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   /* Unreceipt brand colors — brand book pp. 12 (Green Mint, Deep Space, White Mist, Carbon) */
-  --color-brand: #27BE7B;
-  --color-brand-deep: #1F9D63;
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
   --color-brand-light: #ECF7E7;
   --color-brand-tint: #ECF7E7;
   --color-brand-dark: #1fa568;
@@ -97,7 +98,7 @@
   --card-foreground: #303568;
   --popover: #ffffff;
   --popover-foreground: #303568;
-  --primary: #27BE7B;
+  --primary: var(--brand);
   --primary-foreground: #ffffff;
   --secondary: var(--brand-tint);
   --secondary-foreground: #303568;
@@ -105,10 +106,11 @@
   --muted-foreground: var(--foreground-muted);
   --accent: var(--brand-tint);
   --accent-foreground: #303568;
-  --destructive: #C73E4E;
+  --destructive: var(--negative);
+  --destructive-foreground: #FFFFFF;
   --border: var(--hairline);
   --input: var(--hairline);
-  --ring: #27BE7B;
+  --ring: var(--brand);
   --chart-1: #27BE7B;
   --chart-2: #1F9D63;
   --chart-3: #303568;
@@ -117,12 +119,12 @@
   --radius: 0.75rem;
   --sidebar: var(--surface);
   --sidebar-foreground: #303568;
-  --sidebar-primary: #27BE7B;
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--brand-tint);
   --sidebar-accent-foreground: #303568;
   --sidebar-border: var(--hairline);
-  --sidebar-ring: #27BE7B;
+  --sidebar-ring: var(--brand);
 }
 
 @layer base {
@@ -147,5 +149,17 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Respect the OS "reduce motion" setting: no reveal animation, pulses or
+   transitions (DESIGN.md motion is decoration, never information). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

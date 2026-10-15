@@ -128,7 +128,7 @@ export default async function SettingsPage() {
           <SectionLabel id="export-heading">Export for your accountant</SectionLabel>
           <div
             className="bg-card space-y-3"
-            style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "14px" }}
+            style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
           >
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
               One ZIP with a spreadsheet of the month&apos;s receipts, every

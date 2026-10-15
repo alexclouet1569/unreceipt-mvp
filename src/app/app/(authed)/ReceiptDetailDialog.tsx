@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -44,6 +44,13 @@ export function ReceiptDetailDialog({
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessError, setReprocessError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Cancel unmounts the form; send focus back to the Edit button.
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (!editing && wasEditing.current) editButtonRef.current?.focus();
+    wasEditing.current = editing;
+  }, [editing]);
 
   // Fresh action state for each receipt opened (adjusted during render,
   // React's "reset state when a prop changes" pattern).
@@ -191,7 +198,7 @@ export function ReceiptDetailDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full gap-1.5"
+                    className="w-full h-11 gap-1.5"
                     onClick={handleReprocess}
                     disabled={reprocessing}
                     data-testid="receipt-reprocess-button"
@@ -230,12 +237,13 @@ export function ReceiptDetailDialog({
                     href={`/api/receipts/${receipt.id}/pdf`}
                     download
                     data-testid="receipt-download-link"
-                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-deep)]"
+                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     <Download className="w-4 h-4" />
                     Download PDF
                   </a>
                   <Button
+                    ref={editButtonRef}
                     type="button"
                     variant="outline"
                     className="w-full h-11 gap-1.5"
@@ -261,7 +269,7 @@ export function ReceiptDetailDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 h-11"
                     onClick={() => {
                       setConfirming(false);
                       setDeleteError(null);
@@ -272,7 +280,7 @@ export function ReceiptDetailDialog({
                   </Button>
                   <Button
                     type="button"
-                    className="flex-1 gap-1.5 bg-destructive text-white hover:bg-destructive/90"
+                    className="flex-1 h-11 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     onClick={handleDelete}
                     disabled={deleting}
                   >
@@ -288,7 +296,7 @@ export function ReceiptDetailDialog({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full gap-1.5 text-destructive hover:text-destructive"
+                  className="w-full h-11 gap-1.5 text-destructive hover:text-destructive"
                   onClick={() => setConfirming(true)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -459,7 +467,7 @@ export function buildPatchBody(
 
 const LABEL_CLASS =
   "block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]";
-const SELECT_CLASS = "h-11 w-full rounded-md border bg-card px-3 text-sm";
+const SELECT_CLASS = "h-11 w-full rounded-md border bg-card px-3 text-base md:text-sm";
 
 function ReceiptEditForm({
   mode,
@@ -619,6 +627,8 @@ function ReceiptEditForm({
         </label>
         <Input
           id={id("merchant")}
+          // Opening Edit replaces the button that was pressed; start here.
+          autoFocus={isEdit}
           className="h-11"
           value={form.merchant}
           onChange={(e) => update("merchant", e.target.value)}
@@ -774,7 +784,7 @@ function ReceiptEditForm({
                 step="0.01"
                 min="0"
                 inputMode="decimal"
-                className="h-11 w-24 shrink-0 font-mono tabular-nums"
+                className="h-11 w-28 shrink-0 font-mono tabular-nums"
                 value={it.total}
                 onChange={(e) => updateItem(it.key, { total: e.target.value })}
               />
@@ -782,7 +792,7 @@ function ReceiptEditForm({
                 type="button"
                 onClick={() => removeItem(it.key)}
                 aria-label={`Remove line ${idx + 1}`}
-                className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:bg-[var(--hairline)]"
+                className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:bg-[var(--hairline)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -826,7 +836,7 @@ function ReceiptEditForm({
           </label>
           <textarea
             id={id("notes")}
-            className="w-full min-h-[60px] rounded-md border bg-card px-3 py-2 text-sm"
+            className="w-full min-h-[60px] rounded-md border bg-card px-3 py-2 text-base md:text-sm"
             value={form.notes}
             onChange={(e) => update("notes", e.target.value)}
             maxLength={2000}
@@ -837,7 +847,7 @@ function ReceiptEditForm({
       {error ? (
         <p
           role="alert"
-          className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2"
+          className="text-sm bg-[var(--attention-tint)] text-[var(--attention-deep)] rounded-md px-3 py-2"
         >
           {error}
         </p>
