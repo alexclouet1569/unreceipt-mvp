@@ -32,10 +32,19 @@ Supabase → **Authentication → Emails → Templates**:
 
 | Template | Subject | Body |
 |---|---|---|
-| Confirm signup | `Confirm your email for UnReceipt` | `confirm-signup.html` |
-| Magic Link | `Your UnReceipt sign-in link` | `magic-link.html` |
+| Confirm signup | `{{ .Token }} is your UnReceipt code` | `confirm-signup.html` |
+| Magic Link | `{{ .Token }} is your UnReceipt sign-in code` | `magic-link.html` |
 
-`{{ .ConfirmationURL }}` is filled in by Supabase.
+`{{ .Token }}` (the 6-digit code) and `{{ .ConfirmationURL }}` (the link) are
+filled in by Supabase. The login page asks for the code first, so sign-up and
+"sign in with a code" finish in the same tab — the link stays as a fallback
+that also works on another device. Keep **Authentication → Providers → Email
+→ Email OTP Length** at 6; `CODE_LENGTH` in `src/app/app/login/_auth-lib.ts`
+must match it.
+
+Re-paste both templates whenever these files change — until then Supabase
+keeps sending the old link-only emails, and new sign-ups can only confirm
+with the link.
 
 ## 3. Check
 
