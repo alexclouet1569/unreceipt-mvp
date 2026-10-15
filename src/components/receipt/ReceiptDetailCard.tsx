@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Download } from "lucide-react";
+import { CheckCircle2, Pencil } from "lucide-react";
 import { PerfEdge } from "@/components/brand/PerfEdge";
 import {
   CATEGORY_CONFIG,
@@ -10,6 +10,7 @@ import {
   splitFormattedAmount,
 } from "@/lib/receipt-format";
 import { getMerchantColor, getMerchantInitials } from "@/lib/merchant-display";
+import { editedFieldLabels, editedOnLabel } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 type ReceiptDetailCardProps = {
@@ -31,6 +32,8 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
   const initials = getMerchantInitials(merchant);
   const logoColor = getMerchantColor(merchant);
   const total = splitFormattedAmount(receipt.total, receipt.currency);
+  const editedOn = editedOnLabel(receipt);
+  const editedFields = editedFieldLabels(receipt);
 
   const hasMeta =
     receipt.payment_method ||
@@ -122,6 +125,19 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           {receipt.receipt_time ? ` · ${receipt.receipt_time}` : ""}
           {receipt.card_last_four ? ` · Card ending ${receipt.card_last_four}` : ""}
         </p>
+        {editedOn ? (
+          <p
+            data-testid="receipt-edited-marker"
+            className="flex items-start gap-1.5 text-[var(--ink-muted)]"
+            style={{ fontSize: "13px", marginTop: "8px", lineHeight: 1.4 }}
+          >
+            <Pencil className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
+            <span>
+              Edited by you on {editedOn}
+              {editedFields.length > 0 ? ` · ${editedFields.join(", ")}` : ""}
+            </span>
+          </p>
+        ) : null}
       </div>
 
       <PerfEdge variant="divider" />
@@ -258,31 +274,6 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
         </>
       ) : null}
 
-      {/* Download — issues an HTTP GET to the PDF route. Plain anchor with
-          `download` attr so the browser routes it through its native
-          download manager (works on iOS Safari, which ignores fetch+blob
-          downloads triggered from JS). */}
-      <PerfEdge variant="divider" />
-      <div className="px-5 py-4">
-        <a
-          href={`/api/receipts/${receipt.id}/pdf`}
-          download
-          data-testid="receipt-download-link"
-          className="w-full inline-flex items-center justify-center gap-2 text-white"
-          style={{
-            background: "var(--primary)",
-            padding: "10px 14px",
-            borderRadius: "10px",
-            fontSize: "14px",
-            fontWeight: 600,
-            transition: "background 160ms ease-out",
-          }}
-        >
-          <Download className="w-4 h-4" />
-          Download PDF
-        </a>
-      </div>
-
       {/* Verification footer */}
       <PerfEdge variant="divider" />
       <div className="px-5 py-4 flex items-center justify-between">
@@ -300,7 +291,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
                   className="text-[var(--ink)]"
                   style={{ fontSize: "12px", fontWeight: 600 }}
                 >
-                  Verified by UnReceipt
+                  {editedOn ? "Verified by UnReceipt, then edited by you" : "Verified by UnReceipt"}
                 </p>
                 {receipt.verification_code ? (
                   <p

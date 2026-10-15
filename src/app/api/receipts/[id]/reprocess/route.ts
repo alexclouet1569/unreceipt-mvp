@@ -188,6 +188,8 @@ export async function POST(
 //   - `items` are special: if the row currently has no items at all,
 //     write whatever the new extraction returned. This is the whole
 //     point of the backfill — populate the empty digital twin.
+//   - Fields the customer corrected (`edited_fields`) are never
+//     overwritten: their correction beats any extraction.
 //   - Status is recomputed from the merged result.
 export function mergeExtraction(
   existing: Receipt,
@@ -200,11 +202,14 @@ export function mergeExtraction(
   const oldConf = existing.parse_confidence ?? 0;
   const winsOnConfidence = newConf >= oldConf;
 
+  const editedByCustomer = new Set(existing.edited_fields ?? []);
+
   const writeIfBetter = <K extends keyof Receipt>(
     field: K,
     value: Receipt[K] | undefined | null
   ) => {
     if (value == null) return;
+    if (editedByCustomer.has(field as string)) return;
     if (existing[field] == null || winsOnConfidence) {
       patch[field as string] = value;
       changed.push(field as string);
@@ -230,7 +235,10 @@ export function mergeExtraction(
     // Keep purchased_at aligned to the receipt_date (noon UTC), matching
     // the convention from /api/capture so dashboard sorting stays stable.
     const purchasedAt = `${fresh.receipt_date}T12:00:00.000Z`;
-    if (existing.purchased_at == null || winsOnConfidence) {
+    if (
+      !editedByCustomer.has("receipt_date") &&
+      (existing.purchased_at == null || winsOnConfidence)
+    ) {
       patch.purchased_at = purchasedAt;
       if (!changed.includes("purchased_at")) changed.push("purchased_at");
     }
@@ -270,7 +278,11 @@ export function mergeExtraction(
         }))
       : null;
   const hadItems = existing.items != null && existing.items.length > 0;
-  if (freshItems && (!hadItems || winsOnConfidence)) {
+  if (
+    freshItems &&
+    !editedByCustomer.has("items") &&
+    (!hadItems || winsOnConfidence)
+  ) {
     patch.items = freshItems;
     changed.push("items");
   }

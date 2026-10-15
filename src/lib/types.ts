@@ -104,8 +104,26 @@ export interface Receipt {
   // or a Stripe line-itemed invoice they go here.
   items: ReceiptItem[] | null;
 
+  // Customer corrections (launch plan 41–42). Set by PATCH only, when a
+  // factual field changes. See src/lib/receipts/edits.ts.
+  edited_at: string | null;
+  edited_fields: string[] | null;
+  edit_history: EditHistoryEntry[] | null;
+
   created_at: string;
   updated_at: string;
+}
+
+export interface EditChange {
+  from: unknown;
+  to: unknown;
+}
+
+export interface EditHistoryEntry {
+  // ISO timestamp of the save.
+  at: string;
+  // Column name → value before and after, for each tracked field changed.
+  changes: Record<string, EditChange>;
 }
 
 export interface ReceiptItem {

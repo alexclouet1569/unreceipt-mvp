@@ -47,6 +47,9 @@ const baseReceipt = (
   capture_time_seconds: null,
   ocr_confidence: null,
   is_verified: false,
+  edited_at: null,
+  edited_fields: null,
+  edit_history: null,
   status: "verified",
   original_source_url: null,
   original_source_kind: null,
@@ -118,5 +121,53 @@ describe("ReceiptDetailDialog (CQ2)", () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the user edit a verified receipt and sends only the changed fields", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, status: "verified" }),
+    });
+    const { onOpenChange } = renderDialog({ status: "verified" });
+
+    await user.click(screen.getByRole("button", { name: /Edit receipt/i }));
+    const amount = screen.getByLabelText(/^Amount/i);
+    await user.clear(amount);
+    await user.type(amount, "59");
+    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/receipts/rec-1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ amount: 59 });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the edit form without a request when nothing changed", async () => {
+    const user = userEvent.setup();
+    renderDialog({ status: "verified" });
+
+    await user.click(screen.getByRole("button", { name: /Edit receipt/i }));
+    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Save changes/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /Edit receipt/i })).toBeInTheDocument();
+  });
+
+  it("shows when and what the user edited", () => {
+    renderDialog({
+      status: "verified",
+      edited_at: "2026-10-15T09:30:00.000Z",
+      edited_fields: ["total", "merchant_name"],
+    });
+
+    expect(screen.getByTestId("receipt-edited-marker")).toHaveTextContent(
+      "Edited by you on Oct 15, 2026 · Merchant, Total",
+    );
   });
 });

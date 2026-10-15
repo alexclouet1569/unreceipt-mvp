@@ -1,9 +1,12 @@
 // Customer-side receipt endpoint.
 //
-// PATCH — the "Complete this receipt" flow on pending_review rows.
-// Validates the partial payload, merges it onto the existing row, and
-// re-runs computeReceiptStatus so a previously pending row flips to
-// 'verified' the moment the missing fields are filled.
+// PATCH — "Complete this receipt" on pending_review rows and "Edit" on
+// any row. Validates the partial payload, merges it onto the existing row,
+// and re-runs computeReceiptStatus so a pending row flips to 'verified' the
+// moment the missing fields are filled. Changes to factual fields are
+// recorded (edited_at / edited_fields / edit_history, see
+// src/lib/receipts/edits.ts) so the detail view and the PDF can say
+// "Edited by you". The stored original file is never touched.
 //
 // DELETE — removes the row and every stored file behind it (the photo in
 // `receipts`, the forwarded .eml or PDF in `receipt-originals`).
@@ -25,6 +28,7 @@ import { computeReceiptStatus } from "@/lib/receipts/status";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
+import { editMarker } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -120,17 +124,6 @@ export async function PATCH(
   const existingRow = existing as Receipt;
   const patch = parsed.data;
 
-  // Only rows awaiting review can be completed here (that's all the UI
-  // offers). Editing a verified receipt — and marking it as edited on the
-  // PDF — is a separate feature (launch plan action 41); until then the
-  // API must not silently rewrite a verified receipt's amount or date.
-  if (existingRow.status !== "pending_review") {
-    return NextResponse.json(
-      { error: "only receipts awaiting review can be edited" },
-      { status: 409 }
-    );
-  }
-
   // Build the update payload + the prospective post-patch view for the
   // status computation. Touching `receipt_date` also pins `purchased_at`
   // to noon UTC of that date — matches the convention from /api/capture.
@@ -172,6 +165,7 @@ export async function PATCH(
   }
 
   update.status = computeReceiptStatus(merged);
+  Object.assign(update, editMarker(existingRow, update));
 
   // The row was read under RLS above, so it belongs to this user. The write
   // itself goes through the service role: users have no direct UPDATE on

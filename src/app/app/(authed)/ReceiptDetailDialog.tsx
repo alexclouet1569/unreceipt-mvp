@@ -11,7 +11,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Download, Loader2, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import {
@@ -38,6 +38,7 @@ export function ReceiptDetailDialog({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessError, setReprocessError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   // Fresh action state for each receipt opened (adjusted during render,
   // React's "reset state when a prop changes" pattern).
@@ -49,6 +50,7 @@ export function ReceiptDetailDialog({
     setDeleteError(null);
     setReprocessing(false);
     setReprocessError(null);
+    setEditing(false);
   }
 
   const open = receipt !== null;
@@ -127,6 +129,24 @@ export function ReceiptDetailDialog({
     }
   };
 
+  const onSaved = () => {
+    onOpenChange(false);
+    router.refresh();
+  };
+  // Pending receipts always show the "complete" form; any receipt can be
+  // corrected through the same form in "edit" mode.
+  const form =
+    receipt == null ? null : pending ? (
+      <ReceiptEditForm mode="complete" receipt={receipt} onSaved={onSaved} />
+    ) : editing ? (
+      <ReceiptEditForm
+        mode="edit"
+        receipt={receipt}
+        onSaved={onSaved}
+        onCancel={() => setEditing(false)}
+      />
+    ) : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0">
@@ -146,15 +166,7 @@ export function ReceiptDetailDialog({
                 </div>
                 <TabsContent value="digital">
                   <ReceiptDetailCard receipt={receipt} />
-                  {pending ? (
-                    <CompleteForm
-                      receipt={receipt}
-                      onSaved={() => {
-                        onOpenChange(false);
-                        router.refresh();
-                      }}
-                    />
-                  ) : null}
+                  {form}
                 </TabsContent>
                 <TabsContent value="original">
                   <OriginalSourceViewer receiptId={receipt.id} />
@@ -163,18 +175,11 @@ export function ReceiptDetailDialog({
             ) : (
               <>
                 <ReceiptDetailCard receipt={receipt} />
-                {pending ? (
-                  <CompleteForm
-                    receipt={receipt}
-                    onSaved={() => {
-                      onOpenChange(false);
-                      router.refresh();
-                    }}
-                  />
-                ) : null}
+                {form}
               </>
             )}
 
+            {editing ? null : (
             <div className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]">
               {couldReprocess ? (
                 <>
@@ -212,17 +217,29 @@ export function ReceiptDetailDialog({
                   Complete this receipt to download
                 </p>
               ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full gap-1.5"
-                  onClick={() => {
-                    window.location.href = `/api/receipts/${receipt.id}/pdf`;
-                  }}
-                >
-                  <Download className="w-4 h-4" />
-                  Download
-                </Button>
+                <>
+                  {/* Plain anchor with `download` so the browser's own
+                      download manager handles it (iOS Safari ignores
+                      fetch+blob downloads triggered from JS). */}
+                  <a
+                    href={`/api/receipts/${receipt.id}/pdf`}
+                    download
+                    data-testid="receipt-download-link"
+                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-deep)]"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </a>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-11 gap-1.5"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit receipt
+                  </Button>
+                </>
               )}
 
               {deleteError ? (
@@ -274,6 +291,7 @@ export function ReceiptDetailDialog({
                 </Button>
               )}
             </div>
+            )}
           </div>
         ) : null}
       </DialogContent>
@@ -281,15 +299,16 @@ export function ReceiptDetailDialog({
   );
 }
 
-type CompleteFormState = {
+type EditFormState = {
   merchant: string;
   amount: string;
   currency: CurrencyCode;
   date: string;
   category: CategoryKey;
+  notes: string;
 };
 
-function deriveFormState(receipt: Receipt): CompleteFormState {
+function deriveFormState(receipt: Receipt): EditFormState {
   const isoDate =
     receipt.purchased_at?.slice(0, 10) ?? receipt.receipt_date ?? "";
   return {
@@ -300,66 +319,125 @@ function deriveFormState(receipt: Receipt): CompleteFormState {
       : "EUR",
     date: isoDate,
     category: receipt.category,
+    notes: receipt.notes ?? "",
   };
 }
 
-function CompleteForm({
+/**
+ * The PATCH body: only the fields the user changed, so an untouched field
+ * is never rewritten (or recorded as edited). Throws a readable message
+ * when a required field is invalid.
+ */
+export function buildPatchBody(
+  initial: EditFormState,
+  form: EditFormState,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  if (form.merchant.trim() !== initial.merchant.trim()) {
+    if (!form.merchant.trim()) throw new Error("Merchant is required");
+    body.merchant = form.merchant.trim();
+  }
+  if (form.amount !== initial.amount) {
+    const amount = Number(form.amount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error("Enter a valid amount greater than 0");
+    }
+    body.amount = amount;
+  }
+  if (form.currency !== initial.currency) body.currency = form.currency;
+  if (form.date !== initial.date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) throw new Error("Date is required");
+    body.receipt_date = form.date;
+  }
+  if (form.category !== initial.category) body.category = form.category;
+  if (form.notes.trim() !== initial.notes.trim()) {
+    body.notes = form.notes.trim() || null;
+  }
+  return body;
+}
+
+const LABEL_CLASS =
+  "block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]";
+const SELECT_CLASS = "h-11 w-full rounded-md border bg-card px-3 text-sm";
+
+function ReceiptEditForm({
+  mode,
   receipt,
   onSaved,
+  onCancel,
 }: {
+  mode: "complete" | "edit";
   receipt: Receipt;
   onSaved: () => void;
+  onCancel?: () => void;
 }) {
-  const [form, setForm] = useState<CompleteFormState>(() =>
+  const [initial, setInitial] = useState<EditFormState>(() =>
     deriveFormState(receipt),
   );
+  const [form, setForm] = useState<EditFormState>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [prevReceipt, setPrevReceipt] = useState(receipt);
   if (receipt !== prevReceipt) {
     setPrevReceipt(receipt);
-    setForm(deriveFormState(receipt));
+    const next = deriveFormState(receipt);
+    setInitial(next);
+    setForm(next);
     setError(null);
   }
 
-  const update = <K extends keyof CompleteFormState>(
+  const update = <K extends keyof EditFormState>(
     key: K,
-    value: CompleteFormState[K],
+    value: EditFormState[K],
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSaving(true);
 
+    let body: Record<string, unknown>;
     try {
-      const amount = Number(form.amount);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error("Enter a valid amount greater than 0");
+      if (mode === "complete") {
+        // Completing needs every required field, changed or not.
+        if (!form.merchant.trim()) throw new Error("Merchant is required");
+        const amount = Number(form.amount.replace(",", "."));
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error("Enter a valid amount greater than 0");
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
+          throw new Error("Date is required");
+        }
       }
-      if (!form.merchant.trim()) {
-        throw new Error("Merchant is required");
-      }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
-        throw new Error("Date is required");
-      }
+      body = buildPatchBody(initial, form);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Check the fields");
+      return;
+    }
 
+    if (mode === "edit" && Object.keys(body).length === 0) {
+      onCancel?.();
+      return;
+    }
+
+    setSaving(true);
+    try {
       const res = await fetch(`/api/receipts/${receipt.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          merchant: form.merchant.trim(),
-          amount,
-          currency: form.currency,
-          receipt_date: form.date,
-          category: form.category,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Save failed (HTTP ${res.status})`);
+        const resBody = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          issues?: Array<{ message?: string }>;
+        };
+        throw new Error(
+          resBody.issues?.[0]?.message ??
+            resBody.error ??
+            `Save failed (HTTP ${res.status})`,
+        );
       }
 
       onSaved();
@@ -369,34 +447,38 @@ function CompleteForm({
     }
   };
 
+  const id = (field: string) => `edit-${receipt.id}-${field}`;
+  const isEdit = mode === "edit";
+
   return (
     <form
       onSubmit={handleSubmit}
       className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]"
-      style={{ background: "var(--attention-tint)" }}
+      style={isEdit ? undefined : { background: "var(--attention-tint)" }}
+      aria-label={isEdit ? "Edit receipt" : "Complete receipt"}
     >
       <p
-        className="text-[var(--attention-deep)]"
+        className={isEdit ? "text-[var(--ink)]" : "text-[var(--attention-deep)]"}
         style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}
       >
-        Review needed
+        {isEdit ? "Edit receipt" : "Review needed"}
       </p>
       <p
         className="text-[var(--ink-muted)]"
         style={{ fontSize: "13px", lineHeight: 1.5 }}
       >
-        Fill the missing fields below so this receipt becomes downloadable.
+        {isEdit
+          ? "Correct anything that was read wrong. The original file stays as it is, and the PDF will show which fields you changed."
+          : "Fill the missing fields below so this receipt becomes downloadable."}
       </p>
 
       <div className="space-y-2">
-        <label
-          htmlFor={`cmp-${receipt.id}-merchant`}
-          className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
-        >
+        <label htmlFor={id("merchant")} className={LABEL_CLASS}>
           Merchant
         </label>
         <Input
-          id={`cmp-${receipt.id}-merchant`}
+          id={id("merchant")}
+          className="h-11"
           value={form.merchant}
           onChange={(e) => update("merchant", e.target.value)}
           placeholder="ICA Maxi"
@@ -407,34 +489,29 @@ function CompleteForm({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-2">
-          <label
-            htmlFor={`cmp-${receipt.id}-amount`}
-            className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
-          >
+          <label htmlFor={id("amount")} className={LABEL_CLASS}>
             Amount
           </label>
           <Input
-            id={`cmp-${receipt.id}-amount`}
+            id={id("amount")}
             type="number"
             step="0.01"
             min="0"
             inputMode="decimal"
             value={form.amount}
             onChange={(e) => update("amount", e.target.value)}
-            className="font-mono tabular-nums"
+            className="h-11 font-mono tabular-nums"
             required
           />
         </div>
         <div className="space-y-2">
-          <label
-            htmlFor={`cmp-${receipt.id}-date`}
-            className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
-          >
+          <label htmlFor={id("date")} className={LABEL_CLASS}>
             Date
           </label>
           <Input
-            id={`cmp-${receipt.id}-date`}
+            id={id("date")}
             type="date"
+            className="h-11"
             value={form.date}
             onChange={(e) => update("date", e.target.value)}
             required
@@ -444,15 +521,12 @@ function CompleteForm({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-2">
-          <label
-            htmlFor={`cmp-${receipt.id}-currency`}
-            className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
-          >
+          <label htmlFor={id("currency")} className={LABEL_CLASS}>
             Currency
           </label>
           <select
-            id={`cmp-${receipt.id}-currency`}
-            className="h-9 w-full rounded-md border bg-card px-3 text-sm"
+            id={id("currency")}
+            className={SELECT_CLASS}
             value={form.currency}
             onChange={(e) => update("currency", e.target.value as CurrencyCode)}
           >
@@ -464,15 +538,12 @@ function CompleteForm({
           </select>
         </div>
         <div className="space-y-2">
-          <label
-            htmlFor={`cmp-${receipt.id}-category`}
-            className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
-          >
+          <label htmlFor={id("category")} className={LABEL_CLASS}>
             Category
           </label>
           <select
-            id={`cmp-${receipt.id}-category`}
-            className="h-9 w-full rounded-md border bg-card px-3 text-sm"
+            id={id("category")}
+            className={SELECT_CLASS}
             value={form.category}
             onChange={(e) => update("category", e.target.value as CategoryKey)}
           >
@@ -485,6 +556,21 @@ function CompleteForm({
         </div>
       </div>
 
+      {isEdit ? (
+        <div className="space-y-2">
+          <label htmlFor={id("notes")} className={LABEL_CLASS}>
+            Notes
+          </label>
+          <textarea
+            id={id("notes")}
+            className="w-full min-h-[60px] rounded-md border bg-card px-3 py-2 text-sm"
+            value={form.notes}
+            onChange={(e) => update("notes", e.target.value)}
+            maxLength={2000}
+          />
+        </div>
+      ) : null}
+
       {error ? (
         <p
           role="alert"
@@ -494,10 +580,28 @@ function CompleteForm({
         </p>
       ) : null}
 
-      <Button type="submit" className="w-full gap-1.5" disabled={saving}>
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-        {saving ? "Saving…" : "Complete receipt"}
-      </Button>
+      {isEdit ? (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 h-11"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1 h-11 gap-1.5" disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      ) : (
+        <Button type="submit" className="w-full h-11 gap-1.5" disabled={saving}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {saving ? "Saving…" : "Complete receipt"}
+        </Button>
+      )}
     </form>
   );
 }
