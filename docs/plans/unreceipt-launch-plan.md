@@ -41,7 +41,7 @@
 
 | # | Decision | Locked choice |
 |---|---|---|
-| D1 | Pricing | Company-paid, per active user. See §1a: list **99 kr/user/month**, founding-customer price **79 kr**, solo plan ~59 kr. Validate with pilots before turning payments on. |
+| D1 | Pricing | **Flat monthly plans per company, sized by receipts, excl. VAT** (revised 2026-10-15, §1a): Light €5.99 / 15, Regular €14.99 / 50, Heavy €29.99 / 150, then €0.40 per extra receipt. Validate receipt volumes with pilots before turning payments on. |
 | D2 | Store apps | **Capacitor** shell around `app.unreceipt.com`, plus native plugins. |
 | D3 | Email | Forwarding and guided auto-forward rules now. Outlook OAuth, then Gmail OAuth, only if pilots need it. |
 | D4 | Photos | iOS on-device scan with confirmation; Android photo picker. |
@@ -49,31 +49,37 @@
 | D6 | Integrations | Fortnox first, Findity in parallel, email fallback. **France added as Launch 3** (§1c). |
 | D7 | Page background | Cream `#FAFAF7`, per DESIGN.md. `globals.css` changes in action 37. |
 
-### 1a. Is 79–99 kr/user/month the right price?
+### 1a. Pricing (revised 2026-10-15 against the European receipt-data report)
 
-**Market anchors:**
-- **Sweden, per user per month:**
-  - KvittoFlow 59 kr (planned)
-  - Zevoy claims user ~€5
-  - Findity from ~£7
-  - Kvitto & Resa 109 kr
-  - Pleo ~£11 per extra user
-- **Sweden, per receipt:** Fortnox Kvitto & Utlägg 4.90 kr, free with their card.
-- **France, per user per month:** N2F ~€5–7, Expensya ~€5.
+**What the data says:**
+- **Volume:** about 48–52% of Swedish employees ever expense anything; in 1–9 person firms it's about 75%. A claimant files somewhere between 12 and 62 receipts a year (base case 27). No study since 2015 measures this properly, so it's a range, not a number.
+- **Price anchors in Sweden:** Fortnox charges 4.90 kr (~€0.44) per receipt; Spiris 3.90–13 kr per item; seat tools 99–224 kr per user per month.
+- **Price anchors in France:** €5–7 per active declarant per month.
 
-**Our cost:**
-- Claude vision costs roughly 1–2 US cents per receipt. That's an estimate; action 112 measures the real figure.
-- A heavy user at 30 receipts/month costs us well under 10 kr. Margin is not the issue at any price in this range.
+**What was wrong with the first plans (#66):** Heavy at €15.99 for 100 receipts was €0.16 per receipt, cheaper than OCR-only tools (AutoEntry €0.24–0.38). The allowances also didn't match team sizes.
 
-**Will they pay more?** There is no evidence either way yet. Nobody has paid us. My read:
-- **79 kr** sits mid-market. It's defensible but leaves money on the table if the compliance checks work.
-- **Above 109 kr** we're the most expensive per-user option in Sweden. That only works if we replace the existing app, not just sit on top of it, which Fortnox/Findity integration makes possible.
-- **Start high and discount:** lowering a price is easy, raising one on existing customers is hard. Lock the founding pilots at 79 kr for 12 months in exchange for feedback and a case study.
+**What's live in code now:**
 
-**How we find out (actions P1–P4):**
+| Plan | Price / month (excl. VAT) | Receipts | Fits | Per receipt |
+|---|---|---|---|---|
+| Light | €5.99 | 15 | 1–3 people | €0.40 (≈ Fortnox) |
+| Regular | €14.99 | 50 | up to ~20 people | €0.30 |
+| Heavy | €29.99 | 150 | up to ~50 people | €0.20 |
+| Extra receipt | €0.40 | — | — | — |
+
+**How the limit works:**
+- Every receipt counts once, deleted ones included.
+- Saving is never blocked. Above the allowance, each extra receipt is billed through a Stripe meter.
+- Nothing extra is billed during the free trial.
+- Users see a warning at 80% of the allowance, and a cheaper-plan hint once overage makes the next plan cheaper.
+
+**Example:** a 20-person company in the base case sends ~22 receipts a month, so Regular at €180 a year. That's comparable to Fortnox per-receipt pricing and 7–10× cheaper than the seat tools.
+
+**Still to validate:** the receipts per claimant per month. The usage ledger now measures it for every pilot, which gives the benchmark the report says nobody publishes.
+
 - [ ] P1 🧑 S — In every finance-owner interview, ask the four Van Westendorp questions: too cheap / a bargain / getting expensive / too expensive. That's 15 minutes per interview.
-- [ ] P2 🧑 S — Send pilot proposals at **three different prices** (79 / 99 / 129 kr), one price per company. Track which ones sign.
-- [ ] P3 🤖 S — Add a minimum per company (e.g. 3 seats, or 299 kr/month), so a 1-user company isn't sold at a loss once support is counted.
+- [ ] P2 🤖 S — After 3 months of pilots, read receipts per claimant per month from `receipt_usage` and re-size the allowances.
+- [ ] P3 🤖 M — Stripe customer portal so customers can switch plans themselves. Until then, the hint says "write to us".
 - [ ] P4 🤖 S — Annual prepay at 2 months free. Improves cash flow and reduces churn.
 
 ### 1b. Payment-moment automation (D5): how close to automatic it can get
