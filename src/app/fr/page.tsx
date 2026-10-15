@@ -20,9 +20,9 @@ export const metadata: Metadata = {
   keywords: [
     "gestion des reçus",
     "gestion des justificatifs",
-    "numérisation tickets de caisse",
+    "photo tickets de caisse",
     "reçus TVA petite entreprise",
-    "conservation des justificatifs",
+    "classement des justificatifs",
     "application reçus entreprise",
   ],
   alternates: { canonical: "/fr", languages: LANDING_LANGUAGES },

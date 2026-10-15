@@ -25,10 +25,10 @@ export const SV_SHARE_DESCRIPTION =
 
 export const FR_TITLE = "UnReceipt — Gestion des reçus et justificatifs pour les petites entreprises";
 
-export const FR_DESCRIPTION = `Transférez vos reçus e-mail ou photographiez vos tickets papier. UnReceipt transforme chaque reçu en fiche vérifiée sous 24 heures — commerçant, lignes, TVA et catégorie. À partir de ${formatEurFr(PLANS[0].price)} HT par mois.`;
+export const FR_DESCRIPTION = `Transférez vos factures et reçus envoyés par e-mail ou photographiez vos tickets papier. UnReceipt transforme chaque reçu en fiche vérifiée sous 24 heures — fournisseur, lignes, TVA et catégorie. À partir de ${formatEurFr(PLANS[0].price)}\u00a0HT par mois.`;
 
 export const FR_SHARE_DESCRIPTION =
-  "Envoyez n'importe quel reçu — e-mail ou photo — et retrouvez-le vérifié, TVA détaillée, sous 24 heures.";
+  "Envoyez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié sous 24 heures, avec sa TVA relevée.";
 
 /**
  * hreflang alternates shared by every language's landing page, so each
@@ -44,7 +44,7 @@ export const LANDING_LANGUAGES = {
 const OFFER_TEXT: Record<Locale, (receipts: number) => string> = {
   en: (n) => `Up to ${n} receipts per month for the whole company`,
   sv: (n) => `Upp till ${n} kvitton per månad för hela företaget`,
-  fr: (n) => `Jusqu'à ${n} reçus par mois pour toute l'entreprise`,
+  fr: (n) => `Jusqu’à ${n} reçus par mois pour toute l’entreprise`,
 };
 
 const PAGE_DESCRIPTION: Record<Locale, string> = {

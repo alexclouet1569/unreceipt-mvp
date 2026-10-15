@@ -92,7 +92,7 @@ const TEXT: Record<Locale, ReceiptText> = {
     currency: "€",
     place: "unreceipt.com · Paris",
     ticket: "Ticket n° 0042 · 14/10/2026 09:41",
-    thanks: "Merci\u00a0! Paper is past.",
+    thanks: "Merci\u00a0! Le papier, c’est du passé.",
     items: [
       { label: "Paul", amount: 18.5 },
       { label: "SNCF Paris–Lyon", amount: 64 },

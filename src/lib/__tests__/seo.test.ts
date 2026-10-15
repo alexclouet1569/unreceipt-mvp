@@ -110,7 +110,7 @@ describe("French landing (/fr)", () => {
     const pricing = faq(false).find((i) => i.q.startsWith("Combien coûte"))!;
     for (const plan of PLANS) {
       expect(pricing.a).toContain(`${plan.name} ${formatEurFr(plan.price)} HT/mois`);
-      expect(pricing.a).toContain(`jusqu'à ${plan.receipts} reçus`);
+      expect(pricing.a).toContain(`jusqu’à ${plan.receipts} reçus`);
     }
     expect(pricing.a).toContain(formatEurFr(OVERAGE_PRICE));
     expect(formatEurFr(5.99)).toBe("5,99\u00a0€");
@@ -121,7 +121,7 @@ describe("French landing (/fr)", () => {
 
   it("tells French companies to keep their paper receipts", () => {
     const paper = faq(true).find((i) => i.q.startsWith("Puis-je jeter le ticket"))!;
-    expect(paper.a).toMatch(/^Pas encore/);
+    expect(paper.a).toMatch(/^Non\./);
     expect(paper.a).toContain("A102 B-2");
   });
 

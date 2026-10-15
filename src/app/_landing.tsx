@@ -243,16 +243,16 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           lockup never has to swap variants mid-scroll. Only the hairline
           appears once the page moves. */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#FAFAF7] border-b transition-colors duration-300 ${scrolled ? "border-[#E8E5DD]" : "border-transparent"}`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-6 py-3">
           <a href="#top" aria-label={t.nav.backToTop} className="py-1">
             <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
           </a>
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-6 xl:gap-8">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium transition-colors text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
+                className="text-sm font-medium whitespace-nowrap transition-colors text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
               >
                 {link.label}
               </a>
@@ -274,7 +274,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             </span>
             <a
               href={appUrl("/app/login")}
-              className="text-sm font-medium text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
+              className="text-sm font-medium whitespace-nowrap text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
             >
               {t.nav.signIn}
             </a>
@@ -293,14 +293,14 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             aria-label={mobileMenuOpen ? t.nav.closeMenu : t.nav.openMenu}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
-            className={`md:hidden p-3 -mr-1 text-[#303568]`}
+            className={`lg:hidden p-3 -mr-1 text-[#303568]`}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
         {mobileMenuOpen && (
-          <div id="mobile-menu" className="md:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
+          <div id="mobile-menu" className="lg:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
             {navLinks.map((link) => (
               <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}
