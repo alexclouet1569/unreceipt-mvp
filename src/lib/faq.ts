@@ -24,7 +24,7 @@ export function getFaq(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is a receipt service for small businesses in Sweden. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
+      a: "UnReceipt is a receipt service for small businesses. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
@@ -36,15 +36,15 @@ export function getFaq(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "What does VAT-ready mean?",
-      a: "Every receipt is saved with its VAT (moms) rate and amount split out, plus the merchant's VAT number when it's on the receipt — the details your accountant needs to deduct VAT.",
+      a: "Every receipt is saved with its VAT rate and amount split out, plus the merchant's VAT number when it's on the receipt — the details your accountant needs to deduct VAT.",
     },
     {
       q: "Who checks my receipts?",
       a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
     },
     {
-      q: "How long do companies in Sweden have to keep receipts?",
-      a: "Under the Swedish Bookkeeping Act (bokföringslagen), receipts must be kept for seven years after the end of the calendar year in which the financial year ended. Since 1 July 2024 you may throw away the paper original once it's saved digitally in a way that keeps the information intact.",
+      q: "How long do companies have to keep receipts?",
+      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires seven years after the end of the calendar year in which the financial year ended, and since 1 July 2024 you may throw away the paper original once it's saved digitally in a way that keeps the information intact. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals.",
     },
     {
       q: "Can I cancel at any time?",
@@ -53,14 +53,6 @@ export function getFaq(pilotMode: boolean): FaqItem[] {
     {
       q: "Where is my data stored?",
       a: "Receipts and account data are stored with Supabase, hosted in the EU. Payments are handled by Stripe — UnReceipt never sees your card details. See our privacy page for the details.",
-    },
-    {
-      q: "Which countries does UnReceipt work in?",
-      a: "Sweden today, in pilot. France is next. Leave your email on this page and we'll let you know as soon as we open in your country.",
-    },
-    {
-      q: "How long do companies in France have to keep receipts?",
-      a: "Ten years from the end of the financial year, under the French Commercial Code (article L123-22). A paper original may only be destroyed after scanning if the scan meets the strict French rules for certified copies (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals for now.",
     },
   ];
 }
