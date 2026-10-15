@@ -194,7 +194,7 @@
 - [x] 41 ★ M — Allow editing **verified** receipts, not only ones that need review. Store an `edited_at` / "edited by you" marker and show it on the PDF; the API refuses these edits (409) until this ships.
 - [x] 42 ★ M — Make VAT and line items editable (extend the PATCH route).
 - [x] 43 ★ S — Check that iPhone HEIC photos work end to end; convert them if needed.
-- [ ] 44 ★ M — **Account deletion in the app.** This is an App Store requirement. It deletes storage, rows and the auth user, after a warning to export first because of the 7-year bookkeeping duty.
+- [x] 44 ★ M — **Account deletion in the app.** This is an App Store requirement. It deletes storage, rows and the auth user, after a warning to export first because of the 7-year bookkeeping duty.
 - [ ] 45 ★ M — Monthly export: a ZIP of PDFs and originals, plus a CSV, for the accountant.
 - [ ] 46 ★ S — Terms of service page, linked from signup and settings. **On hold: waiting for the lawyer's text (2026-10-15). Don't draft it.**
 - [ ] 47 ★ M — First-run onboarding in 3 screens: your forwarding address → snap your first receipt → done.

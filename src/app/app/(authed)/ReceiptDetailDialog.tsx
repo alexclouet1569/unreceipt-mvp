@@ -272,7 +272,7 @@ export function ReceiptDetailDialog({
                   </Button>
                   <Button
                     type="button"
-                    className="flex-1 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="flex-1 gap-1.5 bg-destructive text-white hover:bg-destructive/90"
                     onClick={handleDelete}
                     disabled={deleting}
                   >

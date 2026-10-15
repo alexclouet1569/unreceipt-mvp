@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-10-14";
+const LAST_UPDATED = "2026-10-15";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -158,9 +158,12 @@ export default function PrivacyPage() {
               before you close your account.
             </li>
             <li>
-              <strong>Request immediate deletion at any time</strong> by
-              emailing <Mailto>{SUPPORT_EMAIL}</Mailto> from your account
-              email — we&apos;ll confirm within 30 days.
+              <strong>Delete your account at any time</strong> in the app
+              under Settings → Delete account. It takes effect immediately:
+              your receipts, their original files and your account are
+              deleted, and any subscription is cancelled. You can also email{" "}
+              <Mailto>{SUPPORT_EMAIL}</Mailto> from your account email and
+              we&apos;ll do it for you within 30 days.
             </li>
           </ul>
         </Section>

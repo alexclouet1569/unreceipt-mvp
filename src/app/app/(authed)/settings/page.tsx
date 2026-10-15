@@ -12,6 +12,7 @@ import { UsageMeter } from "@/components/UsageMeter";
 import { getUsage, type Usage } from "@/lib/usage";
 import { planSuggestion } from "@/lib/usage-copy";
 import { SignOutButton } from "./SignOutButton";
+import { DeleteAccountSection } from "./DeleteAccountSection";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -136,6 +137,17 @@ export default async function SettingsPage() {
 
         <section>
           <SignOutButton />
+        </section>
+
+        <section aria-labelledby="danger-heading">
+          <SectionLabel id="danger-heading">Delete account</SectionLabel>
+          <DeleteAccountSection
+            exportSlot={
+              <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
+                Open each receipt and tap Download PDF.
+              </p>
+            }
+          />
         </section>
       </main>
     </div>
