@@ -7,8 +7,11 @@
 // rotated JWT secrets, or retried signups) made signInWithPassword hang on a
 // silent JWT refresh. PR #27 falsified that: the hang reproduced in a fresh
 // incognito window with NO sb-* cookies present, so stale cookies are not the
-// cause. The real culprit was the navigator.locks-based session lock, now
-// disabled via the no-op lock in src/lib/supabase-client.ts.
+// cause. PR #27 then blamed the navigator.locks session lock and disabled it
+// (no-op lock in src/lib/supabase-client.ts), but the hang persisted: the
+// real culprit was ClientShell awaiting supabase.auth.getUser() inside its
+// onAuthStateChange callback, which deadlocks supabase-js whenever a page
+// loads with a session (see src/app/app/_client-shell.tsx).
 //
 // We keep this endpoint anyway as a genuine session-reset affordance — it
 // still helps users stuck with an invalid session (deleted user, rotated

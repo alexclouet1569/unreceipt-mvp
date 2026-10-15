@@ -41,7 +41,11 @@ export function getSupabaseClient(): SupabaseClient {
   // extension interference) — every subsequent supabase.auth.* and
   // supabase.from(...) call then hangs forever with no error and no
   // network request, because the SDK awaits getSession() which awaits
-  // the lock that never releases. The trade-off (concurrent token
+  // the lock that never releases. (The hang users actually hit on sign-in
+  // was a deadlock of the SDK's own in-memory lock, caused by awaiting
+  // auth calls inside onAuthStateChange — fixed in app/_client-shell.tsx.
+  // Don't await supabase.auth.* inside an onAuthStateChange callback.)
+  // The trade-off (concurrent token
   // refreshes from multiple tabs) is acceptable: the auth API tolerates
   // it; the worst case is one redundant refresh.
   const noOpLock = async <R,>(

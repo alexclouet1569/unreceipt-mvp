@@ -1,18 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 
 export function SignOutButton() {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   const handleSignOut = async () => {
     setBusy(true);
-    await getSupabaseClient().auth.signOut();
-    router.replace("/app/login");
+    try {
+      const { error } = await getSupabaseClient().auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      // The cookies must go even if Supabase can't be reached, or the
+      // login page would restore the session we meant to end.
+      console.error("[sign-out] supabase signOut failed", err);
+      await fetch("/api/auth/clear", { method: "POST" }).catch(() => {});
+    }
+    // Full page load, not router.replace: the login form then starts with a
+    // fresh Supabase client instead of the one that held the old session.
+    window.location.replace("/app/login");
   };
 
   return (
