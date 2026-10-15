@@ -20,9 +20,23 @@ import { PLAN_IDS, getPlan, type Plan, type PlanId } from "./plans";
 
 export type UsageSource = "paper" | "email" | "manual" | "sms";
 
+/** Maps a receipt's stored source to a usage source. */
+export function usageSource(source: string | null | undefined): UsageSource {
+  return source === "paper" || source === "email" || source === "sms" ? source : "manual";
+}
+
+/**
+ * Safety cap on extra receipts billed per period. Far above any real
+ * team's volume; it bounds the damage if something goes wrong (a bug, an
+ * abused alias) at €0.40 × 300 = €120 before a human looks at it.
+ */
+export const MAX_BILLED_EXTRAS_PER_PERIOD = 300;
+
 type BillingSubscription = {
   status: string;
   plan: string | null;
+  /** True when the subscription carries the metered extra-receipt price. */
+  overage_enabled: boolean | null;
   stripe_customer_id: string;
   current_period_start: string | null;
   current_period_end: string | null;
@@ -78,7 +92,7 @@ export function billingPeriod(
 async function loadSubscription(userId: string): Promise<BillingSubscription | null> {
   const { data, error } = await getSupabaseAdmin()
     .from("subscriptions")
-    .select("status, plan, stripe_customer_id, current_period_start, current_period_end")
+    .select("status, plan, overage_enabled, stripe_customer_id, current_period_start, current_period_end")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -87,17 +101,22 @@ async function loadSubscription(userId: string): Promise<BillingSubscription | n
   return (data as BillingSubscription | null) ?? null;
 }
 
+/**
+ * Usage rows from `from` up to and including `upTo`. `upTo` may be the raw
+ * timestamp string Postgres returned: it has microseconds, and a Date
+ * round-trip would truncate them and exclude the row itself.
+ */
 async function countUsage(
   userId: string,
   from: Date,
-  upTo: Date
+  upTo: Date | string
 ): Promise<number> {
   const { count, error } = await getSupabaseAdmin()
     .from("receipt_usage")
     .select("receipt_id", { count: "exact", head: true })
     .eq("user_id", userId)
     .gte("created_at", from.toISOString())
-    .lte("created_at", upTo.toISOString());
+    .lte("created_at", typeof upTo === "string" ? upTo : upTo.toISOString());
   if (error) throw new Error(`usage count failed: ${error.code ?? "unknown"}`);
   return count ?? 0;
 }
@@ -114,7 +133,9 @@ export async function getUsage(userId: string, now: Date = new Date()): Promise<
     extra: plan ? Math.max(0, used - plan.receipts) : 0,
     periodStart: period.start,
     periodEnd: period.end,
-    overageBilled: Boolean(plan && sub?.status === "active" && overageMeterEvent()),
+    overageBilled: Boolean(
+      plan && sub?.status === "active" && sub.overage_enabled && overageMeterEvent()
+    ),
   };
 }
 
@@ -146,25 +167,42 @@ export async function recordReceiptUsage(input: {
     if (!eventName) return;
 
     const sub = await loadSubscription(input.userId);
-    // No overage during the free trial or without a paid plan.
-    if (!sub || sub.status !== "active") return;
+    // No overage during the free trial, without a paid plan, or on a
+    // subscription that has no metered extra-receipt price to bill it on
+    // (e.g. created before overage existed) — those events would be
+    // accepted by Stripe but never invoiced.
+    if (!sub || sub.status !== "active" || !sub.overage_enabled) return;
     const plan = asPlan(sub.plan);
     if (!plan) return;
 
     // This receipt's position in the period (itself included), counted up
     // to its own timestamp rather than "now": when two receipts arrive
     // together, the earlier one isn't billed because of the later one.
-    const createdAt = new Date(row.created_at as string);
-    const period = billingPeriod(sub, createdAt);
-    const position = await countUsage(input.userId, period.start, createdAt);
+    const createdAtRaw = row.created_at as string;
+    const period = billingPeriod(sub, new Date(createdAtRaw));
+    const position = await countUsage(input.userId, period.start, createdAtRaw);
     if (position <= plan.receipts) return;
+    if (position - plan.receipts > MAX_BILLED_EXTRAS_PER_PERIOD) {
+      console.error("[usage] extra-receipt cap reached, not billing", {
+        userId: input.userId,
+      });
+      Sentry.captureMessage("extra-receipt billing cap reached", {
+        tags: { area: "usage" },
+      });
+      return;
+    }
 
-    await getStripe().billing.meterEvents.create({
-      event_name: eventName,
-      payload: { stripe_customer_id: sub.stripe_customer_id, value: "1" },
-      // Stripe dedupes on this, so a retried request can't double-charge.
-      identifier: `receipt_${input.receiptId}`,
-    });
+    await getStripe().billing.meterEvents.create(
+      {
+        event_name: eventName,
+        payload: { stripe_customer_id: sub.stripe_customer_id, value: "1" },
+        // Stripe dedupes on this, so a retried request can't double-charge.
+        identifier: `receipt_${input.receiptId}`,
+      },
+      // The receipt is already saved; don't hold the user's request for
+      // long on Stripe. A miss here is logged (see launch plan: sweep).
+      { timeout: 5000, maxNetworkRetries: 1 }
+    );
 
     await db
       .from("receipt_usage")

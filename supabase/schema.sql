@@ -859,6 +859,9 @@ DROP POLICY IF EXISTS "Users can view own receipt usage" ON public.receipt_usage
 CREATE POLICY "Users can view own receipt usage"
   ON public.receipt_usage FOR SELECT USING ((select auth.uid()) = user_id);
 
+-- Server-only writes (RLS already denies them; this removes the grants too).
+REVOKE INSERT, UPDATE, DELETE ON public.receipt_usage FROM anon, authenticated;
+
 -- Count existing receipts so this month's usage is right from day one.
 INSERT INTO public.receipt_usage (receipt_id, user_id, source, created_at)
 SELECT r.id, r.user_id, COALESCE(r.source, 'unknown'), r.created_at
@@ -868,7 +871,10 @@ ON CONFLICT (receipt_id) DO NOTHING;
 
 ALTER TABLE public.subscriptions
   ADD COLUMN IF NOT EXISTS plan TEXT,
-  ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMPTZ,
+  -- True when the subscription carries the metered extra-receipt price;
+  -- extra receipts are only reported to Stripe when it does.
+  ADD COLUMN IF NOT EXISTS overage_enabled BOOLEAN NOT NULL DEFAULT false;
 
 -- =============================================================================
 -- 2026-10-15 — RLS policies evaluate auth.uid() once per query (performance)

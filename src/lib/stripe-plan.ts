@@ -39,3 +39,10 @@ export function periodStartFromSubscription(sub: SubscriptionLike): string | nul
   const unix = sub.items?.data?.[0]?.current_period_start ?? null;
   return unix ? new Date(unix * 1000).toISOString() : null;
 }
+
+/** True when the subscription includes the metered extra-receipt price. */
+export function hasOverageItem(sub: SubscriptionLike): boolean {
+  const overage = process.env.STRIPE_PRICE_OVERAGE;
+  if (!overage) return false;
+  return (sub.items?.data ?? []).some((item) => item.price?.id === overage);
+}

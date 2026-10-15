@@ -198,9 +198,9 @@ describe("POST /api/intake/email", () => {
     });
     expect(mocks.receiptsInsert).toHaveBeenCalledTimes(1);
     expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
-    expect(usageMock).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: USER_ID, source: "email" })
-    );
+    // Lands as pending_review (parser can't vouch for it): anyone can
+    // email an alias, so it only counts once the user confirms it.
+    expect(usageMock).not.toHaveBeenCalled();
 
     const [path, , uploadOptions] = mocks.storageUpload.mock.calls[0];
     expect(path).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]{36}\\.eml$`));
@@ -279,6 +279,10 @@ describe("POST /api/intake/email", () => {
     // receipt_date is the date portion of purchased_at so the legacy
     // sort + admin paste form still see the row.
     expect(insertedRow.receipt_date).toBe("2026-05-12");
+    // A verified email receipt counts toward the plan right away.
+    expect(usageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, source: "email" })
+    );
   });
 
   it("ignores non-receive event types with a 200", async () => {

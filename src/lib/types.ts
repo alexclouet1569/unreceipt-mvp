@@ -140,6 +140,8 @@ export interface Subscription {
   // Plan id from src/lib/plans.ts ("light" | "regular" | "heavy"); null on
   // rows written before plans existed.
   plan: string | null;
+  // True when the subscription carries the metered extra-receipt price.
+  overage_enabled: boolean;
   current_period_start: string | null;
   current_period_end: string | null;
   trial_end: string | null;

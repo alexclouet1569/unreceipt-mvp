@@ -85,6 +85,7 @@ describe("Subscription type", () => {
       stripe_subscription_id: "sub_test",
       status: "trialing",
       plan: "regular",
+      overage_enabled: false,
       current_period_start: null,
       current_period_end: null,
       trial_end: "2026-05-05T00:00:00Z",

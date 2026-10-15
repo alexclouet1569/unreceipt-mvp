@@ -3,7 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { periodStartFromSubscription, planFromSubscription } from "@/lib/stripe-plan";
+import {
+  hasOverageItem,
+  periodStartFromSubscription,
+  planFromSubscription,
+} from "@/lib/stripe-plan";
 
 // Webhook signature verification needs the raw request body. Force the
 // Node.js runtime and disable any caching so the route always sees a
@@ -17,6 +21,7 @@ type SubscriptionRow = {
   stripe_subscription_id: string;
   status: string;
   plan: string | null;
+  overage_enabled: boolean;
   current_period_start: string | null;
   current_period_end: string | null;
   trial_end: string | null;
@@ -137,6 +142,7 @@ function extractFromSubscription(sub: Stripe.Subscription): SubscriptionRow {
     stripe_subscription_id: sub.id,
     status: sub.status,
     plan: planFromSubscription(sub),
+    overage_enabled: hasOverageItem(sub),
     current_period_start: periodStartFromSubscription(sub),
     current_period_end: unixToIso(periodEndUnix),
     trial_end: unixToIso(trialEndUnix),

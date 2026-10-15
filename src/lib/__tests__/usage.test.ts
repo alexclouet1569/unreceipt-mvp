@@ -6,11 +6,12 @@ const mocks = vi.hoisted(() => ({
   upsertResult: { data: null as unknown, error: null as unknown },
   subscription: { data: null as unknown, error: null as unknown },
   count: 0,
+  lteArg: null as unknown,
   update: vi.fn(),
   meterCreate: vi.fn(),
 }));
 
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn(), captureMessage: vi.fn() }));
 
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({ billing: { meterEvents: { create: mocks.meterCreate } } }),
@@ -33,7 +34,10 @@ vi.mock("@/lib/supabase-admin", () => ({
       const countChain = {
         eq: () => countChain,
         gte: () => countChain,
-        lte: async () => ({ count: mocks.count, error: null }),
+        lte: async (_col: string, value: unknown) => {
+          mocks.lteArg = value;
+          return { count: mocks.count, error: null };
+        },
       };
       return {
         upsert: () => ({
@@ -57,6 +61,7 @@ const NOW = new Date("2026-10-15T10:00:00Z");
 const activeRegular = {
   status: "active",
   plan: "regular",
+  overage_enabled: true,
   stripe_customer_id: "cus_123",
   current_period_start: "2026-10-03T08:00:00Z",
   current_period_end: "2026-11-03T08:00:00Z",
@@ -116,16 +121,48 @@ describe("recordReceiptUsage", () => {
 
     await record();
 
-    expect(mocks.meterCreate).toHaveBeenCalledWith({
-      event_name: "extra_receipt",
-      payload: { stripe_customer_id: "cus_123", value: "1" },
-      identifier: `receipt_${RECEIPT}`,
-    });
+    expect(mocks.meterCreate).toHaveBeenCalledWith(
+      {
+        event_name: "extra_receipt",
+        payload: { stripe_customer_id: "cus_123", value: "1" },
+        identifier: `receipt_${RECEIPT}`,
+      },
+      { timeout: 5000, maxNetworkRetries: 1 }
+    );
     expect(mocks.update).toHaveBeenCalledWith(
       { overage_billed_at: expect.any(String) },
       "receipt_id",
       RECEIPT
     );
+  });
+
+  it("counts up to the receipt's own raw timestamp (microseconds kept)", async () => {
+    // Postgres returns microseconds; a Date round-trip would cut them and
+    // leave the receipt itself out of its own position → first extra unbilled.
+    mocks.upsertResult = { data: { created_at: "2026-10-15T10:00:00.123456+00:00" }, error: null };
+    mocks.count = 51;
+
+    await record();
+
+    expect(mocks.lteArg).toBe("2026-10-15T10:00:00.123456+00:00");
+    expect(mocks.meterCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("never bills a subscription without the metered extra-receipt price", async () => {
+    mocks.subscription = { data: { ...activeRegular, overage_enabled: false }, error: null };
+    mocks.count = 60;
+
+    await record();
+
+    expect(mocks.meterCreate).not.toHaveBeenCalled();
+  });
+
+  it("stops billing at the per-period safety cap", async () => {
+    mocks.count = 50 + 301; // Regular allowance + 301 extras
+
+    await record();
+
+    expect(mocks.meterCreate).not.toHaveBeenCalled();
   });
 
   it("does nothing more for a receipt that was already recorded", async () => {

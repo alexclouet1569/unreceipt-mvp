@@ -384,7 +384,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
   }
 
-  await recordReceiptUsage({ userId, receiptId: inserted.id, source: "email" });
+  // Anyone who knows an alias can email it, so an inbound email only
+  // counts toward the plan once it's a verified receipt. Rows that land
+  // in pending_review (spam, newsletters, unparseable mail) count when
+  // the user confirms them (PATCH /api/receipts/[id]); deleting them
+  // costs nothing.
+  if (rowToInsert.status === "verified") {
+    await recordReceiptUsage({ userId, receiptId: inserted.id, source: "email" });
+  }
 
   return NextResponse.json({ ok: true, id: inserted.id });
 }
