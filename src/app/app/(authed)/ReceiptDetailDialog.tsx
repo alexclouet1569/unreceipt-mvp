@@ -11,17 +11,22 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { Download, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
   CURRENCY_OPTIONS,
+  formatAmount,
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
-import type { Receipt } from "@/lib/types";
+import {
+  MAX_ITEMS,
+  PAYMENT_METHOD_SUGGESTIONS,
+} from "@/lib/receipts/receipt-fields";
+import type { Receipt, ReceiptItem } from "@/lib/types";
 
 type ReceiptDetailDialogProps = {
   receipt: Receipt | null;
@@ -299,6 +304,18 @@ export function ReceiptDetailDialog({
   );
 }
 
+type EditItem = {
+  // Stable React key for a row (rows can be added and removed).
+  key: string;
+  label: string;
+  total: string;
+  // Kept from the extraction; not editable in this form. unit_amount is
+  // dropped when the line total is changed, so it can't contradict it.
+  qty: number | null;
+  unit_amount: number | null;
+  originalTotal: string;
+};
+
 type EditFormState = {
   merchant: string;
   amount: string;
@@ -306,7 +323,65 @@ type EditFormState = {
   date: string;
   category: CategoryKey;
   notes: string;
+  taxAmount: string;
+  taxRate: string;
+  paymentMethod: string;
+  items: EditItem[];
 };
+
+let itemKeySeq = 0;
+const nextItemKey = () => `item-${++itemKeySeq}`;
+
+function toEditItems(items: ReceiptItem[] | null): EditItem[] {
+  return (items ?? []).map((it) => ({
+    key: nextItemKey(),
+    label: it.label,
+    total: String(it.total_amount),
+    qty: it.qty ?? null,
+    unit_amount: it.unit_amount ?? null,
+    originalTotal: String(it.total_amount),
+  }));
+}
+
+function parseDecimal(value: string): number {
+  return Number(value.trim().replace(",", "."));
+}
+
+/** Rows → stored items. Blank rows are dropped; invalid ones throw. */
+function toReceiptItems(items: EditItem[]): ReceiptItem[] {
+  const out: ReceiptItem[] = [];
+  for (const it of items) {
+    const label = it.label.trim();
+    if (!label && !it.total.trim()) continue;
+    if (!label) throw new Error("Every line needs a description");
+    const total = parseDecimal(it.total);
+    if (!it.total.trim() || !Number.isFinite(total) || total < 0) {
+      throw new Error(`Enter an amount for “${label}”`);
+    }
+    const totalChanged = it.total.trim() !== it.originalTotal;
+    out.push({
+      label,
+      qty: it.qty,
+      unit_amount: totalChanged ? null : it.unit_amount,
+      total_amount: total,
+    });
+  }
+  return out;
+}
+
+function sameItems(a: ReceiptItem[], b: ReceiptItem[]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function optionalDecimal(
+  value: string,
+  { max, message }: { max: number; message: string },
+): number | null {
+  if (!value.trim()) return null;
+  const n = parseDecimal(value);
+  if (!Number.isFinite(n) || n < 0 || n > max) throw new Error(message);
+  return n;
+}
 
 function deriveFormState(receipt: Receipt): EditFormState {
   const isoDate =
@@ -320,6 +395,10 @@ function deriveFormState(receipt: Receipt): EditFormState {
     date: isoDate,
     category: receipt.category,
     notes: receipt.notes ?? "",
+    taxAmount: receipt.tax_amount != null ? String(receipt.tax_amount) : "",
+    taxRate: receipt.tax_rate != null ? String(receipt.tax_rate) : "",
+    paymentMethod: receipt.payment_method ?? "",
+    items: toEditItems(receipt.items),
   };
 }
 
@@ -331,6 +410,7 @@ function deriveFormState(receipt: Receipt): EditFormState {
 export function buildPatchBody(
   initial: EditFormState,
   form: EditFormState,
+  { includeItems = true }: { includeItems?: boolean } = {},
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (form.merchant.trim() !== initial.merchant.trim()) {
@@ -352,6 +432,27 @@ export function buildPatchBody(
   if (form.category !== initial.category) body.category = form.category;
   if (form.notes.trim() !== initial.notes.trim()) {
     body.notes = form.notes.trim() || null;
+  }
+  if (form.taxAmount.trim() !== initial.taxAmount.trim()) {
+    body.tax_amount = optionalDecimal(form.taxAmount, {
+      max: 1_000_000,
+      message: "Enter a valid VAT amount",
+    });
+  }
+  if (form.taxRate.trim() !== initial.taxRate.trim()) {
+    body.tax_rate = optionalDecimal(form.taxRate, {
+      max: 100,
+      message: "VAT rate must be between 0 and 100",
+    });
+  }
+  if (form.paymentMethod.trim() !== initial.paymentMethod.trim()) {
+    body.payment_method = form.paymentMethod.trim() || null;
+  }
+  if (includeItems) {
+    const items = toReceiptItems(form.items);
+    if (!sameItems(items, toReceiptItems(initial.items))) {
+      body.items = items.length > 0 ? items : null;
+    }
   }
   return body;
 }
@@ -409,7 +510,8 @@ function ReceiptEditForm({
           throw new Error("Date is required");
         }
       }
-      body = buildPatchBody(initial, form);
+      // Line items are only editable (and shown) in edit mode.
+      body = buildPatchBody(initial, form, { includeItems: mode === "edit" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Check the fields");
       return;
@@ -447,8 +549,47 @@ function ReceiptEditForm({
     }
   };
 
+  const updateItem = (key: string, patch: Partial<EditItem>) =>
+    setForm((prev) => ({
+      ...prev,
+      items: prev.items.map((it) => (it.key === key ? { ...it, ...patch } : it)),
+    }));
+  const removeItem = (key: string) =>
+    setForm((prev) => ({
+      ...prev,
+      items: prev.items.filter((it) => it.key !== key),
+    }));
+  const addItem = () =>
+    setForm((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          key: nextItemKey(),
+          label: "",
+          total: "",
+          qty: null,
+          unit_amount: null,
+          originalTotal: "",
+        },
+      ],
+    }));
+
   const id = (field: string) => `edit-${receipt.id}-${field}`;
   const isEdit = mode === "edit";
+
+  // Gentle consistency hint: when line items don't add up to the total,
+  // say so (it may be right — discounts, deposits — so it never blocks).
+  const itemsSum = form.items.reduce((sum, it) => {
+    const n = parseDecimal(it.total);
+    return Number.isFinite(n) ? sum + n : sum;
+  }, 0);
+  const totalNumber = parseDecimal(form.amount);
+  const itemsMismatch =
+    isEdit &&
+    form.items.some((it) => it.total.trim()) &&
+    Number.isFinite(totalNumber) &&
+    Math.abs(itemsSum - totalNumber) > 0.01;
 
   return (
     <form
@@ -555,6 +696,128 @@ function ReceiptEditForm({
           </select>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
+          <label htmlFor={id("tax-amount")} className={LABEL_CLASS}>
+            VAT amount
+          </label>
+          <Input
+            id={id("tax-amount")}
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            value={form.taxAmount}
+            onChange={(e) => update("taxAmount", e.target.value)}
+            className="h-11 font-mono tabular-nums"
+          />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor={id("tax-rate")} className={LABEL_CLASS}>
+            VAT rate %
+          </label>
+          <Input
+            id={id("tax-rate")}
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            inputMode="decimal"
+            value={form.taxRate}
+            onChange={(e) => update("taxRate", e.target.value)}
+            className="h-11"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor={id("payment-method")} className={LABEL_CLASS}>
+          Payment method
+        </label>
+        <Input
+          id={id("payment-method")}
+          list={id("payment-method-options")}
+          className="h-11"
+          value={form.paymentMethod}
+          onChange={(e) => update("paymentMethod", e.target.value)}
+          placeholder="Card"
+          maxLength={50}
+        />
+        <datalist id={id("payment-method-options")}>
+          {PAYMENT_METHOD_SUGGESTIONS.map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
+      </div>
+
+      {isEdit ? (
+        <fieldset className="space-y-2">
+          <legend className={LABEL_CLASS}>Line items</legend>
+          {form.items.length === 0 ? (
+            <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
+              No line items.
+            </p>
+          ) : null}
+          {form.items.map((it, idx) => (
+            <div key={it.key} className="flex items-center gap-2">
+              <Input
+                aria-label={`Line ${idx + 1} description`}
+                className="h-11 flex-1 min-w-0"
+                value={it.label}
+                onChange={(e) => updateItem(it.key, { label: e.target.value })}
+                maxLength={200}
+              />
+              <Input
+                aria-label={`Line ${idx + 1} amount`}
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                className="h-11 w-24 shrink-0 font-mono tabular-nums"
+                value={it.total}
+                onChange={(e) => updateItem(it.key, { total: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => removeItem(it.key)}
+                aria-label={`Remove line ${idx + 1}`}
+                className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:bg-[var(--hairline)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          {form.items.length < MAX_ITEMS ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 gap-1.5"
+              onClick={addItem}
+            >
+              <Plus className="w-4 h-4" />
+              Add line
+            </Button>
+          ) : null}
+          {itemsMismatch ? (
+            <p
+              className="text-[var(--ink-muted)]"
+              style={{ fontSize: "13px" }}
+              data-testid="items-mismatch-hint"
+            >
+              Lines add up to{" "}
+              <span className="font-mono tabular-nums">
+                {formatAmount(itemsSum, form.currency)}
+              </span>
+              ; the total is{" "}
+              <span className="font-mono tabular-nums">
+                {formatAmount(totalNumber, form.currency)}
+              </span>
+              .
+            </p>
+          ) : null}
+        </fieldset>
+      ) : null}
 
       {isEdit ? (
         <div className="space-y-2">

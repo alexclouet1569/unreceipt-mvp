@@ -273,6 +273,70 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload).not.toHaveProperty("edit_history");
   });
 
+  it("edits VAT, payment method and line items, recording each change", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: null, tax_rate: null, payment_method: null, items: null },
+      error: null,
+    });
+    const items = [{ label: "Ride", qty: null, unit_amount: null, total_amount: 24.9 }];
+
+    const res = await PATCH(
+      req({ tax_amount: 2.67, tax_rate: 12, payment_method: "Card", items }),
+      params(),
+    );
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload).toMatchObject({
+      tax_amount: 2.67,
+      tax_rate: 12,
+      payment_method: "Card",
+      items,
+    });
+    expect(payload.edited_fields).toEqual([
+      "tax_amount",
+      "tax_rate",
+      "payment_method",
+      "items",
+    ]);
+  });
+
+  it("clears VAT with null and stores an empty item list as null", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: 5, items: [{ label: "x", total_amount: 1 }] },
+      error: null,
+    });
+
+    const res = await PATCH(req({ tax_amount: null, items: [] }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.tax_amount).toBeNull();
+    expect(payload.items).toBeNull();
+  });
+
+  it("rejects VAT above the resulting total", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: 4 },
+      error: null,
+    });
+
+    // Lowering the total below the stored VAT is refused too.
+    const res = await PATCH(req({ amount: 3 }), params());
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).issues[0].path).toBe("tax_amount");
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
+  it("rejects a VAT rate above 100 and an item without a label", async () => {
+    expect((await PATCH(req({ tax_rate: 101 }), params())).status).toBe(400);
+    expect(
+      (await PATCH(req({ items: [{ label: "", total_amount: 1 }] }), params())).status,
+    ).toBe(400);
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when the row is not visible (RLS or missing)", async () => {
     mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
     const res = await PATCH(req({ merchant: "Uber" }), params());

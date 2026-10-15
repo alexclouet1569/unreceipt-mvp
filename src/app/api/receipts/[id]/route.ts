@@ -29,14 +29,24 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import { editMarker } from "@/lib/receipts/edits";
+import {
+  MAX_AMOUNT,
+  PaymentMethodSchema,
+  ReceiptItemsSchema,
+  TaxAmountSchema,
+  TaxRateSchema,
+  taxExceedsTotal,
+} from "@/lib/receipts/receipt-fields";
 import type { Receipt } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// null clears an optional field (VAT, payment method, items); omitted
+// leaves it as it is.
 const PatchSchema = z.object({
   merchant: z.string().trim().min(1).max(200).optional(),
-  amount: z.number().positive().max(1_000_000).optional(),
+  amount: z.number().positive().max(MAX_AMOUNT).optional(),
   currency: z.enum(CURRENCY_OPTIONS).optional(),
   receipt_date: z
     .string()
@@ -44,6 +54,10 @@ const PatchSchema = z.object({
     .optional(),
   category: z.enum(CATEGORY_KEYS as [string, ...string[]]).optional(),
   notes: z.string().max(2000).nullable().optional(),
+  tax_amount: TaxAmountSchema.nullable().optional(),
+  tax_rate: TaxRateSchema.nullable().optional(),
+  payment_method: PaymentMethodSchema.nullable().optional(),
+  items: ReceiptItemsSchema.nullable().optional(),
 });
 
 async function getUserScopedClient() {
@@ -162,6 +176,29 @@ export async function PATCH(
   }
   if (patch.notes !== undefined) {
     update.notes = patch.notes?.trim() ? patch.notes.trim() : null;
+  }
+
+  if (patch.tax_amount !== undefined) update.tax_amount = patch.tax_amount;
+  if (patch.tax_rate !== undefined) update.tax_rate = patch.tax_rate;
+  if (patch.payment_method !== undefined) {
+    update.payment_method = patch.payment_method;
+  }
+  if (patch.items !== undefined) {
+    update.items = patch.items && patch.items.length > 0 ? patch.items : null;
+  }
+
+  // VAT can't exceed the total — checked on the result, since the patch may
+  // change either one.
+  const taxAfter =
+    "tax_amount" in update ? (update.tax_amount as number | null) : existingRow.tax_amount;
+  if (taxExceedsTotal(taxAfter, merged.total)) {
+    return NextResponse.json(
+      {
+        error: "validation failed",
+        issues: [{ path: "tax_amount", message: "VAT can't be more than the total" }],
+      },
+      { status: 400 }
+    );
   }
 
   update.status = computeReceiptStatus(merged);

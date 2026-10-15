@@ -170,4 +170,80 @@ describe("ReceiptDetailDialog (CQ2)", () => {
       "Edited by you on Oct 15, 2026 · Merchant, Total",
     );
   });
+
+  it("edits VAT, payment method and line items", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, status: "verified" }),
+    });
+    renderDialog({
+      status: "verified",
+      total: 49,
+      tax_amount: null,
+      payment_method: null,
+      items: [
+        { label: "Kaffe", qty: 2, unit_amount: 20, total_amount: 40 },
+        { label: "Bulle", qty: null, unit_amount: null, total_amount: 9 },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /Edit receipt/i }));
+    await user.type(screen.getByLabelText(/VAT amount/i), "5.25");
+    await user.type(screen.getByLabelText(/VAT rate/i), "12");
+    await user.type(screen.getByLabelText(/Payment method/i), "Swish");
+    // Correct the first line's amount, drop the second, add a new one.
+    const firstAmount = screen.getByLabelText("Line 1 amount");
+    await user.clear(firstAmount);
+    await user.type(firstAmount, "38");
+    await user.click(screen.getByRole("button", { name: "Remove line 2" }));
+    await user.click(screen.getByRole("button", { name: /Add line/i }));
+    await user.type(screen.getByLabelText("Line 2 description"), "Kanelbulle");
+    await user.type(screen.getByLabelText("Line 2 amount"), "11");
+    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      tax_amount: 5.25,
+      tax_rate: 12,
+      payment_method: "Swish",
+      items: [
+        // Line total changed → unit price dropped so it can't contradict it.
+        { label: "Kaffe", qty: 2, unit_amount: null, total_amount: 38 },
+        { label: "Kanelbulle", qty: null, unit_amount: null, total_amount: 11 },
+      ],
+    });
+  });
+
+  it("hints when line items don't add up to the total, without blocking", async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      status: "verified",
+      total: 49,
+      items: [{ label: "Kaffe", qty: null, unit_amount: null, total_amount: 40 }],
+    });
+
+    await user.click(screen.getByRole("button", { name: /Edit receipt/i }));
+
+    expect(screen.getByTestId("items-mismatch-hint")).toHaveTextContent(
+      "Lines add up to €40.00; the total is €49.00.",
+    );
+    expect(screen.getByRole("button", { name: /Save changes/i })).toBeEnabled();
+  });
+
+  it("refuses a line with an amount but no description", async () => {
+    const user = userEvent.setup();
+    renderDialog({ status: "verified" });
+
+    await user.click(screen.getByRole("button", { name: /Edit receipt/i }));
+    await user.click(screen.getByRole("button", { name: /Add line/i }));
+    await user.type(screen.getByLabelText("Line 1 amount"), "10");
+    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Every line needs a description",
+    );
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
 });
