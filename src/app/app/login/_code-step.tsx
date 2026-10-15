@@ -16,7 +16,7 @@ import {
   UNREACHABLE,
   type AuthResult,
 } from "./_auth-lib";
-import { Notice, SecondaryButton, TextLink, useCountdown } from "./_auth-ui";
+import { ENTER, Notice, SecondaryButton, TextLink, useCountdown } from "./_auth-ui";
 
 // How often to look for a session created by the email's link in another
 // tab (the callback route sets the same cookies this tab reads).
@@ -38,6 +38,7 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
   const [error, setError] = useState("");
   const [resendNote, setResendNote] = useState("");
   const [sendCount, setSendCount] = useState(0);
+  const [refocus, setRefocus] = useState(0);
   const secondsLeft = useCountdown(RESEND_COOLDOWN_S, sendCount);
   const inputRef = useRef<HTMLInputElement>(null);
   const cellsRef = useRef<HTMLDivElement>(null);
@@ -64,6 +65,7 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
     const msg = (authError.message ?? "").toLowerCase();
     setStatus("idle");
     setCode("");
+    setRefocus((n) => n + 1);
     setError(
       isUnreachable(authError)
         ? UNREACHABLE
@@ -72,8 +74,13 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
           : "That code isn't right. Check the latest email and try again."
     );
     shake(cellsRef.current);
-    inputRef.current?.focus();
   };
+
+  // Back on the cells after a wrong code, once the input is editable again,
+  // so the keyboard stays up and the next attempt is just typing.
+  useEffect(() => {
+    if (refocus > 0) inputRef.current?.focus();
+  }, [refocus]);
 
   // The person may tap the link in the email instead — often in another tab.
   // When that tab finishes signing in, follow it here too.
@@ -125,7 +132,7 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
       >
         {purpose === "signup" ? "Confirm your email" : "Check your inbox"}
       </h1>
-      <p className="text-[15px] leading-[1.5] text-[var(--ink-muted)] mt-2">
+      <p id="auth-code-hint" className="text-[15px] leading-[1.5] text-[var(--ink-muted)] mt-2">
         Enter the {CODE_LENGTH}-digit code we sent to
         <span className="block font-semibold text-[var(--ink)] [overflow-wrap:anywhere]">{email}</span>
       </p>
@@ -149,11 +156,15 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9]*"
-          maxLength={CODE_LENGTH}
-          disabled={status !== "idle"}
+          // No maxLength: browsers cut a paste like "Code: 123456" before
+          // onChange can strip the non-digits.
+          // readOnly, not disabled, while checking — disabled drops focus and
+          // closes the phone keyboard.
+          readOnly={status !== "idle"}
+          aria-busy={status === "checking"}
           autoFocus
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "auth-code-error" : undefined}
+          aria-describedby={error ? "auth-code-hint auth-code-error" : "auth-code-hint"}
           // Covers the cells so a tap anywhere focuses it; visually hidden.
           className="absolute inset-0 w-full h-full opacity-0 text-[16px] cursor-text"
         />
@@ -165,21 +176,22 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
               <div
                 key={i}
                 className={cn(
-                  "h-14 rounded-[10px] border bg-card flex items-center justify-center",
+                  "h-14 rounded-[6px] border bg-card flex items-center justify-center",
                   "font-display text-[24px] font-bold tabular-nums text-[var(--ink)]",
                   "transition-[border-color,box-shadow] duration-100",
                   error
                     ? "border-[var(--attention)]"
                     : active
                       ? "border-[var(--ring)] ring-4 ring-[var(--ring)]/15"
-                      : filled
-                        ? "border-[color-mix(in_srgb,var(--ink)_35%,var(--hairline))]"
-                        : "border-[var(--hairline)]",
+                      : "border-[var(--hairline)]",
                   status === "done" ? "border-[var(--ring)]" : ""
                 )}
               >
                 {filled ? (
-                  <span className="animate-in fade-in zoom-in-90" style={{ animationDuration: "120ms" }}>
+                  <span
+                    className="animate-in fade-in zoom-in-90"
+                    style={{ animationDuration: "100ms", animationTimingFunction: ENTER }}
+                  >
                     {digits[i]}
                   </span>
                 ) : active ? (
@@ -191,17 +203,18 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
         </div>
       </div>
 
-      <div className="min-h-[24px] mt-3" aria-live="polite">
-        {status === "checking" ? (
-          <p className="text-[13px] text-[var(--ink-muted)]">Checking…</p>
-        ) : status === "done" ? (
-          <p className="text-[13px] font-semibold text-[var(--ink)]">
-            You&apos;re in — opening your receipts…
-          </p>
-        ) : null}
-      </div>
-      {error ? (
-        <Notice tone="attention" id="auth-code-error">
+      {/* Always mounted so screen readers hear the change. */}
+      <p className="sr-only" aria-live="polite">
+        {status === "checking" ? "Checking the code" : status === "done" ? "Signed in. Opening your receipts." : ""}
+      </p>
+      {status === "checking" ? (
+        <p className="text-[13px] text-[var(--ink-muted)] mt-3" aria-hidden="true">Checking…</p>
+      ) : status === "done" ? (
+        <p className="text-[13px] font-semibold text-[var(--ink)] mt-3" aria-hidden="true">
+          You&apos;re in — opening your receipts…
+        </p>
+      ) : error ? (
+        <Notice tone="attention" id="auth-code-error" className="mt-4">
           {error}
         </Notice>
       ) : null}

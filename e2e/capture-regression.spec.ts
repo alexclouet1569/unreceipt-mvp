@@ -89,7 +89,7 @@ test.describe("self-service capture regression", () => {
     await expect(page.getByRole("tab", { name: "Create account" })).toBeVisible();
   });
 
-  test("magic-link fallback (Forgot password?) shows the check-your-email state", async ({
+  test("email-code fallback (Forgot password?) shows the enter-your-code step", async ({
     page,
     browserName,
   }) => {
@@ -102,17 +102,14 @@ test.describe("self-service capture regression", () => {
     await page.goto("/app/login");
 
     await page.getByText(/Forgot password\?/i).click();
-    await expect(
-      page.getByRole("button", { name: /Email me a sign-in link/i })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /Email me a code/i })).toBeVisible();
 
     await page.getByPlaceholder("you@company.com").fill("test@unreceipt.io");
-    await page.getByRole("button", { name: /Email me a sign-in link/i }).click();
+    await page.getByRole("button", { name: /Email me a code/i }).click();
 
-    await expect(
-      page.getByRole("heading", { name: "Check your email" })
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
     await expect(page.getByText("test@unreceipt.io")).toBeVisible();
+    await expect(page.getByLabel("6-digit code")).toBeFocused();
   });
 
   // The previous "authenticated /app renders the dashboard empty state" test

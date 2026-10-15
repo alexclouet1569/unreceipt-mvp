@@ -22,6 +22,7 @@ import {
 } from "./_auth-lib";
 import {
   EmailInput,
+  ENTER,
   Field,
   FOCUS_RING,
   Notice,
@@ -46,20 +47,25 @@ type AuthCardProps = {
 };
 
 type PendingCode = { email: string; purpose: "signup" | "signin" };
+type EntryFocus = "first" | "email" | null;
+type SignUpDetails = { fullName: string; companyName: string; password: string };
 
 export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showLinkError, setShowLinkError] = useState(linkError);
-  // Autofocus the first field on page load only; after a tab switch focus
-  // stays on the tab the person just used.
-  const [switched, setSwitched] = useState(false);
-  // Shared so switching tabs keeps what the person already typed.
+  // Where focus goes when a form appears: its first field on page load, the
+  // email after coming back from the code step, nowhere after a tab switch
+  // (focus stays on the tab the person just used).
+  const [entryFocus, setEntryFocus] = useState<EntryFocus>("first");
+  // Lifted so switching tabs or going back from the code step keeps what
+  // the person already typed.
   const [email, setEmail] = useState("");
+  const [details, setDetails] = useState<SignUpDetails>({ fullName: "", companyName: "", password: "" });
   const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
-    setSwitched(true);
+    setEntryFocus(null);
     setShowLinkError(false);
     // Keep the URL shareable and the back button honest.
     const url = new URL(window.location.href);
@@ -125,16 +131,17 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
                 resend={resendFor(pendingCode)}
                 onChangeEmail={() => {
                   setPendingCode(null);
-                  setSwitched(true);
+                  setEntryFocus("email");
                 }}
                 onSignInInstead={() => {
                   setPendingCode(null);
                   switchMode("signin");
+                  setEntryFocus("email");
                 }}
               />
             </Step>
           ) : (
-            <Step stepKey="forms">
+            <>
               <h1
                 id="auth-title"
                 className="font-display text-[24px] leading-[1.15] tracking-[-0.02em] font-bold text-[var(--ink)]"
@@ -153,7 +160,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
                     key="signin"
                     email={email}
                     setEmail={setEmail}
-                    autoFocus={!switched}
+                    entryFocus={entryFocus}
                     onCodeSent={(e) => setPendingCode({ email: e, purpose: "signin" })}
                   />
                 ) : (
@@ -161,13 +168,15 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
                     key="signup"
                     email={email}
                     setEmail={setEmail}
-                    autoFocus={!switched}
+                    details={details}
+                    setDetails={setDetails}
+                    entryFocus={entryFocus}
                     onCodeSent={(e) => setPendingCode({ email: e, purpose: "signup" })}
                     onSignIn={() => switchMode("signin")}
                   />
                 )}
               </div>
-            </Step>
+            </>
           )}
         </section>
 
@@ -225,15 +234,15 @@ function ModeSwitch({ mode, onChange }: { mode: AuthMode; onChange: (m: AuthMode
       role="tablist"
       aria-label="Sign in or create an account"
       onKeyDown={onKeyDown}
-      className="relative grid grid-cols-2 p-1 mt-6 mb-6 rounded-[12px] bg-[var(--surface)] border border-[var(--hairline)]"
+      className="relative grid grid-cols-2 p-1 mt-6 mb-6 rounded-[10px] bg-[var(--surface)] border border-[var(--hairline)]"
     >
       {/* The white pill slides under the active tab. */}
       <span
         aria-hidden="true"
-        className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-[8px] bg-card border border-[var(--hairline)] transition-transform duration-300"
+        className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-[6px] bg-card border border-[var(--hairline)] transition-transform duration-[320ms]"
         style={{
           transform: mode === "signup" ? "translateX(100%)" : "translateX(0)",
-          transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)",
+          transitionTimingFunction: ENTER,
         }}
       />
       {tabs.map((t) => {
@@ -252,7 +261,7 @@ function ModeSwitch({ mode, onChange }: { mode: AuthMode; onChange: (m: AuthMode
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.id)}
             className={cn(
-              "relative z-10 h-11 rounded-[8px] text-[15px] font-semibold transition-colors duration-200",
+              "relative z-10 h-11 rounded-[6px] text-[15px] font-semibold transition-colors duration-100",
               FOCUS_RING,
               active ? "text-[var(--ink)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
             )}
@@ -299,10 +308,14 @@ function useFormErrors(ids: string, formRef: React.RefObject<HTMLFormElement | n
       // Wait for the error to render so aria-describedby resolves.
       requestAnimationFrame(() => document.getElementById(`${ids}-${field}`)?.focus());
     },
-    failForm: (message: string) => {
+    failForm: (message: string, focusField?: string) => {
       setFieldErrors({});
       setFormError(message);
       shake(formRef.current);
+      // The submit button was disabled while loading and lost focus; put
+      // the person back where they can retry.
+      if (focusField)
+        requestAnimationFrame(() => document.getElementById(`${ids}-${focusField}`)?.focus());
     },
   };
 }
@@ -312,16 +325,19 @@ function useFormErrors(ids: string, formRef: React.RefObject<HTMLFormElement | n
 function SignInPanel({
   email,
   setEmail,
-  autoFocus,
+  entryFocus,
   onCodeSent,
 }: {
   email: string;
   setEmail: (v: string) => void;
-  autoFocus: boolean;
+  entryFocus: EntryFocus;
   onCodeSent: (email: string) => void;
 }) {
   const ids = useId();
   const [view, setView] = useState<"password" | "code">("password");
+  // The password form autofocuses its email on entry and when coming back
+  // from the code form.
+  const [focusEmail, setFocusEmail] = useState(entryFocus !== null);
   const [password, setPassword] = useState("");
   const [submit, setSubmit] = useState<SubmitState>("idle");
   const formRef = useRef<HTMLFormElement>(null);
@@ -343,12 +359,13 @@ function SignInPanel({
     );
     if (error) {
       setSubmit("idle");
-      if (isUnreachable(error)) errors.failForm(UNREACHABLE);
+      if (isUnreachable(error)) errors.failForm(UNREACHABLE, "password");
       else if (error.code === "email_not_confirmed")
-        errors.failForm("Confirm your email first — use the code or link we sent you.");
+        errors.failForm("Confirm your email first — use the code or link we sent you.", "email");
       else if (isRateLimited(error))
-        errors.failForm("Too many attempts. Wait a minute, then try again.");
-      else errors.failForm("Email or password is wrong. Try again, or sign in with an email code.");
+        errors.failForm("Too many attempts. Wait a minute, then try again.", "password");
+      else
+        errors.failForm("Email or password is wrong. Try again, or sign in with an email code.", "password");
       return;
     }
 
@@ -381,7 +398,8 @@ function SignInPanel({
           ? UNREACHABLE
           : isRateLimited(error)
             ? "We just sent you a code. Wait a minute before asking for another."
-            : "We couldn't send the code. Check the address and try again."
+            : "We couldn't send the code. Check the address and try again.",
+        "code-email"
       );
       return;
     }
@@ -422,6 +440,7 @@ function SignInPanel({
             <TextLink
               onClick={() => {
                 setView("password");
+                setFocusEmail(true);
                 errors.clear();
               }}
             >
@@ -451,7 +470,7 @@ function SignInPanel({
               errors.clearField("email");
             }}
             required
-            autoFocus={autoFocus}
+            autoFocus={focusEmail}
             {...errors.describe("email")}
           />
         </Field>
@@ -505,20 +524,24 @@ const SIGNUP_FIELD: Record<string, string> = {
 function SignUpPanel({
   email,
   setEmail,
-  autoFocus,
+  details,
+  setDetails,
+  entryFocus,
   onCodeSent,
   onSignIn,
 }: {
   email: string;
   setEmail: (v: string) => void;
-  autoFocus: boolean;
+  details: SignUpDetails;
+  setDetails: React.Dispatch<React.SetStateAction<SignUpDetails>>;
+  entryFocus: EntryFocus;
   onCodeSent: (email: string) => void;
   onSignIn: () => void;
 }) {
   const ids = useId();
-  const [fullName, setFullName] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [password, setPassword] = useState("");
+  const { fullName, companyName, password } = details;
+  const setField = (key: keyof SignUpDetails) => (value: string) =>
+    setDetails((d) => ({ ...d, [key]: value }));
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>("idle");
   const formRef = useRef<HTMLFormElement>(null);
@@ -566,13 +589,13 @@ function SignUpPanel({
     if (error) {
       setSubmit("idle");
       const msg = (error.message ?? "").toLowerCase();
-      if (isUnreachable(error)) errors.failForm(UNREACHABLE);
+      if (isUnreachable(error)) errors.failForm(UNREACHABLE, "email");
       else if (msg.includes("already") || msg.includes("registered")) setAlreadyRegistered(true);
       else if (isRateLimited(error))
-        errors.failForm("Too many sign-ups from here just now. Wait a minute, then try again.");
+        errors.failForm("Too many sign-ups from here just now. Wait a minute, then try again.", "email");
       else if (msg.includes("password"))
         errors.failField("password", "Choose a stronger password — at least 8 characters.");
-      else errors.failForm("We couldn't create your account. Try again in a moment.");
+      else errors.failForm("We couldn't create your account. Try again in a moment.", "email");
       return;
     }
 
@@ -603,11 +626,11 @@ function SignUpPanel({
             placeholder="Alex Andersson"
             value={fullName}
             onChange={(e) => {
-              setFullName(e.target.value);
+              setField("fullName")(e.target.value);
               errors.clearField("name");
             }}
             required
-            autoFocus={autoFocus}
+            autoFocus={entryFocus === "first"}
             {...errors.describe("name")}
           />
         </Field>
@@ -625,7 +648,7 @@ function SignUpPanel({
             placeholder="Acme AB"
             value={companyName}
             onChange={(e) => {
-              setCompanyName(e.target.value);
+              setField("companyName")(e.target.value);
               errors.clearField("company");
             }}
             {...errors.describe("company")}
@@ -646,6 +669,7 @@ function SignUpPanel({
               errors.clearField("email");
             }}
             required
+            autoFocus={entryFocus === "email"}
             {...errors.describe("email")}
           />
         </Field>
@@ -661,7 +685,7 @@ function SignUpPanel({
             showRule
             value={password}
             onChange={(e) => {
-              setPassword(e.target.value);
+              setField("password")(e.target.value);
               errors.clearField("password");
             }}
             required

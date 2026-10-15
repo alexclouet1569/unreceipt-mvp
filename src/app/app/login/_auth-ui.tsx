@@ -9,7 +9,7 @@ export const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
 
 // DESIGN.md entrance easing (Apple spring-out) and "medium" duration.
-const ENTER = "cubic-bezier(0.32, 0.72, 0, 1)";
+export const ENTER = "cubic-bezier(0.32, 0.72, 0, 1)";
 
 /**
  * Fades + lifts its children in whenever `stepKey` changes, so moving
@@ -59,8 +59,10 @@ export function Field({
       {error ? (
         <p
           id={errorId}
+          // Announced even when the field already has focus (Enter pressed in it).
+          role="alert"
           className="flex items-center gap-1 mt-2 text-[13px] font-medium text-[var(--attention-deep)] animate-in fade-in"
-          style={{ animationDuration: "200ms" }}
+          style={{ animationDuration: "200ms", animationTimingFunction: ENTER }}
         >
           <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           {error}
@@ -71,9 +73,8 @@ export function Field({
 }
 
 const inputClass =
-  "w-full h-12 rounded-[10px] border border-[var(--hairline)] bg-card px-4 text-[16px] text-[var(--ink)] " +
+  "w-full h-12 rounded-[6px] border border-[var(--hairline)] bg-card px-4 text-[16px] text-[var(--ink)] " +
   "placeholder:text-[var(--ink-faint)] outline-none transition-[border-color,box-shadow] duration-100 " +
-  "hover:border-[color-mix(in_srgb,var(--ink)_25%,var(--hairline))] " +
   "focus:border-[var(--ring)] focus:ring-4 focus:ring-[var(--ring)]/15 " +
   "aria-invalid:border-[var(--attention)] aria-invalid:focus:ring-[var(--attention)]/20";
 
@@ -122,15 +123,18 @@ export function EmailInput({
             setChecked(false);
           }}
           className={cn(
-            "mt-2 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] rounded-[6px] animate-in fade-in",
+            "inline-flex items-center min-h-[44px] -my-2 mt-0 text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] rounded-[6px] animate-in fade-in",
             FOCUS_RING
           )}
+          style={{ animationDuration: "200ms", animationTimingFunction: ENTER }}
         >
-          Did you mean{" "}
-          <span className="font-semibold text-[var(--ink)] underline underline-offset-2">
-            {suggestion}
+          <span>
+            Did you mean{" "}
+            <span className="font-semibold text-[var(--ink)] underline underline-offset-2">
+              {suggestion}
+            </span>
+            ?
           </span>
-          ?
         </button>
       ) : null}
     </>
@@ -143,6 +147,9 @@ export function PasswordInput({
   ...props
 }: Omit<React.ComponentProps<"input">, "type"> & { showRule?: boolean }) {
   const [show, setShow] = useState(false);
+  const ruleId = props.id ? `${props.id}-rule` : undefined;
+  const describedBy =
+    [props["aria-describedby"], showRule ? ruleId : null].filter(Boolean).join(" ") || undefined;
   const [capsLock, setCapsLock] = useState(false);
   const length = typeof props.value === "string" ? props.value.length : 0;
   const ruleMet = length >= 8;
@@ -155,6 +162,7 @@ export function PasswordInput({
       <div className="relative">
         <input
           {...props}
+          aria-describedby={describedBy}
           type={show ? "text" : "password"}
           onKeyDown={(e) => {
             readCaps(e);
@@ -187,6 +195,7 @@ export function PasswordInput({
         </p>
       ) : showRule ? (
         <p
+          id={ruleId}
           className={cn(
             "flex items-center gap-1.5 mt-2 text-[13px] transition-colors duration-200",
             ruleMet ? "text-[var(--ink)]" : "text-[var(--ink-muted)]"
@@ -248,7 +257,10 @@ export function SubmitButton({
           {loadingLabel}
         </>
       ) : state === "done" ? (
-        <span className="inline-flex items-center gap-2 animate-in fade-in zoom-in-95" style={{ animationDuration: "200ms" }}>
+        <span
+          className="inline-flex items-center gap-2 animate-in fade-in zoom-in-95"
+          style={{ animationDuration: "200ms", animationTimingFunction: ENTER }}
+        >
           <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
           {doneLabel}
         </span>
@@ -277,6 +289,7 @@ export function SecondaryButton({
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
       {children}
+      <span className="sr-only">(opens in a new tab)</span>
     </a>
   ) : (
     <button type="button" onClick={onClick} className={className}>
@@ -332,7 +345,7 @@ export function Notice({
           : "bg-card border border-[var(--hairline)] text-[var(--ink)]",
         className
       )}
-      style={{ animationDuration: "200ms" }}
+      style={{ animationDuration: "200ms", animationTimingFunction: ENTER }}
     >
       {tone === "attention" ? (
         <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />

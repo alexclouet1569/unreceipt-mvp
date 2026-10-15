@@ -231,6 +231,20 @@ describe("/app/login — email code", () => {
     expect(window.location.assign).not.toHaveBeenCalled();
   });
 
+  it("accepts a pasted code with extra text around it", async () => {
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
+    mocks.verifyOtp.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@example.se");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    await user.click(await screen.findByLabelText(/6-digit code/i));
+    await user.paste("Code: 123 456");
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({ email: "alex@example.se", token: "123456", type: "email" });
+  });
+
   it("ignores letters in the code field", async () => {
     mocks.signInWithOtp.mockResolvedValue({ error: null });
     const user = userEvent.setup();
@@ -328,7 +342,12 @@ describe("/app/login — create account", () => {
     await fillSignUp(user);
     await user.click(screen.getByRole("button", { name: /Create account/i }));
     await user.click(await screen.findByRole("button", { name: /Change email/i }));
-    expect(screen.getByLabelText(/Work email/i)).toHaveValue("alex@example.se");
+    const emailField = screen.getByLabelText(/Work email/i);
+    expect(emailField).toHaveValue("alex@example.se");
+    expect(emailField).toHaveFocus();
+    // Nothing else has to be typed again.
+    expect(screen.getByLabelText(/Full name/i)).toHaveValue("Alex Andersson");
+    expect(screen.getByLabelText(/^Password/i)).toHaveValue("supersecret");
   });
 
   it("offers sign-in when the email is already registered", async () => {
