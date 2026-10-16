@@ -23,8 +23,10 @@ type LogoEntry = {
 // Ambiguous names are left out (SAS — also a French company form —, SL,
 // Max, Bolt, Paul, Relay, Total, Avis — also French for "notice" —,
 // Netto, Jumbo, Mango, Orange, Free, Casino alone, U alone; "boulanger"
-// is also a baker and Picard a surname) or need their
-// company suffix ("Slack Technologies", not a bar called Slack).
+// is also a baker and Picard a surname; hotel brands whose site shows the
+// parent group's icon — Holiday Inn, ibis, Novotel) or need their
+// company suffix ("Slack Technologies", not a bar called Slack; "Shell
+// Station", "Hilton Hotel", not "Shell Beach Café").
 export const MERCHANT_LOGOS: Record<string, LogoEntry> = {
   // Sweden — groceries and shops
   ica: { domain: "ica.se", match: ["ica"] },
@@ -102,7 +104,7 @@ export const MERCHANT_LOGOS: Record<string, LogoEntry> = {
   esselunga: { domain: "esselunga.it", match: ["esselunga"] },
   rema_1000: { domain: "rema1000.no", match: ["rema 1000"] },
   elkjop: { domain: "elkjop.no", match: ["elkjop"] },
-  zara: { domain: "zara.com", match: ["zara"] },
+  zara: { domain: "zara.com", match: ["zara.com", "inditex"] },
   hm: { domain: "hm.com", match: ["h&m", "h & m", "hennes & mauritz", "hennes och mauritz"] },
   primark: { domain: "primark.com", match: ["primark"] },
   pret: { domain: "pret.com", match: ["pret a manger"] },
@@ -125,16 +127,13 @@ export const MERCHANT_LOGOS: Record<string, LogoEntry> = {
   hertz: { domain: "hertz.com", match: ["hertz"] },
   europcar: { domain: "europcar.com", match: ["europcar"] },
   sixt: { domain: "sixt.com", match: ["sixt"] },
-  shell: { domain: "shell.com", match: ["shell"] },
+  shell: { domain: "shell.com", match: ["shell station", "shell express", "shell recharge", "shell select"] },
   esso: { domain: "esso.com", match: ["esso"] },
   aral: { domain: "aral.de", match: ["aral"] },
-  hilton: { domain: "hilton.com", match: ["hilton"] },
+  hilton: { domain: "hilton.com", match: ["hilton hotel", "hilton hotels", "hilton garden inn", "doubletree by hilton", "hampton by hilton"] },
   marriott: { domain: "marriott.com", match: ["marriott"] },
   radisson: { domain: "radissonhotels.com", match: ["radisson"] },
   best_western: { domain: "bestwestern.com", match: ["best western"] },
-  holiday_inn: { domain: "ihg.com", match: ["holiday inn"] },
-  ibis: { domain: "ibis.com", match: ["ibis"] },
-  novotel: { domain: "novotel.com", match: ["novotel"] },
   // Everywhere
   uber: { domain: "uber.com", match: ["uber"] },
   airbnb: { domain: "airbnb.com", match: ["airbnb"] },

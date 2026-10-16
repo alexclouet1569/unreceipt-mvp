@@ -24,6 +24,8 @@ describe("merchantLogoSlug", () => {
     expect(merchantLogoSlug("H&M Drottninggatan")).toBe("hm");
     expect(merchantLogoSlug("Österreichische Bundesbahnen")).toBe("oebb");
     expect(merchantLogoSlug("Sainsbury’s Local")).toBe("sainsburys");
+    expect(merchantLogoSlug("Shell Station Kungens Kurva")).toBe("shell");
+    expect(merchantLogoSlug("DoubleTree by Hilton Stockholm")).toBe("hilton");
   });
 
   it("doesn't mistake common words for French or European chains", () => {
@@ -35,6 +37,10 @@ describe("merchantLogoSlug", () => {
     expect(merchantLogoSlug("Le Boulanger de Montmartre")).toBeNull();
     expect(merchantLogoSlug("Boucherie Picard")).toBeNull();
     expect(merchantLogoSlug("Casa de Cultura")).toBeNull();
+    expect(merchantLogoSlug("Zara's Kitchen")).toBeNull();
+    expect(merchantLogoSlug("Shell Beach Café")).toBeNull();
+    expect(merchantLogoSlug("Hilton Park Bakery")).toBeNull();
+    expect(merchantLogoSlug("Hotel ibis Styles")).toBeNull();
   });
 
   it("only matches whole words", () => {
