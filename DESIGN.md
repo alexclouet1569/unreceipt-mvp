@@ -20,7 +20,7 @@
 
 1. **The brand wordmark.** Brand-book primary mark: receipt-glyph isotype (rounded receipt with serrated bottom + circular arrow wrapping the top-left) paired with the bespoke wordmark `Un` in **Deep Space** + `Receipt` in **Green Mint**, set in **Manrope ExtraBold (800)**. Used in the app header on every screen. The shared component is `src/components/brand/Wordmark.tsx`; render `<Wordmark variant="horizontal" />` in headers, `variant="stacked"` for centered hero placements (e.g. /app/login), `variant="icon"` for the isotype-only PWA / favicon surfaces.
 2. **The perforated edge.** 8×8 dot-mask repeating along the top of receipt detail views. Reinforced by `1px dashed hairline` dividers between detail sections.
-3. **Mono amounts everywhere.** Every monetary value in the product renders in Geist Mono — list cards, detail totals, line items, VAT panel. Vertically aligns amounts across the inbox. This is the typographic identity.
+3. **Mono amounts everywhere.** Every monetary value in the product renders in Geist Mono — list cards, detail totals, line items, VAT rows and the capture sheet's VAT panel. Never on dates, counts, ids or codes (use `tabular-nums` in Manrope for those). Vertically aligns amounts across the inbox. This is the typographic identity.
 4. **Tighter density than Kivra.** 12px card radius, 12×14 padding, 8px between cards. Signals "finance pro tool," not "consumer doc storage."
 
 ## Typography (per brand book pp. 15–16)
@@ -144,8 +144,9 @@ xl   24px   Section gutters
 - **Approach.** Strict single-column. Mobile-first 390px primary canvas. No sidebar, ever.
 - **Header.** Compact 12px-padded top bar with the `UnReceipt` wordmark on the left and a small filter/search icon-button on the right (36px). No nav tabs in v1.
 - **List.** Receipt cards in a single column with `8px` gaps. Date groups (`Today`, `Yesterday`, `This week`, `Earlier in May`) as `micro` labels above the relevant cluster.
+- **Group and filter.** A two-option segmented control (`By date` / `By category`, 44px buttons with `aria-pressed`, `--surface` track, `--card` thumb) sits above the filter chips. By category, sections are ordered most-used first and the micro label carries the count and the total per currency (`68.00 kr + €18.50` — never converted). The chip row (All, Review needed, then each used category) scrolls sideways; each chip is a 36px pill inside a 44px tap target, `aria-pressed`, active = `--card` with an ink border (honey for Review needed — never mint). Counts in Manrope `tabular-nums`. Tapping the active category chip again goes back to All.
 - **FAB.** Fixed bottom-center, `64×64`, `--brand-action` green, white `+` icon. Safe-area-inset aware (Capacitor).
-- **Detail view.** Full-screen sheet. Perforated edge at the top. Large mono total, merchant block, items section, VAT panel in `--brand-tint`, details section. Dashed `1px hairline` dividers between sections.
+- **Detail view.** The digital receipt (see "Digital receipt") on a `--surface` backdrop, with the edit / PDF / delete actions below it.
 - **Empty state.** Calm illustrated mark in a `64×64 brand-tint` square, short pitch, then a `card` showing the user's unique `u-XXXX@unreceipt.com` email and a `Copy` button.
 
 ### Border radius
@@ -194,17 +195,22 @@ full 9999   FAB, avatars, pill badges
 - Amount: `Geist Mono 500 / 18 / -0.01em` in `--ink`. Currency suffix `kr` at 11px in `--ink-faint`, 3px left margin, vertically aligned to baseline+1px.
 - Active state: `scale(0.985)` over 120ms.
 
-### Receipt detail card
+### Digital receipt (`ReceiptDetailCard`)
 
-- Sheet enters from bottom. `radius xl (16)` top corners only.
-- Top: 12px back-button row showing `Receipt · #2026-NNNN` in `micro` style.
-- Perforated edge directly below header (8×8 dot mask, surface-colored dots subtract from card).
-- Merchant block: `56×56` logo (`radius 14`), 20px merchant name (Manrope 700), 13px sub-line in `--ink-muted` (e.g. `Stockholm C → Göteborg C` for travel, store address for retail).
-- **Display total:** `amount-display` (Geist Mono 40px), with `kr` at 18px and `vertical-align: 4px` after.
-- Date line: `body / 14` in `--ink-muted`. Format: `Yesterday · 14:32 · Card ending 4421`.
-- Sections separated by `1px dashed hairline` dividers, `padding 20 0`.
-- VAT panel: `--brand-tint` background, `1px` border of `color-mix(in srgb, var(--brand) 20%, transparent)`, `radius md (10)`, `padding 14 16`. Each row in `Geist Mono` for values.
-- Line items list: `desc` left in `Figtree 400`, `price` right in `Geist Mono 400`, `border-bottom 1px hairline` per row except the last.
+Shown right after a capture is saved (the capture sheet's "Receipt saved" step, with **PDF** and **Done**) and on the Digital tab of the receipt detail view. One component, so both always match.
+
+- Paper: `--card` with a hairline border, the 8×8 perforated edge (`PerfEdge`) on top and a torn zigzag bottom (`.receipt-torn` mask in `globals.css`). No radius, no shadow.
+- Head: the `Wordmark` (`wordmark` variant, 17px) centred, `DIGITAL RECEIPT · No. NNNN` below in micro caps. The receipt is branded UnReceipt; the store never gets the letterhead, so it can't pass for a receipt the store issued.
+- Merchant: 48×48 `MerchantLogo` (`radius 12`), merchant name 18/700, address or category in `--ink-muted`. Date · time · `Card •••• 4421` on one Manrope 12/500 `--ink-muted` line with `tabular-nums`.
+- Lines: label … dotted leader … value (`Leader`), 14px; amounts in Geist Mono. Dashed hairline rules between sections. Items show `× qty @ unit` when qty ≠ 1.
+- **Total**: `TOTAL` in micro caps 14/800, amount Geist Mono 24/600 with the currency suffix 13px `--ink-muted`. VAT (with its rate) and `Excl. VAT` as leader lines under it.
+- Footer: a rotated `✓ VERIFIED` stamp (2px `--brand` border, `--brand-action` text) only when UnReceipt verified the receipt; otherwise `Needs review` (`--attention-deep`), `Checked by you` (photo or manual capture) or `Read automatically` (email/SMS). `Original attached` with a paperclip when there is one. The barcode (`.receipt-barcode`, ink) appears only under a real verification code.
+
+### Merchant logo (`MerchantLogo`)
+
+- Store logos only for merchants on the hand-checked list in `src/lib/merchant-logos.ts`, matched on whole words; ambiguous names (SAS, Paul, Max…) stay off it. Everyone else keeps the initials badge: white initials on a colour hashed from the name, from a palette where every colour passes AA under white (`src/lib/merchant-display.ts`: action green, deep space, slate, plum, clay, teal, honey deep, berry, ink muted).
+- Logos come from `/api/merchant-logo/<slug>`, which fetches the site icon server-side (the customer's IP and the merchant never reach the icon service) and is CDN-cached for 30 days.
+- The initials badge shows until the logo has loaded and stays if it fails, so there is never an empty tile. A loaded logo sits on `--card` with a hairline border.
 
 ### Capture sheet (photo first)
 
@@ -279,6 +285,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-15 | **`--brand`, `--brand-deep`, `--negative`, `--destructive-foreground` defined in globals.css**; `--primary`, `--ring`, `--destructive` alias them. Motion is disabled under `prefers-reduced-motion`. | They were referenced but undefined. |
 | 2026-10-16 | **Action green `--brand-action` #1A7F52** for primary buttons, the FAB and focus rings (`--primary`, `--ring` point at it); `--brand` #27BE7B stays for the wordmark and accents. **`--ink-muted` set to its spec value #5A5F7A** in globals.css (it had drifted to 65% Deep Space, 3.8:1). | White on #27BE7B is 2.4:1 and the old muted text 3.8:1 — both under WCAG AA (4.5:1). Same hue, so the brand still reads green; now 5.0:1 and 6.3:1. |
 | 2026-10-16 | **Capture becomes a photo-first bottom sheet** (choose → reading → check and save), with edit-in-place rows instead of stacked input boxes, VAT worked out from the rate, and the receipt's own currency. iOS date inputs drop their native chrome (`globals.css`) so they no longer spill into the next column. | The centred dialog put nine boxes before the photo, overlapped on iPhone, scrolled its close button away and used placeholders that looked like real data. Reading the photo is the product; the form is the fallback. |
+| 2026-10-16 | **Digital receipt redesign + "Receipt saved" step.** `ReceiptDetailCard` becomes a paper receipt (perforated top, torn bottom, dotted leaders, verified stamp) and is shown right after saving as well as in the detail view. VAT moves from the mint panel to leader lines under the total. Store logos for a hand-checked list of merchants, served through our own cached endpoint. Inbox gains By date / By category grouping and category chips. | The founder wanted a receipt that feels like the one on the landing page, visible the moment it's created. Logos only where we're sure of the match: a wrong logo on an accounting record is worse than initials. The footer no longer says "Awaiting verification" on receipts nobody else will verify. |
 
 ---
 
@@ -327,7 +334,7 @@ Suggested order. Each bullet is a roughly self-contained PR.
   - Use `<PerfEdge direction="top" />` directly below the dialog header.
   - Use `1px dashed hairline` dividers between sections (not solid).
   - Apply `amount-display` to the total, `amount-row` to line items and VAT rows.
-  - Wrap VAT section in a `--brand-tint` panel.
+  - VAT as leader lines under the total (superseded the `--brand-tint` panel on 2026-10-16).
 
 ### PR 6 — Capture dialog (OCR) calm-down
 

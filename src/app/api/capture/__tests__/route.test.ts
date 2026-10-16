@@ -153,7 +153,7 @@ describe("POST /api/capture", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ok: true, id: "rec-1" });
+    expect(body).toEqual({ ok: true, id: "rec-1", receipt: { id: "rec-1" } });
 
     expect(mocks.upload).not.toHaveBeenCalled();
     expect(mocks.insert).toHaveBeenCalledTimes(1);

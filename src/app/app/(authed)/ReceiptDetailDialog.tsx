@@ -177,7 +177,9 @@ export function ReceiptDetailDialog({
                   </TabsList>
                 </div>
                 <TabsContent value="digital">
-                  <ReceiptDetailCard receipt={receipt} />
+                  <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
+                    <ReceiptDetailCard receipt={receipt} />
+                  </div>
                   {form}
                 </TabsContent>
                 <TabsContent value="original">
@@ -186,7 +188,9 @@ export function ReceiptDetailDialog({
               </Tabs>
             ) : (
               <>
-                <ReceiptDetailCard receipt={receipt} />
+                <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
+                  <ReceiptDetailCard receipt={receipt} />
+                </div>
                 {form}
               </>
             )}

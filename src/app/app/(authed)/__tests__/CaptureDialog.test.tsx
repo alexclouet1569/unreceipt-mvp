@@ -172,6 +172,45 @@ describe("CaptureDialog", () => {
     expect(fd.get("tax_rate")).toBe("25");
   });
 
+  it("shows the digital receipt after saving, and closes on Done", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(
+      okResponse({
+        ok: true,
+        id: "rec-9",
+        receipt: {
+          id: "rec-9",
+          merchant_name: "ICA Maxi",
+          category: "other",
+          currency: "SEK",
+          total: 49,
+          receipt_date: "2026-10-16",
+          tax_amount: null,
+          is_verified: false,
+          source: "manual",
+          items: null,
+        },
+      }),
+    );
+    const { onOpenChange } = renderDialog();
+
+    await enterManually(user);
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    expect(await screen.findByRole("heading", { name: "Receipt saved" })).toBeInTheDocument();
+    expect(screen.getByTestId("receipt-detail-card")).toHaveTextContent("ICA Maxi");
+    expect(screen.getByRole("link", { name: /PDF/ })).toHaveAttribute(
+      "href",
+      "/api/receipts/rec-9/pdf",
+    );
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("keeps what the customer typed when a photo is added afterwards", async () => {
     const user = userEvent.setup();
     mocks.fetch.mockResolvedValue(okResponse(OCR_RESULT));
