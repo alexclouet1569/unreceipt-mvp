@@ -5,8 +5,18 @@ import { GET } from "@/app/api/merchant-logo/[slug]/route";
 const call = (slug: string, search = "") =>
   GET({ nextUrl: { search } } as NextRequest, { params: Promise.resolve({ slug }) });
 
-const iconResponse = (type: string, bytes = 10, status = 200) =>
-  new Response(new Uint8Array(bytes), { status, headers: { "content-type": type } });
+/** A PNG header (signature + IHDR) of the given size, padded to `bytes`. */
+const png = (size: number, bytes = 64) => {
+  const b = new Uint8Array(Math.max(bytes, 24));
+  b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const view = new DataView(b.buffer);
+  view.setUint32(16, size);
+  view.setUint32(20, size);
+  return b;
+};
+
+const iconResponse = (type: string, body: Uint8Array = png(128), status = 200) =>
+  new Response(body as BodyInit, { status, headers: { "content-type": type } });
 
 describe("GET /api/merchant-logo/[slug]", () => {
   const fetchMock = vi.fn();
@@ -45,7 +55,7 @@ describe("GET /api/merchant-logo/[slug]", () => {
   });
 
   it("returns 404 when the store has no icon or the answer isn't an image", async () => {
-    fetchMock.mockResolvedValueOnce(iconResponse("image/png", 10, 404));
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(128), 404));
     expect((await call("ica")).status).toBe(404);
 
     fetchMock.mockResolvedValueOnce(iconResponse("text/html"));
@@ -54,7 +64,41 @@ describe("GET /api/merchant-logo/[slug]", () => {
     fetchMock.mockResolvedValueOnce(iconResponse("image/svg+xml"));
     expect((await call("ica")).status).toBe(404);
 
-    fetchMock.mockResolvedValueOnce(iconResponse("image/png", 300 * 1024));
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(128, 300 * 1024)));
+    expect((await call("ica")).status).toBe(404);
+
+    // A PNG content type that isn't a PNG.
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", new Uint8Array(64)));
+    expect((await call("ica")).status).toBe(404);
+  });
+
+  it("skips icons too small to look sharp in a 48 px badge", async () => {
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(16)));
+    expect((await call("ica")).status).toBe(404);
+
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(32)));
+    expect((await call("ica")).status).toBe(404);
+
+    // Not square: the short side counts.
+    const wide = png(128);
+    new DataView(wide.buffer).setUint32(20, 16);
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", wide));
+    expect((await call("ica")).status).toBe(404);
+
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(64)));
+    expect((await call("ica")).status).toBe(200);
+  });
+
+  it("caches a too-small icon's 404 for a week, a failure's for an hour", async () => {
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(16)));
+    expect((await call("ica")).headers.get("cache-control")).toContain("s-maxage=604800");
+
+    fetchMock.mockResolvedValueOnce(iconResponse("text/html"));
+    expect((await call("ica")).headers.get("cache-control")).toContain("s-maxage=3600");
+  });
+
+  it("rejects a truncated PNG header", async () => {
+    fetchMock.mockResolvedValueOnce(iconResponse("image/png", png(128).slice(0, 20)));
     expect((await call("ica")).status).toBe(404);
   });
 

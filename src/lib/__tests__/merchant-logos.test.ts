@@ -13,6 +13,36 @@ describe("merchantLogoSlug", () => {
     expect(merchantLogoSlug("Slack Technologies Limited")).toBe("slack");
   });
 
+  it("covers French and European chains", () => {
+    expect(merchantLogoSlug("E.Leclerc Hypermarché")).toBe("leclerc");
+    expect(merchantLogoSlug("INTERMARCHÉ SUPER")).toBe("intermarche");
+    expect(merchantLogoSlug("Super U Rennes")).toBe("super_u");
+    expect(merchantLogoSlug("Decathlon Lyon")).toBe("decathlon");
+    expect(merchantLogoSlug("Air France")).toBe("air_france");
+    expect(merchantLogoSlug("DB Fernverkehr AG")).toBe("deutsche_bahn");
+    expect(merchantLogoSlug("Albert Heijn 1234")).toBe("albert_heijn");
+    expect(merchantLogoSlug("H&M Drottninggatan")).toBe("hm");
+    expect(merchantLogoSlug("Österreichische Bundesbahnen")).toBe("oebb");
+    expect(merchantLogoSlug("Sainsbury’s Local")).toBe("sainsburys");
+    expect(merchantLogoSlug("Shell Station Kungens Kurva")).toBe("shell");
+    expect(merchantLogoSlug("DoubleTree by Hilton Stockholm")).toBe("hilton");
+  });
+
+  it("doesn't mistake common words for French or European chains", () => {
+    expect(merchantLogoSlug("Avis de passage")).toBeNull();
+    expect(merchantLogoSlug("Casino de Paris")).toBeNull();
+    expect(merchantLogoSlug("Bar U")).toBeNull();
+    expect(merchantLogoSlug("Boulangerie du Coin")).toBeNull();
+    expect(merchantLogoSlug("Orange Café")).toBeNull();
+    expect(merchantLogoSlug("Le Boulanger de Montmartre")).toBeNull();
+    expect(merchantLogoSlug("Boucherie Picard")).toBeNull();
+    expect(merchantLogoSlug("Casa de Cultura")).toBeNull();
+    expect(merchantLogoSlug("Zara's Kitchen")).toBeNull();
+    expect(merchantLogoSlug("Shell Beach Café")).toBeNull();
+    expect(merchantLogoSlug("Hilton Park Bakery")).toBeNull();
+    expect(merchantLogoSlug("Hotel ibis Styles")).toBeNull();
+  });
+
   it("only matches whole words", () => {
     expect(merchantLogoSlug("Kuberna Bar")).toBeNull();
     expect(merchantLogoSlug("Musica Shop")).toBeNull();

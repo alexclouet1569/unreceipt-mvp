@@ -209,7 +209,7 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 ### Merchant logo (`MerchantLogo`)
 
 - Store logos only for merchants on the hand-checked list in `src/lib/merchant-logos.ts`, matched on whole words; ambiguous names (SAS, Paul, Max…) stay off it. Everyone else keeps the initials badge: white initials on a colour hashed from the name, from a palette where every colour passes AA under white (`src/lib/merchant-display.ts`: action green, deep space, slate, plum, clay, teal, honey deep, berry, ink muted).
-- Logos come from `/api/merchant-logo/<slug>`, which fetches the site icon server-side (the customer's IP and the merchant never reach the icon service) and is CDN-cached for 30 days.
+- Logos come from `/api/merchant-logo/<slug>`, which fetches the site icon server-side (the customer's IP and the merchant never reach the icon service) and is CDN-cached for 30 days. Only PNG icons of at least 64×64 px are used (a badge is 80–96 device px on a phone); smaller favicons would look blurry, so those stores keep initials.
 - The initials badge shows until the logo has loaded and stays if it fails, so there is never an empty tile. A loaded logo sits on `--card` with a hairline border.
 
 ### Capture sheet (photo first)

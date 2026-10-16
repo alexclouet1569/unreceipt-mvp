@@ -16,22 +16,34 @@ import { merchantLogoDomain } from "@/lib/merchant-logos";
 export const runtime = "nodejs";
 
 const ICON_SIZE = 128;
+// Badges are 40–48 CSS px, so 80–96 device px on a phone; a 16 or 32 px
+// favicon blown up to that looks blurry, and initials look better.
+const MIN_ICON_PX = 64;
 const MAX_ICON_BYTES = 200 * 1024;
 const FETCH_TIMEOUT_MS = 4000;
-const ALLOWED_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/x-icon",
-  "image/vnd.microsoft.icon",
-]);
+// PNG only: its size sits at a fixed place in the header, so the quality
+// bar below is checkable. The icon service answers PNG for real icons.
+const ALLOWED_TYPES = new Set(["image/png"]);
 
-const notFound = () =>
+/** Width and height from a PNG's IHDR chunk, or null if it isn't a PNG. */
+function pngSize(bytes: Uint8Array): { width: number; height: number } | null {
+  // Signature, then the IHDR chunk (length 13, type "IHDR") that a PNG
+  // must start with; its first 8 data bytes are width and height.
+  const header = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52];
+  if (bytes.length < 24 || header.some((b, i) => bytes[i] !== b)) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+// Short by default so a temporary failure heals; long when the store's
+// icon is simply too small, which won't change soon.
+const notFound = (seconds = 3600) =>
   new NextResponse(null, {
     status: 404,
-    // Short so a temporary failure heals, long enough to absorb a burst.
-    headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600" },
+    headers: { "Cache-Control": `public, max-age=${seconds}, s-maxage=${seconds}` },
   });
+
+const A_WEEK = 7 * 24 * 3600;
 
 export async function GET(
   request: NextRequest,
@@ -55,6 +67,9 @@ export async function GET(
     if (!res.ok || !ALLOWED_TYPES.has(type)) return notFound();
     const body = await res.arrayBuffer();
     if (body.byteLength === 0 || body.byteLength > MAX_ICON_BYTES) return notFound();
+    const size = pngSize(new Uint8Array(body));
+    if (!size) return notFound();
+    if (Math.min(size.width, size.height) < MIN_ICON_PX) return notFound(A_WEEK);
     return new NextResponse(body, {
       status: 200,
       headers: {
