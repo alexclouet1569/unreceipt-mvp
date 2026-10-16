@@ -1021,3 +1021,28 @@ REVOKE ALL ON public.account_retention FROM anon, authenticated;
 
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ;
+
+-- =============================================================================
+-- 2026-10-16 — Gmail forwarding confirmation codes (launch plan action 84)
+--
+-- Gmail starts auto-forwarding to the user's receipts+<hash>@ alias only
+-- after someone types the code Gmail mails to that alias. /api/intake/email
+-- recognises that email (src/lib/forwarding-confirmation.ts), keeps the
+-- latest code here instead of filing it as a receipt, and the setup guide
+-- (/app/settings/forwarding) shows it. One row per user: a newer email
+-- replaces the older code. Only the code and the Gmail address are kept,
+-- never the email or its link.
+-- Server-only: written by intake and read by the guide page, both with the
+-- service role. RLS on, no policies, grants revoked. Idempotent.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.email_forwarding_confirmations (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('gmail')),
+  code TEXT CHECK (code ~ '^[0-9]{6,12}$'),
+  for_address TEXT CHECK (char_length(for_address) <= 254),
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.email_forwarding_confirmations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.email_forwarding_confirmations FROM anon, authenticated;

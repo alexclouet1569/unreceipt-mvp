@@ -1,0 +1,475 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { IntakeRow } from "@/components/IntakeRow";
+import { RECEIPT_SUBJECT_WORDS, gmailFilterQuery } from "@/lib/forwarding-filters";
+
+export type GuideConfirmation = {
+  code: string | null;
+  forAddress: string | null;
+  receivedAt: string;
+};
+
+type Provider = "gmail" | "outlook" | "other";
+
+const PROVIDERS: { id: Provider; label: string }[] = [
+  { id: "gmail", label: "Gmail" },
+  { id: "outlook", label: "Outlook" },
+  { id: "other", label: "Other" },
+];
+
+// While the Gmail steps are open, re-read the page so Gmail's code shows up
+// without a reload. Bounded so a forgotten tab stops asking.
+const POLL_MS = 5_000;
+const POLL_FOR_MS = 10 * 60 * 1000;
+
+/**
+ * What the forwarding address does, then a step-by-step forwarding rule
+ * for the user's email provider. Gmail's confirmation code arrives through
+ * /api/intake/email and is passed in by the server page.
+ */
+export function ForwardingGuide({
+  forwardingEmail,
+  confirmation,
+}: {
+  forwardingEmail: string;
+  confirmation: GuideConfirmation | null;
+}) {
+  const [provider, setProvider] = useState<Provider>("gmail");
+  const inboundDomain = forwardingEmail.split("@")[1] ?? forwardingEmail;
+
+  return (
+    <div className="space-y-8">
+      <section aria-labelledby="what-heading">
+        <SectionLabel id="what-heading">What this address does</SectionLabel>
+        <div className="space-y-3">
+          <IntakeRow
+            callout="Your private receipts address"
+            value={forwardingEmail}
+            mono
+            copyLabel="Copy forwarding address"
+          />
+          <ul
+            className="bg-card divide-y divide-[var(--hairline)]"
+            style={{ border: "1px solid var(--hairline)", borderRadius: "12px" }}
+          >
+            <Fact title="Emails become receipts">
+              Anything sent to this address shows up in UnReceipt within a
+              minute. We read the shop, date, total and VAT, and keep the
+              original email as proof.
+            </Fact>
+            <Fact title="You choose what we see">
+              We only get the emails you forward. UnReceipt never signs in to
+              or reads your inbox.
+            </Fact>
+            <Fact title="Not a receipt? It waits for you">
+              Emails we can&apos;t read as a receipt wait under Review needed.
+              They only count toward your plan if you keep them.
+            </Fact>
+            <Fact title="Keep it private">
+              Anyone who has this address can send mail into your account.
+              Don&apos;t post it publicly.
+            </Fact>
+          </ul>
+        </div>
+      </section>
+
+      <section aria-labelledby="hand-heading">
+        <SectionLabel id="hand-heading">Forward by hand</SectionLabel>
+        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+          Works from any email app, on any phone: open the receipt email, tap
+          Forward and send it to your address. Save the address as a contact
+          called &ldquo;UnReceipt&rdquo; so it&apos;s two taps next time.
+        </p>
+      </section>
+
+      <section aria-labelledby="auto-heading">
+        <SectionLabel id="auto-heading">Make it automatic</SectionLabel>
+        <p
+          className="text-[var(--ink-muted)]"
+          style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "12px" }}
+        >
+          Set a rule once and your email forwards receipts by itself. It
+          takes about 3 minutes and needs a computer. The rule only forwards
+          emails whose subject looks like a receipt, not your other mail.
+        </p>
+
+        <div role="group" aria-label="Your email provider" className="flex gap-2" style={{ marginBottom: "16px" }}>
+          {PROVIDERS.map((p) => (
+            <ProviderButton
+              key={p.id}
+              active={provider === p.id}
+              onClick={() => setProvider(p.id)}
+              label={p.label}
+            />
+          ))}
+        </div>
+
+        {provider === "gmail" ? (
+          <GmailSteps forwardingEmail={forwardingEmail} confirmation={confirmation} />
+        ) : null}
+        {provider === "outlook" ? <OutlookSteps inboundDomain={inboundDomain} /> : null}
+        {provider === "other" ? <OtherSteps /> : null}
+      </section>
+
+      <section aria-labelledby="test-heading">
+        <SectionLabel id="test-heading">Check that it works</SectionLabel>
+        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+          Ask a colleague, or use another email account, to send you an email
+          with the subject <Strong>Test receipt</Strong>. Within a minute it
+          should appear in UnReceipt under Review needed. Delete it
+          afterwards; it doesn&apos;t count toward your plan. Nothing after 5
+          minutes? Check the rule, or write to support@unreceipt.com.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function GmailSteps({
+  forwardingEmail,
+  confirmation,
+}: {
+  forwardingEmail: string;
+  confirmation: GuideConfirmation | null;
+}) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (Date.now() - started > POLL_FOR_MS) {
+        clearInterval(timer);
+        return;
+      }
+      if (document.visibilityState === "visible") router.refresh();
+    }, POLL_MS);
+    // Coming back from the Gmail tab: check straight away.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [router]);
+
+  return (
+    <div className="space-y-4">
+      <Note>
+        Use Gmail in a browser on a computer; the Gmail app can&apos;t set up
+        forwarding. Work Gmail (Google Workspace): if you can&apos;t add a
+        forwarding address, your admin has turned forwarding off. Ask them to
+        allow it.
+      </Note>
+      <Steps>
+        <Step n={1}>
+          In Gmail, click the gear, then <Strong>See all settings</Strong>, then
+          the <Strong>Forwarding and POP/IMAP</Strong> tab.
+        </Step>
+        <Step n={2}>
+          Click <Strong>Add a forwarding address</Strong>, paste your address,
+          then <Strong>Next</Strong>, <Strong>Proceed</Strong> and{" "}
+          <Strong>OK</Strong>.
+          <div style={{ marginTop: "8px" }}>
+            <IntakeRow
+              callout="Your address"
+              value={forwardingEmail}
+              mono
+              copyLabel="Copy forwarding address"
+            />
+          </div>
+        </Step>
+        <Step n={3}>
+          Gmail sends a confirmation code to UnReceipt. It appears below: type
+          it into Gmail and click <Strong>Verify</Strong>.
+          <div style={{ marginTop: "8px" }}>
+            <ConfirmationCode confirmation={confirmation} />
+          </div>
+        </Step>
+        <Step n={4}>
+          Leave <Strong>Disable forwarding</Strong> selected. Otherwise Gmail
+          forwards all your mail, not just receipts. The next step forwards
+          receipts only.
+        </Step>
+        <Step n={5}>
+          Open the <Strong>Filters and Blocked Addresses</Strong> tab and click{" "}
+          <Strong>Create a new filter</Strong>. Paste this into{" "}
+          <Strong>Has the words</Strong>, then click{" "}
+          <Strong>Create filter</Strong>.
+          <div style={{ marginTop: "8px" }}>
+            <IntakeRow
+              callout="Has the words"
+              value={gmailFilterQuery()}
+              mono={false}
+              copyLabel="Copy Gmail filter"
+              breakWords
+            />
+          </div>
+        </Step>
+        <Step n={6}>
+          Tick <Strong>Forward it to</Strong>, choose your UnReceipt address,
+          and click <Strong>Create filter</Strong>. Done.
+        </Step>
+      </Steps>
+    </div>
+  );
+}
+
+function ConfirmationCode({ confirmation }: { confirmation: GuideConfirmation | null }) {
+  // Relative time is computed after mount so server and client render the
+  // same markup.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const first = setTimeout(() => setNow(Date.now()), 0);
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, []);
+
+  if (!confirmation) {
+    return (
+      <p
+        role="status"
+        className="bg-card text-[var(--ink-muted)]"
+        style={{
+          border: "1px dashed var(--hairline)",
+          borderRadius: "12px",
+          padding: "12px 14px",
+          fontSize: "14px",
+        }}
+      >
+        Waiting for Gmail&apos;s email… This page checks by itself.
+      </p>
+    );
+  }
+
+  if (!confirmation.code) {
+    return (
+      <p role="status" className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+        Gmail&apos;s email arrived, but we couldn&apos;t read the code in it.
+        Write to support@unreceipt.com and we&apos;ll send it to you.
+      </p>
+    );
+  }
+
+  const minutes = now == null ? null : Math.max(0, Math.round((now - Date.parse(confirmation.receivedAt)) / 60_000));
+  const age =
+    minutes == null ? "" : minutes < 1 ? " · just now" : minutes < 120 ? ` · ${minutes} min ago` : " · earlier";
+  const forWhom = confirmation.forAddress ? `Code for ${confirmation.forAddress}` : "Gmail's code";
+
+  return (
+    <div role="status">
+      <IntakeRow
+        callout={`${forWhom}${age}`}
+        value={confirmation.code}
+        mono={false}
+        copyLabel="Copy Gmail confirmation code"
+      />
+      <p className="text-[var(--ink-faint)]" style={{ fontSize: "12px", marginTop: "6px" }}>
+        Added the address again? The newest code replaces this one here.
+      </p>
+    </div>
+  );
+}
+
+function OutlookSteps({ inboundDomain }: { inboundDomain: string }) {
+  return (
+    <div className="space-y-4">
+      <Note>
+        Use Outlook in a browser: outlook.com for personal accounts,
+        outlook.office.com for work. The Outlook app can&apos;t create
+        forwarding rules.
+      </Note>
+      <Steps>
+        <Step n={1}>
+          Click the gear, then <Strong>Mail</Strong>, <Strong>Rules</Strong>{" "}
+          and <Strong>Add new rule</Strong>. Name it UnReceipt.
+        </Step>
+        <Step n={2}>
+          Under <Strong>Add a condition</Strong>, choose{" "}
+          <Strong>Subject includes</Strong> and add these words one at a time,
+          pressing Enter after each:
+          <WordList />
+        </Step>
+        <Step n={3}>
+          Under <Strong>Add an action</Strong>, choose{" "}
+          <Strong>Forward to</Strong> and paste your UnReceipt address.
+        </Step>
+        <Step n={4}>
+          Click <Strong>Save</Strong>. Done.
+        </Step>
+      </Steps>
+      <Note>
+        Work accounts (Microsoft 365): many companies block forwarding outside
+        the company. If the rule saves but nothing arrives, ask your IT admin
+        to allow automatic forwarding to {inboundDomain}.
+      </Note>
+    </div>
+  );
+}
+
+function OtherSteps() {
+  return (
+    <div className="space-y-4">
+      <Steps>
+        <Step n={1}>
+          Open your email on the web (iCloud, Yahoo, Proton and most others)
+          and find <Strong>Rules</Strong> or <Strong>Filters</Strong> in the
+          settings.
+        </Step>
+        <Step n={2}>
+          Create a rule: when the subject contains one of these words, forward
+          to your UnReceipt address. If only one word fits per rule, start
+          with the words your receipts use most.
+          <WordList />
+        </Step>
+        <Step n={3}>
+          If your provider asks you to confirm the address, its email shows up
+          in UnReceipt under Review needed. Open it, tap{" "}
+          <Strong>Original</Strong> to read the code, then delete it.
+        </Step>
+      </Steps>
+      <Note>
+        No rules in your email? Forward receipts by hand. It works from any
+        app.
+      </Note>
+    </div>
+  );
+}
+
+function WordList() {
+  return (
+    <ul className="flex flex-wrap gap-1.5" style={{ marginTop: "8px" }} aria-label="Subject words">
+      {RECEIPT_SUBJECT_WORDS.map((w) => (
+        <li
+          key={w}
+          className="text-[var(--ink)]"
+          style={{
+            border: "1px solid var(--hairline)",
+            borderRadius: "999px",
+            padding: "2px 10px",
+            fontSize: "13px",
+            fontWeight: 500,
+          }}
+        >
+          {w}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ProviderButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className="inline-flex items-center transition-colors"
+      style={{
+        minHeight: "44px",
+        padding: "0 16px",
+        borderRadius: "999px",
+        fontSize: "14px",
+        fontWeight: 600,
+        border: active ? "1px solid var(--ink)" : "1px solid var(--hairline)",
+        background: active ? "var(--ink)" : "transparent",
+        color: active ? "var(--surface)" : "var(--ink-muted)",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Steps({ children }: { children: React.ReactNode }) {
+  return <ol className="space-y-4">{children}</ol>;
+}
+
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span
+        aria-hidden="true"
+        className="shrink-0 inline-flex items-center justify-center text-[var(--ink)]"
+        style={{
+          width: "24px",
+          height: "24px",
+          borderRadius: "999px",
+          border: "1px solid var(--hairline)",
+          fontSize: "12px",
+          fontWeight: 600,
+          marginTop: "1px",
+        }}
+      >
+        {n}
+      </span>
+      <div className="flex-1 min-w-0 text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+function Fact({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <li style={{ padding: "12px 14px" }}>
+      <p className="text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600, marginBottom: "2px" }}>
+        {title}
+      </p>
+      <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+        {children}
+      </p>
+    </li>
+  );
+}
+
+function Note({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className="text-[var(--ink-muted)]"
+      style={{
+        fontSize: "13px",
+        lineHeight: 1.5,
+        borderLeft: "2px solid var(--hairline)",
+        paddingLeft: "10px",
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
+function Strong({ children }: { children: React.ReactNode }) {
+  return <strong style={{ fontWeight: 600 }}>{children}</strong>;
+}
+
+function SectionLabel({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <h2
+      id={id}
+      className="uppercase text-[var(--ink-faint)]"
+      style={{
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.06em",
+        marginBottom: "8px",
+      }}
+    >
+      {children}
+    </h2>
+  );
+}

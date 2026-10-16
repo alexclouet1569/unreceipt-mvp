@@ -12,7 +12,7 @@ import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
-import { FirstRun, type FirstRunStep } from "./_first-run";
+import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
 
 type DashboardProps = {
   userEmail: string;
@@ -292,6 +292,7 @@ function EmptyState({
             copyLabel="Copy concierge SMS number"
           />
         ) : null}
+        <GuideLink />
       </div>
 
       <button

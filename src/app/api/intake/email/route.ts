@@ -10,6 +10,8 @@
 //      generic body (don't leak which hashes are valid).
 //   3b. Load the body, headers and original .eml from Resend's Receiving
 //      API by email_id — the webhook itself carries metadata only.
+//   3c. Gmail's forwarding confirmation email → keep its code for the
+//      setup guide and stop (it isn't a receipt).
 //   4. Compute intake_ref = Message-Id header || sha256(raw .eml).
 //   5. Upsert by (user_id, intake_ref). Existing row → 200 idempotent.
 //   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
@@ -37,6 +39,7 @@ import {
 import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
+import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -215,6 +218,39 @@ export async function POST(request: NextRequest) {
   if (!content) {
     return NextResponse.json({ error: "email content unavailable" }, { status: 502 });
   }
+  const supabase = getSupabaseAdmin();
+
+  // Gmail's "confirm this forwarding address" email isn't a receipt: keep
+  // its code for the setup guide and stop here. 500 on a failed write so
+  // Resend retries; the user can't finish the Gmail setup without it.
+  const confirmation = parseForwardingConfirmation({
+    from: fromAddr,
+    subject: typeof data.subject === "string" ? data.subject : "",
+    text: content.text,
+  });
+  if (confirmation) {
+    const { error: confirmationError } = await supabase
+      .from("email_forwarding_confirmations")
+      .upsert(
+        {
+          user_id: userId,
+          provider: confirmation.provider,
+          code: confirmation.code,
+          for_address: confirmation.forAddress,
+          received_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+    if (confirmationError) {
+      console.error("[intake/email] forwarding confirmation save failed", confirmationError);
+      Sentry.captureException(new Error("forwarding confirmation save failed"), {
+        tags: { area: "intake-forwarding-confirmation" },
+      });
+      return NextResponse.json({ error: "save failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, forwardingConfirmation: true });
+  }
+
   const rawEml = content.rawEml;
   const hasRaw = rawEml !== null && rawEml.length > 0;
 
@@ -242,8 +278,6 @@ export async function POST(request: NextRequest) {
         .digest("hex")}`;
     }
   }
-
-  const supabase = getSupabaseAdmin();
 
   // Idempotency: existing row → 200 with its id, no side effects. Scoped
   // to the user: Message-Id is sender-controlled, so a global key would let

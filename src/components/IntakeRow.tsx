@@ -13,11 +13,15 @@ export function IntakeRow({
   value,
   mono,
   copyLabel,
+  breakWords = false,
 }: {
   callout: string;
   value: string;
   mono: boolean;
   copyLabel: string;
+  // Wrap long text between words (a filter query) instead of anywhere (an
+  // address, which has no spaces).
+  breakWords?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -49,7 +53,8 @@ export function IntakeRow({
       >
         <span
           className={cn(
-            "flex-1 min-w-0 text-[var(--ink)] break-all",
+            "flex-1 min-w-0 text-[var(--ink)]",
+            breakWords ? "break-words" : "break-all",
             mono ? "font-mono" : "",
           )}
           style={{ fontSize: "14px", fontWeight: 500 }}

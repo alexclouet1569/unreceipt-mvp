@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   storageUpload: vi.fn(),
   storageRemove: vi.fn(),
   fetchReceivedEmail: vi.fn(),
+  upsert: vi.fn(),
 }));
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
@@ -47,7 +48,8 @@ vi.mock("@/lib/receipts/parser", () => ({
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
-    from: (_table: string) => ({
+    from: (table: string) => ({
+      upsert: (row: unknown, options?: unknown) => mocks.upsert(table, row, options),
       insert: (row: unknown) => ({
         select: () => ({
           single: () => mocks.receiptsInsert(row),
@@ -131,6 +133,7 @@ beforeEach(() => {
   });
   mocks.storageUpload.mockResolvedValue({ error: null });
   mocks.storageRemove.mockResolvedValue({ error: null });
+  mocks.upsert.mockResolvedValue({ error: null });
 });
 
 afterEach(() => {
@@ -395,5 +398,46 @@ describe("POST /api/intake/email", () => {
 
     expect(res.status).toBe(404);
     expect(mocks.fetchReceivedEmail).not.toHaveBeenCalled();
+  });
+
+  it("keeps Gmail's forwarding confirmation code instead of filing a receipt", async () => {
+    const body = inboundPayload({
+      from: { address: "forwarding-noreply@google.com", name: "Gmail Team" },
+      subject:
+        "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna@gmail.com",
+      text: "anna@gmail.com has requested to automatically forward mail …",
+    });
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, forwardingConfirmation: true });
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      "email_forwarding_confirmations",
+      expect.objectContaining({
+        user_id: USER_ID,
+        provider: "gmail",
+        code: "593872831",
+        for_address: "anna@gmail.com",
+      }),
+      { onConflict: "user_id" },
+    );
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+    expect(mocks.storageUpload).not.toHaveBeenCalled();
+    expect(usageMock).not.toHaveBeenCalled();
+  });
+
+  it("answers 500 (so Resend retries) when the confirmation code can't be saved", async () => {
+    mocks.upsert.mockResolvedValue({ error: { message: "boom" } });
+    const body = inboundPayload({
+      from: "forwarding-noreply@google.com",
+      subject: "(#593872831) Gmail Forwarding Confirmation",
+    });
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(500);
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
   });
 });

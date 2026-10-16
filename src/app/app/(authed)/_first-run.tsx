@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { Camera, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
@@ -85,9 +86,9 @@ export function FirstRun({
         <>
           <Title titleRef={titleRef}>Your private receipts address</Title>
           <Subtitle>
-            Forward any email receipt here and it lands in UnReceipt, ready
-            for VAT. Save it as a contact, or set an automatic forwarding
-            rule in your email.
+            Every email sent to this address becomes a receipt in UnReceipt:
+            we read the shop, date, total and VAT. Forward receipts by hand,
+            or set a rule once in your email so they arrive by themselves.
           </Subtitle>
           <div className="w-full max-w-[340px]" style={{ marginBottom: "24px" }}>
             <IntakeRow
@@ -96,6 +97,7 @@ export function FirstRun({
               mono
               copyLabel="Copy forwarding address"
             />
+            <GuideLink />
           </div>
           <Actions>
             <Button type="button" className="w-full h-12 text-[15px]" onClick={onNext}>
@@ -189,5 +191,19 @@ function SkipButton({ onClick, children }: { onClick: () => void; children: Reac
     >
       {children}
     </button>
+  );
+}
+
+// Leads to the step-by-step forwarding guide. Leaving mid-onboarding is
+// fine: the intro shows again on return until it's finished or skipped.
+export function GuideLink() {
+  return (
+    <Link
+      href="/app/settings/forwarding"
+      className="inline-flex items-center text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
+      style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
+    >
+      How to make it automatic
+    </Link>
   );
 }
