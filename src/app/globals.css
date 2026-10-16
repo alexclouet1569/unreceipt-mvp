@@ -50,6 +50,8 @@
   /* Unreceipt brand colors — brand book pp. 12 (Green Mint, Deep Space, White Mist, Carbon) */
   --color-brand: var(--brand);
   --color-brand-deep: var(--brand-deep);
+  --color-brand-action: var(--brand-action);
+  --color-brand-action-deep: var(--brand-action-deep);
   --color-brand-light: #ECF7E7;
   --color-brand-tint: #ECF7E7;
   --color-brand-dark: #1fa568;
@@ -73,12 +75,18 @@
      used (ReceiptListItem hover) but never defined. */
   --brand: #27BE7B;
   --brand-deep: #1F9D63;
+  /* Green for things you press or that show focus: buttons, the FAB, focus
+     rings. Same hue as --brand, deep enough for white text (5.0:1, WCAG AA);
+     white on --brand is only 2.4:1. --brand stays for the wordmark and
+     accents. (DESIGN.md 2026-10-16) */
+  --brand-action: #1A7F52;
+  --brand-action-deep: #176E47;
   --negative: #C73E4E;
   --brand-tint: #ECF7E7;
   --ink: #303568;
-  /* Single muted variant derived from Deep Space — replaces the prior
-     Nordic-Quiet --ink-muted / --ink-faint pair. */
-  --foreground-muted: rgba(48, 53, 104, 0.65);
+  /* Secondary text. DESIGN.md's --ink-muted (6.3:1 on white); the old 65%
+     Deep Space was 3.8:1, under WCAG AA for body text. */
+  --foreground-muted: #5A5F7A;
   --ink-muted: var(--foreground-muted);
   --ink-faint: var(--foreground-muted);
   --hairline: rgba(48, 53, 104, 0.12);
@@ -98,7 +106,7 @@
   --card-foreground: #303568;
   --popover: #ffffff;
   --popover-foreground: #303568;
-  --primary: var(--brand);
+  --primary: var(--brand-action);
   --primary-foreground: #ffffff;
   --secondary: var(--brand-tint);
   --secondary-foreground: #303568;
@@ -110,7 +118,7 @@
   --destructive-foreground: #FFFFFF;
   --border: var(--hairline);
   --input: var(--hairline);
-  --ring: var(--brand);
+  --ring: var(--brand-action);
   --chart-1: #27BE7B;
   --chart-2: #1F9D63;
   --chart-3: #303568;
@@ -119,12 +127,12 @@
   --radius: 0.75rem;
   --sidebar: var(--surface);
   --sidebar-foreground: #303568;
-  --sidebar-primary: var(--brand);
+  --sidebar-primary: var(--brand-action);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--brand-tint);
   --sidebar-accent-foreground: #303568;
   --sidebar-border: var(--hairline);
-  --sidebar-ring: var(--brand);
+  --sidebar-ring: var(--brand-action);
 }
 
 @layer base {

@@ -243,10 +243,10 @@ export function SubmitButton({
       disabled={busy || disabled}
       aria-busy={state === "loading"}
       className={cn(
-        "relative w-full h-12 rounded-[10px] bg-[var(--brand)] text-primary-foreground text-[15px] font-bold",
+        "relative w-full h-12 rounded-[10px] bg-[var(--primary)] text-primary-foreground text-[15px] font-bold",
         "inline-flex items-center justify-center gap-2",
         "transition-[background-color,transform,opacity] duration-100 active:scale-[0.985]",
-        "hover:bg-[var(--brand-deep)] disabled:cursor-default",
+        "hover:bg-[var(--brand-action-deep)] disabled:cursor-default",
         state === "idle" && disabled ? "opacity-60" : "",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--ring)]"
       )}
