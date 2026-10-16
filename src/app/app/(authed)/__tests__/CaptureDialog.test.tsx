@@ -76,6 +76,7 @@ describe("CaptureDialog", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    window.localStorage.clear();
   });
 
   it("opens on the photo choice, with manual entry one tap away", async () => {
@@ -265,6 +266,48 @@ describe("CaptureDialog", () => {
     await user.clear(screen.getByLabelText(/Total paid/i));
     await user.type(screen.getByLabelText(/Total paid/i), "300");
     expect(screen.getByLabelText(/VAT amount/i)).toHaveValue(20);
+  });
+
+  it("hides VAT and saves none when Include VAT is off, and remembers the choice", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockImplementation((url: string) =>
+      Promise.resolve(okResponse(url === "/api/ocr" ? OCR_RESULT : { ok: true, id: "rec-1" })),
+    );
+    renderDialog();
+
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+    const vatSwitch = await screen.findByRole("switch", { name: /Include VAT/i });
+    expect(vatSwitch).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("Excl. VAT")).toBeInTheDocument();
+
+    await user.click(vatSwitch);
+    expect(vatSwitch).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByLabelText(/VAT amount/i)).toBeNull();
+    expect(screen.queryByText("Excl. VAT")).toBeNull();
+    expect(window.localStorage.getItem("unreceipt.capture.includeVat")).toBe("false");
+
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+    const fd = captureCall()![1].body as FormData;
+    // OCR read 49 kr of VAT, but the customer chose not to keep VAT.
+    expect(fd.get("tax_amount")).toBeNull();
+    expect(fd.get("tax_rate")).toBeNull();
+    expect(fd.get("amount")).toBe("245.00");
+  });
+
+  it("starts with VAT off when the customer turned it off before", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem("unreceipt.capture.includeVat", "false");
+    renderDialog();
+    await enterManually(user);
+
+    expect(screen.getByRole("switch", { name: /Include VAT/i })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    expect(screen.queryByLabelText(/VAT rate/i)).toBeNull();
+
+    await user.click(screen.getByRole("switch", { name: /Include VAT/i }));
+    expect(screen.getByLabelText(/VAT rate/i)).toBeInTheDocument();
   });
 
   it("sends VAT, payment method and notes with the receipt", async () => {

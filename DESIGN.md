@@ -217,6 +217,7 @@ full 9999   FAB, avatars, pill badges
   - VAT panel (`--brand-tint`): VAT with its rate, and the amount excl. VAT, in the receipt's currency. Only when both numbers are known.
   - One hairline card of 52px rows, label in a fixed 84px column (`--ink-muted`, 15/600), value left-aligned after it (16/700; amounts right-aligned in mono). Every value is a real input — tapping it edits in place, no second screen. Rows: Merchant, Date, Category, VAT (rate menu + amount), Payment. The focused row gets a `--ring` outline.
   - Choosing a VAT rate fills the VAT amount from the total; typing a VAT amount takes over (mixed-rate receipts). VAT printed on the receipt is never recalculated.
+  - **Include VAT** switch row (on by default, remembered per device in browser storage — no profile setting during the pilot). Off hides the VAT panel and VAT row and saves no VAT; OCR still reads it, so switching back on shows it. The switch is ink when on, `--ink-faint` when off, so Save stays the one green.
   - "Add a note" reveals Notes. Without a photo, "Take photo" / "Upload file" sit next to it.
   - Footer: "Read from your photo. Tap any value to change it." when OCR filled the form, then **Save receipt** (54px).
 - **Fallback.** If the photo can't be read, the same form shows with the photo still attached, an attention notice ("We couldn't read this photo…") and the title "Fill in the details". Manual entry uses the title "Enter manually" and a back button to stage 1.

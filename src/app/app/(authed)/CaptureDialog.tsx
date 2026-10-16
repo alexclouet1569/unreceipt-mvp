@@ -105,6 +105,27 @@ const toNumber = (s: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+// "Include VAT" is a per-device choice for the pilot: employees who are
+// reimbursed often don't care about VAT, businesses do. Browser storage
+// can be empty or blocked (private mode), so it falls back to on.
+const INCLUDE_VAT_KEY = "unreceipt.capture.includeVat";
+
+const readIncludeVat = (): boolean => {
+  try {
+    return window.localStorage.getItem(INCLUDE_VAT_KEY) !== "false";
+  } catch {
+    return true;
+  }
+};
+
+const writeIncludeVat = (value: boolean) => {
+  try {
+    window.localStorage.setItem(INCLUDE_VAT_KEY, String(value));
+  } catch {
+    // Not remembered this time; the switch still applies to this receipt.
+  }
+};
+
 const UNREADABLE_MESSAGE =
   "We couldn't read this photo. It's still attached, so just fill in the details below.";
 
@@ -133,6 +154,13 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // new total or rate updates it. Typing a VAT amount takes it over.
   const [taxAuto, setTaxAuto] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  // Off: no VAT on screen and none saved. OCR still reads it, so turning
+  // the switch back on shows what the photo said.
+  // Nothing it controls renders on the server (the sheet starts closed),
+  // so reading browser storage here can't cause a hydration mismatch.
+  const [includeVat, setIncludeVat] = useState(() =>
+    typeof window === "undefined" ? true : readIncludeVat(),
+  );
   // Line items extracted by OCR, forwarded to /api/capture so the digital
   // receipt renders the full line breakdown.
   const [items, setItems] = useState<OcrItem[] | null>(null);
@@ -143,6 +171,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
     setPrevOpen(open);
+    // Another tab may have changed it since this one mounted.
+    if (open) setIncludeVat(readIncludeVat());
     if (!open) {
       setStage("choose");
       setForm(blankForm());
@@ -162,6 +192,12 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   useEffect(() => {
     if (!open) ocrRunRef.current += 1;
   }, [open]);
+
+  const toggleIncludeVat = () => {
+    const next = !includeVat;
+    setIncludeVat(next);
+    writeIncludeVat(next);
+  };
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -354,8 +390,12 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       fd.append("currency", form.currency);
       fd.append("receipt_date", form.date);
       fd.append("category", form.category);
-      if (form.taxAmount.trim()) fd.append("tax_amount", form.taxAmount.trim());
-      if (form.taxRate.trim()) fd.append("tax_rate", form.taxRate.trim());
+      // With VAT switched off nothing is saved: an unchecked figure must
+      // not end up on the receipt or its export.
+      if (includeVat && form.taxAmount.trim()) {
+        fd.append("tax_amount", form.taxAmount.trim());
+      }
+      if (includeVat && form.taxRate.trim()) fd.append("tax_rate", form.taxRate.trim());
       if (form.paymentMethod.trim()) {
         fd.append("payment_method", form.paymentMethod.trim());
       }
@@ -443,7 +483,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         ) : null}
 
         {stage === "reading" ? (
-          <ReadingStage imagePreview={imagePreview} file={imageFile} />
+          <ReadingStage
+            imagePreview={imagePreview}
+            file={imageFile}
+            includeVat={includeVat}
+          />
         ) : null}
 
         {stage === "review" ? (
@@ -514,7 +558,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 </div>
               </div>
 
-              <VatSummary form={form} />
+              {includeVat ? <VatSummary form={form} /> : null}
 
               <div className="mt-4 overflow-hidden rounded-[12px] border border-[var(--hairline)]">
                 <Row label="Merchant" htmlFor="cd-merchant">
@@ -554,39 +598,54 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     </select>
                   </SelectControl>
                 </Row>
-                <Row label="VAT" htmlFor="cd-tax-rate">
-                  <SelectControl className="w-[92px] flex-none">
-                    <select
-                      id="cd-tax-rate"
-                      aria-label="VAT rate"
-                      value={form.taxRate}
-                      onChange={(e) => setTaxRate(e.target.value)}
-                      className={`${ROW_CONTROL_CLASS} appearance-none pr-6`}
-                    >
-                      <option value="">Rate</option>
-                      {vatRateOptions(form.taxRate).map((r) => (
-                        <option key={r} value={r}>
-                          {r} %
-                        </option>
-                      ))}
-                    </select>
-                  </SelectControl>
-                  <input
-                    id="cd-tax-amount"
-                    aria-label="VAT amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    inputMode="decimal"
-                    value={form.taxAmount}
-                    onChange={(e) => setTaxAmount(e.target.value)}
-                    placeholder="0.00"
-                    className={cn(
-                      ROW_CONTROL_CLASS,
-                      "text-right font-mono font-medium tabular-nums [&::-webkit-inner-spin-button]:appearance-none",
-                    )}
+                <div className="flex min-h-[52px] items-center gap-3 border-b border-[var(--hairline)] pr-2 pl-4">
+                  <span
+                    id="cd-include-vat-label"
+                    className="flex-1 text-[15px] font-semibold text-[var(--ink-muted)]"
+                  >
+                    Include VAT
+                  </span>
+                  <Switch
+                    checked={includeVat}
+                    onClick={toggleIncludeVat}
+                    labelledBy="cd-include-vat-label"
                   />
-                </Row>
+                </div>
+                {includeVat ? (
+                  <Row label="VAT" htmlFor="cd-tax-rate">
+                    <SelectControl className="w-[92px] flex-none">
+                      <select
+                        id="cd-tax-rate"
+                        aria-label="VAT rate"
+                        value={form.taxRate}
+                        onChange={(e) => setTaxRate(e.target.value)}
+                        className={`${ROW_CONTROL_CLASS} appearance-none pr-6`}
+                      >
+                        <option value="">Rate</option>
+                        {vatRateOptions(form.taxRate).map((r) => (
+                          <option key={r} value={r}>
+                            {r} %
+                          </option>
+                        ))}
+                      </select>
+                    </SelectControl>
+                    <input
+                      id="cd-tax-amount"
+                      aria-label="VAT amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      value={form.taxAmount}
+                      onChange={(e) => setTaxAmount(e.target.value)}
+                      placeholder="0.00"
+                      className={cn(
+                        ROW_CONTROL_CLASS,
+                        "text-right font-mono font-medium tabular-nums [&::-webkit-inner-spin-button]:appearance-none",
+                      )}
+                    />
+                  </Row>
+                ) : null}
                 <Row label="Payment" htmlFor="cd-payment-method">
                   <input
                     id="cd-payment-method"
@@ -761,9 +820,11 @@ function ChooseStage({
 function ReadingStage({
   imagePreview,
   file,
+  includeVat,
 }: {
   imagePreview: string | null;
   file: File | null;
+  includeVat: boolean;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
@@ -794,7 +855,9 @@ function ReadingStage({
         <Skeleton className="h-[11px] w-[52px]" />
         <Skeleton className="h-10 w-[58%]" />
       </div>
-      <div className="mt-5 h-[72px] animate-pulse rounded-[10px] bg-[var(--hairline)]" aria-hidden="true" />
+      {includeVat ? (
+        <div className="mt-5 h-[72px] animate-pulse rounded-[10px] bg-[var(--hairline)]" aria-hidden="true" />
+      ) : null}
       <div
         className="mt-4 overflow-hidden rounded-[12px] border border-[var(--hairline)]"
         aria-hidden="true"
@@ -803,7 +866,7 @@ function ReadingStage({
           ["Merchant", "w-[110px]"],
           ["Date", "w-[90px]"],
           ["Category", "w-[120px]"],
-          ["VAT", "w-[100px]"],
+          ...(includeVat ? [["VAT", "w-[100px]"]] : []),
           ["Payment", "w-[60px]"],
         ].map(([label, width]) => (
           <div
@@ -966,6 +1029,42 @@ function SelectControl({
         aria-hidden="true"
       />
     </div>
+  );
+}
+
+function Switch({
+  checked,
+  onClick,
+  labelledBy,
+}: {
+  checked: boolean;
+  onClick: () => void;
+  labelledBy: string;
+}) {
+  // Ink, not green, when on: the Save button is the screen's one green.
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-labelledby={labelledBy}
+      onClick={onClick}
+      className="flex size-11 w-14 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <span
+        className={cn(
+          "flex h-[26px] w-11 items-center rounded-full p-[3px] transition-colors duration-100",
+          checked ? "bg-[var(--ink)]" : "bg-[var(--ink-faint)]",
+        )}
+      >
+        <span
+          className={cn(
+            "size-5 rounded-full bg-card transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+            checked ? "translate-x-[18px]" : "translate-x-0",
+          )}
+        />
+      </span>
+    </button>
   );
 }
 
