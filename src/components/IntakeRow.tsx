@@ -86,7 +86,8 @@ export function IntakeRow({
             fontWeight: 600,
             transition: "background 160ms ease-out",
           }}
-          aria-label={copyLabel}
+          // Announce the result too: a fixed label would hide "Copied".
+          aria-label={copied ? "Copied" : copyLabel}
         >
           {copied ? (
             <>

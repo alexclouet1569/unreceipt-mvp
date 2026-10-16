@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IntakeRow } from "@/components/IntakeRow";
-import { RECEIPT_SUBJECT_WORDS, gmailFilterQuery } from "@/lib/forwarding-filters";
+import {
+  RECEIPT_SUBJECT_WORDS,
+  gmailFilterQuery,
+  outlookSubjectWords,
+} from "@/lib/forwarding-filters";
 
 export type GuideConfirmation = {
   code: string | null;
@@ -20,8 +24,10 @@ const PROVIDERS: { id: Provider; label: string }[] = [
 ];
 
 // While the Gmail steps are open, re-read the page so Gmail's code shows up
-// without a reload. Bounded so a forgotten tab stops asking.
+// without a reload: quickly while waiting, slowly once a code is shown (only
+// a newer one can change it). Bounded so a forgotten tab stops asking.
 const POLL_MS = 5_000;
+const POLL_WITH_CODE_MS = 30_000;
 const POLL_FOR_MS = 10 * 60 * 1000;
 
 /**
@@ -121,7 +127,13 @@ export function ForwardingGuide({
           with the subject <Strong>Test receipt</Strong>. Within a minute it
           should appear in UnReceipt under Review needed. Delete it
           afterwards; it doesn&apos;t count toward your plan. Nothing after 5
-          minutes? Check the rule, or write to <SupportLink />.
+          minutes? Check your Spam folder and the rule, or write to{" "}
+          <SupportLink />.
+        </p>
+        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5, marginTop: "8px" }}>
+          A rule only forwards new emails. Forward older receipts by hand. Tip:
+          apps such as Uber and Bolt let you choose where receipts are sent;
+          enter your UnReceipt address in their business profile.
         </p>
       </section>
     </div>
@@ -130,26 +142,28 @@ export function ForwardingGuide({
 
 function GmailSteps({ confirmation }: { confirmation: GuideConfirmation | null }) {
   const router = useRouter();
+  const hasCode = Boolean(confirmation?.code);
 
   useEffect(() => {
     const started = Date.now();
+    const expired = () => Date.now() - started > POLL_FOR_MS;
     const timer = setInterval(() => {
-      if (Date.now() - started > POLL_FOR_MS) {
+      if (expired()) {
         clearInterval(timer);
         return;
       }
       if (document.visibilityState === "visible") router.refresh();
-    }, POLL_MS);
+    }, hasCode ? POLL_WITH_CODE_MS : POLL_MS);
     // Coming back from the Gmail tab: check straight away.
     const onVisible = () => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (!expired() && document.visibilityState === "visible") router.refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [router]);
+  }, [router, hasCode]);
 
   return (
     <div className="space-y-4">
@@ -167,11 +181,14 @@ function GmailSteps({ confirmation }: { confirmation: GuideConfirmation | null }
         <Step n={2}>
           Click <Strong>Add a forwarding address</Strong>, paste your address
           from the top of this page, then <Strong>Next</Strong>,{" "}
-          <Strong>Proceed</Strong> and <Strong>OK</Strong>.
+          <Strong>Proceed</Strong> and <Strong>OK</Strong>. Gmail may ask you
+          to sign in again first; that&apos;s normal.
         </Step>
         <Step n={3}>
-          Gmail sends a confirmation code to UnReceipt. It appears below: type
-          it into Gmail and click <Strong>Verify</Strong>.
+          Gmail emails a confirmation code to your UnReceipt address, and it
+          appears below within a minute. Type it into Gmail&apos;s{" "}
+          <Strong>Confirmation code</Strong> box in the same Forwarding section
+          and click <Strong>Verify</Strong>.
           <div style={{ marginTop: "8px" }}>
             <ConfirmationCode confirmation={confirmation} />
           </div>
@@ -199,7 +216,8 @@ function GmailSteps({ confirmation }: { confirmation: GuideConfirmation | null }
         </Step>
         <Step n={6}>
           Tick <Strong>Forward it to</Strong>, choose your UnReceipt address,
-          and click <Strong>Create filter</Strong>. Done.
+          and click <Strong>Create filter</Strong>. Done. Address not in the
+          list? Finish step 3 first.
         </Step>
       </Steps>
     </div>
@@ -250,7 +268,7 @@ function ConfirmationCode({ confirmation }: { confirmation: GuideConfirmation | 
           </p>
         ) : (
           <IntakeRow
-            callout={confirmation.forAddress ? `Code for ${confirmation.forAddress}` : "Gmail's code"}
+            callout="Gmail's code"
             value={confirmation.code}
             mono={false}
             copyLabel="Copy Gmail confirmation code"
@@ -260,6 +278,7 @@ function ConfirmationCode({ confirmation }: { confirmation: GuideConfirmation | 
       </div>
       {confirmation?.code ? (
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "12px", marginTop: "6px" }}>
+          {confirmation.forAddress ? `For ${confirmation.forAddress}. ` : ""}
           {age ? `Received ${age}. ` : ""}Added the address again? The newest
           code replaces this one here.
         </p>
@@ -286,14 +305,15 @@ function OutlookSteps({ inboundDomain }: { inboundDomain: string }) {
       </Note>
       <Steps>
         <Step n={1}>
-          Click the gear, then <Strong>Mail</Strong>, <Strong>Rules</Strong>{" "}
-          and <Strong>Add new rule</Strong>. Name it UnReceipt.
+          Click the gear at the top right, then <Strong>Mail</Strong>,{" "}
+          <Strong>Rules</Strong> and <Strong>+ Add new rule</Strong>. Name it
+          UnReceipt.
         </Step>
         <Step n={2}>
           Under <Strong>Add a condition</Strong>, choose{" "}
           <Strong>Subject includes</Strong> and add these words one at a time,
           pressing Enter after each:
-          <WordList />
+          <WordList words={outlookSubjectWords()} />
         </Step>
         <Step n={3}>
           Under <Strong>Add an action</Strong>, choose{" "}
@@ -304,9 +324,10 @@ function OutlookSteps({ inboundDomain }: { inboundDomain: string }) {
         </Step>
       </Steps>
       <Note>
-        Work accounts (Microsoft 365): many companies block forwarding outside
-        the company. If the rule saves but nothing arrives, ask your IT admin
-        to allow automatic forwarding to {inboundDomain}.
+        Work accounts (Microsoft 365) block forwarding outside the company by
+        default. If you get a bounce email saying your organisation
+        doesn&apos;t allow external forwarding, ask your IT admin to allow
+        automatic forwarding to {inboundDomain}.
       </Note>
     </div>
   );
@@ -325,7 +346,7 @@ function OtherSteps() {
           Create a rule: when the subject contains one of these words, forward
           to your UnReceipt address. If only one word fits per rule, start
           with the words your receipts use most.
-          <WordList />
+          <WordList words={RECEIPT_SUBJECT_WORDS} />
         </Step>
         <Step n={3}>
           If your provider asks you to confirm the address, its email shows up
@@ -341,10 +362,10 @@ function OtherSteps() {
   );
 }
 
-function WordList() {
+function WordList({ words }: { words: readonly string[] }) {
   return (
     <ul role="list" className="flex flex-wrap gap-2" style={{ marginTop: "8px" }} aria-label="Subject words">
-      {RECEIPT_SUBJECT_WORDS.map((w) => (
+      {words.map((w) => (
         <li
           key={w}
           className="text-[var(--ink)]"

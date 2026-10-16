@@ -73,6 +73,29 @@ describe("parseForwardingConfirmation", () => {
   });
 });
 
+describe("forwarding filter words", () => {
+  it("quotes hyphenated terms for Gmail so '-' isn't read as 'exclude'", async () => {
+    const { gmailFilterQuery } = await import("@/lib/forwarding-filters");
+    expect(gmailFilterQuery(["e-billet", "kvitto"])).toBe('subject:("e-billet" OR kvitto)');
+  });
+
+  it("gives Outlook only the words no shorter word already covers", async () => {
+    const { outlookSubjectWords } = await import("@/lib/forwarding-filters");
+    expect(outlookSubjectWords(["kvitto", "kvitton", "bekräftelse", "orderbekräftelse", "commande", "commandé"])).toEqual([
+      "kvitto",
+      "bekräftelse",
+      "commande",
+      "commandé",
+    ]);
+  });
+
+  it("keeps 'recu' out of Outlook, where it would match 'recurring'", async () => {
+    const { outlookSubjectWords, gmailFilterQuery } = await import("@/lib/forwarding-filters");
+    expect(outlookSubjectWords()).not.toContain("recu");
+    expect(gmailFilterQuery()).toContain(" OR recu OR ");
+  });
+});
+
 describe("gmailFilterQuery", () => {
   it("ORs the subject words and quotes phrases", async () => {
     const { gmailFilterQuery } = await import("@/lib/forwarding-filters");

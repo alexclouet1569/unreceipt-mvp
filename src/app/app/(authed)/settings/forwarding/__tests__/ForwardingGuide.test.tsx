@@ -32,7 +32,7 @@ describe("ForwardingGuide", () => {
       />,
     );
     expect(screen.getByText("593872831")).toBeInTheDocument();
-    expect(screen.getByText(/Code for anna@gmail.com/)).toBeInTheDocument();
+    expect(screen.getByText(/For anna@gmail.com/)).toBeInTheDocument();
     expect(screen.queryByText(/Waiting for Gmail/)).not.toBeInTheDocument();
   });
 
@@ -53,5 +53,8 @@ describe("ForwardingGuide", () => {
     expect(screen.getByRole("button", { name: "Outlook" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/allow automatic forwarding to in.unreceipt.com/)).toBeInTheDocument();
     expect(screen.queryByText(gmailFilterQuery())).not.toBeInTheDocument();
+    // Outlook matches substrings, so "kvitton" is covered by "kvitto".
+    expect(screen.getByText("kvitto")).toBeInTheDocument();
+    expect(screen.queryByText("kvitton")).not.toBeInTheDocument();
   });
 });
