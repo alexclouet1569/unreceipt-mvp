@@ -1,5 +1,6 @@
 "use client";
 
+import type { CompanyCountry } from "@/lib/company-country";
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,8 @@ type DashboardProps = {
   intakeSmsNumber: string | null;
   // First run: no receipts yet and onboarding never finished or skipped.
   showOnboarding?: boolean;
+  // Which VAT check the receipts get; null until set in Settings.
+  companyCountry?: CompanyCountry | null;
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -46,6 +49,7 @@ export function Dashboard({
   forwardingEmail,
   intakeSmsNumber,
   showOnboarding = false,
+  companyCountry = null,
 }: DashboardProps) {
   const [captureOpen, setCaptureOpen] = useState(false);
   // Once started, onboarding stays until finished — even after the first
@@ -298,12 +302,14 @@ export function Dashboard({
       <CaptureDialog
         open={captureOpen}
         onOpenChange={setCaptureOpen}
+        companyCountry={companyCountry}
         onSaved={() => {
           if (onboardingStep === 2) setOnboardingStep(3);
         }}
       />
       <ReceiptDetailDialog
         receipt={openReceipt}
+        companyCountry={companyCountry}
         onOpenChange={(open) => {
           if (!open) setOpenReceipt(null);
         }}

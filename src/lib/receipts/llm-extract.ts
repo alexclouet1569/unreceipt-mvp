@@ -107,7 +107,7 @@ Rules:
 - Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when not on the receipt.
 - The SUM of item totals should approximately equal the receipt subtotal (or total when there's no tax line). If it doesn't, prefer the printed subtotal/total — don't adjust items to match.
 - If the input is clearly NOT a receipt (newsletter, marketing email, conversation, ad), return ONLY: {"not_a_receipt": true}
-- merchant_vat_number / merchant_org_number: copy only what is printed (often "Org.nr", "Momsreg.nr", "VAT No", "Moms nr"). Never derive one from the other. A personnummer is not an org number unless labelled as the seller's.
+- merchant_vat_number / merchant_org_number: copy only what is printed (often "Org.nr", "Momsreg.nr", "VAT No", "Moms nr"). Never derive one from the other. A sole trader may print their personnummer as the seller's id: put it in merchant_org_number. Never take the customer's own numbers as the seller's.
 - buyer_name / buyer_address: only the customer the document is addressed to ("Kund", "Faktureras till", "Bill to"). Never the seller. Omit on ordinary till receipts that name no customer.
 - vat_breakdown: one entry per VAT rate printed in a VAT summary (e.g. "Moms 6% 10,20" and "Moms 25% 4,00"). Omit when only one rate or no summary is printed.
 - Never return a full card number anywhere.

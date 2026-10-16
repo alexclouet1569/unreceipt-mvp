@@ -168,11 +168,32 @@ describe("ReceiptDetailDialog (CQ2)", () => {
     });
   });
 
-  it("shows the Swedish VAT check under the receipt", () => {
-    renderDialog({ currency: "SEK", total: 342, tax_amount: 19.36, tax_rate: 6 });
-    expect(screen.getByTestId("vat-check-panel")).toHaveTextContent(
-      /May not support a VAT deduction/,
+  it("shows the Swedish VAT check for a company in Sweden", () => {
+    render(
+      <ReceiptDetailDialog
+        receipt={baseReceipt({ currency: "SEK", total: 342, tax_amount: 19.36, tax_rate: 6 })}
+        onOpenChange={vi.fn()}
+        companyCountry="SE"
+      />
     );
+    expect(screen.getByTestId("vat-check-panel")).toHaveTextContent(/Seller not identified/);
+  });
+
+  it("asks for the company's country instead of guessing, and skips the check elsewhere", () => {
+    const { unmount } = renderDialog({ currency: "SEK", total: 342, tax_amount: 19.36, tax_rate: 6 });
+    expect(screen.getByTestId("vat-check-country-prompt")).toHaveTextContent(/Is your company in Sweden/);
+    expect(screen.queryByTestId("vat-check-panel")).toBeNull();
+    unmount();
+
+    render(
+      <ReceiptDetailDialog
+        receipt={baseReceipt({ currency: "SEK", total: 342, tax_amount: 19.36, tax_rate: 6 })}
+        onOpenChange={vi.fn()}
+        companyCountry="FR"
+      />
+    );
+    expect(screen.queryByTestId("vat-check-panel")).toBeNull();
+    expect(screen.queryByTestId("vat-check-country-prompt")).toBeNull();
   });
 
   it("closes the edit form without a request when nothing changed", async () => {

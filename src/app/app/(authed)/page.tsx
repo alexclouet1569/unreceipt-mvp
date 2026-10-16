@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { parseCompanyCountry, type CompanyCountry } from "@/lib/company-country";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -53,14 +54,32 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
 
 // First-run onboarding shows until finished or skipped. A failed read (or
 // the column not existing yet) counts as done: never trap someone in it.
-async function loadOnboarded(userId: string): Promise<boolean> {
+// The company's country decides which VAT check runs; unknown (or a failed
+// read) means none.
+async function loadProfileFlags(
+  userId: string,
+): Promise<{ onboarded: boolean; companyCountry: CompanyCountry | null }> {
   const { data, error } = await getSupabaseAdmin()
     .from("profiles")
-    .select("onboarded_at")
+    .select("onboarded_at, company_country")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) return true;
-  return Boolean(data?.onboarded_at);
+  if (error) {
+    // The column may not exist yet: still read onboarding on its own.
+    const fallback = await getSupabaseAdmin()
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return {
+      onboarded: fallback.error ? true : Boolean(fallback.data?.onboarded_at),
+      companyCountry: null,
+    };
+  }
+  return {
+    onboarded: Boolean(data?.onboarded_at),
+    companyCountry: parseCompanyCountry(data?.company_country),
+  };
 }
 
 // Near/over the plan's receipt allowance? Best-effort: a failed lookup
@@ -103,9 +122,9 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   }
 
   const userEmail = user.email ?? "";
-  const [receipts, onboarded] = await Promise.all([
+  const [receipts, { onboarded, companyCountry }] = await Promise.all([
     loadReceiptsForUser(user.id),
-    loadOnboarded(user.id),
+    loadProfileFlags(user.id),
   ]);
   const showOnboarding = !onboarded && receipts.length === 0;
 
@@ -137,6 +156,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           forwardingEmail={forwardingEmail}
           intakeSmsNumber={intakeSmsNumber}
           showOnboarding={showOnboarding}
+          companyCountry={companyCountry}
         />
       </>
     );
@@ -153,6 +173,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
         forwardingEmail={forwardingEmail}
         intakeSmsNumber={intakeSmsNumber}
         showOnboarding={showOnboarding}
+        companyCountry={companyCountry}
       />
     </>
   );

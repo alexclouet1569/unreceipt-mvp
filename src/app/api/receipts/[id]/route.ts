@@ -206,6 +206,13 @@ export async function PATCH(
   if (patch.vat_breakdown !== undefined) {
     update.vat_breakdown =
       patch.vat_breakdown && patch.vat_breakdown.length > 0 ? patch.vat_breakdown : null;
+  } else if (
+    (patch.tax_amount !== undefined || patch.tax_rate !== undefined) &&
+    existingRow.vat_breakdown != null
+  ) {
+    // The edit form has no per-rate fields: a corrected VAT amount or rate
+    // replaces the breakdown that was read, so the two can't disagree.
+    update.vat_breakdown = null;
   }
 
   // VAT can't exceed the total — checked on the result, since the patch may

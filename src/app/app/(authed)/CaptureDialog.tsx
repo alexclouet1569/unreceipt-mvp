@@ -46,6 +46,7 @@ import type { OcrItem, OcrResult } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { VatCheckPanel } from "@/components/receipt/VatCheckPanel";
+import type { CompanyCountry } from "@/lib/company-country";
 import { cn } from "@/lib/utils";
 import {
   PAYMENT_METHOD_SUGGESTIONS,
@@ -59,6 +60,8 @@ type CaptureDialogProps = {
   onOpenChange: (open: boolean) => void;
   // Called after a receipt was saved (before the dialog closes).
   onSaved?: () => void;
+  // Which VAT check runs on the saved receipt; null until set in Settings.
+  companyCountry?: CompanyCountry | null;
 };
 
 // Photo first (DESIGN.md "Capture sheet"): pick a photo → we read it →
@@ -137,7 +140,12 @@ const writeIncludeVat = (value: boolean) => {
 const UNREADABLE_MESSAGE =
   "We couldn't read this photo. It's still attached, so just fill in the details below.";
 
-export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProps) {
+export function CaptureDialog({
+  open,
+  onOpenChange,
+  onSaved,
+  companyCountry = null,
+}: CaptureDialogProps) {
   const router = useRouter();
   // Two hidden inputs: "Upload" opens the file/gallery picker and "Take
   // photo" opens the camera via `capture="environment"`. One input with
@@ -786,7 +794,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             >
               <ReceiptDetailCard receipt={savedReceipt} />
               <div className="mt-4">
-                <VatCheckPanel receipt={savedReceipt} />
+                <VatCheckPanel receipt={savedReceipt} companyCountry={companyCountry} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 border-t border-[var(--hairline)] px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">

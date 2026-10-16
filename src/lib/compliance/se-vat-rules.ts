@@ -1,9 +1,12 @@
 /**
  * Swedish VAT (moms) rules the receipt check applies, as dated config.
- * When a rule changes, edit the value, its `checkedOn` date and its
- * source here; src/lib/compliance/se-vat-check.ts reads only this file.
+ * When a rule changes, edit the value, its validity dates, its `checkedOn`
+ * date and its source here; src/lib/compliance/se-vat-check.ts reads only
+ * this file.
  *
- * Every value was read on Skatteverket's own pages on `checkedOn`.
+ * Every value was read on Skatteverket's own pages on `checkedOn`. The law
+ * references name the chapter of mervärdesskattelagen (2023:200) only; the
+ * exact paragraphs are for the accountant review to confirm.
  * Not yet reviewed by an accountant (launch plan action 11):
  * `reviewedByAccountant` stays false until someone has, and the UI says the
  * check is not tax advice either way.
@@ -36,41 +39,46 @@ export const SE_VAT_RULES = {
 
   /**
    * A förenklad faktura (e.g. a till receipt) is enough for the VAT
-   * deduction only when its total, VAT included, is at most this much.
-   * Above it the buyer needs a full invoice: "Du har nämligen inte rätt att
-   * dra av momsen i en förenklad faktura om totalbeloppet i den överstiger
-   * 4 000 kronor inklusive moms." (invoiceRules)
+   * deduction only when its total, VAT included, is at most this much:
+   * "Du har nämligen inte rätt att dra av momsen i en förenklad faktura om
+   * totalbeloppet i den överstiger 4 000 kronor inklusive moms."
+   * Mervärdesskattelagen (2023:200) 17 kap. (invoiceRules)
    */
-  simplifiedInvoiceMaxSek: 4000,
+  simplifiedInvoiceMaxSek: { value: 4000, validFrom: "2023-07-01", law: "ML (2023:200) 17 kap." },
 
   /**
-   * A förenklad faktura must show, besides the date and what was sold:
-   * the seller's VAT, personal or organisation number, and the VAT or the
-   * details needed to work it out. (invoiceRules)
+   * A förenklad faktura must show the issue date, the seller's VAT,
+   * personal or organisation number, what was sold, and the VAT or the
+   * details needed to work it out. The check looks at the seller id and
+   * the VAT; date and goods are not checked. (invoiceRules)
    */
-  simplifiedInvoiceNeeds: ["sellerId", "vat"] as const,
+  simplifiedInvoiceChecked: ["sellerId", "vat"] as const,
 
   /**
-   * A full invoice must also show the seller's VAT registration number and
-   * the seller's and buyer's name and address. The check looks at the
-   * parts a till receipt typically lacks. (invoiceRules)
+   * A full invoice must show, among other things, the seller's VAT
+   * registration number, the seller's and buyer's name and address, a
+   * unique number, the taxable amount and VAT per rate. The check looks at
+   * the seller VAT number, the buyer and the VAT; the rest is not checked.
+   * (invoiceRules)
    */
-  fullInvoiceNeeds: ["sellerVatNumber", "buyerName", "buyerAddress"] as const,
+  fullInvoiceChecked: ["sellerVatNumber", "buyerName", "buyerAddress", "vat"] as const,
 
   /**
-   * Rates in force on `checkedOn`: 25 % standard, 12 % (restaurant and
-   * café service, hotel stays), 6 % (food from 2026-04-01, books, passenger
-   * transport), 0 % for exempt sales. (vatRates) The food rate moved from
-   * 12 % to 6 % on 2026-04-01; both are in the set, so the change needs no
-   * date logic here.
+   * Rates in force on `checkedOn`: 25 % standard, 12 % (e.g. restaurant
+   * and café service), 6 % (e.g. food from 2026-04-01), 0 % for exempt
+   * sales. 6 % was already a Swedish rate before the food change, so the
+   * set needs no dates; the food window is recorded for a future
+   * per-line rate check. ML (2023:200) 9 kap. (vatRates)
    */
   rates: [25, 12, 6, 0] as const,
+  foodRate: { value: 6, validFrom: "2026-04-01", validTo: "2027-12-31", before: 12 },
 
   /**
    * "Du har aldrig rätt att göra avdrag för annat än svensk moms i
-   * momsdeklarationen." VAT paid in another EU country can be reclaimed
-   * there via Skatteverket's e-service, by 30 September of the following
-   * year. (foreignVat)
+   * momsdeklarationen." VAT paid in another EU country may be reclaimed
+   * from that country through Skatteverket's e-service, by 30 September of
+   * the following year; minimum amounts and that country's own rules apply.
+   * (foreignVat)
    */
-  foreignVatRefundDeadline: "30 September the year after",
+  foreignVatRefundDeadline: "30 September the following year",
 } as const;

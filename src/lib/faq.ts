@@ -73,7 +73,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "What does VAT-ready mean?",
-      a: "Every receipt is saved with its VAT amount and rate as shown on the receipt, so your accountant sees the VAT at a glance. Swedish receipts are also checked against Skatteverket's rules for the paperwork a VAT deduction needs: a receipt up to 4,000 kr must show the seller's VAT or organisation number and the VAT, and above 4,000 kr you need a full invoice with your company's name and address. If something is missing, the receipt says what to ask the seller for. Whether the purchase itself is deductible is for your accountant.",
+      a: "Every receipt is saved with its VAT amount and rate as shown on the receipt, so your accountant sees the VAT at a glance. If your company is in Sweden (you set this in Settings), each receipt is also checked against Skatteverket's rules for the paperwork a VAT deduction needs: up to 4,000 kr the receipt must show the seller's VAT, organisation or personal number and the VAT; above 4,000 kr Skatteverket may refuse the deduction without a full invoice made out to your company, with the seller's VAT number. If something is missing, the receipt says what to ask the seller for. The check covers those details only, not the date or what was bought, and isn't tax advice: whether the purchase itself is deductible is for your accountant.",
     },
     {
       q: "Who checks my receipts?",
@@ -110,7 +110,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Hur hanteras momsen?",
-      a: "Varje kvitto sparas med momsbelopp och momssats som de står på kvittot, så att din redovisningskonsult ser momsen direkt. Kvittot kontrolleras också mot Skatteverkets regler för vad ett underlag för momsavdrag måste innehålla: ett kvitto på högst 4 000 kr ska visa säljarens momsregistrerings- eller organisationsnummer och momsen, och över 4 000 kr behöver du en fullständig faktura med företagets namn och adress. Saknas något står det på kvittot vad du ska be säljaren om. Om själva köpet är avdragsgillt avgör din redovisningskonsult.",
+      a: "Varje kvitto sparas med momsbelopp och momssats som de står på kvittot, så att din redovisningskonsult ser momsen direkt. Om ditt företag finns i Sverige (det anger du under Inställningar) kontrolleras varje kvitto också mot Skatteverkets regler för vad ett underlag för momsavdrag måste innehålla: upp till 4 000 kr ska kvittot visa säljarens momsregistrerings-, organisations- eller personnummer och momsen (eller uppgifter som gör att den kan räknas fram); över 4 000 kr kan Skatteverket neka avdraget utan en fullständig faktura ställd till företaget, med säljarens momsregistreringsnummer. Saknas något står det på kvittot vad du ska be säljaren om. Kontrollen gäller bara de uppgifterna, inte datum eller vad som köptes, och är ingen skatterådgivning: om själva köpet är avdragsgillt avgör din redovisningskonsult.",
     },
     {
       q: "Vem kontrollerar mina kvitton?",

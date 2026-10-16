@@ -213,7 +213,7 @@
 ## Phase 3 — Swedish compliance engine (the moat) (🤖, rules reviewed by the accountant)
 
 - [x] 59 ★ M — Extraction schema: seller org.nr / momsreg.nr, VAT **per rate** (25/12/6), and card last-4 only (never a full card number). *(2026-10-16: plus buyer name and address, for the full-invoice rule; editable with Edit.)*
-- [x] 60 ★ S — Rules config file with dated 2026 values: 4,000 kr limit, schablons, and the food-VAT 6% window from 2026-04-01 to 2027-12-31. Next year becomes a config edit. *(2026-10-16: `src/lib/compliance/se-vat-rules.ts`, each value with its Skatteverket page and read date. Schablons wait for 64–65. The food rate needs no window: 6 % and 12 % are both valid rates.)*
+- [ ] 60 ★ S — Rules config file with dated 2026 values: 4,000 kr limit, schablons, and the food-VAT 6% window from 2026-04-01 to 2027-12-31. Next year becomes a config edit. *(2026-10-16, partly done: `src/lib/compliance/se-vat-rules.ts` holds the 4,000 kr limit, rates and food window with validity dates, ML chapters and Skatteverket pages. Still open: the representation schablons (with 64–65), exact ML paragraphs (accountant), and a per-line check that uses the food window.)*
 - [x] 61 ★ S — Rule: förenklad faktura (≤ 4,000 kr) with no org.nr or VAT shown gets a "Not valid for momsavdrag" badge. *(Worded "May not support a VAT deduction" and "we couldn't find…": a missing field can be a misread.)*
 - [x] 62 ★ S — Rule: over 4,000 kr prompts "Ask the seller for a full invoice".
 - [x] 63 S — Rule: foreign VAT is flagged as non-deductible in Swedish moms.

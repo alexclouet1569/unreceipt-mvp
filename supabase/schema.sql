@@ -1109,3 +1109,24 @@ BEGIN
     ) NOT VALID;
   END IF;
 END $$;
+
+-- =============================================================================
+-- 2026-10-16 — company country (which VAT rules a receipt is checked against)
+--
+-- The Swedish VAT check must only run for Swedish companies. Set from
+-- /app/settings through POST /api/profile/country (service role); NULL until
+-- the customer chooses, and then no check runs. Users keep their existing
+-- column grant (full_name, company_name) only. Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS company_country TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_company_country_check'
+  ) THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_company_country_check
+      CHECK (company_country IS NULL OR company_country IN ('SE', 'FR', 'OTHER'));
+  END IF;
+END $$;

@@ -99,7 +99,7 @@ Rules:
 - category: pick the closest match from the allowed list, default to "other" if unclear.
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.
 - Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when the receipt doesn't print them.
-- merchant_vat_number / merchant_org_number: copy only what is printed (often "Org.nr", "Momsreg.nr", "VAT No", "Moms nr"). Never derive one from the other. A personnummer is not an org number unless labelled as the seller's.
+- merchant_vat_number / merchant_org_number: copy only what is printed (often "Org.nr", "Momsreg.nr", "VAT No", "Moms nr"). Never derive one from the other. A sole trader may print their personnummer as the seller's id: put it in merchant_org_number. Never take the customer's own numbers as the seller's.
 - buyer_name / buyer_address: only the customer the document is addressed to ("Kund", "Faktureras till", "Bill to"). Never the seller. Omit on ordinary till receipts that name no customer.
 - vat_breakdown: one entry per VAT rate printed in a VAT summary (e.g. "Moms 6% 10,20" and "Moms 25% 4,00"). Omit when only one rate or no summary is printed.
 - Never return a full card number anywhere.`;

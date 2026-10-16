@@ -58,9 +58,15 @@ describe("csv", () => {
     const lines = csv.slice(1).trimEnd().split("\r\n");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toBe(
-      "2026-10-03;ICA Maxi;245,50;SEK;49,10;25;Meals & dining;Card;4421;SE556677889901;;;OK;Ready;paper;;;pdf/a.pdf;originals/a.jpg;2026-10-03 15:05;22222222-2222-4222-8222-222222222222",
+      "2026-10-03;ICA Maxi;245,50;SEK;49,10;25;Meals & dining;Card;4421;SE556677889901;;;;Ready;paper;;;pdf/a.pdf;originals/a.jpg;2026-10-03 15:05;22222222-2222-4222-8222-222222222222",
     );
     expect(lines[2]).toContain(";Needs review;paper;2026-10-05;");
+  });
+
+  it("fills the VAT check column only for a company in Sweden", () => {
+    const row = { receipt: receipt(), pdfFile: null, originalFile: null };
+    expect(buildReceiptsCsv([row], "SE")).toContain(";SE556677889901;;;Seller id and VAT found;Ready;");
+    expect(buildReceiptsCsv([row], "FR")).toContain(";SE556677889901;;;;Ready;");
   });
 });
 

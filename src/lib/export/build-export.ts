@@ -18,6 +18,7 @@ import { ReceiptPdf, pdfFilenameSlug } from "@/components/receipt/ReceiptPdf";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import type { Receipt } from "@/lib/types";
 import { buildReceiptsCsv, receiptDate, type CsvRow } from "./csv";
+import { parseCompanyCountry, type CompanyCountry } from "@/lib/company-country";
 import { buildZip, zipSize, type ZipEntry } from "./zip";
 
 export const EXPORT_BUCKET = "exports";
@@ -226,6 +227,23 @@ async function removePreviousExports(userId: string): Promise<void> {
   if (paths.length > 0) await storage.remove(paths);
 }
 
+// Unknown (or a failed read, e.g. the column not added yet) leaves the VAT
+// check column empty rather than guessing a country.
+async function loadCompanyCountry(userId: string): Promise<CompanyCountry | null> {
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from("profiles")
+      .select("company_country")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return null;
+    return parseCompanyCountry((data as { company_country?: unknown } | null)?.company_country);
+  } catch {
+    // Never fail an export over an empty column.
+    return null;
+  }
+}
+
 export async function buildExport(
   userId: string,
   period: ExportPeriod,
@@ -233,6 +251,7 @@ export async function buildExport(
 ): Promise<ExportResult> {
   const receipts = await loadReceipts(userId, period);
   if (receipts.length === 0) return { receiptCount: 0, missing: 0, parts: [] };
+  const companyCountry = await loadCompanyCountry(userId);
   // Keep at most one export per user in storage: each one copies every
   // file, and storage is shared (Supabase Free: 1 GB for everything).
   await removePreviousExports(userId);
@@ -293,7 +312,7 @@ export async function buildExport(
   }
 
   const last: ZipEntry[] = [
-    { name: "receipts.csv", data: enc.encode(buildReceiptsCsv(rows)), date: now },
+    { name: "receipts.csv", data: enc.encode(buildReceiptsCsv(rows, companyCountry)), date: now },
   ];
   // The full correction trail (who/when/before/after), so it survives the
   // account: the PDF shows the original values, this shows every step.

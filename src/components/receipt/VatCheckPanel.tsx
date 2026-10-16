@@ -1,20 +1,47 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import Link from "next/link";
 import { checkSwedishVat } from "@/lib/compliance/se-vat-check";
+import type { CompanyCountry } from "@/lib/company-country";
 import { SE_VAT_SOURCES } from "@/lib/compliance/se-vat-rules";
 import { formatDate } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 
 /**
  * "VAT check · Sweden" under a receipt: what the receipt shows against
- * Skatteverket's rules for a VAT deduction (src/lib/compliance). Renders
- * nothing when the check doesn't apply (no VAT charged, or a currency the
- * 4,000 kr limit can't be applied to). Notices use the honey attention
- * tokens: they ask for something, nothing is wrong with the app.
+ * Skatteverket's rules for a VAT deduction (src/lib/compliance). Only for
+ * companies in Sweden; with no country set it asks for one in Settings.
+ * Renders nothing when the check doesn't apply (other country, no VAT
+ * charged, another currency). Notices use the honey attention tokens: they
+ * ask for something, nothing is wrong with the app.
  */
-export function VatCheckPanel({ receipt }: { receipt: Receipt }) {
-  const result = checkSwedishVat(receipt);
+export function VatCheckPanel({
+  receipt,
+  companyCountry,
+}: {
+  receipt: Receipt;
+  companyCountry: CompanyCountry | null;
+}) {
+  if (companyCountry == null) {
+    return (
+      <p
+        className="rounded-[10px] border border-[var(--hairline)] bg-card px-3.5 py-3 text-[13px] leading-snug text-[var(--ink-muted)]"
+        data-testid="vat-check-country-prompt"
+      >
+        Is your company in Sweden?{" "}
+        <Link
+          href="/app/settings#company-country"
+          className="inline-flex min-h-11 items-center rounded-sm font-semibold text-[var(--ink)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+        >
+          Set its country
+        </Link>{" "}
+        to check receipts against Swedish VAT rules.
+      </p>
+    );
+  }
+
+  const result = checkSwedishVat(receipt, companyCountry);
   if (!result.applies) return null;
 
   const checkedOn = formatDate(SE_VAT_SOURCES.invoiceRules.checkedOn);
@@ -29,10 +56,16 @@ export function VatCheckPanel({ receipt }: { receipt: Receipt }) {
         VAT check · Sweden
       </p>
 
-      {result.findings.length === 0 ? (
+      {result.allClear ? (
         <p className="flex items-start gap-2 rounded-[10px] border border-[var(--hairline)] bg-card px-3.5 py-3 text-[13px] leading-snug">
           <CheckCircle2 className="mt-[1px] size-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
-          <span>Nothing missing for a VAT deduction on what this receipt shows.</span>
+          <span>
+            We found {result.allClear.found} on this receipt. Not checked:{" "}
+            {result.allClear.notChecked}.
+            {result.allClear.unconfirmed
+              ? " Based on a reading you haven’t confirmed yet."
+              : ""}
+          </span>
         </p>
       ) : (
         <ul className="space-y-2">

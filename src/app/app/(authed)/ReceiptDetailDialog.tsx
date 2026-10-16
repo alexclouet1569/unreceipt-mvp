@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Download, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { VatCheckPanel } from "@/components/receipt/VatCheckPanel";
+import type { CompanyCountry } from "@/lib/company-country";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import {
   CATEGORY_CONFIG,
@@ -32,11 +33,14 @@ import type { Receipt, ReceiptItem } from "@/lib/types";
 type ReceiptDetailDialogProps = {
   receipt: Receipt | null;
   onOpenChange: (open: boolean) => void;
+  // Which VAT check runs under the receipt; null until set in Settings.
+  companyCountry?: CompanyCountry | null;
 };
 
 export function ReceiptDetailDialog({
   receipt,
   onOpenChange,
+  companyCountry = null,
 }: ReceiptDetailDialogProps) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -181,7 +185,7 @@ export function ReceiptDetailDialog({
                   <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
                     <ReceiptDetailCard receipt={receipt} />
                     <div className="mt-4">
-                      <VatCheckPanel receipt={receipt} />
+                      <VatCheckPanel receipt={receipt} companyCountry={companyCountry} />
                     </div>
                   </div>
                   {form}
@@ -195,7 +199,7 @@ export function ReceiptDetailDialog({
                 <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
                   <ReceiptDetailCard receipt={receipt} />
                   <div className="mt-4">
-                    <VatCheckPanel receipt={receipt} />
+                    <VatCheckPanel receipt={receipt} companyCountry={companyCountry} />
                   </div>
                 </div>
                 {form}

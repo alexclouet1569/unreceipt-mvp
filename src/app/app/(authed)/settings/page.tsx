@@ -14,23 +14,39 @@ import { planSuggestion } from "@/lib/usage-copy";
 import { SignOutButton } from "./SignOutButton";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
+import { CompanyCountryForm } from "./CompanyCountryForm";
+import { parseCompanyCountry, type CompanyCountry } from "@/lib/company-country";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
 // (later) export or delete their data.
 export const dynamic = "force-dynamic";
 
-async function loadProfile(userId: string) {
-  const { data, error } = await getSupabaseAdmin()
-    .from("profiles")
-    .select("full_name, company_name")
-    .eq("user_id", userId)
-    .maybeSingle();
+type Profile = {
+  full_name: string | null;
+  company_name: string | null;
+  company_country: CompanyCountry | null;
+};
+
+async function loadProfile(userId: string): Promise<Profile | null> {
+  const select = (columns: string) =>
+    getSupabaseAdmin().from("profiles").select(columns).eq("user_id", userId).maybeSingle();
+  let { data, error } = await select("full_name, company_name, company_country");
+  if (error) {
+    // company_country may not exist yet (schema block 2026-10-16).
+    ({ data, error } = await select("full_name, company_name"));
+  }
   if (error) {
     console.error("[/app/settings] profile load failed", error);
     return null;
   }
-  return data as { full_name: string | null; company_name: string | null } | null;
+  const row = (data ?? null) as Record<string, unknown> | null;
+  if (!row) return null;
+  return {
+    full_name: (row.full_name as string | null) ?? null,
+    company_name: (row.company_name as string | null) ?? null,
+    company_country: parseCompanyCountry(row.company_country),
+  };
 }
 
 // Earliest purchase date, so the export can reach every month back to it.
@@ -179,6 +195,13 @@ export default async function SettingsPage() {
             <Row label="Name" value={profile?.full_name || "—"} />
             <Row label="Company" value={profile?.company_name || "—"} />
           </dl>
+          <div
+            id="company-country"
+            className="bg-card mt-3"
+            style={{ border: "1px solid var(--hairline)", borderRadius: "12px" }}
+          >
+            <CompanyCountryForm initial={profile?.company_country ?? null} />
+          </div>
         </section>
 
         <section>
