@@ -203,7 +203,7 @@ export function GuideLink() {
       className="inline-flex items-center text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
       style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
     >
-      How to make it automatic
+      Make it automatic, step by step (3 min)
     </Link>
   );
 }
