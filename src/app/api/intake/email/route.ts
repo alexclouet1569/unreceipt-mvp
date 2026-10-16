@@ -136,19 +136,6 @@ function pickHeader(
 }
 
 
-// A header from the Receiving API's headers object, as a list of values.
-function headerList(
-  headers: Record<string, string | string[] | undefined>,
-  name: string
-): string[] {
-  const values: string[] = [];
-  for (const [k, v] of Object.entries(headers)) {
-    if (k.toLowerCase() !== name) continue;
-    if (typeof v === "string") values.push(v);
-    else if (Array.isArray(v)) values.push(...v.filter((x): x is string => typeof x === "string"));
-  }
-  return values;
-}
 
 function genericNotFound() {
   // Same body whether the alias was malformed or simply not registered —
@@ -327,15 +314,13 @@ export async function POST(request: NextRequest) {
   }
 
   // Who the email was originally sent to: the To: header of the message
-  // itself (from the raw .eml, else the Receiving API's headers), never the
-  // webhook's recipient list or the envelope that brought it here. Only
-  // looked up for a DMARC-authenticated mail, the only kind a template can
-  // trust.
+  // itself, read from the raw .eml, never the webhook's recipient list or
+  // the envelope that brought it here. Without the raw message we can't
+  // count To: headers reliably, so nothing is trusted. Only looked up for a
+  // DMARC-authenticated mail, the only kind a template can trust.
   let recipient: RecipientOwnership = "none";
-  if (dmarc === "pass") {
-    const toHeaders = rawEml && hasRaw
-      ? rawHeaderValues(rawEml.toString("utf8"), "to")
-      : headerList(content.headers, "to");
+  if (dmarc === "pass" && rawEml && hasRaw) {
+    const toHeaders = rawHeaderValues(rawEml.toString("latin1"), "to");
     const owner = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
     recipient = recipientOwnership(toHeaders, owner);
   }

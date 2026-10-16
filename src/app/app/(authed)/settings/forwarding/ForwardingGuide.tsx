@@ -141,9 +141,7 @@ export function ForwardingGuide({
           <SupportLink />.
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5, marginTop: "8px" }}>
-          A rule only forwards new emails. Forward older receipts by hand. Tip:
-          apps such as Uber and Bolt let you choose where receipts are sent;
-          enter your UnReceipt address in their business profile.
+          A rule only forwards new emails. Forward older receipts by hand.
         </p>
       </section>
     </div>

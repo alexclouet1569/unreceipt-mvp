@@ -23,23 +23,30 @@ export function normalizeAddress(raw: string): string | null {
 }
 
 // Splits an address-list header value at commas outside quotes and angle
-// brackets, drops quoted display names and comments, and normalises each
-// mailbox. `"receipts+x@in.unreceipt.com" <attacker@gmail.com>` yields only
-// attacker@gmail.com: a sender-chosen display name never counts.
+// brackets, drops quoted display names and comments (honouring backslash
+// escapes inside them), and normalises each mailbox.
+// `"receipts+x@in.unreceipt.com" <attacker@gmail.com>` yields only
+// attacker@gmail.com: a sender-chosen display name never counts. Anything
+// left unbalanced yields [] (refuse rather than guess).
 export function parseAddressList(value: string): string[] {
+  if (value.length > 4000) return [];
   const parts: string[] = [];
   let current = "";
   let inQuote = false;
   let angle = 0;
   let comment = 0;
-  for (const ch of value.slice(0, 4000)) {
-    if (inQuote) {
-      if (ch === '"') inQuote = false;
-      continue;
-    }
-    if (comment > 0) {
-      if (ch === "(") comment++;
-      else if (ch === ")") comment--;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (inQuote || comment > 0) {
+      if (ch === "\\") {
+        i++; // quoted-pair: the next character is literal
+      } else if (inQuote && ch === '"') {
+        inQuote = false;
+      } else if (!inQuote && ch === "(") {
+        comment++;
+      } else if (!inQuote && ch === ")") {
+        comment--;
+      }
       continue;
     }
     if (ch === '"') {
@@ -55,20 +62,31 @@ export function parseAddressList(value: string): string[] {
       current += ch;
     }
   }
+  if (inQuote || comment > 0 || angle > 0) return [];
   parts.push(current);
   return parts.map(normalizeAddress).filter((a): a is string => a != null);
 }
 
+// The header block is never read past this; a message whose headers don't
+// end within it is refused rather than half-read.
+const MAX_HEADER_BLOCK = 256 * 1024;
+
 // Every value of one header in a raw message's header block, in order,
-// with folded lines joined. Only the first 64 KB is read.
-export function rawHeaderValues(rawEml: string, name: string): string[] {
-  const head = rawEml.slice(0, 65_536).split(/\r?\n\r?\n/, 1)[0];
-  const lines = head.split(/\r?\n/);
+// with folded lines joined. The field name is matched trimmed and case-
+// insensitively, as DKIM's relaxed canonicalisation does ("To :" is still
+// To). Returns null when the header block can't be read in full (no blank
+// line within MAX_HEADER_BLOCK): callers must then refuse.
+export function rawHeaderValues(rawEml: string, name: string): string[] | null {
+  const end = rawEml.slice(0, MAX_HEADER_BLOCK).search(/\r?\n\r?\n/);
+  if (end === -1) return null;
+  const lines = rawEml.slice(0, end).split(/\r?\n/);
   const values: string[] = [];
-  const prefix = `${name.toLowerCase()}:`;
+  const wanted = name.toLowerCase();
   for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].toLowerCase().startsWith(prefix)) continue;
-    let value = lines[i].slice(prefix.length);
+    const colon = lines[i].indexOf(":");
+    if (colon <= 0 || /^[ \t]/.test(lines[i])) continue;
+    if (lines[i].slice(0, colon).trim().toLowerCase() !== wanted) continue;
+    let value = lines[i].slice(colon + 1);
     while (i + 1 < lines.length && /^[ \t]/.test(lines[i + 1])) value += " " + lines[++i].trim();
     values.push(value.trim());
   }
@@ -84,10 +102,10 @@ export type RecipientOwnership = "personal" | "alias" | "none";
 // last copy of a repeated header and a second one could be slipped in.
 // Cc: never counts, for the same reason.
 export function recipientOwnership(
-  toHeaders: readonly string[],
+  toHeaders: readonly string[] | null,
   owner: { personal: readonly string[]; alias: string },
 ): RecipientOwnership {
-  if (toHeaders.length !== 1) return "none";
+  if (!toHeaders || toHeaders.length !== 1) return "none";
   const recipients = new Set(parseAddressList(toHeaders[0]));
   const personal = owner.personal.map(normalizeAddress).filter((a): a is string => a != null);
   if (personal.some((a) => recipients.has(a))) return "personal";

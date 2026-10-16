@@ -35,7 +35,6 @@ export const stripeTemplate: EmailTemplate = {
   // Merchants sending through Stripe from their own domain still match (by
   // subject + body), but only mail from stripe.com can be trusted as-is.
   trustedDomains: ["stripe.com"],
-  trustDirectToAlias: false,
 
   match(raw) {
     // Match the sender's domain exactly: `includes("@stripe.com")` also

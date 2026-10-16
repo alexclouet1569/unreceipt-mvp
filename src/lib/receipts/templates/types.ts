@@ -29,11 +29,6 @@ export interface EmailTemplate {
   // full template hit. Anything else that matches (subject look-alikes, a
   // manual "Fwd:") is extracted but lands in Review needed.
   trustedDomains: readonly string[];
-  // Whether a receipt sent straight to the user's forwarding alias (not to
-  // one of their own inboxes) can be trusted. Uber lets a rider set the
-  // receipt address; Stripe lets any merchant email any address, so a
-  // stranger could send a real Stripe receipt to someone's alias.
-  trustDirectToAlias: boolean;
   match(raw: EmailRaw): boolean;
   extract(raw: EmailRaw): PartialFields;
 }

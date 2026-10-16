@@ -31,6 +31,16 @@ describe("normalizeAddress", () => {
 });
 
 describe("parseAddressList", () => {
+  it("honours backslash escapes and refuses anything unbalanced", () => {
+    expect(parseAddressList('"foo\\" <receipts+abc123@in.unreceipt.com>, bar" <bjorn@gmail.com>')).toEqual([
+      "bjorn@gmail.com",
+    ]);
+    expect(parseAddressList("(x\\) <receipts+abc123@in.unreceipt.com>, y) bjorn@gmail.com")).toEqual([
+      "bjorn@gmail.com",
+    ]);
+    expect(parseAddressList('"unclosed <anna@gmail.com>')).toEqual([]);
+  });
+
   it("splits at commas outside quotes and ignores display names and comments", () => {
     expect(
       parseAddressList('"Lund, Erik" <erik@acme.se>, anna@gmail.com (work), "receipts+x@in.unreceipt.com" <eve@evil.io>'),
@@ -39,6 +49,17 @@ describe("parseAddressList", () => {
 });
 
 describe("rawHeaderValues", () => {
+  it("counts 'To :' (space before the colon) as To, like DKIM does", () => {
+    const eml = "To: receipts+abc123@in.unreceipt.com\r\nFrom: noreply@uber.com\r\nTo : bjorn@gmail.com\r\n\r\nbody";
+    expect(rawHeaderValues(eml, "to")).toHaveLength(2);
+  });
+
+  it("refuses a header block it can't read to the end", () => {
+    const eml = "To: receipts+abc123@in.unreceipt.com\r\n" + "X-Pad: y\r\n".repeat(30_000) + "To: bjorn@gmail.com\r\n\r\nbody";
+    expect(rawHeaderValues(eml, "to")).toBeNull();
+    expect(rawHeaderValues("To: a@b.se\r\nno blank line", "to")).toBeNull();
+  });
+
   it("reads every To: in the header block only, joining folded lines", () => {
     const eml = "From: noreply@uber.com\r\nTo: Anna\r\n <anna@gmail.com>\r\nTO: bjorn@gmail.com\r\nSubject: x\r\n\r\nTo: body@not.header";
     expect(rawHeaderValues(eml, "to")).toEqual(["Anna <anna@gmail.com>", "bjorn@gmail.com"]);
@@ -55,6 +76,10 @@ describe("recipientOwnership", () => {
 
   it("tells a receipt sent straight to the alias apart", () => {
     expect(recipientOwnership(["receipts+abc123@in.unreceipt.com"], owner)).toBe("alias");
+  });
+
+  it("refuses when the header block couldn't be read", () => {
+    expect(recipientOwnership(null, owner)).toBe("none");
   });
 
   it("refuses someone else's receipt, a second To: header, and display-name tricks", () => {

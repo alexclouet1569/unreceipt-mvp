@@ -248,7 +248,7 @@ describe("parseReceipt — sender trust", () => {
     expect(result.fields.parse_confidence).toBeLessThan(0.75);
   });
 
-  it("trusts an Uber receipt sent straight to the alias, but not a Stripe one", async () => {
+  it("doesn't trust a receipt sent straight to the alias (anyone can type that address)", async () => {
     const direct = (from: string, subject: string, text: string) =>
       parseReceipt({
         kind: "email",
@@ -257,8 +257,7 @@ describe("parseReceipt — sender trust", () => {
     const uber = await direct("noreply@uber.com", "Your trip with Uber", "Total 189 SEK\n15 October 2026");
     const stripe = await direct("receipts@stripe.com", "Your receipt from Acme", "Amount paid $49.00\nOct 14, 2026");
     if (uber.status !== "ok" || stripe.status !== "ok") throw new Error("not ok");
-    expect(uber.fields.parse_confidence).toBeGreaterThanOrEqual(0.75);
-    // Any Stripe merchant can email any address, so a stranger could send one.
+    expect(uber.fields.parse_confidence).toBeLessThan(0.75);
     expect(stripe.fields.parse_confidence).toBeLessThan(0.75);
   });
 
