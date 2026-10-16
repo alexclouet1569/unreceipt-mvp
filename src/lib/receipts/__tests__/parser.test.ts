@@ -198,6 +198,13 @@ describe("parseReceipt — template amounts and formats", () => {
     expect(Date.now() - started).toBeLessThan(3000);
   });
 
+  it("reads card digits fast even after a huge run of mask characters", async () => {
+    const started = Date.now();
+    const fields = await okFields(uber("Total 24,90 SEK\n15 October 2026\nVisa •• 4242\n" + ".".repeat(200_000)));
+    expect(fields.card_last_four).toBe("4242");
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
   it("keeps a crafted Stripe subject fast", async () => {
     const started = Date.now();
     await stripe("Amount paid $1.00\nOct 14, 2026", "receipt from" + " ".repeat(2000) + "x\ny");

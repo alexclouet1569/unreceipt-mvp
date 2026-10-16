@@ -27,7 +27,8 @@ const amountAfter = (label: string) =>
 // "Total tax".
 const AMOUNT_PAID_RE = amountAfter(String.raw`\bamount[ \t]+paid\b`);
 const TOTAL_RE = amountAfter(String.raw`^[ \t]*total\b(?![ \t]+(?:excl|excluding|before|ex|tax|vat|moms)\b)`);
-const CARD_RE = /(?:•{2,}|\.{2,}|x{4,}|\*{4,})\s*(\d{4})/;
+// Bounded: unbounded runs were quadratic on a body of dots (200 KB: 74 s).
+const CARD_RE = /(?:•{2,8}|\.{2,8}|x{4,8}|\*{4,8})[ \t]{0,3}(\d{4})/;
 
 export const stripeTemplate: EmailTemplate = {
   name: "stripe",

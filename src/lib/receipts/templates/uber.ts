@@ -21,7 +21,8 @@ const TOTAL_RE = new RegExp(
 );
 // Bounded so a body of repeated "from " can't make this quadratic.
 const TRIP_DESCR_RE = /from\s+(.{1,200}?)\s+to\s+(.{1,200}?)(?:\.|$|\n)/i;
-const CARD_RE = /(?:•{2,}|\.{2,}|x{4,}|\*{4,})\s*(\d{4})/i;
+// Bounded: unbounded runs were quadratic on a body of dots (200 KB: 74 s).
+const CARD_RE = /(?:•{2,8}|\.{2,8}|x{4,8}|\*{4,8})[ \t]{0,3}(\d{4})/i;
 
 export const uberTemplate: EmailTemplate = {
   name: "uber",
