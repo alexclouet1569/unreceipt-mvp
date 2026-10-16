@@ -3,24 +3,37 @@
 // with "Total $X.XX" line.
 
 import type { EmailTemplate, PartialFields } from "./types";
+import {
+  AMOUNT_PATTERN,
+  currencyFromSymbol,
+  isFromDomain,
+  parseAmount,
+  stripHtml,
+} from "./amount";
 
-const TOTAL_RE =
-  /\btotal\b\s*[:.]?\s*([A-Z]{3}|\$|€|kr|SEK)?\s*([\d.,]+)\s*([A-Z]{3}|\$|€|kr|SEK)?/i;
-const TRIP_DATE_RE =
-  /(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})/i;
-const TRIP_DESCR_RE = /from\s+(.+?)\s+to\s+(.+?)(?:\.|$|\n)/i;
+// "Total" (English) or "Totalt" (Swedish).
+const TOTAL_RE = new RegExp(
+  String.raw`\btotalt?\b\s*[:.]?\s*([A-Z]{3}|\$|€|kr|SEK)?\s*(${AMOUNT_PATTERN})\s*([A-Z]{3}|\$|€|kr|SEK)?`,
+  "i"
+);
+const MONTH_NAMES =
+  "january|february|march|april|may|june|july|august|september|october|november|december";
+// "15 October 2026" or "October 15, 2026".
+const TRIP_DATE_RE = new RegExp(String.raw`(\d{1,2})\s+(${MONTH_NAMES})\s+(\d{4})`, "i");
+const US_TRIP_DATE_RE = new RegExp(String.raw`\b(${MONTH_NAMES})\s+(\d{1,2}),?\s+(\d{4})`, "i");
+// Bounded so a body of repeated "from " can't make this quadratic.
+const TRIP_DESCR_RE = /from\s+(.{1,200}?)\s+to\s+(.{1,200}?)(?:\.|$|\n)/i;
 const CARD_RE = /(?:•{2,}|\.{2,}|x{4,}|\*{4,})\s*(\d{4})/i;
 
 export const uberTemplate: EmailTemplate = {
   name: "uber",
+  trustedDomains: ["uber.com"],
 
   match(raw) {
-    const from = raw.from.toLowerCase();
     return (
-      from.includes("@uber.com") ||
-      from.includes("noreply@uber") ||
-      from.includes("receipts@uber") ||
-      /your\s+(?:\w+\s+)?trip\s+with\s+uber/i.test(raw.subject)
+      isFromDomain(raw.from, this.trustedDomains) ||
+      // "Your trip with Uber", "Your Thursday evening trip with Uber"
+      /your\s+(?:\w+\s+){0,2}trip\s+with\s+uber/i.test(raw.subject)
     );
   },
 
@@ -32,17 +45,21 @@ export const uberTemplate: EmailTemplate = {
 
     const totalMatch = text.match(TOTAL_RE);
     if (totalMatch) {
-      const sym = (totalMatch[1] ?? totalMatch[3] ?? "").toLowerCase();
       const amount = parseAmount(totalMatch[2]);
       if (amount != null) fields.total = amount;
-      fields.currency = currencyFromSymbol(sym);
+      fields.currency = currencyFromSymbol(totalMatch[1] ?? totalMatch[3] ?? "");
     }
 
     const dateMatch = text.match(TRIP_DATE_RE) ?? raw.subject.match(TRIP_DATE_RE);
-    if (dateMatch) {
-      const iso = toIsoDate(dateMatch[1], dateMatch[2], dateMatch[3]);
-      if (iso) fields.purchased_at = `${iso}T12:00:00.000Z`;
-    }
+    const usDateMatch = dateMatch
+      ? null
+      : (text.match(US_TRIP_DATE_RE) ?? raw.subject.match(US_TRIP_DATE_RE));
+    const iso = dateMatch
+      ? toIsoDate(dateMatch[1], dateMatch[2], dateMatch[3])
+      : usDateMatch
+        ? toIsoDate(usDateMatch[2], usDateMatch[1], usDateMatch[3])
+        : null;
+    if (iso) fields.purchased_at = `${iso}T12:00:00.000Z`;
 
     fields.merchant_name = "Uber";
 
@@ -58,31 +75,7 @@ export const uberTemplate: EmailTemplate = {
   },
 };
 
-function stripHtml(input: string): string {
-  return input
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
-function parseAmount(raw: string): number | null {
-  const cleaned = raw.includes(",") && !raw.includes(".")
-    ? raw.replace(",", ".")
-    : raw.replace(/,/g, "");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
-function currencyFromSymbol(sym: string): string | undefined {
-  if (sym === "$") return "USD";
-  if (sym === "€") return "EUR";
-  if (sym === "kr" || sym === "sek") return "SEK";
-  if (/^[a-z]{3}$/i.test(sym)) return sym.toUpperCase();
-  return undefined;
-}
 
 const MONTHS: Record<string, string> = {
   jan: "01", january: "01",

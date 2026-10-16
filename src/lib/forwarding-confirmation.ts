@@ -5,10 +5,12 @@
 // guide (/app/settings/forwarding) instead of filing it as a receipt
 // (launch plan action 84).
 //
-// Pure: no I/O. The From: header is spoofable, so when the receiving server
-// left a DKIM verdict we require Google's signature; a forged email then
-// falls through to the normal receipt path. Either way we keep only what is
-// safe to show the alias owner: a digits-only code (a fake one simply fails
+// Pure: no I/O. The From: header is spoofable, so we require proof the
+// email really came from google.com: Resend's DMARC verdict, or failing
+// that a Google DKIM pass in the receiving server's Authentication-Results.
+// Without either, it falls through to the normal receipt path (Review
+// needed, where the user can still read the code in the original). Either
+// way we keep only what is safe to show the alias owner: a digits-only code (a fake one simply fails
 // in Gmail) and the Gmail address, if it looks like one. Never the link: a
 // spoofed link would be a phishing lure shown inside our own UI.
 
@@ -34,35 +36,51 @@ function bareAddress(from: string): string {
   return (angle ? angle[1] : from).trim().toLowerCase();
 }
 
-const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}/;
+const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}/g;
+// Real confirmation emails are short; cutting the input keeps every regex
+// below fast on hostile mail (a 60 KB subject took 6.5 s before).
+const MAX_SUBJECT = 500;
+const MAX_TEXT = 10_000;
 
 function findCode(subject: string, text: string): string | null {
   // Subject: "(#123456789) Gmail Forwarding Confirmation - Receive Mail from …"
   const inSubject = subject.match(/\(#(\d{6,12})\)/);
   if (inSubject) return inSubject[1];
-  // Body: "Confirmation code: 123456789" (the label is localised, the
-  // number isn't).
+  // Body: "Confirmation code: 123456789", "Bekräftelsekod: …", "Code de
+  // confirmation : …". Prefer the labelled number over any other one
+  // (a phone number earlier in the body was picked before).
+  const labelled = text.match(/(?:code|kod)[^\d\n]{0,40}?(\d{6,12})\b/i);
+  if (labelled) return labelled[1];
   const inBody = text.match(/:\s*(\d{6,12})\b/);
   return inBody ? inBody[1] : null;
+}
+
+function cleanAddress(candidate: string | undefined): string | null {
+  if (!candidate || candidate.length > 254) return null;
+  const lower = candidate.toLowerCase();
+  // Our own alias appears in the body too; it isn't the Gmail account.
+  return lower.startsWith("receipts+") ? null : lower;
 }
 
 function findForAddress(subject: string, text: string): string | null {
   // Subject ends "… Receive Mail from someone@gmail.com"; the body starts
   // "someone@gmail.com has requested to automatically forward mail …".
-  const fromSubject = subject.match(/\bfrom\s+(\S+@\S+)\s*$/i)?.[1];
-  const candidate = fromSubject ?? text.match(EMAIL)?.[0] ?? null;
-  if (!candidate) return null;
-  const match = candidate.match(EMAIL);
-  if (!match || match[0].length > 254) return null;
-  // Our own alias appears in the body too; it isn't the Gmail account.
-  if (match[0].toLowerCase().startsWith("receipts+")) return null;
-  return match[0].toLowerCase();
+  const fromSubject = subject.match(/\bfrom\s+(\S{1,254})\s*$/i)?.[1];
+  if (fromSubject) {
+    const match = fromSubject.match(EMAIL);
+    if (match?.[0] === fromSubject) return cleanAddress(match[0]);
+  }
+  for (const match of text.matchAll(EMAIL)) {
+    const address = cleanAddress(match[0]);
+    if (address) return address;
+  }
+  return null;
 }
 
-// The topmost Authentication-Results header is the one our receiving server
-// added; any below it came with the message and can be forged. Returns
-// "absent" when there is none, so a provider that doesn't add one doesn't
-// break Gmail setup.
+// Fallback when Resend's verdict is missing. The topmost Authentication-
+// Results header is normally the receiving server's; any below it came
+// with the message. Weaker than the DMARC verdict (Resend doesn't document
+// adding this header), so only an explicit pass counts.
 export function googleDkimVerdict(
   authenticationResults: string | string[] | null | undefined
 ): "pass" | "fail" | "absent" {
@@ -75,14 +93,21 @@ export function parseForwardingConfirmation(input: {
   from: string;
   subject: string;
   text: string | null;
+  // Resend's DMARC verdict for the From: domain; null when unknown.
+  dmarc?: string | null;
   authenticationResults?: string | string[] | null;
 }): ForwardingConfirmation | null {
   if (bareAddress(input.from) !== GMAIL_FORWARDING_SENDER) return null;
-  if (googleDkimVerdict(input.authenticationResults) === "fail") return null;
-  const text = input.text ?? "";
+  const genuine =
+    input.dmarc != null
+      ? input.dmarc === "pass"
+      : googleDkimVerdict(input.authenticationResults) === "pass";
+  if (!genuine) return null;
+  const subject = input.subject.slice(0, MAX_SUBJECT);
+  const text = (input.text ?? "").slice(0, MAX_TEXT);
   return {
     provider: "gmail",
-    code: findCode(input.subject, text),
-    forAddress: findForAddress(input.subject, text),
+    code: findCode(subject, text),
+    forAddress: findForAddress(subject, text),
   };
 }

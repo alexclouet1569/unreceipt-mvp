@@ -15,6 +15,7 @@ describe("parseForwardingConfirmation", () => {
   it("reads the code and the Gmail account from Gmail's confirmation email", () => {
     expect(
       parseForwardingConfirmation({
+        dmarc: "pass",
         from: "Gmail Team <forwarding-noreply@google.com>",
         subject:
           "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna.svensson@gmail.com",
@@ -26,6 +27,7 @@ describe("parseForwardingConfirmation", () => {
   it("falls back to the body when the subject is localised and has no code", () => {
     expect(
       parseForwardingConfirmation({
+        dmarc: "pass",
         from: "forwarding-noreply@google.com",
         subject: "Bekräftelse av vidarebefordran i Gmail",
         text: "anna.svensson@gmail.com har begärt …\nBekräftelsekod: 593872831\n",
@@ -36,6 +38,7 @@ describe("parseForwardingConfirmation", () => {
   it("still recognises the email when no code can be read", () => {
     expect(
       parseForwardingConfirmation({
+        dmarc: "pass",
         from: "forwarding-noreply@google.com",
         subject: "Gmail Forwarding Confirmation",
         text: null,
@@ -46,6 +49,7 @@ describe("parseForwardingConfirmation", () => {
   it("ignores every other sender", () => {
     expect(
       parseForwardingConfirmation({
+        dmarc: "pass",
         from: "receipts@uber.com",
         subject: "(#593872831) Gmail Forwarding Confirmation",
         text: BODY,
@@ -55,6 +59,7 @@ describe("parseForwardingConfirmation", () => {
 
   it("never returns our own alias as the Gmail account", () => {
     const result = parseForwardingConfirmation({
+      dmarc: "pass",
       from: "forwarding-noreply@google.com",
       subject: "Gmail Forwarding Confirmation",
       text: "receipts+abc12345mn@in.unreceipt.com\nConfirmation code: 593872831",
@@ -65,6 +70,7 @@ describe("parseForwardingConfirmation", () => {
 
   it("drops anything that isn't an email address", () => {
     const result = parseForwardingConfirmation({
+      dmarc: "pass",
       from: "forwarding-noreply@google.com",
       subject: "(#593872831) Gmail Forwarding Confirmation - Receive Mail from <script>",
       text: "",
@@ -133,7 +139,36 @@ describe("Google DKIM check", () => {
     ).toBeNull();
   });
 
-  it("still works when the receiving server left no verdict", () => {
-    expect(confirmation(null)?.code).toBe("593872831");
+  it("refuses when there's no verdict at all (it then lands in Review needed)", () => {
+    expect(confirmation(null)).toBeNull();
+  });
+
+  it("prefers Resend's DMARC verdict over any header", () => {
+    const base = { from: "forwarding-noreply@google.com", subject: "(#593872831) Gmail Forwarding Confirmation", text: "" };
+    expect(parseForwardingConfirmation({ ...base, dmarc: "pass" })?.code).toBe("593872831");
+    expect(
+      parseForwardingConfirmation({ ...base, dmarc: "fail", authenticationResults: "x; dkim=pass header.d=google.com" }),
+    ).toBeNull();
+  });
+
+  it("prefers the labelled code over another number, and skips our alias", () => {
+    const result = parseForwardingConfirmation({
+      dmarc: "pass",
+      from: "forwarding-noreply@google.com",
+      subject: "Gmail Forwarding Confirmation",
+      text: "receipts+abc@in.unreceipt.com\nTel: 0812345678\nanna@gmail.com har begärt …\nBekräftelsekod: 593872831",
+    });
+    expect(result).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna@gmail.com" });
+  });
+
+  it("stays fast on a hostile 60 KB subject", () => {
+    const started = Date.now();
+    parseForwardingConfirmation({
+      dmarc: "pass",
+      from: "forwarding-noreply@google.com",
+      subject: "from " + "@".repeat(60_000),
+      text: "@".repeat(60_000),
+    });
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });

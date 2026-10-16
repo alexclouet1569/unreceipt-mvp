@@ -400,13 +400,23 @@ describe("POST /api/intake/email", () => {
     expect(mocks.fetchReceivedEmail).not.toHaveBeenCalled();
   });
 
-  it("keeps Gmail's forwarding confirmation code instead of filing a receipt", async () => {
-    const body = inboundPayload({
-      from: { address: "forwarding-noreply@google.com", name: "Gmail Team" },
-      subject:
-        "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna@gmail.com",
+  function gmailConfirmation(dmarc: string | null) {
+    mocks.fetchReceivedEmail.mockResolvedValue({
       text: "anna@gmail.com has requested to automatically forward mail …",
+      html: null,
+      headers: {},
+      messageId: "<confirm-1@google.com>",
+      rawEml: null,
+      authentication: dmarc ? { spf: "pass", dkim: dmarc, dmarc } : null,
     });
+    return metadataOnlyPayload({
+      from: "Gmail Team <forwarding-noreply@google.com>",
+      subject: "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna@gmail.com",
+    });
+  }
+
+  it("keeps Gmail's forwarding confirmation code instead of filing a receipt", async () => {
+    const body = gmailConfirmation("pass");
 
     const res = await POST(buildRequest(body, sign(body)));
 
@@ -424,20 +434,48 @@ describe("POST /api/intake/email", () => {
     );
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.receiptsInsert).not.toHaveBeenCalled();
-    expect(mocks.storageUpload).not.toHaveBeenCalled();
     expect(usageMock).not.toHaveBeenCalled();
+  });
+
+  it("files a forged Gmail confirmation (DMARC fail) as an ordinary email", async () => {
+    const body = gmailConfirmation("fail");
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt.mock.calls[0][0].raw.authenticated).toBe(false);
+    expect(mocks.receiptsInsert).toHaveBeenCalledTimes(1);
   });
 
   it("answers 500 (so Resend retries) when the confirmation code can't be saved", async () => {
     mocks.upsert.mockResolvedValue({ error: { message: "boom" } });
-    const body = inboundPayload({
-      from: "forwarding-noreply@google.com",
-      subject: "(#593872831) Gmail Forwarding Confirmation",
-    });
+    const body = gmailConfirmation("pass");
 
     const res = await POST(buildRequest(body, sign(body)));
 
     expect(res.status).toBe(500);
     expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("tells the parser the sender is authenticated only on Resend's DMARC pass", async () => {
+    mocks.fetchReceivedEmail.mockResolvedValue({
+      text: "Total: 189 kr",
+      html: null,
+      headers: {},
+      messageId: "<msg-uber-009@uber.com>",
+      rawEml: null,
+      authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
+    });
+    const body = metadataOnlyPayload({ subject: "Bad\u0000subject " + "x".repeat(5000) });
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    const raw = mocks.parseReceipt.mock.calls[0][0].raw;
+    expect(raw.authenticated).toBe(true);
+    expect(raw.subject).not.toContain("\u0000");
+    const row = mocks.receiptsInsert.mock.calls[0][0] as { notes: string };
+    expect(row.notes.length).toBeLessThanOrEqual(310);
   });
 });

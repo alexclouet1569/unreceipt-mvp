@@ -15,6 +15,9 @@ export type EmailRaw = {
   subject: string;
   text: string | null;
   html: string | null;
+  // True only when the receiving server's DMARC check passed, i.e. the
+  // From: domain is genuine. Absent → not authenticated.
+  authenticated?: boolean;
 };
 
 export type SmsRaw = {

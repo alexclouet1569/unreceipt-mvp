@@ -94,6 +94,8 @@ async function loadEmailContent(
       headers: data.headers ?? {},
       messageId: typeof data.message_id === "string" ? data.message_id : null,
       rawEml: typeof data.raw === "string" ? Buffer.from(data.raw, "base64") : null,
+      // An inline payload carries no verdict we can trust.
+      authentication: null,
     };
   }
   return fetchReceivedEmail(data.email_id);
@@ -235,14 +237,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "email content unavailable" }, { status: 502 });
   }
   const supabase = getSupabaseAdmin();
+  // Postgres text can't hold NUL; one in the subject failed the insert and
+  // lost the email on every retry.
+  const subject = typeof data.subject === "string" ? data.subject.replace(/\u0000/g, "") : "";
+  // Resend's own DMARC verdict: the From: domain is genuine.
+  const dmarc = content.authentication?.dmarc ?? null;
 
   // Gmail's "confirm this forwarding address" email isn't a receipt: keep
   // its code for the setup guide and stop here. 500 on a failed write so
   // Resend retries; the user can't finish the Gmail setup without it.
   const confirmation = parseForwardingConfirmation({
     from: fromAddr,
-    subject: typeof data.subject === "string" ? data.subject : "",
+    subject,
     text: content.text,
+    dmarc,
     authenticationResults: headerValues(content.headers, "Authentication-Results"),
   });
   if (confirmation) {
@@ -321,9 +329,10 @@ export async function POST(request: NextRequest) {
       raw: {
         from: fromAddr,
         to: toAddr,
-        subject: typeof data.subject === "string" ? data.subject : "",
+        subject,
         text: content.text,
         html: content.html,
+        authenticated: dmarc === "pass",
       },
     });
   } catch (err) {
@@ -360,7 +369,8 @@ export async function POST(request: NextRequest) {
     intake_ref: intakeRef,
     original_source_url: hasRaw ? storagePath : null,
     original_source_kind: hasRaw ? ("eml" as const) : null,
-    notes: typeof data.subject === "string" && data.subject.length > 0 ? `Subject: ${data.subject}` : null,
+    // Capped: a 100 KB subject was stored whole.
+    notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
   };
 
   const rowToInsert =

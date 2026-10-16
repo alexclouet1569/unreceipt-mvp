@@ -19,6 +19,10 @@ export type ReceivedEmailContent = {
   headers: Record<string, string | string[] | undefined>;
   messageId: string | null;
   rawEml: Buffer | null;
+  // SPF/DKIM/DMARC results Resend computed on receipt ("pass", "fail",
+  // "gray"…). Unlike the message's own headers, the sender can't forge
+  // them. Null when Resend didn't return them.
+  authentication: { spf: string | null; dkim: string | null; dmarc: string | null } | null;
 };
 
 function str(value: unknown): string | null {
@@ -80,11 +84,19 @@ export async function fetchReceivedEmail(
       ? (email.headers as Record<string, string | string[] | undefined>)
       : {};
 
+  const auth =
+    email.authentication && typeof email.authentication === "object"
+      ? (email.authentication as Record<string, unknown>)
+      : null;
+
   return {
     text: str(email.text),
     html: str(email.html),
     headers,
     messageId: str(email.message_id),
     rawEml,
+    authentication: auth
+      ? { spf: str(auth.spf), dkim: str(auth.dkim), dmarc: str(auth.dmarc) }
+      : null,
   };
 }

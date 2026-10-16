@@ -37,6 +37,7 @@ describe("parseReceipt — email templates", () => {
           "Payment: Visa •• 4242",
         ].join("\n"),
         html: null,
+        authenticated: true,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -69,6 +70,7 @@ describe("parseReceipt — email templates", () => {
           "Powered by Stripe.",
         ].join("\n"),
         html: null,
+        authenticated: true,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -81,7 +83,95 @@ describe("parseReceipt — email templates", () => {
   });
 });
 
+describe("parseReceipt — template amounts and formats", () => {
+  const uber = (text: string, subject = "Your Thursday evening trip with Uber") =>
+    parseReceipt({
+      kind: "email",
+      raw: { from: "noreply@uber.com", to: "x", subject, text, html: null, authenticated: true },
+    });
+  const stripe = (text: string, subject = "Your receipt from Linear #2794-5305") =>
+    parseReceipt({
+      kind: "email",
+      raw: { from: "receipts+acct@stripe.com", to: "x", subject, text, html: null, authenticated: true },
+    });
+
+  it.each([
+    ["Total 1 234,50 kr\n15 October 2026", 1234.5, "SEK"],
+    ["Totalt 189,00 kr\n15 October 2026", 189, "SEK"],
+    ["Total $1,234.56\nOctober 15, 2026", 1234.56, "USD"],
+  ])("Uber reads %j", async (text, total, currency) => {
+    const result = await uber(text);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.total).toBe(total);
+    expect(result.fields.currency).toBe(currency);
+    expect(result.fields.purchased_at.startsWith("2026-10-15")).toBe(true);
+    expect(result.fields.parse_confidence).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it.each([
+    ["Amount paid 1\u00a0250,00 kr\nOct 14, 2026", 1250, "SEK"],
+    ["Amount paid 1.234,56 €\n14 Oct 2026", 1234.56, "EUR"],
+  ])("Stripe reads %j", async (text, total, currency) => {
+    const result = await stripe(text);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.merchant_name).toBe("Linear");
+    expect(result.fields.total).toBe(total);
+    expect(result.fields.currency).toBe(currency);
+    expect(result.fields.purchased_at.startsWith("2026-10-14")).toBe(true);
+  });
+
+  it("never guesses a currency the receipt doesn't show", async () => {
+    mockLlmExtract.mockResolvedValue({ ok: false, error: "no key" } as never);
+    const result = await stripe("Amount paid 49.00\n14 Oct 2026");
+    if (result.status === "ok") expect(result.fields.currency).not.toBe("USD");
+  });
+
+  it("strips huge unclosed HTML quickly", async () => {
+    const started = Date.now();
+    await parseReceipt({
+      kind: "email",
+      raw: { from: "noreply@uber.com", to: "x", subject: "x", text: null, html: "<a".repeat(150_000), authenticated: true },
+    });
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+});
+
 describe("parseReceipt — sender trust", () => {
+  it("doesn't trust a full Uber look-alike from another domain", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "billing@attacker.example",
+        to: "x",
+        subject: "Your trip with Uber",
+        text: "Total 4999 kr\n15 October 2026",
+        html: null,
+        authenticated: true,
+      },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("doesn't trust a real-looking Uber sender without a DMARC pass", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "noreply@uber.com",
+        to: "x",
+        subject: "Your trip with Uber",
+        text: "Total 189 kr\n15 October 2026",
+        html: null,
+      },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
   it("does not treat a look-alike sender domain as Stripe", async () => {
     mockLlmExtract.mockResolvedValue({ not_a_receipt: true });
 
