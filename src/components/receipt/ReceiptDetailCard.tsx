@@ -44,7 +44,8 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
     receipt.transaction_ref ||
     receipt.merchant_vat_number ||
     receipt.merchant_org_number ||
-    receipt.buyer_name;
+    receipt.buyer_name ||
+    receipt.buyer_address;
   // Several VAT rates on one receipt (a grocery receipt mixes 6 % and 25 %).
   const vatLines =
     receipt.vat_breakdown && receipt.vat_breakdown.length > 1 ? receipt.vat_breakdown : null;
@@ -163,9 +164,9 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
         {showTax ? (
           <div className="mt-2 space-y-1">
             {vatLines ? (
-              vatLines.map((line) => (
+              vatLines.map((line, i) => (
                 <Leader
-                  key={line.rate}
+                  key={`${line.rate}-${i}`}
                   label={`VAT ${line.rate} %`}
                   value={formatAmount(line.vat_amount, currency)}
                   mono
@@ -193,10 +194,10 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
                 <Leader label="Transaction" value={receipt.transaction_ref} />
               ) : null}
               {receipt.merchant_vat_number ? (
-                <Leader label="VAT No." value={receipt.merchant_vat_number} />
+                <Leader label="VAT No." value={receipt.merchant_vat_number} numeric />
               ) : null}
               {receipt.merchant_org_number ? (
-                <Leader label="Org. No." value={receipt.merchant_org_number} />
+                <Leader label="Org. No." value={receipt.merchant_org_number} numeric />
               ) : null}
               {billedTo ? <Leader label="Billed to" value={billedTo} /> : null}
             </div>
@@ -262,18 +263,24 @@ function Rule() {
   return <div className="my-3 border-t border-dashed border-[var(--hairline)]" aria-hidden="true" />;
 }
 
-/** Label … dotted leader … value, the receipt line. `mono` only for amounts. */
+/**
+ * Label … dotted leader … value, the receipt line. `mono` only for amounts;
+ * `numeric` (tabular figures in Manrope) for ids and codes.
+ */
 function Leader({
   label,
   value,
   mono = false,
+  numeric = false,
   wrap = false,
 }: {
   label: React.ReactNode;
   value: string;
   mono?: boolean;
+  numeric?: boolean;
   wrap?: boolean;
 }) {
+  const figures = mono ? "font-mono tabular-nums" : numeric ? "tabular-nums" : "";
   return (
     <div className="flex items-baseline gap-2 text-[14px]">
       <span
@@ -292,8 +299,8 @@ function Leader({
       <span
         className={
           wrap
-            ? `shrink-0 ${mono ? "font-mono tabular-nums" : ""}`
-            : `min-w-0 text-right break-words ${mono ? "font-mono tabular-nums" : ""}`
+            ? `shrink-0 ${figures}`
+            : `min-w-0 text-right break-words ${figures}`
         }
       >
         {value}

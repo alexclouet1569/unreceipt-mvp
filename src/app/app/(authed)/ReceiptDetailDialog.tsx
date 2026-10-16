@@ -802,7 +802,7 @@ function ReceiptEditForm({
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
             As printed on the receipt. The VAT check uses them.
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor={id("seller-vat")} className={LABEL_CLASS}>
                 Seller VAT no.
@@ -812,7 +812,7 @@ function ReceiptEditForm({
                 className="h-11"
                 value={form.sellerVatNumber}
                 onChange={(e) => update("sellerVatNumber", e.target.value)}
-                placeholder="SE556677889901"
+                placeholder="As printed, starts with SE"
                 maxLength={40}
                 autoComplete="off"
               />
@@ -826,7 +826,7 @@ function ReceiptEditForm({
                 className="h-11"
                 value={form.sellerOrgNumber}
                 onChange={(e) => update("sellerOrgNumber", e.target.value)}
-                placeholder="556677-8899"
+                placeholder="Organisation number"
                 maxLength={40}
                 autoComplete="off"
               />
@@ -841,7 +841,7 @@ function ReceiptEditForm({
               className="h-11"
               value={form.buyerName}
               onChange={(e) => update("buyerName", e.target.value)}
-              placeholder="Your company AB"
+              placeholder="Company name on the receipt"
               maxLength={200}
               autoComplete="off"
             />
@@ -855,7 +855,7 @@ function ReceiptEditForm({
               className="h-11"
               value={form.buyerAddress}
               onChange={(e) => update("buyerAddress", e.target.value)}
-              placeholder="Storgatan 1, 111 22 Stockholm"
+              placeholder="Address on the receipt"
               maxLength={300}
               autoComplete="off"
             />

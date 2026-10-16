@@ -1102,7 +1102,10 @@ BEGIN
       AND (merchant_vat_number IS NULL OR char_length(merchant_vat_number) <= 40)
       AND (buyer_name IS NULL OR char_length(buyer_name) <= 200)
       AND (buyer_address IS NULL OR char_length(buyer_address) <= 300)
-      AND (vat_breakdown IS NULL OR jsonb_typeof(vat_breakdown) = 'array')
+      -- CASE, not AND: Postgres may evaluate jsonb_array_length first,
+      -- and it raises on a non-array.
+      AND (vat_breakdown IS NULL OR CASE WHEN jsonb_typeof(vat_breakdown) = 'array'
+           THEN jsonb_array_length(vat_breakdown) <= 5 ELSE false END)
     ) NOT VALID;
   END IF;
 END $$;
