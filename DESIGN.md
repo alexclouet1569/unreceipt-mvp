@@ -173,7 +173,7 @@ full 9999   FAB, avatars, pill badges
 - **List items.** Fade-in on mount, no per-item stagger. Premium apps don't stagger; staggers feel app-store-template.
 - **Card tap.** `transform: scale(0.985)` over 120ms, then the detail sheet slides up over 320ms. No shared-element flight (was a "risk" option — dropped to keep things calm).
 - **FAB press.** Scale 0.92 → 1.04 → 1.0 over 240ms.
-- **OCR moment.** Single `Reading your receipt…` status with all five fields rendered as shimmer skeletons. When the API returns, all fields fade-in together over 480ms (long). No per-field cascade, no typing cursor.
+- **OCR moment.** Single `Reading your receipt…` status with skeletons laid out like the review (amount, VAT panel, field rows). When the API returns, all fields fade-in together over 480ms (long). No per-field cascade, no typing cursor.
 
 ## Components
 
@@ -210,12 +210,12 @@ full 9999   FAB, avatars, pill badges
 
 `src/app/app/(authed)/CaptureDialog.tsx`. A bottom sheet (`radius xl (16)` top corners, max 540px wide, `min(92dvh, 760px)` tall) with a fixed header (title + 44px close button) so the way out never scrolls away. No drag handle: the sheet can't be dragged, so it doesn't draw one.
 
-- **Stage 1: choose.** A `--surface` panel with a viewfinder line drawing, "Photograph your receipt" and one sentence on what we read. Below it: **Take photo** (primary, 54px), **Upload photo or PDF** (white, hairline), and a quiet text link "No receipt? Enter it manually". Tapping the FAB never opens the camera directly.
-- **Stage 2: reading.** The real photo as a 72×96 thumbnail with a brand-green scan line, `Reading your receipt…` with a pulsing dot, and skeletons laid out like the review (amount, VAT panel, five rows). Nothing to save yet.
+- **Stage 1: choose.** A `--surface` panel with a viewfinder line drawing, "Photograph your receipt" and one sentence on what we read. Below it: **Take photo** (primary, 54px, radius md (10)), **Upload photo or PDF** (white, hairline), and a quiet text link "No receipt? Enter it manually". Tapping the FAB never opens the camera directly.
+- **Stage 2: reading.** The real photo as a 72×96 thumbnail with a brand-green scan line (2.4s loop, `transform` only), `Reading your receipt…` with a pulsing dot, and skeletons laid out like the review (amount, VAT panel, five rows). Nothing to save yet.
 - **Stage 3: check and save.** Fields fade in together over `long (480ms)`.
-  - Hero: photo thumbnail (with a remove control on a 44px target) + `Total paid` in Geist Mono 40px and a currency pill. The currency is the one on the receipt; without a photo it defaults to SEK on a Swedish phone, EUR otherwise.
+  - Hero: photo thumbnail (with a remove control on a 44px target) + `Total paid` in Geist Mono 40px (32 / 26px for long amounts so every digit stays visible) and a 44px currency pill. The currency is the one on the receipt; without a photo it defaults to SEK on a Swedish phone, EUR otherwise.
   - VAT panel (`--brand-tint`): VAT with its rate, and the amount excl. VAT, in the receipt's currency. Only when both numbers are known.
-  - One hairline card of 52px rows, label left (`--ink-muted`, 15/600), value right (15–16/700). Every value is a real input — tapping it edits in place, no second screen. Rows: Merchant, Date, Category, VAT (rate menu + amount), Payment. The focused row gets a `--ring` outline.
+  - One hairline card of 52px rows, label in a fixed 84px column (`--ink-muted`, 15/600), value left-aligned after it (16/700; amounts right-aligned in mono). Every value is a real input — tapping it edits in place, no second screen. Rows: Merchant, Date, Category, VAT (rate menu + amount), Payment. The focused row gets a `--ring` outline.
   - Choosing a VAT rate fills the VAT amount from the total; typing a VAT amount takes over (mixed-rate receipts). VAT printed on the receipt is never recalculated.
   - "Add a note" reveals Notes. Without a photo, "Take photo" / "Upload file" sit next to it.
   - Footer: "Read from your photo. Tap any value to change it." when OCR filled the form, then **Save receipt** (54px).

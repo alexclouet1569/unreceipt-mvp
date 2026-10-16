@@ -41,6 +41,7 @@ import {
   type CurrencyCode,
 } from "@/lib/receipt-format";
 import type { OcrItem, OcrResult } from "@/lib/ocr";
+import { cn } from "@/lib/utils";
 import {
   PAYMENT_METHOD_SUGGESTIONS,
   vatFromGross,
@@ -408,9 +409,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="mx-auto w-full max-w-[540px] gap-0 rounded-t-[16px] bg-card p-0 text-[var(--ink)] shadow-none data-[side=bottom]:h-[min(92dvh,760px)] data-[side=bottom]:border-t-0"
+        className="mx-auto w-full max-w-[540px] gap-0 rounded-t-[16px] bg-card p-0 text-[var(--ink)] shadow-none duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:ease-[cubic-bezier(0.4,0,1,1)] data-[side=bottom]:h-[min(92dvh,760px)] data-[side=bottom]:border-t-0 data-[side=bottom]:data-ending-style:translate-y-full data-[side=bottom]:data-starting-style:translate-y-full"
       >
-        <div className="flex items-center gap-3 px-5 pt-4 pb-2">
+        <div className="flex items-center gap-3 px-4 pt-4 pb-2">
           {stage === "review" && !imageFile ? (
             <button
               type="button"
@@ -448,7 +449,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         {stage === "review" ? (
           <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
             <div
-              className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-4"
+              className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4"
               style={
                 ocrFilled
                   ? { animation: "ocr-reveal 480ms cubic-bezier(0.32, 0.72, 0, 1) both" }
@@ -480,7 +481,15 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0.00"
                       required
-                      className="h-12 min-w-0 flex-1 appearance-none border-0 border-b border-dashed border-[var(--hairline)] bg-transparent p-0 font-mono text-[40px] leading-none font-medium tracking-[-0.02em] tabular-nums text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus:border-[var(--ring)] [&::-webkit-inner-spin-button]:appearance-none"
+                      className={cn(
+                        "h-12 min-w-0 flex-1 appearance-none border-0 border-b border-dashed border-[var(--hairline)] bg-transparent p-0 font-mono leading-none font-medium tracking-[-0.02em] tabular-nums text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus:border-b-2 focus:border-solid focus:border-[var(--ring)] [&::-webkit-inner-spin-button]:appearance-none",
+                        // Keep every digit visible next to the photo at 375px.
+                        form.amount.length <= 7
+                          ? "text-[40px]"
+                          : form.amount.length <= 9
+                            ? "text-[32px]"
+                            : "text-[26px]",
+                      )}
                     />
                     <div className="relative shrink-0">
                       <select
@@ -488,7 +497,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                         aria-label="Currency"
                         value={form.currency}
                         onChange={(e) => update("currency", e.target.value as CurrencyCode)}
-                        className="h-9 appearance-none rounded-full border border-[var(--hairline)] bg-card pr-7 pl-3 text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className="h-11 appearance-none rounded-full border border-[var(--hairline)] bg-card pr-7 pl-3 text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                       >
                         {CURRENCY_OPTIONS.map((c) => (
                           <option key={c} value={c}>
@@ -572,7 +581,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     value={form.taxAmount}
                     onChange={(e) => setTaxAmount(e.target.value)}
                     placeholder="0.00"
-                    className={`${ROW_CONTROL_CLASS} text-right font-mono font-medium tabular-nums [&::-webkit-inner-spin-button]:appearance-none`}
+                    className={cn(
+                      ROW_CONTROL_CLASS,
+                      "text-right font-mono font-medium tabular-nums [&::-webkit-inner-spin-button]:appearance-none",
+                    )}
                   />
                 </Row>
                 <Row label="Payment" htmlFor="cd-payment-method">
@@ -601,7 +613,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                   </label>
                   <textarea
                     id="cd-notes"
-                    className="mt-1.5 min-h-[80px] w-full rounded-[12px] border border-[var(--hairline)] bg-transparent px-4 py-3 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="mt-2 min-h-[80px] w-full rounded-[10px] border border-[var(--hairline)] bg-transparent px-4 py-3 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                     value={form.notes}
                     onChange={(e) => update("notes", e.target.value)}
                     placeholder="Who you met, what it was for…"
@@ -632,7 +644,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               </div>
             </div>
 
-            <div className="border-t border-[var(--hairline)] px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+            <div className="border-t border-[var(--hairline)] px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
               {saveError ? (
                 <p
                   role="alert"
@@ -641,7 +653,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                   {saveError}
                 </p>
               ) : ocrFilled ? (
-                <p className="mb-2.5 text-center text-[13px] font-medium text-[var(--ink-muted)]">
+                <p className="mb-2 text-center text-[13px] font-medium text-[var(--ink-muted)]">
                   Read from your photo. Tap any value to change it.
                 </p>
               ) : null}
@@ -687,10 +699,10 @@ const ROW_CONTROL_CLASS =
   "h-[52px] w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-bold text-[var(--ink)] outline-none placeholder:font-semibold placeholder:text-[var(--ink-faint)]";
 
 const PRIMARY_BUTTON_CLASS =
-  "flex h-[54px] w-full items-center justify-center gap-2 rounded-[12px] bg-primary text-[16px] font-bold text-primary-foreground outline-none transition-colors hover:bg-[var(--brand-action-deep)] focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
+  "flex h-[54px] w-full items-center justify-center gap-2 rounded-[10px] bg-primary text-[16px] font-bold text-primary-foreground outline-none transition-colors hover:bg-[var(--brand-action-deep)] focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
 
 const SECONDARY_BUTTON_CLASS =
-  "flex h-[54px] w-full items-center justify-center gap-2.5 rounded-[12px] border border-[var(--hairline)] bg-card text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+  "flex h-[54px] w-full items-center justify-center gap-3 rounded-[10px] border border-[var(--hairline)] bg-card text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
 function vatRateOptions(current: string): string[] {
   if (!current || VAT_RATES.includes(current)) return VAT_RATES;
@@ -709,7 +721,7 @@ function ChooseStage({
   onManual: () => void;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
       {notice ? (
         <div className="mb-4">
           <Notice>{notice}</Notice>
@@ -717,14 +729,14 @@ function ChooseStage({
       ) : null}
       <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center gap-5 rounded-[12px] border border-[var(--hairline)] bg-[var(--surface)] p-6 text-center">
         <Viewfinder />
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <p className="text-[18px] font-bold tracking-[-0.01em]">Photograph your receipt</p>
           <p className="mx-auto max-w-[260px] text-[14px] leading-normal font-medium text-[var(--ink-muted)]">
             We read the merchant, total, VAT and date. You check it, then save.
           </p>
         </div>
       </div>
-      <div className="mt-5 flex flex-col gap-2.5">
+      <div className="mt-5 flex flex-col gap-3">
         <button type="button" onClick={onTakePhoto} className={PRIMARY_BUTTON_CLASS}>
           <Camera className="size-5" aria-hidden="true" />
           Take photo
@@ -754,12 +766,12 @@ function ReadingStage({
   file: File | null;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-5 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+    <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-4">
-        <div className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded-[8px] border border-[var(--hairline)] bg-[var(--hairline)]">
+        <div className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]">
           <ThumbContent imagePreview={imagePreview} file={file} />
           <span
-            className="absolute inset-x-0 top-[10%] h-0.5 bg-[var(--brand)]"
+            className="absolute inset-x-0 top-0 h-0.5 bg-[var(--brand)]"
             style={{ animation: "capture-scan 2.4s cubic-bezier(0.32, 0.72, 0, 1) infinite" }}
             aria-hidden="true"
           />
@@ -782,7 +794,7 @@ function ReadingStage({
         <Skeleton className="h-[11px] w-[52px]" />
         <Skeleton className="h-10 w-[58%]" />
       </div>
-      <div className="mt-5 h-[72px] animate-pulse rounded-[10px] bg-[var(--brand-tint)]" aria-hidden="true" />
+      <div className="mt-5 h-[72px] animate-pulse rounded-[10px] bg-[var(--hairline)]" aria-hidden="true" />
       <div
         className="mt-4 overflow-hidden rounded-[12px] border border-[var(--hairline)]"
         aria-hidden="true"
@@ -808,7 +820,7 @@ function ReadingStage({
 }
 
 function Skeleton({ className }: { className: string }) {
-  return <div className={`animate-pulse rounded-[4px] bg-[var(--hairline)] ${className}`} />;
+  return <div className={`animate-pulse rounded-[6px] bg-[var(--hairline)] ${className}`} />;
 }
 
 function Viewfinder() {
@@ -846,7 +858,7 @@ function ThumbContent({
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-card text-[var(--ink-muted)]">
         <FileText className="size-6" aria-hidden="true" />
-        <span className="text-[10px] font-bold uppercase">PDF</span>
+        <span className="text-[11px] font-bold tracking-[0.06em] uppercase">PDF</span>
       </div>
     );
   }
@@ -874,7 +886,7 @@ function PhotoThumb({
 }) {
   return (
     <div className="relative shrink-0">
-      <div className="h-[84px] w-16 overflow-hidden rounded-[8px] border border-[var(--hairline)] bg-[var(--hairline)]">
+      <div className="h-[84px] w-16 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]">
         <ThumbContent imagePreview={imagePreview} file={file} />
       </div>
       {/* 44px tap target around a small visual badge. */}
@@ -882,7 +894,7 @@ function PhotoThumb({
         type="button"
         onClick={onRemove}
         aria-label="Remove photo"
-        className="absolute -top-4 -right-4 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="absolute -top-3 -right-4 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span className="flex size-6 items-center justify-center rounded-full border border-[var(--hairline)] bg-card text-[var(--ink-muted)]">
           <X className="size-3.5" aria-hidden="true" />
@@ -898,18 +910,18 @@ function VatSummary({ form }: { form: FormState }) {
   if (gross == null || gross <= 0 || vat == null || vat <= 0 || vat > gross) return null;
   const rate = toNumber(form.taxRate);
   return (
-    <div className="mt-4 space-y-1.5 rounded-[10px] border border-[color-mix(in_srgb,var(--brand)_20%,transparent)] bg-[var(--brand-tint)] px-4 py-3.5">
+    <div className="mt-4 space-y-1 rounded-[10px] border border-[color-mix(in_srgb,var(--brand)_20%,transparent)] bg-[var(--brand-tint)] px-4 py-3.5">
       <div className="flex items-baseline justify-between">
         <span className="text-[14px] font-semibold">
           {rate != null ? `VAT ${form.taxRate} %` : "VAT"}
         </span>
-        <span className="font-mono text-[15px] font-medium tabular-nums">
+        <span className="font-mono text-[14px] font-normal tabular-nums">
           {formatAmount(vat, form.currency)}
         </span>
       </div>
       <div className="flex items-baseline justify-between text-[var(--ink-muted)]">
         <span className="text-[14px] font-semibold">Excl. VAT</span>
-        <span className="font-mono text-[15px] font-medium tabular-nums">
+        <span className="font-mono text-[14px] font-normal tabular-nums">
           {formatAmount(Math.round((gross - vat) * 100) / 100, form.currency)}
         </span>
       </div>
@@ -979,7 +991,7 @@ function Notice({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="flex items-start gap-2.5 rounded-[10px] bg-[var(--attention-tint)] px-3.5 py-3 text-[14px] leading-snug font-semibold text-[var(--attention-deep)]"
+      className="flex items-start gap-3 rounded-[10px] bg-[var(--attention-tint)] px-3.5 py-3 text-[14px] leading-snug font-semibold text-[var(--attention-deep)]"
     >
       <AlertCircle className="mt-px size-[18px] shrink-0" aria-hidden="true" />
       <span>{children}</span>
