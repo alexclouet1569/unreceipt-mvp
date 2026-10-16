@@ -43,7 +43,9 @@ describe("OwnAddresses", () => {
   it("offers the Gmail account that asked to forward here", async () => {
     const user = userEvent.setup();
     render(<OwnAddresses accountEmail={null} addresses={[]} suggestion="anna@gmail.com" />);
-    expect(screen.getByText("Is anna@gmail.com yours?")).toBeInTheDocument();
+    expect(
+      screen.getByText((_, el) => el?.tagName === "SPAN" && el.textContent === "Is anna@gmail.com yours?"),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add it" }));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ address: "anna@gmail.com" });
   });
