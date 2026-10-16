@@ -47,6 +47,14 @@ export function taxExceedsTotal(
 }
 
 /**
+ * The VAT contained in a VAT-inclusive total at the given rate, rounded to
+ * cents (245 at 25 % → 49). Receipt totals always include VAT.
+ */
+export function vatFromGross(gross: number, ratePercent: number): number {
+  return Math.round(((gross * ratePercent) / (100 + ratePercent)) * 100) / 100;
+}
+
+/**
  * Reads an optional number from a form value. Empty or missing → undefined
  * (the field wasn't filled); anything else → Number(), which zod then
  * rejects if it's NaN. Accepts a decimal comma ("12,50") because Swedish

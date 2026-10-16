@@ -57,7 +57,7 @@ describe("first-run onboarding", () => {
 
     await user.click(screen.getByRole("button", { name: "Next" }));
     await user.click(screen.getByRole("button", { name: /Take a photo/ }));
-    expect(await screen.findByRole("dialog")).toHaveTextContent("Capture receipt");
+    expect(await screen.findByRole("dialog")).toHaveTextContent("New receipt");
   });
 
   it("can be skipped from the first screen", async () => {

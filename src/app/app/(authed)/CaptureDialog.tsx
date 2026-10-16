@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -17,24 +19,32 @@ import {
   MAX_UPLOAD_BYTES,
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Camera, FileText, Loader2, Upload, X } from "lucide-react";
+  AlertCircle,
+  Camera,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Loader2,
+  Plus,
+  Upload,
+  X,
+} from "lucide-react";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
   CURRENCY_OPTIONS,
+  formatAmount,
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
 import type { OcrItem, OcrResult } from "@/lib/ocr";
-import { PAYMENT_METHOD_SUGGESTIONS } from "@/lib/receipts/receipt-fields";
+import {
+  PAYMENT_METHOD_SUGGESTIONS,
+  vatFromGross,
+} from "@/lib/receipts/receipt-fields";
 
 type CaptureDialogProps = {
   open: boolean;
@@ -43,7 +53,23 @@ type CaptureDialogProps = {
   onSaved?: () => void;
 };
 
+// Photo first (DESIGN.md "Capture sheet"): pick a photo → we read it →
+// the customer checks the result. "review" is also the manual form, for
+// a receipt without a photo or a photo we couldn't read.
+type Stage = "choose" | "reading" | "review";
+
 const today = () => new Date().toISOString().slice(0, 10);
+
+// The receipt's own currency comes from OCR. Without a photo, guess from
+// the phone's language/region: SEK for Sweden, EUR otherwise.
+const defaultCurrency = (): CurrencyCode => {
+  if (typeof navigator === "undefined") return "EUR";
+  return /^sv\b|-SE$/i.test(navigator.language) ? "SEK" : "EUR";
+};
+
+// Swedish (25/12/6) and French (20/10/5.5/2.1) rates, then zero. A rate
+// OCR reads that isn't listed is added to the menu for that receipt.
+const VAT_RATES = ["25", "20", "12", "10", "6", "5.5", "2.1", "0"];
 
 type FormState = {
   merchant: string;
@@ -60,7 +86,7 @@ type FormState = {
 const blankForm = (): FormState => ({
   merchant: "",
   amount: "",
-  currency: "EUR",
+  currency: defaultCurrency(),
   date: today(),
   category: "other",
   taxAmount: "",
@@ -72,93 +98,155 @@ const blankForm = (): FormState => ({
 const isFiniteNumber = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
+const toNumber = (s: string): number | null => {
+  if (!s.trim()) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+const UNREADABLE_MESSAGE =
+  "We couldn't read this photo. It's still attached, so just fill in the details below.";
+
 export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProps) {
   const router = useRouter();
-  // Two hidden inputs so the picker UI is explicit: "Upload" opens the
-  // file/gallery picker (no camera bias) and "Take photo" opens the camera
-  // via `capture="environment"`. The old single-input + `capture` attr
-  // pushed iOS straight to the camera and buried the gallery path.
+  // Two hidden inputs: "Upload" opens the file/gallery picker and "Take
+  // photo" opens the camera via `capture="environment"`. One input with
+  // `capture` pushed iOS straight to the camera and buried the gallery.
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  // Bumped whenever the photo is dropped or the sheet closes, so an OCR
+  // answer that arrives late can't fill a form it no longer belongs to.
+  const ocrRunRef = useRef(0);
+  const [stage, setStage] = useState<Stage>("choose");
   const [form, setForm] = useState<FormState>(blankForm);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  // Surface OCR failures to the user instead of silently bailing. Without
-  // this the form stays blank and the customer can't tell whether OCR
-  // ran, mis-identified the photo, or actually crashed server-side.
+  // Why the photo didn't fill the form (or was refused). Shown as an
+  // attention notice so the customer knows to type the fields.
   const [ocrError, setOcrError] = useState<string | null>(null);
-  // Line items extracted by OCR (or pre-set later via the edit flow).
-  // Forwarded to /api/capture so the digital receipt renders the full
-  // line breakdown.
+  // True once OCR filled the form, so the review says where values came from.
+  const [ocrFilled, setOcrFilled] = useState(false);
+  // True while the VAT amount is ours (worked out from the rate), so a
+  // new total or rate updates it. Typing a VAT amount takes it over.
+  const [taxAuto, setTaxAuto] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  // Line items extracted by OCR, forwarded to /api/capture so the digital
+  // receipt renders the full line breakdown.
   const [items, setItems] = useState<OcrItem[] | null>(null);
 
-  // Reset everything when the dialog closes so the next open is fresh.
+  // Reset everything when the sheet closes so the next open is fresh.
   // Adjusted during render (React's "reset state when a prop changes"
   // pattern) rather than in an effect, which would paint stale state once.
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (!open) {
+      setStage("choose");
       setForm(blankForm());
       setImageFile(null);
       setImagePreview(null);
       setSaving(false);
       setSaveError(null);
-      setOcrLoading(false);
       setOcrError(null);
+      setOcrFilled(false);
+      setTaxAuto(false);
+      setShowNotes(false);
       setItems(null);
     }
   }
+
+  // An OCR answer for a closed sheet is dropped (see ocrRunRef).
+  useEffect(() => {
+    if (!open) ocrRunRef.current += 1;
+  }, [open]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const setAmount = (amount: string) => {
+    setForm((prev) => {
+      const next = { ...prev, amount };
+      const gross = toNumber(amount);
+      const rate = toNumber(prev.taxRate);
+      if (taxAuto && rate != null) {
+        next.taxAmount = gross != null && gross > 0 ? vatFromGross(gross, rate).toFixed(2) : "";
+      }
+      return next;
+    });
+  };
+
+  const setTaxRate = (taxRate: string) => {
+    const rate = toNumber(taxRate);
+    setForm((prev) => {
+      const next = { ...prev, taxRate };
+      const gross = toNumber(prev.amount);
+      if (rate != null && gross != null && gross > 0) {
+        next.taxAmount = vatFromGross(gross, rate).toFixed(2);
+      }
+      return next;
+    });
+    // "Mixed / other" leaves the amount to the customer.
+    setTaxAuto(rate != null);
+  };
+
+  const setTaxAmount = (taxAmount: string) => {
+    update("taxAmount", taxAmount);
+    setTaxAuto(false);
+  };
+
   const runOcr = async (file: File) => {
-    setOcrLoading(true);
+    const run = ++ocrRunRef.current;
+    setStage("reading");
     setOcrError(null);
+    setOcrFilled(false);
     try {
       const fd = new FormData();
       fd.append("image", file);
       const res = await fetch("/api/ocr", { method: "POST", body: fd });
+      if (run !== ocrRunRef.current) return;
       if (!res.ok) {
-        // Try to surface the server-side error message so the customer
-        // (or the dev reading the screen) knows whether the image was
-        // too big, the API key is missing, etc. Common cases:
-        //   413/400 — image too large or wrong type
-        //   500    — Claude call threw (missing key, network)
+        // Keep the server's reason (too large, wrong type, missing key…)
+        // so the customer — or the founder reading a screenshot — can
+        // tell a bad photo from a server problem.
         const body = (await res.json().catch(() => null)) as
           | { error?: string }
           | null;
         const reason = body?.error ?? `HTTP ${res.status}`;
         setOcrError(
-          `Auto-fill failed: ${reason}. You can still type the fields manually.`
+          `We couldn't read this photo (${reason}). It's still attached, so just fill in the details below.`
         );
         return;
       }
       const data = (await res.json()) as OcrResult;
+      if (run !== ocrRunRef.current) return;
       if (data.not_a_receipt) {
         setOcrError(
-          "We couldn't recognise this image as a receipt. Try a clearer photo, or type the fields below."
+          "This doesn't look like a receipt. Try a clearer photo, or fill in the details below."
         );
         return;
       }
+      const readSomething =
+        typeof data.merchant === "string" || isFiniteNumber(data.amount);
+      if (!readSomething) {
+        setOcrError(UNREADABLE_MESSAGE);
+        return;
+      }
 
+      // OCR only fills what the customer hasn't typed; the receipt's
+      // currency, date and category win over our defaults.
       setForm((prev) => {
         const next: FormState = { ...prev };
         if (!prev.merchant && typeof data.merchant === "string") {
           next.merchant = data.merchant;
         }
         if (!prev.amount && isFiniteNumber(data.amount)) {
-          next.amount = String(data.amount);
+          next.amount = data.amount.toFixed(2);
         }
-        // VAT and payment method: same rule as merchant/amount — OCR only
-        // fills what the user hasn't typed.
         if (!prev.taxAmount && isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) {
-          next.taxAmount = String(data.tax_amount);
+          next.taxAmount = data.tax_amount.toFixed(2);
         }
         if (
           !prev.taxRate &&
@@ -195,54 +283,48 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         }
         return next;
       });
+      // The VAT printed on the receipt beats one we'd work out.
+      setTaxAuto(false);
+      setOcrFilled(true);
       if (Array.isArray(data.items) && data.items.length > 0) {
         setItems(data.items);
       }
     } catch (err) {
+      if (run !== ocrRunRef.current) return;
       console.error("[capture] ocr failed:", err);
-      setOcrError(
-        err instanceof Error
-          ? `Auto-fill failed: ${err.message}. Type the fields manually.`
-          : "Auto-fill failed. Type the fields manually."
-      );
+      setOcrError(UNREADABLE_MESSAGE);
     } finally {
-      setOcrLoading(false);
+      if (run === ocrRunRef.current) setStage("review");
     }
   };
 
   const onPickFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const picked = e.target.files?.[0] ?? null;
-    setImagePreview(null);
+    e.target.value = "";
+    if (!picked) return;
     setOcrError(null);
-    if (!picked) {
-      setImageFile(null);
-      return;
-    }
     // Shrink phone photos before anything leaves the device (faster on
     // mobile data, cheaper OCR, under the upload cap). PDFs pass through.
     const f = await prepareImageForUpload(picked);
     // Refuse here, with a reason, anything the server would reject anyway
     // (typically an iPhone HEIC photo that this browser can't convert).
     if (!isAllowedUploadType(f.type)) {
-      setImageFile(null);
       setOcrError(isHeicLike(f) ? HEIC_UNSUPPORTED_MESSAGE : UNSUPPORTED_FILE_MESSAGE);
-      e.target.value = "";
       return;
     }
     if (f.size > MAX_UPLOAD_BYTES) {
-      setImageFile(null);
       setOcrError(
         "This file is larger than 4 MB. Try a photo instead, or forward the PDF to your receipts address."
       );
       return;
     }
     setImageFile(f);
-    // PDFs can't be previewed with FileReader as a data URL inside an <img>
-    // — show a generic document badge instead. The Original tab on the
-    // detail dialog (PR #52) renders the real PDF after save.
+    // PDFs get a document tile instead of an <img> preview; the detail
+    // view's Original tab renders the real PDF after save.
     if (f.type === "application/pdf") {
       setImagePreview("__pdf__");
     } else {
+      setImagePreview(null);
       const reader = new FileReader();
       reader.onload = (ev) => setImagePreview((ev.target?.result as string) ?? null);
       reader.readAsDataURL(f);
@@ -250,13 +332,13 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     void runOcr(f);
   };
 
-  const clearImage = () => {
+  const removeImage = () => {
+    ocrRunRef.current += 1;
     setImageFile(null);
     setImagePreview(null);
-    setOcrLoading(false);
     setOcrError(null);
-    if (uploadInputRef.current) uploadInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    setOcrFilled(false);
+    setItems(null);
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -312,349 +394,595 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm mx-auto max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Capture receipt</DialogTitle>
-        </DialogHeader>
+  const title =
+    stage !== "review"
+      ? "New receipt"
+      : ocrFilled
+        ? "Check and save"
+        : imageFile
+          ? "Fill in the details"
+          : "Enter manually";
 
-        <form onSubmit={handleSave} className="space-y-3">
-          <div>
-            {imagePreview ? (
-              <div className="relative">
-                {imagePreview === "__pdf__" && imageFile ? (
-                  <div className="w-full rounded-lg border bg-[var(--brand-tint,#ECF7E7)]/30 p-6 flex items-center gap-3">
-                    <FileText className="w-8 h-8 text-[var(--ink-muted)] shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-medium text-[var(--ink)] truncate">
-                        {imageFile.name}
-                      </p>
-                      <p className="text-[12px] text-[var(--ink-muted)]">
-                        PDF · {(imageFile.size / 1024 / 1024).toFixed(1)} MB
-                      </p>
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        showCloseButton={false}
+        className="mx-auto w-full max-w-[540px] gap-0 rounded-t-[16px] bg-card p-0 text-[var(--ink)] shadow-none data-[side=bottom]:h-[min(92dvh,760px)] data-[side=bottom]:border-t-0"
+      >
+        <div className="flex items-center gap-3 px-5 pt-4 pb-2">
+          {stage === "review" && !imageFile ? (
+            <button
+              type="button"
+              onClick={() => setStage("choose")}
+              aria-label="Back"
+              className={ICON_BUTTON_CLASS}
+            >
+              <ChevronLeft className="size-[18px]" aria-hidden="true" />
+            </button>
+          ) : null}
+          <SheetTitle className="flex-1 text-[22px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+            {title}
+          </SheetTitle>
+          <SheetClose aria-label="Close" className={ICON_BUTTON_CLASS}>
+            <X className="size-[18px]" aria-hidden="true" />
+          </SheetClose>
+        </div>
+
+        {stage === "choose" ? (
+          <ChooseStage
+            notice={ocrError}
+            onTakePhoto={() => cameraInputRef.current?.click()}
+            onUpload={() => uploadInputRef.current?.click()}
+            onManual={() => {
+              setOcrError(null);
+              setStage("review");
+            }}
+          />
+        ) : null}
+
+        {stage === "reading" ? (
+          <ReadingStage imagePreview={imagePreview} file={imageFile} />
+        ) : null}
+
+        {stage === "review" ? (
+          <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-4"
+              style={
+                ocrFilled
+                  ? { animation: "ocr-reveal 480ms cubic-bezier(0.32, 0.72, 0, 1) both" }
+                  : undefined
+              }
+            >
+              {ocrError ? <Notice>{ocrError}</Notice> : null}
+
+              <div className={`flex items-end gap-4 ${ocrError ? "mt-4" : ""}`}>
+                {imageFile ? (
+                  <PhotoThumb
+                    imagePreview={imagePreview}
+                    file={imageFile}
+                    onRemove={removeImage}
+                  />
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="cd-amount" className={MICRO_LABEL_CLASS}>
+                    Total paid
+                  </label>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <input
+                      id="cd-amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      value={form.amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      required
+                      className="h-12 min-w-0 flex-1 appearance-none border-0 border-b border-dashed border-[var(--hairline)] bg-transparent p-0 font-mono text-[40px] leading-none font-medium tracking-[-0.02em] tabular-nums text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus:border-[var(--ring)] [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <div className="relative shrink-0">
+                      <select
+                        id="cd-currency"
+                        aria-label="Currency"
+                        value={form.currency}
+                        onChange={(e) => update("currency", e.target.value as CurrencyCode)}
+                        className="h-9 appearance-none rounded-full border border-[var(--hairline)] bg-card pr-7 pl-3 text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        {CURRENCY_OPTIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2"
+                        aria-hidden="true"
+                      />
                     </div>
                   </div>
-                ) : (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={imagePreview}
-                    alt="Receipt preview"
-                    className="w-full rounded-lg border"
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={clearImage}
-                  className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-full p-1 border border-border"
-                  aria-label="Remove file"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div
-                className="w-full border border-dashed border-[var(--hairline)] rounded-[12px] p-5 text-center"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle 1px at 1px 1px, color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1.5px)",
-                  backgroundSize: "8px 8px",
-                }}
-              >
-                <p className="text-[14px] font-medium text-[var(--ink)] mb-1">
-                  Add a receipt (optional)
-                </p>
-                <p className="text-[12px] text-[var(--ink-muted)] mb-3">
-                  Photo, PDF, or screenshot
-                </p>
-                <div className="flex gap-2 justify-center">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => uploadInputRef.current?.click()}
-                    className="gap-1.5"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="gap-1.5"
-                  >
-                    <Camera className="w-4 h-4" />
-                    Take photo
-                  </Button>
                 </div>
               </div>
-            )}
-            <input
-              ref={uploadInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={onPickFile}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={onPickFile}
-            />
-            {ocrLoading ? (
-              <p
-                role="status"
-                className="mt-3 flex items-center gap-2 text-[13px] text-[var(--ink-muted)]"
+
+              <VatSummary form={form} />
+
+              <div className="mt-4 overflow-hidden rounded-[12px] border border-[var(--hairline)]">
+                <Row label="Merchant" htmlFor="cd-merchant">
+                  <input
+                    id="cd-merchant"
+                    value={form.merchant}
+                    onChange={(e) => update("merchant", e.target.value)}
+                    placeholder="Shop or company"
+                    maxLength={200}
+                    required
+                    className={ROW_CONTROL_CLASS}
+                  />
+                </Row>
+                <Row label="Date" htmlFor="cd-date">
+                  <input
+                    id="cd-date"
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => update("date", e.target.value)}
+                    required
+                    className={ROW_CONTROL_CLASS}
+                  />
+                </Row>
+                <Row label="Category" htmlFor="cd-category">
+                  <SelectControl>
+                    <select
+                      id="cd-category"
+                      value={form.category}
+                      onChange={(e) => update("category", e.target.value as CategoryKey)}
+                      className={`${ROW_CONTROL_CLASS} appearance-none pr-6`}
+                    >
+                      {CATEGORY_KEYS.map((k) => (
+                        <option key={k} value={k}>
+                          {CATEGORY_CONFIG[k].label}
+                        </option>
+                      ))}
+                    </select>
+                  </SelectControl>
+                </Row>
+                <Row label="VAT" htmlFor="cd-tax-rate">
+                  <SelectControl className="w-[92px] flex-none">
+                    <select
+                      id="cd-tax-rate"
+                      aria-label="VAT rate"
+                      value={form.taxRate}
+                      onChange={(e) => setTaxRate(e.target.value)}
+                      className={`${ROW_CONTROL_CLASS} appearance-none pr-6`}
+                    >
+                      <option value="">Rate</option>
+                      {vatRateOptions(form.taxRate).map((r) => (
+                        <option key={r} value={r}>
+                          {r} %
+                        </option>
+                      ))}
+                    </select>
+                  </SelectControl>
+                  <input
+                    id="cd-tax-amount"
+                    aria-label="VAT amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={form.taxAmount}
+                    onChange={(e) => setTaxAmount(e.target.value)}
+                    placeholder="0.00"
+                    className={`${ROW_CONTROL_CLASS} text-right font-mono font-medium tabular-nums [&::-webkit-inner-spin-button]:appearance-none`}
+                  />
+                </Row>
+                <Row label="Payment" htmlFor="cd-payment-method">
+                  <input
+                    id="cd-payment-method"
+                    aria-label="Payment method"
+                    list="cd-payment-method-options"
+                    value={form.paymentMethod}
+                    onChange={(e) => update("paymentMethod", e.target.value)}
+                    placeholder="Card, Swish, cash…"
+                    maxLength={50}
+                    className={ROW_CONTROL_CLASS}
+                  />
+                  <datalist id="cd-payment-method-options">
+                    {PAYMENT_METHOD_SUGGESTIONS.map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
+                </Row>
+              </div>
+
+              {showNotes || form.notes ? (
+                <div className="mt-4">
+                  <label htmlFor="cd-notes" className={MICRO_LABEL_CLASS}>
+                    Notes
+                  </label>
+                  <textarea
+                    id="cd-notes"
+                    className="mt-1.5 min-h-[80px] w-full rounded-[12px] border border-[var(--hairline)] bg-transparent px-4 py-3 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    value={form.notes}
+                    onChange={(e) => update("notes", e.target.value)}
+                    placeholder="Who you met, what it was for…"
+                    maxLength={2000}
+                  />
+                </div>
+              ) : null}
+
+              <div className="mt-2 flex flex-wrap gap-1">
+                {!showNotes && !form.notes ? (
+                  <TextButton onClick={() => setShowNotes(true)}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    Add a note
+                  </TextButton>
+                ) : null}
+                {!imageFile ? (
+                  <>
+                    <TextButton onClick={() => cameraInputRef.current?.click()}>
+                      <Camera className="size-4" aria-hidden="true" />
+                      Take photo
+                    </TextButton>
+                    <TextButton onClick={() => uploadInputRef.current?.click()}>
+                      <Upload className="size-4" aria-hidden="true" />
+                      Upload file
+                    </TextButton>
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="border-t border-[var(--hairline)] px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+              {saveError ? (
+                <p
+                  role="alert"
+                  className="mb-3 rounded-[10px] bg-[var(--attention-tint)] px-3 py-2 text-[14px] font-semibold text-[var(--attention-deep)]"
+                >
+                  {saveError}
+                </p>
+              ) : ocrFilled ? (
+                <p className="mb-2.5 text-center text-[13px] font-medium text-[var(--ink-muted)]">
+                  Read from your photo. Tap any value to change it.
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={saving}
+                className={PRIMARY_BUTTON_CLASS}
               >
-                <span
-                  className="inline-block rounded-full animate-pulse"
-                  style={{ width: "8px", height: "8px", background: "var(--primary)" }}
-                  aria-hidden="true"
-                />
-                Reading your receipt…
-              </p>
-            ) : null}
-            {!ocrLoading && ocrError ? (
-              <p
-                role="alert"
-                className="mt-3 text-[13px] bg-[var(--attention-tint)] text-[var(--attention-deep)] rounded-md px-3 py-2"
-              >
-                {ocrError}
-              </p>
-            ) : null}
-          </div>
+                {saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                {saving ? "Saving…" : saveError ? "Try again" : "Save receipt"}
+              </button>
+            </div>
+          </form>
+        ) : null}
 
-          {ocrLoading ? (
-            <OcrSkeletons />
-          ) : (
-            <div
-              key="ocr-fields"
-              style={{
-                animation: "ocr-reveal 480ms cubic-bezier(0.32, 0.72, 0, 1) both",
-              }}
-              className="space-y-3"
-            >
-          <Field
-            label="Merchant"
-            htmlFor="cd-merchant"
-            required
-          >
-            <Input
-              id="cd-merchant"
-              className="h-11"
-              value={form.merchant}
-              onChange={(e) => update("merchant", e.target.value)}
-              placeholder="ICA Maxi"
-              maxLength={200}
-              required
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Amount"
-              htmlFor="cd-amount"
-              required
-            >
-              <Input
-                id="cd-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                value={form.amount}
-                onChange={(e) => update("amount", e.target.value)}
-                placeholder="49.00"
-                required
-                className="h-11 font-mono tabular-nums"
-              />
-            </Field>
-            <Field
-              label="Currency"
-              htmlFor="cd-currency"
-            >
-              <select
-                id="cd-currency"
-                className="h-11 w-full rounded-md border bg-transparent px-3 text-base md:text-sm"
-                value={form.currency}
-                onChange={(e) =>
-                  update("currency", e.target.value as CurrencyCode)
-                }
-              >
-                {CURRENCY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Date"
-              htmlFor="cd-date"
-              required
-            >
-              <Input
-                id="cd-date"
-                className="h-11"
-                type="date"
-                value={form.date}
-                onChange={(e) => update("date", e.target.value)}
-                required
-              />
-            </Field>
-            <Field
-              label="Category"
-              htmlFor="cd-category"
-            >
-              <select
-                id="cd-category"
-                className="h-11 w-full rounded-md border bg-transparent px-3 text-base md:text-sm"
-                value={form.category}
-                onChange={(e) =>
-                  update("category", e.target.value as CategoryKey)
-                }
-              >
-                {CATEGORY_KEYS.map((k) => (
-                  <option key={k} value={k}>
-                    {CATEGORY_CONFIG[k].label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="VAT amount" htmlFor="cd-tax-amount">
-              <Input
-                id="cd-tax-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                value={form.taxAmount}
-                onChange={(e) => update("taxAmount", e.target.value)}
-                placeholder="9.80"
-                className="h-11 font-mono tabular-nums"
-              />
-            </Field>
-            <Field label="VAT rate %" htmlFor="cd-tax-rate">
-              <Input
-                id="cd-tax-rate"
-                className="h-11"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                inputMode="decimal"
-                value={form.taxRate}
-                onChange={(e) => update("taxRate", e.target.value)}
-                placeholder="25"
-              />
-            </Field>
-          </div>
-
-          <Field label="Payment method" htmlFor="cd-payment-method">
-            <Input
-              id="cd-payment-method"
-              className="h-11"
-              list="cd-payment-method-options"
-              value={form.paymentMethod}
-              onChange={(e) => update("paymentMethod", e.target.value)}
-              placeholder="Card"
-              maxLength={50}
-            />
-            <datalist id="cd-payment-method-options">
-              {PAYMENT_METHOD_SUGGESTIONS.map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
-          </Field>
-
-          </div>
-          )}
-
-          <Field label="Notes" htmlFor="cd-notes">
-            <textarea
-              id="cd-notes"
-              className="w-full min-h-[60px] rounded-md border bg-transparent px-3 py-2 text-base md:text-sm"
-              value={form.notes}
-              onChange={(e) => update("notes", e.target.value)}
-              placeholder="Anything useful…"
-              maxLength={2000}
-            />
-          </Field>
-
-          {saveError ? (
-            <p
-              role="alert"
-              className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2"
-            >
-              {saveError}
-            </p>
-          ) : null}
-
-          <Button type="submit" className="w-full gap-1.5" disabled={saving || ocrLoading}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {saving ? "Saving…" : saveError ? "Try again" : "Save receipt"}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          className="hidden"
+          onChange={onPickFile}
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={onPickFile}
+        />
+      </SheetContent>
+    </Sheet>
   );
 }
 
-function Field({
+const ICON_BUTTON_CLASS =
+  "flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
+const MICRO_LABEL_CLASS =
+  "block text-[11px] font-semibold tracking-[0.06em] text-[var(--ink-muted)] uppercase";
+
+const ROW_CONTROL_CLASS =
+  "h-[52px] w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-bold text-[var(--ink)] outline-none placeholder:font-semibold placeholder:text-[var(--ink-faint)]";
+
+const PRIMARY_BUTTON_CLASS =
+  "flex h-[54px] w-full items-center justify-center gap-2 rounded-[12px] bg-primary text-[16px] font-bold text-primary-foreground outline-none transition-colors hover:bg-[var(--brand-action-deep)] focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
+
+const SECONDARY_BUTTON_CLASS =
+  "flex h-[54px] w-full items-center justify-center gap-2.5 rounded-[12px] border border-[var(--hairline)] bg-card text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
+function vatRateOptions(current: string): string[] {
+  if (!current || VAT_RATES.includes(current)) return VAT_RATES;
+  return [...VAT_RATES, current].sort((a, b) => Number(b) - Number(a));
+}
+
+function ChooseStage({
+  notice,
+  onTakePhoto,
+  onUpload,
+  onManual,
+}: {
+  notice: string | null;
+  onTakePhoto: () => void;
+  onUpload: () => void;
+  onManual: () => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+      {notice ? (
+        <div className="mb-4">
+          <Notice>{notice}</Notice>
+        </div>
+      ) : null}
+      <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center gap-5 rounded-[12px] border border-[var(--hairline)] bg-[var(--surface)] p-6 text-center">
+        <Viewfinder />
+        <div className="space-y-1.5">
+          <p className="text-[18px] font-bold tracking-[-0.01em]">Photograph your receipt</p>
+          <p className="mx-auto max-w-[260px] text-[14px] leading-normal font-medium text-[var(--ink-muted)]">
+            We read the merchant, total, VAT and date. You check it, then save.
+          </p>
+        </div>
+      </div>
+      <div className="mt-5 flex flex-col gap-2.5">
+        <button type="button" onClick={onTakePhoto} className={PRIMARY_BUTTON_CLASS}>
+          <Camera className="size-5" aria-hidden="true" />
+          Take photo
+        </button>
+        <button type="button" onClick={onUpload} className={SECONDARY_BUTTON_CLASS}>
+          <Upload className="size-5" aria-hidden="true" />
+          Upload photo or PDF
+        </button>
+        <button
+          type="button"
+          onClick={onManual}
+          className="flex h-11 items-center justify-center gap-1.5 rounded-[10px] text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          No receipt? Enter it manually
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReadingStage({
+  imagePreview,
+  file,
+}: {
+  imagePreview: string | null;
+  file: File | null;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col px-5 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
+      <div className="flex items-center gap-4">
+        <div className="relative h-24 w-[72px] shrink-0 overflow-hidden rounded-[8px] border border-[var(--hairline)] bg-[var(--hairline)]">
+          <ThumbContent imagePreview={imagePreview} file={file} />
+          <span
+            className="absolute inset-x-0 top-[10%] h-0.5 bg-[var(--brand)]"
+            style={{ animation: "capture-scan 2.4s cubic-bezier(0.32, 0.72, 0, 1) infinite" }}
+            aria-hidden="true"
+          />
+        </div>
+        <div role="status" className="space-y-1">
+          <p className="flex items-center gap-2 text-[16px] font-bold">
+            <span
+              className="inline-block size-2 animate-pulse rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            Reading your receipt…
+          </p>
+          <p className="text-[13px] font-medium text-[var(--ink-muted)]">
+            You can check everything before it&apos;s saved.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-7 space-y-2.5" aria-hidden="true">
+        <Skeleton className="h-[11px] w-[52px]" />
+        <Skeleton className="h-10 w-[58%]" />
+      </div>
+      <div className="mt-5 h-[72px] animate-pulse rounded-[10px] bg-[var(--brand-tint)]" aria-hidden="true" />
+      <div
+        className="mt-4 overflow-hidden rounded-[12px] border border-[var(--hairline)]"
+        aria-hidden="true"
+      >
+        {[
+          ["Merchant", "w-[110px]"],
+          ["Date", "w-[90px]"],
+          ["Category", "w-[120px]"],
+          ["VAT", "w-[100px]"],
+          ["Payment", "w-[60px]"],
+        ].map(([label, width]) => (
+          <div
+            key={label}
+            className="flex h-[52px] items-center justify-between border-b border-[var(--hairline)] px-4 last:border-b-0"
+          >
+            <span className="text-[15px] font-semibold text-[var(--ink-muted)]">{label}</span>
+            <Skeleton className={`h-3.5 ${width}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Skeleton({ className }: { className: string }) {
+  return <div className={`animate-pulse rounded-[4px] bg-[var(--hairline)] ${className}`} />;
+}
+
+function Viewfinder() {
+  const corner = "absolute size-[26px] border-[var(--ink)]";
+  return (
+    <div className="relative flex h-[190px] w-[150px] items-center justify-center" aria-hidden="true">
+      <span className={`${corner} top-0 left-0 rounded-tl-[8px] border-t-2 border-l-2`} />
+      <span className={`${corner} top-0 right-0 rounded-tr-[8px] border-t-2 border-r-2`} />
+      <span className={`${corner} bottom-0 left-0 rounded-bl-[8px] border-b-2 border-l-2`} />
+      <span className={`${corner} right-0 bottom-0 rounded-br-[8px] border-r-2 border-b-2`} />
+      <div className="flex h-[140px] w-24 flex-col gap-[7px] rounded-[4px] border border-[var(--hairline)] bg-card px-3 py-3.5">
+        <span className="h-1.5 w-[60%] self-center rounded-full bg-[var(--ink)] opacity-80" />
+        <span className="mt-1.5 h-1 w-full rounded-full bg-[var(--hairline)]" />
+        <span className="h-1 w-[85%] rounded-full bg-[var(--hairline)]" />
+        <span className="h-1 w-[92%] rounded-full bg-[var(--hairline)]" />
+        <span className="h-1 w-[70%] rounded-full bg-[var(--hairline)]" />
+        <span className="mt-1 border-t border-dashed border-[var(--hairline)]" />
+        <span className="flex justify-between">
+          <span className="h-1.5 w-[30%] rounded-full bg-[var(--ink)] opacity-80" />
+          <span className="h-1.5 w-[34%] rounded-full bg-[var(--ink)] opacity-80" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ThumbContent({
+  imagePreview,
+  file,
+}: {
+  imagePreview: string | null;
+  file: File | null;
+}) {
+  if (imagePreview === "__pdf__") {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-card text-[var(--ink-muted)]">
+        <FileText className="size-6" aria-hidden="true" />
+        <span className="text-[10px] font-bold uppercase">PDF</span>
+      </div>
+    );
+  }
+  if (imagePreview) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={imagePreview}
+        alt={file ? `Receipt photo ${file.name}` : "Receipt preview"}
+        className="h-full w-full object-cover"
+      />
+    );
+  }
+  return null;
+}
+
+function PhotoThumb({
+  imagePreview,
+  file,
+  onRemove,
+}: {
+  imagePreview: string | null;
+  file: File;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <div className="h-[84px] w-16 overflow-hidden rounded-[8px] border border-[var(--hairline)] bg-[var(--hairline)]">
+        <ThumbContent imagePreview={imagePreview} file={file} />
+      </div>
+      {/* 44px tap target around a small visual badge. */}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Remove photo"
+        className="absolute -top-4 -right-4 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="flex size-6 items-center justify-center rounded-full border border-[var(--hairline)] bg-card text-[var(--ink-muted)]">
+          <X className="size-3.5" aria-hidden="true" />
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function VatSummary({ form }: { form: FormState }) {
+  const gross = toNumber(form.amount);
+  const vat = toNumber(form.taxAmount);
+  if (gross == null || gross <= 0 || vat == null || vat <= 0 || vat > gross) return null;
+  const rate = toNumber(form.taxRate);
+  return (
+    <div className="mt-4 space-y-1.5 rounded-[10px] border border-[color-mix(in_srgb,var(--brand)_20%,transparent)] bg-[var(--brand-tint)] px-4 py-3.5">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[14px] font-semibold">
+          {rate != null ? `VAT ${form.taxRate} %` : "VAT"}
+        </span>
+        <span className="font-mono text-[15px] font-medium tabular-nums">
+          {formatAmount(vat, form.currency)}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between text-[var(--ink-muted)]">
+        <span className="text-[14px] font-semibold">Excl. VAT</span>
+        <span className="font-mono text-[15px] font-medium tabular-nums">
+          {formatAmount(Math.round((gross - vat) * 100) / 100, form.currency)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Row({
   label,
   htmlFor,
-  required,
   children,
 }: {
   label: string;
   htmlFor: string;
-  required?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="flex min-h-[52px] items-center gap-3 border-b border-[var(--hairline)] px-4 outline-[var(--ring)] -outline-offset-2 last:border-b-0 focus-within:bg-[var(--surface)] focus-within:outline-2">
       <label
         htmlFor={htmlFor}
-        className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]"
+        className="w-[84px] shrink-0 text-[15px] font-semibold text-[var(--ink-muted)]"
       >
-        <span>
-          {label}
-          {required ? <span className="text-destructive ml-0.5">*</span> : null}
-        </span>
+        {label}
       </label>
       {children}
     </div>
   );
 }
 
-
-function OcrSkeletons() {
-  // Varied-width skeleton bars per DESIGN.md — collective reveal happens
-  // when ocrLoading flips false and the real fields mount in their place.
-  // One bar per field the reveal mounts (merchant, amount + currency,
-  // date + category, VAT amount + rate, payment method).
-  const widths = ["65%", "35%", "50%", "40%", "30%", "45%", "25%", "55%"];
+function SelectControl({
+  children,
+  className = "flex-1",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="space-y-3" aria-hidden="true">
-      {widths.map((w, i) => (
-        <div
-          key={i}
-          className="rounded-[6px] bg-[var(--hairline)] animate-pulse"
-          style={{ height: "36px", width: w }}
-          aria-hidden="true"
-        />
-      ))}
+    <div className={`relative flex min-w-0 items-center ${className}`}>
+      {children}
+      <ChevronDown
+        className="pointer-events-none absolute right-0 size-4 text-[var(--ink-muted)]"
+        aria-hidden="true"
+      />
     </div>
+  );
+}
+
+function TextButton({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-11 items-center gap-2 rounded-[10px] px-1 text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      {children}
+    </button>
+  );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="alert"
+      className="flex items-start gap-2.5 rounded-[10px] bg-[var(--attention-tint)] px-3.5 py-3 text-[14px] leading-snug font-semibold text-[var(--attention-deep)]"
+    >
+      <AlertCircle className="mt-px size-[18px] shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
   );
 }
