@@ -28,7 +28,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
   return (
     <div className="max-w-5xl mx-auto">
       <div className="text-center mb-10">
-        <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.eyebrow}</p>
+        <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{t.eyebrow}</p>
         <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
           {t.title}
         </h2>
@@ -121,7 +121,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
               }`}
             >
               {active && (
-                <span className="absolute -top-3 left-7 bg-[#27BE7B] text-white text-[10px] font-bold uppercase tracking-[0.18em] rounded-full px-3 py-1">
+                <span className="absolute -top-3 left-7 bg-[#1A7F52] text-white text-[10px] font-bold uppercase tracking-[0.18em] rounded-full px-3 py-1">
                   {t.fitsBadge}
                 </span>
               )}
@@ -138,7 +138,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
                   {t.perMonth}
                 </span>
               </div>
-              <p className={`text-sm font-semibold mt-3 ${active ? "text-[#27BE7B]" : "text-[#1F9D63]"}`}>
+              <p className={`text-sm font-semibold mt-3 ${active ? "text-[#27BE7B]" : "text-[#1A7F52]"}`}>
                 {fill(t.upTo, { n: plan.receipts })}
               </p>
               <p className={`text-xs mt-1 ${active ? "text-white/60" : "text-[#303568]/50"}`}>
@@ -153,7 +153,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
                 className={cn(buttonVariants({
                   className: `mt-auto w-full rounded-full font-semibold h-12 ${
                     active
-                      ? "bg-[#27BE7B] text-white hover:bg-[#1F9D63]"
+                      ? "bg-[#1A7F52] text-white hover:bg-[#176E47]"
                       : "bg-[#ECF7E7] text-[#303568] hover:bg-[#dff0d8]"
                   }`,
                 }))}

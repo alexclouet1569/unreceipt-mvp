@@ -3,7 +3,8 @@ import { isPilotMode } from "@/lib/pilot";
 import { AuthCard, type AuthMode } from "./_auth-card";
 
 export const metadata: Metadata = {
-  title: "Sign in — UnReceipt",
+  // The root layout appends " | UnReceipt".
+  title: "Sign in",
   // A login form has nothing for search engines; the marketing pages do.
   robots: { index: false, follow: true },
 };

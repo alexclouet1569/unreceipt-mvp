@@ -186,7 +186,7 @@ export default function PrivacyPage() {
               href="https://www.imy.se/en/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#27BE7B] underline underline-offset-2"
+              className="text-[#1A7F52] underline underline-offset-2"
             >
               IMY
             </a>
@@ -254,7 +254,7 @@ function Mailto({ children }: { children: string }) {
   return (
     <a
       href={`mailto:${children}`}
-      className="text-[#27BE7B] font-medium hover:underline underline-offset-2"
+      className="text-[#1A7F52] font-medium hover:underline underline-offset-2"
     >
       {children}
     </a>

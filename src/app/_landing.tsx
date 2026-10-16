@@ -128,7 +128,7 @@ function ReceiptTicker({ t, samples }: { t: LandingCopy["ticker"]; samples: Land
             </div>
             <div className="text-right pl-3">
               <p className="text-sm font-extrabold text-[#303568] whitespace-nowrap">{r.amount}</p>
-              <p className="text-[10px] text-[#27BE7B] font-semibold">
+              <p className="text-[10px] text-[#1A7F52] font-semibold">
                 {t.verified}
               </p>
             </div>
@@ -282,7 +282,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               href={appUrl(SIGNUP_PATH)}
               className={cn(buttonVariants({
                 size: "sm",
-                className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
+                className: "bg-[#1A7F52] text-white hover:bg-[#176E47] font-semibold rounded-full px-6 h-11",
               }))}
             >
               {navCta}
@@ -330,7 +330,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               href={appUrl(SIGNUP_PATH)}
               onClick={() => setMobileMenuOpen(false)}
               className={cn(buttonVariants({
-                className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
+                className: "mt-2 w-full bg-[#1A7F52] text-white hover:bg-[#176E47] font-semibold rounded-full h-12",
               }))}
             >
               {navCta}
@@ -340,7 +340,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       </nav>
 
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 overflow-hidden">
+      <section className="relative bg-[#1A7F52] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 
@@ -350,13 +350,15 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
-                <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">{t.hero.badge}</span>
+                <span className="text-white text-xs font-semibold tracking-wide uppercase">{t.hero.badge}</span>
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
                 {t.hero.titleLine1}<br />{t.hero.titleLine2}<br />
-                <span className="text-[#303568]">{t.hero.titleAccent}</span>
+                {/* Light mint on the action green: 3.6:1, enough for headline-size
+                    text (3:1); navy here would be 2.3:1. */}
+                <span className="text-[#9BEBC0]">{t.hero.titleAccent}</span>
               </h1>
-              <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
+              <p className="text-white text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
                 {t.hero.lead}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -364,7 +366,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   href={appUrl(SIGNUP_PATH)}
                   className={cn(buttonVariants({
                     size: "lg",
-                    className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
+                    className: "bg-white text-[#1A7F52] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
                   }))}
                 >
                   {heroCta}
@@ -375,13 +377,13 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
-                    className: "border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12",
+                    className: "border-2 border-white text-white hover:bg-white hover:text-[#1A7F52] rounded-full px-8 text-base font-semibold bg-transparent h-12",
                   }))}
                 >
                   {t.hero.secondary}
                 </a>
               </div>
-              <p className="text-white/80 text-sm mt-4">
+              <p className="text-white text-sm mt-4">
                 {fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })}
               </p>
             </div>
@@ -393,7 +395,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
                   <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
                     {/* Status bar */}
-                    <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
+                    <div className="h-12 bg-[#1A7F52] flex items-center justify-center">
                       <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
                     </div>
                     <div className="p-4 space-y-3">
@@ -405,12 +407,12 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                         </div>
                         <p className="text-sm font-bold text-[#303568]">{s.latest.merchant}</p>
                         <p className="text-xs text-[#303568]/60 mt-1">{t.phone.latestMeta}</p>
-                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">{s.latest.amount}</p>
+                        <p className="text-2xl font-extrabold text-[#1A7F52] mt-2">{s.latest.amount}</p>
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-4">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-xs font-semibold text-[#303568]/60">{t.phone.today}</span>
-                          <span className="text-xs font-bold text-[#27BE7B]">{t.phone.todayCount}</span>
+                          <span className="text-xs font-bold text-[#1A7F52]">{t.phone.todayCount}</span>
                         </div>
                         <div className="space-y-2">
                           {s.today.map((item) => (
@@ -427,7 +429,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                           ))}
                         </div>
                       </div>
-                      <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
+                      <Button className="w-full bg-[#1A7F52] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#176E47]">
                         <Camera className="w-3.5 h-3.5 mr-1.5" />
                         {t.phone.snap}
                       </Button>
@@ -502,7 +504,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       <Section id="features" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.features.eyebrow}</p>
+            <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{t.features.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
               {t.features.title}
             </h2>
@@ -531,7 +533,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       <Section id="how" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.how.eyebrow}</p>
+            <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{t.how.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
               {t.how.title}
             </h2>
@@ -547,7 +549,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center mx-auto mb-5 relative z-10 shadow-sm">
                   <item.icon className="w-8 h-8 text-[#27BE7B]" />
                 </div>
-                <div className="text-xs font-bold text-[#27BE7B] mb-2 tracking-widest">
+                <div className="text-xs font-bold text-[#1A7F52] mb-2 tracking-widest">
                   {t.how.step} {item.step}
                 </div>
                 <h3 className="font-bold text-[#303568] text-lg mb-2">{item.title}</h3>
@@ -566,7 +568,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       <Section id="difference" className="py-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.difference.eyebrow}</p>
+            <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{t.difference.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">
               {t.difference.title}
             </h2>
@@ -590,7 +592,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-lg shadow-[#27BE7B]/20 rounded-3xl bg-[#27BE7B]">
+            <Card className="border-0 shadow-lg shadow-[#1A7F52]/20 rounded-3xl bg-[#1A7F52]">
               <CardContent className="pt-8 pb-8 px-8">
                 <h3 className="font-bold mb-6 text-white text-sm uppercase tracking-widest">
                   {t.difference.newTitle}
@@ -622,7 +624,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       <Section id="about" className="py-20 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.about.eyebrow}</p>
+            <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{t.about.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
               {t.about.title}
             </h2>
@@ -647,7 +649,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       <Section id="faq" className="py-20 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.faq.eyebrow}</p>
+            <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{t.faq.eyebrow}</p>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
               {t.faq.title}
             </h2>
@@ -722,7 +724,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 href={appUrl(SIGNUP_PATH)}
                 className={cn(buttonVariants({
                   size: "lg",
-                  className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
+                  className: "bg-[#1A7F52] text-white hover:bg-[#176E47] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#1A7F52]/25",
                 }))}
               >
                 {heroCta}
@@ -751,7 +753,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   />
                   <Button
                     type="submit"
-                    className="bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
+                    className="bg-[#1A7F52] text-white hover:bg-[#176E47] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#1A7F52]/25"
                     disabled={submitting}
                   >
                     {submitting ? t.ending.submitting : t.ending.submit}
