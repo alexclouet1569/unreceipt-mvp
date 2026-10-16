@@ -148,8 +148,8 @@ export function checkSwedishVat(
           level: "info",
           title: "Probably reverse charge",
           detail:
-            "No VAT on a purchase from a seller in another EU country usually means reverse charge: you report the Swedish VAT yourself and deduct it in the same return. If the invoice says reverse charge, check how to book it with your accountant.",
-          source: SE_VAT_SOURCES.invoiceRules,
+            "No VAT on a purchase from a seller in another EU country usually means reverse charge: you report the Swedish VAT yourself, and if the purchase is for your VAT-liable business you can normally deduct it in the same return. Check how to book it with your accountant.",
+          source: SE_VAT_SOURCES.reverseCharge,
         },
       ],
     };
@@ -203,7 +203,11 @@ export function checkSwedishVat(
     }
   } else {
     const missing: string[] = [];
-    if (!looksLikeId(r.merchant_vat_number)) missing.push("the seller’s VAT number");
+    // Another EU country's number has already left the check above, so a
+    // VAT number here must be Swedish; an org.nr typed into it isn't one.
+    if (!(sellerCountry === "SE" && looksLikeId(r.merchant_vat_number))) {
+      missing.push("the seller’s VAT number");
+    }
     if (!present(r.buyer_name)) missing.push("your company’s name");
     if (!present(r.buyer_address)) missing.push("your company’s address");
     if (missing.length > 0) {

@@ -27,6 +27,11 @@ export const SE_VAT_SOURCES = {
     url: "https://www.skatteverket.se/foretag/moms/saljavarorochtjanster/momssatserochundantagfranmoms.4.58d555751259e4d66168000409.html",
     checkedOn: "2026-10-16",
   },
+  reverseCharge: {
+    title: "Skatteverket — Omvänd betalningsskyldighet",
+    url: "https://www.skatteverket.se/foretag/moms/sarskildamomsregler/omvandbetalningsskyldighet.4.47eb30f51122b1aaad28000258292.html",
+    checkedOn: "2026-10-16",
+  },
   foreignVat: {
     title: "Skatteverket — Återbetalning av utländsk moms",
     url: "https://www.skatteverket.se/foretag/moms/sarskildamomsregler/handelmedandralander/aterbetalningavutlandskmoms.4.58d555751259e4d661680001107.html",

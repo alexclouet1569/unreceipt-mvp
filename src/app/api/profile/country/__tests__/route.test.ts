@@ -13,7 +13,9 @@ vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({
       update: (row: unknown) => ({
-        eq: (col: string, val: string) => mocks.update(row, col, val),
+        eq: (col: string, val: string) => ({
+          select: () => mocks.update(row, col, val),
+        }),
       }),
     }),
   }),
@@ -32,7 +34,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.getServerUser.mockResolvedValue({ id: "user-1" });
-  mocks.update.mockResolvedValue({ error: null });
+  mocks.update.mockResolvedValue({ data: [{ user_id: "user-1" }], error: null });
 });
 
 describe("POST /api/profile/country", () => {
@@ -40,6 +42,11 @@ describe("POST /api/profile/country", () => {
     const res = await POST(req({ country: "SE" }));
     expect(res.status).toBe(200);
     expect(mocks.update).toHaveBeenCalledWith({ company_country: "SE" }, "user_id", "user-1");
+  });
+
+  it("says so when there was no profile row to save to", async () => {
+    mocks.update.mockResolvedValueOnce({ data: [], error: null });
+    expect((await POST(req({ country: "SE" }))).status).toBe(404);
   });
 
   it("refuses unknown values, other origins and anonymous callers", async () => {

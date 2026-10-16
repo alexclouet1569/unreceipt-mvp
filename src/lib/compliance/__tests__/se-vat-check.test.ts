@@ -102,9 +102,13 @@ describe("checkSwedishVat — above 4,000 kr", () => {
     expect(detail).toContain("your company’s name and your company’s address");
   });
 
-  it("needs the seller's VAT number; an org.nr isn't enough", () => {
+  it("needs the seller's VAT number; an org.nr isn't enough, even in the VAT number field", () => {
     const result = check(receipt({ ...big, buyer_name: "Acme AB", buyer_address: "Storgatan 1" }));
     expect(result.applies && result.findings[0].detail).toContain("the seller’s VAT number");
+    const misfiled = check(
+      receipt({ ...big, merchant_vat_number: "556677-8899", buyer_name: "Acme AB", buyer_address: "Storgatan 1" }),
+    );
+    expect(misfiled.applies && misfiled.findings.map((f) => f.id)).toEqual(["full_invoice_needed"]);
   });
 
   it("passes a full invoice, saying the invoice number and amounts per rate aren't checked", () => {
@@ -146,6 +150,8 @@ describe("checkSwedishVat — no VAT, foreign VAT, reverse charge", () => {
         receipt({ merchant_vat_number: "IE6388047V", merchant_org_number: null, currency, total: 500, tax_amount: null, tax_rate: null }),
       );
       expect(result.applies && result.findings.map((f) => f.id)).toEqual(["reverse_charge"]);
+      expect(result.applies && result.findings[0].detail).toContain("normally deduct");
+      expect(result.applies && result.findings[0].source.url).toContain("omvandbetalningsskyldighet");
     }
   });
 

@@ -36,14 +36,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unknown country" }, { status: 400 });
   }
 
-  const { error } = await getSupabaseAdmin()
+  const { data, error } = await getSupabaseAdmin()
     .from("profiles")
     .update({ company_country: country })
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("user_id");
 
   if (error) {
     console.error("[/api/profile/country] update failed", error.code);
     return NextResponse.json({ error: "update failed" }, { status: 500 });
+  }
+  // No profile row: nothing was saved, so don't say it was.
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: "profile not found" }, { status: 404 });
   }
   return NextResponse.json({ ok: true, country });
 }

@@ -248,6 +248,33 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(payload.edited_fields).toEqual(["merchant_org_number", "buyer_name"]);
   });
 
+  it("clears a VAT breakdown that was read when the VAT amount is corrected", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: 60, vat_breakdown: [{ rate: 25, vat_amount: 60 }] },
+      error: null,
+    });
+
+    const res = await PATCH(req({ tax_amount: 0 }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.vat_breakdown).toBeNull();
+    expect(payload.edited_fields).toEqual(expect.arrayContaining(["tax_amount", "vat_breakdown"]));
+  });
+
+  it("keeps a breakdown sent with the VAT edit", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...verifiedRow(), tax_amount: 60, vat_breakdown: [{ rate: 25, vat_amount: 60 }] },
+      error: null,
+    });
+    const breakdown = [{ rate: 6, vat_amount: 2 }, { rate: 25, vat_amount: 5 }];
+
+    const res = await PATCH(req({ tax_amount: 7, vat_breakdown: breakdown }), params());
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateEq.mock.calls[0][0].vat_breakdown).toEqual(breakdown);
+  });
+
   it("rejects an over-long buyer name", async () => {
     const res = await PATCH(req({ buyer_name: "x".repeat(201) }), params());
     expect(res.status).toBe(400);
