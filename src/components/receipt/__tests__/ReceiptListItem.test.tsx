@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReceiptListItem } from "../ReceiptListItem";
 import type { Receipt } from "@/lib/types";
@@ -59,12 +59,24 @@ const baseReceipt: Receipt = {
 };
 
 describe("ReceiptListItem", () => {
-  it("renders merchant initials, name, mono amount, and currency suffix", () => {
+  it("renders the store logo for a known merchant, name, mono amount, and currency suffix", () => {
     render(<ReceiptListItem receipt={baseReceipt} />);
-    expect(screen.getByText("IK")).toBeInTheDocument();
+    // Initials until the logo has loaded, then the logo.
+    const img = screen.getByTestId("merchant-logo-img");
+    expect(img).toHaveAttribute("src", "/api/merchant-logo/ica");
+    expect(screen.getByTestId("merchant-initials")).toHaveTextContent("IK");
+    fireEvent.load(img);
+    expect(screen.getByTestId("merchant-logo")).toBeInTheDocument();
+    expect(screen.queryByText("IK")).toBeNull();
     expect(screen.getByText("ICA Kvantum")).toBeInTheDocument();
     expect(screen.getByText("245.00")).toBeInTheDocument();
     expect(screen.getByText("kr")).toBeInTheDocument();
+  });
+
+  it("falls back to initials for a merchant without a known logo", () => {
+    render(<ReceiptListItem receipt={{ ...baseReceipt, merchant_name: "Kafé Lilla Torget" }} />);
+    expect(screen.getByTestId("merchant-initials")).toHaveTextContent("KL");
+    expect(screen.queryByTestId("merchant-logo-img")).toBeNull();
   });
 
   it("emits a data-day-group attribute for parent grouping", () => {

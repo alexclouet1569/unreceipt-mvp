@@ -186,6 +186,30 @@
   }
 }
 
+/* Digital receipt paper (ReceiptDetailCard): torn bottom edge, and the
+   barcode drawn under a verification code. */
+@layer components {
+  .receipt-torn {
+    -webkit-mask:
+      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 14px 8px repeat-x;
+    mask:
+      linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 8px) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 14px 8px repeat-x;
+  }
+  .receipt-barcode {
+    background: repeating-linear-gradient(
+      90deg,
+      var(--ink) 0 2px,
+      transparent 2px 4px,
+      var(--ink) 4px 5px,
+      transparent 5px 8px,
+      var(--ink) 8px 11px,
+      transparent 11px 13px
+    );
+  }
+}
+
 /* Respect the OS "reduce motion" setting: no reveal animation, pulses or
    transitions (DESIGN.md motion is decoration, never information). */
 @media (prefers-reduced-motion: reduce) {

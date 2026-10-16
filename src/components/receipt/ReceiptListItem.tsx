@@ -6,7 +6,7 @@ import {
   relativeDayGroup,
   splitFormattedAmount,
 } from "@/lib/receipt-format";
-import { getMerchantColor, getMerchantInitials } from "@/lib/merchant-display";
+import { MerchantLogo } from "@/components/receipt/MerchantLogo";
 import type { Receipt } from "@/lib/types";
 
 type ReceiptListItemProps = {
@@ -18,8 +18,6 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
   const config = CATEGORY_CONFIG[receipt.category];
   const interactive = Boolean(onClick);
   const merchant = receipt.merchant_name ?? "Unknown merchant";
-  const initials = getMerchantInitials(merchant);
-  const logoColor = getMerchantColor(merchant);
   const { value, suffix } = splitFormattedAmount(
     receipt.total,
     receipt.currency,
@@ -60,19 +58,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
           "cursor-pointer hover:border-[color-mix(in_srgb,var(--brand)_30%,var(--hairline))] active:scale-[0.985]",
       )}
     >
-      <div
-        className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 text-white"
-        style={{
-          background: logoColor,
-          fontFamily: "var(--font-display)",
-          fontWeight: 700,
-          fontSize: "14px",
-          letterSpacing: "-0.01em",
-        }}
-        aria-hidden="true"
-      >
-        {initials}
-      </div>
+      <MerchantLogo merchant={merchant} size={40} radius={10} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <p

@@ -23,9 +23,11 @@ import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/she
 import {
   AlertCircle,
   Camera,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
   Loader2,
   Plus,
@@ -41,6 +43,8 @@ import {
   type CurrencyCode,
 } from "@/lib/receipt-format";
 import type { OcrItem, OcrResult } from "@/lib/ocr";
+import type { Receipt } from "@/lib/types";
+import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { cn } from "@/lib/utils";
 import {
   PAYMENT_METHOD_SUGGESTIONS,
@@ -56,8 +60,9 @@ type CaptureDialogProps = {
 
 // Photo first (DESIGN.md "Capture sheet"): pick a photo → we read it →
 // the customer checks the result. "review" is also the manual form, for
-// a receipt without a photo or a photo we couldn't read.
-type Stage = "choose" | "reading" | "review";
+// a receipt without a photo or a photo we couldn't read. "saved" shows
+// the digital receipt that was just created.
+type Stage = "choose" | "reading" | "review" | "saved";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -164,6 +169,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // Line items extracted by OCR, forwarded to /api/capture so the digital
   // receipt renders the full line breakdown.
   const [items, setItems] = useState<OcrItem[] | null>(null);
+  const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
 
   // Reset everything when the sheet closes so the next open is fresh.
   // Adjusted during render (React's "reset state when a prop changes"
@@ -185,6 +191,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       setTaxAuto(false);
       setShowNotes(false);
       setItems(null);
+      setSavedReceipt(null);
     }
   }
 
@@ -425,9 +432,19 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         );
       }
 
+      const body = (await res.json().catch(() => null)) as
+        | { receipt?: Receipt }
+        | null;
       onSaved?.();
-      onOpenChange(false);
       router.refresh();
+      if (body?.receipt) {
+        // Show the digital receipt; the inbox refreshes behind the sheet.
+        setSavedReceipt(body.receipt);
+        setSaving(false);
+        setStage("saved");
+      } else {
+        onOpenChange(false);
+      }
     } catch (err) {
       console.error("[/app] save failed:", err);
       setSaveError(err instanceof Error ? err.message : "Save failed");
@@ -436,7 +453,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   };
 
   const title =
-    stage !== "review"
+    stage === "saved"
+      ? "Receipt saved"
+      : stage !== "review"
       ? "New receipt"
       : ocrFilled
         ? "Check and save"
@@ -461,6 +480,14 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             >
               <ChevronLeft className="size-[18px]" aria-hidden="true" />
             </button>
+          ) : null}
+          {stage === "saved" ? (
+            <span
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--brand-tint)] text-[var(--brand-action)]"
+              aria-hidden="true"
+            >
+              <Check className="size-[18px]" strokeWidth={2.5} />
+            </span>
           ) : null}
           <SheetTitle className="flex-1 text-[22px] font-bold tracking-[-0.02em] text-[var(--ink)]">
             {title}
@@ -726,6 +753,34 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               </button>
             </div>
           </form>
+        ) : null}
+
+        {stage === "saved" && savedReceipt ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              className="min-h-0 flex-1 overflow-y-auto bg-[var(--surface)] px-4 pt-4 pb-6"
+              style={{ animation: "ocr-reveal 480ms cubic-bezier(0.32, 0.72, 0, 1) both" }}
+            >
+              <ReceiptDetailCard receipt={savedReceipt} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 border-t border-[var(--hairline)] px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+              <a
+                href={`/api/receipts/${savedReceipt.id}/pdf`}
+                download
+                className={SECONDARY_BUTTON_CLASS}
+              >
+                <Download className="size-[18px]" aria-hidden="true" />
+                PDF
+              </a>
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className={PRIMARY_BUTTON_CLASS}
+              >
+                Done
+              </button>
+            </div>
+          </div>
         ) : null}
 
         <input

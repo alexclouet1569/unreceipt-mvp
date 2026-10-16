@@ -198,7 +198,10 @@ export async function POST(request: NextRequest) {
       source,
       status,
     })
-    .select("id")
+    // The whole row, so the capture sheet can show the digital receipt
+    // straight away. It's the row just inserted for this user, so nothing
+    // leaves that the dashboard wouldn't show them anyway.
+    .select("*")
     .single();
 
   if (insertError || !inserted) {
@@ -223,5 +226,5 @@ export async function POST(request: NextRequest) {
     source,
   });
 
-  return NextResponse.json({ ok: true, id: inserted.id });
+  return NextResponse.json({ ok: true, id: inserted.id, receipt: inserted });
 }

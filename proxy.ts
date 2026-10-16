@@ -71,6 +71,9 @@ const STATIC_EXT_RE = /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?|css|js|map)$/i;
 
 function isStaticAsset(path: string): boolean {
   if (path.startsWith("/_next") || path.startsWith("/icons")) return true;
+  // Public, CDN-cached store logos: no session to refresh, and a list of
+  // receipts would otherwise cost one auth round-trip per logo.
+  if (path.startsWith("/api/merchant-logo/")) return true;
   if (STATIC_PATHS.has(path)) return true;
   return STATIC_EXT_RE.test(path);
 }

@@ -8,7 +8,13 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { CaptureFab } from "@/components/CaptureFab";
 import { IntakeRow } from "@/components/IntakeRow";
-import { formatAmount, relativeDayGroup } from "@/lib/receipt-format";
+import {
+  CATEGORY_CONFIG,
+  CATEGORY_KEYS,
+  formatAmount,
+  relativeDayGroup,
+  type CategoryKey,
+} from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
@@ -28,7 +34,10 @@ type DashboardProps = {
   showOnboarding?: boolean;
 };
 
-type Filter = "all" | "review";
+type Filter = "all" | "review" | `category:${CategoryKey}`;
+
+// How the list is sectioned: by the receipt's day, or by what it was for.
+type View = "date" | "category";
 
 export function Dashboard({
   userEmail,
@@ -51,15 +60,29 @@ export function Dashboard({
   };
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [view, setView] = useState<View>("date");
 
   const reviewCount = useMemo(
     () => receipts.filter((r) => r.status === "pending_review").length,
     [receipts],
   );
 
+  // Categories that have receipts, most used first.
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<CategoryKey, number>();
+    for (const r of receipts) counts.set(r.category, (counts.get(r.category) ?? 0) + 1);
+    return CATEGORY_KEYS.filter((k) => counts.has(k))
+      .map((key) => ({ key, count: counts.get(key)! }))
+      .sort((a, b) => b.count - a.count);
+  }, [receipts]);
+
   const visibleReceipts = useMemo(() => {
     if (filter === "review") {
       return receipts.filter((r) => r.status === "pending_review");
+    }
+    if (filter.startsWith("category:")) {
+      const key = filter.slice("category:".length);
+      return receipts.filter((r) => r.category === key);
     }
     return receipts;
   }, [receipts, filter]);
@@ -80,6 +103,23 @@ export function Dashboard({
   }, [receipts]);
 
   const groupedReceipts = useMemo(() => {
+    if (view === "category") {
+      const groups = new Map<CategoryKey, typeof receipts>();
+      for (const r of visibleReceipts) {
+        if (!groups.has(r.category)) groups.set(r.category, []);
+        groups.get(r.category)!.push(r);
+      }
+      return categoryCounts
+        .filter(({ key }) => groups.has(key))
+        .map(({ key }) => {
+          const items = groups.get(key)!;
+          return {
+            label: CATEGORY_CONFIG[key].label,
+            items,
+            total: sumByCurrency(items),
+          };
+        });
+    }
     const order = ["Today", "Yesterday", "This week"];
     const groups = new Map<string, typeof receipts>();
     for (const r of visibleReceipts) {
@@ -96,8 +136,12 @@ export function Dashboard({
       if (bi !== -1) return 1;
       return a.localeCompare(b);
     });
-    return keys.map((label) => ({ label, items: groups.get(label)! }));
-  }, [visibleReceipts]);
+    return keys.map((label) => ({
+      label,
+      items: groups.get(label)!,
+      total: null as string | null,
+    }));
+  }, [visibleReceipts, view, categoryCounts]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -158,10 +202,12 @@ export function Dashboard({
               />
             </div>
 
+            <ViewToggle view={view} onChange={setView} />
+
             <div
               role="tablist"
               aria-label="Filter receipts"
-              className="flex gap-2 mb-4"
+              className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <FilterChip
                 active={filter === "all"}
@@ -178,6 +224,21 @@ export function Dashboard({
                   attention
                 />
               ) : null}
+              {categoryCounts.length > 1
+                ? categoryCounts.map(({ key, count }) => (
+                    <FilterChip
+                      key={key}
+                      active={filter === `category:${key}`}
+                      onClick={() =>
+                        setFilter((f) =>
+                          f === `category:${key}` ? "all" : `category:${key}`,
+                        )
+                      }
+                      label={CATEGORY_CONFIG[key].label}
+                      count={count}
+                    />
+                  ))
+                : null}
             </div>
 
             {filter === "review" && visibleReceipts.length === 0 ? (
@@ -189,10 +250,10 @@ export function Dashboard({
               </p>
             ) : null}
 
-            {groupedReceipts.map(({ label, items }) => (
+            {groupedReceipts.map(({ label, items, total }) => (
               <section key={label} className="mb-5">
                 <h2
-                  className="mb-2 text-[var(--ink-faint)]"
+                  className="mb-2 flex items-baseline justify-between gap-3 text-[var(--ink-faint)]"
                   style={{
                     fontSize: "11px",
                     fontWeight: 600,
@@ -200,7 +261,19 @@ export function Dashboard({
                     textTransform: "uppercase",
                   }}
                 >
-                  {label}
+                  <span>
+                    {label}
+                    {total != null ? (
+                      <span className="ml-1.5 font-mono tabular-nums">· {items.length}</span>
+                    ) : null}
+                  </span>
+                  {total != null ? (
+                    <span
+                      className="font-mono text-[12px] font-medium tracking-normal text-[var(--ink-muted)] normal-case tabular-nums"
+                    >
+                      {total}
+                    </span>
+                  ) : null}
                 </h2>
                 <div className="space-y-2">
                   {items.map((r) => (
@@ -314,6 +387,52 @@ function EmptyState({
   );
 }
 
+/** "1,245.00 kr" — or "€18.50 + 245.00 kr" when a group mixes currencies. */
+function sumByCurrency(items: Receipt[]): string {
+  const sums = new Map<string, number>();
+  for (const r of items) {
+    if (r.total == null) continue;
+    sums.set(r.currency, (sums.get(r.currency) ?? 0) + r.total);
+  }
+  return Array.from(sums, ([currency, sum]) =>
+    formatAmount(Math.round(sum * 100) / 100, currency),
+  ).join(" + ");
+}
+
+function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  const options: Array<{ value: View; label: string }> = [
+    { value: "date", label: "By date" },
+    { value: "category", label: "By category" },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Group receipts"
+      className="mb-3 grid grid-cols-2 rounded-[10px] border border-[var(--hairline)] bg-[var(--surface)] p-1"
+    >
+      {options.map((o) => {
+        const active = view === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(o.value)}
+            className={
+              active
+                ? "h-10 rounded-[6px] border border-[var(--hairline)] bg-card text-[14px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                : "h-10 rounded-[6px] border border-transparent text-[14px] font-semibold text-[var(--ink-muted)] outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            }
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function FilterChip({
   active,
   onClick,
@@ -334,9 +453,9 @@ function FilterChip({
       aria-selected={active}
       aria-current={active ? "true" : undefined}
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 transition-colors"
+      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors"
       style={{
-        height: "32px",
+        height: "36px",
         padding: "0 12px",
         borderRadius: "999px",
         fontSize: "12px",
