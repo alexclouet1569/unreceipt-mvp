@@ -37,7 +37,7 @@ describe("parseReceipt — email templates", () => {
           "Payment: Visa •• 4242",
         ].join("\n"),
         html: null,
-        authenticated: true, addressedToOwner: true,
+        authenticated: true, recipient: "personal" as const,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("parseReceipt — email templates", () => {
           "Powered by Stripe.",
         ].join("\n"),
         html: null,
-        authenticated: true, addressedToOwner: true,
+        authenticated: true, recipient: "personal" as const,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("parseReceipt — email templates", () => {
 describe("parseReceipt — template amounts and formats", () => {
   const raw = (from: string, subject: string, text: string | null, html: string | null = null) => ({
     kind: "email" as const,
-    raw: { from, to: "x", subject, text, html, authenticated: true, addressedToOwner: true },
+    raw: { from, to: "x", subject, text, html, authenticated: true, recipient: "personal" as const },
   });
   const uber = (text: string, subject = "Your Thursday evening trip with Uber") =>
     parseReceipt(raw("noreply@uber.com", subject, text));
@@ -222,7 +222,7 @@ describe("parseReceipt — sender trust", () => {
         subject: "Your trip with Uber",
         text: "Total 4999 SEK\n15 October 2026",
         html: null,
-        authenticated: true, addressedToOwner: true,
+        authenticated: true, recipient: "personal" as const,
       },
     });
     expect(result.status).toBe("ok");
@@ -240,12 +240,26 @@ describe("parseReceipt — sender trust", () => {
         text: "Total 189 SEK\n15 October 2026",
         html: null,
         authenticated: true,
-        addressedToOwner: false,
+        recipient: "none" as const,
       },
     });
     expect(result.status).toBe("ok");
     if (result.status !== "ok") return;
     expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("trusts an Uber receipt sent straight to the alias, but not a Stripe one", async () => {
+    const direct = (from: string, subject: string, text: string) =>
+      parseReceipt({
+        kind: "email",
+        raw: { from, to: "x", subject, text, html: null, authenticated: true, recipient: "alias" },
+      });
+    const uber = await direct("noreply@uber.com", "Your trip with Uber", "Total 189 SEK\n15 October 2026");
+    const stripe = await direct("receipts@stripe.com", "Your receipt from Acme", "Amount paid $49.00\nOct 14, 2026");
+    if (uber.status !== "ok" || stripe.status !== "ok") throw new Error("not ok");
+    expect(uber.fields.parse_confidence).toBeGreaterThanOrEqual(0.75);
+    // Any Stripe merchant can email any address, so a stranger could send one.
+    expect(stripe.fields.parse_confidence).toBeLessThan(0.75);
   });
 
   it("doesn't trust a real-looking Uber sender without a DMARC pass", async () => {

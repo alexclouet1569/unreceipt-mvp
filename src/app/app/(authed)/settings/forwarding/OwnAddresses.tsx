@@ -16,12 +16,9 @@ const ERROR_ID = "own-address-error";
 export function OwnAddresses({
   accountEmail,
   addresses,
-  suggestion,
 }: {
   accountEmail: string | null;
   addresses: string[];
-  // The Gmail account that asked to forward here, if not listed yet.
-  suggestion: string | null;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +62,7 @@ export function OwnAddresses({
         Uber and Stripe receipts are verified automatically only when they were
         sent to one of your own addresses. Anything else, like someone
         else&apos;s receipt forwarded to you, waits under Review needed. Add
-        every inbox that forwards receipts here.
+        every inbox of yours that forwards receipts here, and only your own.
       </p>
 
       {hasRows ? (
@@ -102,27 +99,6 @@ export function OwnAddresses({
             </li>
           ))}
         </ul>
-      ) : null}
-
-      {suggestion ? (
-        <div
-          className="flex flex-wrap items-center justify-between gap-2"
-          style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "8px 8px 8px 14px" }}
-        >
-          <span className="min-w-0 text-[var(--ink)]" style={{ fontSize: "14px" }}>
-            Is <span className="[overflow-wrap:anywhere]">{suggestion}</span> yours?
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11"
-            onClick={() => send("POST", suggestion)}
-            disabled={busy !== null}
-          >
-            {busy === suggestion ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Add it
-          </Button>
-        </div>
       ) : null}
 
       <form

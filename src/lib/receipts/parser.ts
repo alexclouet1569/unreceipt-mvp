@@ -109,12 +109,15 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
       // Anyone who knows an alias can write "Your trip with Uber" or
       // "Powered by Stripe", or resend someone else's real receipt. Trust
       // the hit only from the template's own, DMARC-authenticated domain,
-      // originally sent to one of this user's addresses; otherwise keep the
-      // fields but let a person confirm them (Review needed, not billed
-      // until then). Refund emails share the layout but aren't expenses.
+      // originally sent to this user (one of their inboxes, or their alias
+      // where the template allows it); otherwise keep the fields but let a
+      // person confirm them (Review needed, not billed until then). Refund
+      // emails share the layout but aren't expenses.
+      const ownedByUser =
+        raw.recipient === "personal" || (raw.recipient === "alias" && template.trustDirectToAlias);
       const trusted =
         raw.authenticated === true &&
-        raw.addressedToOwner === true &&
+        ownedByUser &&
         isFromDomain(raw.from, template.trustedDomains) &&
         !looksLikeRefund(raw.subject, raw.text ?? raw.html ?? "");
       return finalize(fields, trusted ? TEMPLATE_HIT_CONFIDENCE : TEMPLATE_PARTIAL_CONFIDENCE);

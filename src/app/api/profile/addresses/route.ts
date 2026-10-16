@@ -3,31 +3,34 @@
 // receipt is trusted automatically only when it was originally sent to one
 // of these, the account email or the forwarding alias. Self-declared: the
 // list only affects the caller's own receipts. Service role, scoped to the
-// caller; capped at MAX_EXTRA_ADDRESSES.
+// caller; capped at MAX_EXTRA_ADDRESSES (count-then-insert, so parallel
+// requests can overshoot slightly; that only affects the caller).
 
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { isValidAddress } from "@/lib/email-address";
+import { normalizeAddress } from "@/lib/email-address";
 import { INBOUND_DOMAIN_DEFAULT } from "@/lib/email-alias";
 import { MAX_EXTRA_ADDRESSES } from "@/lib/owner-addresses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const BodySchema = z.object({ address: z.string().max(320) });
+
+// The mailbox as stored and compared: normalised, so "Anna.S@Gmail.com"
+// and "annas@gmail.com" are one row, and checks run on the real address
+// rather than on a display name around it.
 async function readAddress(request: NextRequest): Promise<string | null> {
-  try {
-    const body = (await request.json()) as { address?: unknown };
-    if (typeof body.address !== "string") return null;
-    const address = body.address.trim().toLowerCase();
-    if (address.length > 254 || !isValidAddress(address)) return null;
-    const domain = address.slice(address.lastIndexOf("@") + 1);
-    const inbound = (process.env.INBOUND_DOMAIN || INBOUND_DOMAIN_DEFAULT).toLowerCase();
-    // Forwarding aliases are already covered; listing one makes no sense.
-    return domain === inbound ? null : address;
-  } catch {
-    return null;
-  }
+  const parsed = BodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return null;
+  const address = normalizeAddress(parsed.data.address);
+  if (!address) return null;
+  const domain = address.slice(address.lastIndexOf("@") + 1);
+  const inbound = (process.env.INBOUND_DOMAIN || INBOUND_DOMAIN_DEFAULT).toLowerCase();
+  // Forwarding aliases are handled separately; listing one makes no sense.
+  return domain === inbound ? null : address;
 }
 
 export async function POST(request: NextRequest) {

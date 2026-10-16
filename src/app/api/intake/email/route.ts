@@ -41,7 +41,7 @@ import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 import { buildForwardingAddress } from "@/lib/email-alias";
-import { isAddressedToOwner } from "@/lib/email-address";
+import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
 import { loadOwnerAddresses } from "@/lib/owner-addresses";
 
 export const runtime = "nodejs";
@@ -135,6 +135,20 @@ function pickHeader(
   return null;
 }
 
+
+// A header from the Receiving API's headers object, as a list of values.
+function headerList(
+  headers: Record<string, string | string[] | undefined>,
+  name: string
+): string[] {
+  const values: string[] = [];
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() !== name) continue;
+    if (typeof v === "string") values.push(v);
+    else if (Array.isArray(v)) values.push(...v.filter((x): x is string => typeof x === "string"));
+  }
+  return values;
+}
 
 function genericNotFound() {
   // Same body whether the alias was malformed or simply not registered —
@@ -312,14 +326,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, id: existing.id, duplicate: true });
   }
 
-  // Who the email was originally sent to (its own To/Cc, not the envelope
-  // that brought it here). Only looked up for a DMARC-authenticated mail,
-  // the only kind a template can trust.
-  const headerRecipients = allAddresses(data.to, data.cc);
-  let addressedToOwner = false;
+  // Who the email was originally sent to: the To: header of the message
+  // itself (from the raw .eml, else the Receiving API's headers), never the
+  // webhook's recipient list or the envelope that brought it here. Only
+  // looked up for a DMARC-authenticated mail, the only kind a template can
+  // trust.
+  let recipient: RecipientOwnership = "none";
   if (dmarc === "pass") {
-    const ownerAddresses = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
-    addressedToOwner = isAddressedToOwner(headerRecipients, ownerAddresses);
+    const toHeaders = rawEml && hasRaw
+      ? rawHeaderValues(rawEml.toString("utf8"), "to")
+      : headerList(content.headers, "to");
+    const owner = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
+    recipient = recipientOwnership(toHeaders, owner);
   }
 
   // Parse (best-effort). Throw → pending_review.
@@ -334,7 +352,7 @@ export async function POST(request: NextRequest) {
         text,
         html,
         authenticated: dmarc === "pass",
-        addressedToOwner,
+        recipient,
       },
     });
   } catch (err) {

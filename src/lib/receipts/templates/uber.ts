@@ -27,6 +27,7 @@ const CARD_RE = /(?:•{2,8}|\.{2,8}|x{4,8}|\*{4,8})[ \t]{0,3}(\d{4})/i;
 export const uberTemplate: EmailTemplate = {
   name: "uber",
   trustedDomains: ["uber.com"],
+  trustDirectToAlias: true,
 
   match(raw) {
     return (

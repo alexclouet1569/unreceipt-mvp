@@ -10,7 +10,6 @@ import {
 import type { EmailForwardingConfirmation } from "@/lib/types";
 import { CONFIRMATION_MAX_AGE_MS } from "@/lib/forwarding-confirmation";
 import { listExtraAddresses } from "@/lib/owner-addresses";
-import { normalizeAddress } from "@/lib/email-address";
 import { ForwardingGuide, type GuideConfirmation } from "./ForwardingGuide";
 import { OwnAddresses } from "./OwnAddresses";
 
@@ -44,14 +43,8 @@ export default async function ForwardingPage() {
     listExtraAddresses(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
-  // Offer the Gmail account that asked to forward here, unless it's listed.
-  const known = new Set(
-    [user.email ?? "", ...extraAddresses].map(normalizeAddress).filter((a): a is string => a != null),
-  );
-  const suggestion =
-    confirmation?.forAddress && !known.has(normalizeAddress(confirmation.forAddress) ?? "")
-      ? confirmation.forAddress
-      : null;
+  // No one-tap "add the Gmail that asked to forward here": anyone who knows
+  // the alias can make Gmail send that email, naming their own address.
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,7 +76,6 @@ export default async function ForwardingPage() {
               <OwnAddresses
                 accountEmail={user.email ?? null}
                 addresses={extraAddresses}
-                suggestion={suggestion}
               />
             }
           />

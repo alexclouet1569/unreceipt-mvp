@@ -21,7 +21,7 @@ describe("OwnAddresses", () => {
   });
 
   it("lists the sign-in email and the added addresses", () => {
-    render(<OwnAddresses accountEmail="anna@acme.se" addresses={["anna@gmail.com"]} suggestion={null} />);
+    render(<OwnAddresses accountEmail="anna@acme.se" addresses={["anna@gmail.com"]} />);
     expect(screen.getByText("anna@acme.se")).toBeInTheDocument();
     expect(screen.getByText("Sign-in email")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove anna@gmail.com" })).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("OwnAddresses", () => {
 
   it("adds a typed address, then refreshes", async () => {
     const user = userEvent.setup();
-    render(<OwnAddresses accountEmail={null} addresses={[]} suggestion={null} />);
+    render(<OwnAddresses accountEmail={null} addresses={[]} />);
     await user.type(screen.getByLabelText("Add an email address"), "anna@gmail.com");
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(fetchMock).toHaveBeenCalledWith("/api/profile/addresses", {
@@ -40,20 +40,10 @@ describe("OwnAddresses", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("offers the Gmail account that asked to forward here", async () => {
-    const user = userEvent.setup();
-    render(<OwnAddresses accountEmail={null} addresses={[]} suggestion="anna@gmail.com" />);
-    expect(
-      screen.getByText((_, el) => el?.tagName === "SPAN" && el.textContent === "Is anna@gmail.com yours?"),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add it" }));
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ address: "anna@gmail.com" });
-  });
-
   it("shows the server's error", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "You can add up to 10 addresses." }) });
-    render(<OwnAddresses accountEmail={null} addresses={[]} suggestion={null} />);
+    render(<OwnAddresses accountEmail={null} addresses={[]} />);
     await user.type(screen.getByLabelText("Add an email address"), "x@y.se");
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("up to 10");

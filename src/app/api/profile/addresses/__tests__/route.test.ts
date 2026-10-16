@@ -63,9 +63,18 @@ describe("/api/profile/addresses", () => {
     );
   });
 
-  it("refuses non-addresses, forwarding aliases and more than 10", async () => {
+  it("stores the normalised mailbox", async () => {
+    await POST(req("POST", { address: "Anna <Anna.S+x@Gmail.com>" }));
+    expect(mocks.upsert.mock.calls[0][0]).toEqual({
+      user_id: "11111111-1111-4111-8111-111111111111",
+      address: "annas@gmail.com",
+    });
+  });
+
+  it("refuses non-addresses, forwarding aliases (even dressed up) and more than 10", async () => {
     expect((await POST(req("POST", { address: "nope" }))).status).toBe(400);
     expect((await POST(req("POST", { address: "receipts+x@in.unreceipt.com" }))).status).toBe(400);
+    expect((await POST(req("POST", { address: "x <receipts+x@in.unreceipt.com>" }))).status).toBe(400);
     mocks.count = 10;
     expect((await POST(req("POST", { address: "a@b.se" }))).status).toBe(400);
     expect(mocks.upsert).not.toHaveBeenCalled();
