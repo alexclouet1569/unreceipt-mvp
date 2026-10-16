@@ -101,8 +101,8 @@ describe("parseReceipt — template amounts and formats", () => {
 
   it.each([
     ["Total 1 234,50 kr\nVarav moms 74,07 kr\n15 October 2026", 1234.5, "SEK"],
-    ["Totalt 189,00 kr\nMoms 10,70 kr\n15 October 2026", 189, "SEK"],
-    ["Moms totalt 10,70 kr\nTotalt 189,00 kr\n15 October 2026", 189, "SEK"],
+    ["Totalt 189,00 kr\nVarav moms 10,70 kr\n15 October 2026", 189, "SEK"],
+    ["Moms totalt 10,70 kr\nTotalt 189,00 kr\nVarav moms 10,70 kr\n15 October 2026", 189, "SEK"],
     ["Totalt inkl. moms 189,00 kr\n15 October 2026", 189, "SEK"],
     ["Total $1,234.56\nOctober 15, 2026", 1234.56, "USD"],
   ])("Uber reads %j", async (text, total, currency) => {
@@ -128,7 +128,7 @@ describe("parseReceipt — template amounts and formats", () => {
   });
 
   it("never glues numbers from separate lines into one amount", async () => {
-    expect((await okFields(uber("Total 189 kr\n200 moms\n15 October 2026"))).total).toBe(189);
+    expect((await okFields(uber("Total 189 kr\n200 varav moms\n15 October 2026"))).total).toBe(189);
     expect((await okFields(stripe("Amount paid $49\n4242\nOct 14, 2026"))).total).toBe(49);
   });
 
@@ -153,9 +153,33 @@ describe("parseReceipt — template amounts and formats", () => {
     // "kr" without anything Swedish could be NOK or DKK.
     expect((await uber("Total 189,00 kr\n15 October 2026")).status).toBe("pending_review");
     // A VAT percentage isn't an amount.
-    expect((await uber("Total 12,5 % moms\n15 October 2026")).status).toBe("pending_review");
+    expect((await uber("Total 12,5 % varav moms\n15 October 2026")).status).toBe("pending_review");
     // A negative total isn't read as positive.
-    expect((await uber("Total -189,00 kr moms\n15 October 2026")).status).toBe("pending_review");
+    expect((await uber("Total -189,00 kr varav moms\n15 October 2026")).status).toBe("pending_review");
+  });
+
+  it("never takes a billing or due date for the purchase date", async () => {
+    const fields = await okFields(
+      stripe("Amount paid $50.00\nNext billing date Nov 14, 2026\nDue date Nov 20, 2026\nDate paid Oct 14, 2026"),
+    );
+    expect(fields.purchased_at.startsWith("2026-10-14")).toBe(true);
+  });
+
+  it("doesn't book Danish kroner as SEK", async () => {
+    mockLlmExtract.mockResolvedValue({ ok: false, error: "no key" } as never);
+    expect((await uber("Total 189,00 kr\nheraf moms 37,80 kr\n15 October 2026")).status).toBe("pending_review");
+  });
+
+  it("doesn't read a 'Total tax' line as the total", async () => {
+    const fields = await okFields(stripe("Total tax 10,00 SEK\nTotal 50,00 SEK\nOct 14, 2026"));
+    expect(fields.total).toBe(50);
+  });
+
+  it("doesn't trust a Swedish refund, but does trust a receipt with a refund policy", async () => {
+    const refund = await okFields(uber("Återbetalning\nTotalt 189,00 kr\nVarav moms 10,70 kr\n15 October 2026"));
+    expect(refund.parse_confidence).toBeLessThan(0.75);
+    const receipt = await okFields(stripe("Amount paid $49.00\nOct 14, 2026\nSee our refund policy."));
+    expect(receipt.parse_confidence).toBeGreaterThanOrEqual(0.75);
   });
 
   it("doesn't trust a refund email even from the real sender", async () => {
@@ -189,7 +213,7 @@ describe("parseReceipt — sender trust", () => {
         from: "billing@attacker.example",
         to: "x",
         subject: "Your trip with Uber",
-        text: "Total 4999 kr moms\n15 October 2026",
+        text: "Total 4999 SEK\n15 October 2026",
         html: null,
         authenticated: true,
       },
@@ -206,7 +230,7 @@ describe("parseReceipt — sender trust", () => {
         from: "noreply@uber.com",
         to: "x",
         subject: "Your trip with Uber",
-        text: "Total 189 kr moms\n15 October 2026",
+        text: "Total 189 SEK\n15 October 2026",
         html: null,
       },
     });

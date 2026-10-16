@@ -6,7 +6,7 @@ import type { EmailTemplate, PartialFields } from "./types";
 import {
   AMOUNT_PATTERN,
   CURRENCY_TOKEN,
-  currencyFromSymbol,
+  currencyAround,
   findDate,
   isFromDomain,
   parseAmount,
@@ -45,7 +45,7 @@ export const uberTemplate: EmailTemplate = {
     if (totalMatch) {
       const amount = parseAmount(totalMatch[2]);
       if (amount != null) fields.total = amount;
-      const currency = currencyFromSymbol(totalMatch[1] ?? totalMatch[3] ?? "", text);
+      const currency = currencyAround(totalMatch[1], totalMatch[3], text);
       if (currency) fields.currency = currency;
     }
 

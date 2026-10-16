@@ -34,15 +34,24 @@ export function parseAmount(raw: string): number | null {
 
 // `sym` as written in the email. Codes must be upper case and one we
 // support ("49.00 Date paid" used to yield "DAT"). "kr" is also Norwegian
-// and Danish, so it means SEK only when the email reads Swedish.
+// and Danish ("moms" is Danish too), so it means SEK only with a signal
+// that is Swedish alone, and never next to a Danish or Norwegian one.
+const SWEDISH_ONLY = /\bSEK\b|\bkronor\b|varav moms|inkl\.? moms|momsreg|\b\d{6}-\d{4}\b/i;
+const DANISH_OR_NORWEGIAN = /\b(?:heraf|DKK|NOK|mva|kroner)\b/i;
+
 export function currencyFromSymbol(sym: string, context: string): string | undefined {
   if (sym === "$") return "USD";
   if (sym === "€") return "EUR";
   if (sym === "SEK") return "SEK";
   if (sym.toLowerCase() === "kr") {
-    return /\b(?:moms|kronor|SEK)\b/i.test(context) ? "SEK" : undefined;
+    return SWEDISH_ONLY.test(context) && !DANISH_OR_NORWEGIAN.test(context) ? "SEK" : undefined;
   }
   return (CURRENCY_OPTIONS as readonly string[]).includes(sym) ? sym : undefined;
+}
+
+// The currency written before the amount, or else the one after it.
+export function currencyAround(before: string | undefined, after: string | undefined, context: string) {
+  return currencyFromSymbol(before ?? "", context) ?? currencyFromSymbol(after ?? "", context);
 }
 
 const ENTITIES: Record<string, string> = {
@@ -109,9 +118,10 @@ function isoDate(day: string, month: string, year: string): string | null {
 }
 
 // The first valid date in the text, in either "14 Oct 2026" or
-// "Oct 14, 2026" form, labelled "paid"/"date" ones first.
+// "Oct 14, 2026" form; a line starting "Date paid"/"Paid" wins over the
+// rest ("Next billing date", "Due date" never count as the label).
 export function findDate(text: string): string | null {
-  const labelled = text.match(/(?:date paid|paid on|date)\s*:?\s*([^\n]{0,40})/i);
+  const labelled = text.match(/^[ \t]*(?:date paid|paid on|paid)\b[ \t:]*([^\n]{0,40})/im);
   for (const source of labelled ? [labelled[1], text] : [text]) {
     const found: { index: number; iso: string }[] = [];
     for (const m of source.matchAll(DMY_RE)) {
@@ -128,8 +138,15 @@ export function findDate(text: string): string | null {
 }
 
 // Refund and credit emails share the receipt layout but aren't expenses.
+// The subject counts anywhere; the body only where a line starts with the
+// word, so a receipt's "refund policy" footer doesn't. `u` flag: without
+// it "å" isn't a letter and "Återbetalning" was missed.
+const REFUND_WORD = String.raw`(?:refund(?:ed)?|återbetal\p{L}*|rembours\p{L}*|credit note|kreditnota)(?![\p{L}\d])`;
+const REFUND_IN_SUBJECT = new RegExp(String.raw`(?<![\p{L}\d])${REFUND_WORD}`, "iu");
+const REFUND_LINE = new RegExp(String.raw`^[ \t]*${REFUND_WORD}`, "imu");
+
 export function looksLikeRefund(subject: string, text: string): boolean {
-  return /\b(?:refund(?:ed)?|återbetal\w*|rembours\w*|credit note|kreditnota)\b/i.test(`${subject}\n${text.slice(0, 5000)}`);
+  return REFUND_IN_SUBJECT.test(subject) || REFUND_LINE.test(text.slice(0, 5000));
 }
 
 // "Name <user@example.com>" or "user@example.com" → "example.com".

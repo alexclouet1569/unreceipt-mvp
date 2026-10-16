@@ -7,7 +7,7 @@ import type { EmailTemplate, PartialFields } from "./types";
 import {
   AMOUNT_PATTERN,
   CURRENCY_TOKEN,
-  currencyFromSymbol,
+  currencyAround,
   findDate,
   isFromDomain,
   parseAmount,
@@ -23,9 +23,10 @@ const amountAfter = (label: string) =>
     "im"
   );
 // "Amount paid" is what the card was charged. Only without it fall back to
-// a line starting "Total" — never "Subtotal" or "Total excluding tax".
+// a line starting "Total" — never "Subtotal", "Total excluding tax" or
+// "Total tax".
 const AMOUNT_PAID_RE = amountAfter(String.raw`\bamount[ \t]+paid\b`);
-const TOTAL_RE = amountAfter(String.raw`^[ \t]*total\b(?![ \t]+(?:excl|excluding|before|ex)\b)`);
+const TOTAL_RE = amountAfter(String.raw`^[ \t]*total\b(?![ \t]+(?:excl|excluding|before|ex|tax|vat|moms)\b)`);
 const CARD_RE = /(?:•{2,}|\.{2,}|x{4,}|\*{4,})\s*(\d{4})/;
 
 export const stripeTemplate: EmailTemplate = {
@@ -64,7 +65,7 @@ export const stripeTemplate: EmailTemplate = {
     if (amountMatch) {
       const amount = parseAmount(amountMatch[2]);
       if (amount != null) fields.total = amount;
-      const currency = currencyFromSymbol(amountMatch[1] ?? amountMatch[3] ?? "", text);
+      const currency = currencyAround(amountMatch[1], amountMatch[3], text);
       if (currency) fields.currency = currency;
     }
 
