@@ -222,4 +222,35 @@ describe("mergeExtraction", () => {
     expect(patch).not.toHaveProperty("total");
     expect(patch.tax_amount).toBe(24);
   });
+
+  it("never verifies an emailed receipt: the user's confirmation does", () => {
+    const row = baseRow({
+      source: "email",
+      image_url: "user/abc.pdf",
+      original_source_url: "user/abc.eml",
+      original_source_kind: "eml",
+      parse_confidence: 0.7,
+    });
+    const { patch } = mergeExtraction(row, {
+      merchant: "Scandic Hotel",
+      amount: 1250,
+      currency: "SEK",
+      receipt_date: "2026-10-01",
+      confidence: 0.99,
+    });
+    expect(patch.merchant_name).toBe("Scandic Hotel");
+    expect(patch.status).toBe("pending_review");
+    expect(patch.parse_confidence as number).toBeLessThan(0.75);
+  });
+
+  it("still verifies the user's own photo on a confident re-read", () => {
+    const { patch } = mergeExtraction(baseRow(), {
+      merchant: "ICA",
+      amount: 100,
+      currency: "SEK",
+      receipt_date: "2026-10-01",
+      confidence: 0.95,
+    });
+    expect(patch.status).toBe("verified");
+  });
 });

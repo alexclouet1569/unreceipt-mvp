@@ -36,6 +36,9 @@ export const RATE_LIMITS = {
   ],
   capture: [{ limit: 120, windowSeconds: 60 * 60 }],
   intakeEmail: [{ limit: 200, windowSeconds: 24 * 60 * 60 }],
+  // Vision reads of emailed PDFs/photos, per alias. Tighter than
+  // intakeEmail: anyone can email an alias, and each read costs more.
+  intakeAttachment: [{ limit: 50, windowSeconds: 24 * 60 * 60 }],
   // Account deletion is heavy (Stripe, storage listing) and one real
   // person needs it once; a few retries after a failure is plenty.
   accountDelete: [{ limit: 5, windowSeconds: 60 * 60 }],

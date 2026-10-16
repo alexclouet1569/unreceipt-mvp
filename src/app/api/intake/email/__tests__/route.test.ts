@@ -20,7 +20,17 @@ const mocks = vi.hoisted(() => ({
   storageRemove: vi.fn(),
   fetchReceivedEmail: vi.fn(),
   upsert: vi.fn(),
+  findReceiptAttachment: vi.fn(),
+  extractReceipt: vi.fn(),
+  parseAttachmentExtraction: vi.fn(),
 }));
+
+vi.mock("@/lib/receipts/email-attachments", () => ({
+  findReceiptAttachment: mocks.findReceiptAttachment,
+}));
+vi.mock("@/lib/ocr", () => ({ extractReceipt: mocks.extractReceipt }));
+const productAccessMock = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/lib/subscription-gate", () => ({ hasProductAccess: productAccessMock }));
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
@@ -50,6 +60,7 @@ vi.mock("@/lib/owner-addresses", () => ({ loadOwnerAddresses: ownerAddressesMock
 
 vi.mock("@/lib/receipts/parser", () => ({
   parseReceipt: mocks.parseReceipt,
+  parseAttachmentExtraction: mocks.parseAttachmentExtraction,
 }));
 
 vi.mock("@/lib/supabase-admin", () => ({
@@ -140,6 +151,7 @@ beforeEach(() => {
   mocks.storageUpload.mockResolvedValue({ error: null });
   mocks.storageRemove.mockResolvedValue({ error: null });
   mocks.upsert.mockResolvedValue({ error: null });
+  mocks.findReceiptAttachment.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -530,6 +542,111 @@ describe("POST /api/intake/email", () => {
       const body = uberEmail(`To: receipts+${VALID_HASH}@in.unreceipt.com\r\n`);
       await POST(buildRequest(body, sign(body)));
       expect(recipientSeen()).toBe("alias");
+    });
+  });
+
+  describe("receipt attached as a PDF or photo", () => {
+    const PDF = {
+      mediaType: "application/pdf",
+      extension: "pdf",
+      bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]),
+    };
+    const ATTACHMENT_FIELDS = {
+      merchant_name: "Scandic Hotel",
+      purchased_at: "2026-10-01T12:00:00.000Z",
+      total: 1250,
+      currency: "SEK",
+      subtotal: null,
+      tax_amount: 133.93,
+      tax_rate: 12,
+      category: "accommodation",
+      payment_method: null,
+      card_last_four: null,
+      notes: null,
+      items: null,
+      parse_confidence: 0.7,
+    };
+
+    it("reads the attachment when the body has no receipt, keeps it as the image, and leaves it for review", async () => {
+      mocks.findReceiptAttachment.mockResolvedValue(PDF);
+      mocks.extractReceipt.mockResolvedValue({ merchant: "Scandic Hotel" });
+      mocks.parseAttachmentExtraction.mockReturnValue({ status: "ok", fields: ATTACHMENT_FIELDS });
+
+      const body = inboundPayload();
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+
+      expect(mocks.extractReceipt).toHaveBeenCalledWith(
+        Buffer.from(PDF.bytes).toString("base64"),
+        "application/pdf",
+      );
+      expect(rateLimitMock).toHaveBeenCalledWith("intakeAttachment", VALID_HASH);
+      const row = mocks.receiptsInsert.mock.calls[0][0];
+      expect(row.merchant_name).toBe("Scandic Hotel");
+      expect(row.total).toBe(1250);
+      expect(row.status).toBe("pending_review");
+      expect(row.image_url).toBe(`${USER_ID}/${row.id}.pdf`);
+      const attachmentUpload = mocks.storageUpload.mock.calls.find(([path]) => path === row.image_url);
+      expect(attachmentUpload?.[2]).toMatchObject({ contentType: "application/pdf" });
+      // Not billed until the user confirms it.
+      expect(usageMock).not.toHaveBeenCalled();
+    });
+
+    it("doesn't look at attachments when the body already gave a receipt", async () => {
+      mocks.parseReceipt.mockResolvedValue({ status: "ok", fields: ATTACHMENT_FIELDS });
+      const body = inboundPayload();
+      await POST(buildRequest(body, sign(body)));
+      expect(mocks.findReceiptAttachment).not.toHaveBeenCalled();
+      expect(mocks.extractReceipt).not.toHaveBeenCalled();
+      expect(mocks.receiptsInsert.mock.calls[0][0].image_url).toBeNull();
+    });
+
+    it("keeps the file but skips the read when the alias is over its attachment limit", async () => {
+      mocks.findReceiptAttachment.mockResolvedValue(PDF);
+      rateLimitMock.mockImplementation(async (name?: unknown) =>
+        name === "intakeAttachment" ? { ok: false, retryAfterSeconds: 60 } : { ok: true },
+      );
+      const body = inboundPayload();
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+      expect(mocks.extractReceipt).not.toHaveBeenCalled();
+      const row = mocks.receiptsInsert.mock.calls[0][0];
+      expect(row.status).toBe("pending_review");
+      expect(row.image_url).toMatch(/\.pdf$/);
+      rateLimitMock.mockImplementation(async () => ({ ok: true }));
+    });
+
+    it("keeps the file but doesn't read it for an account without product access", async () => {
+      mocks.findReceiptAttachment.mockResolvedValue(PDF);
+      productAccessMock.mockResolvedValueOnce(false);
+      const body = inboundPayload();
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+      expect(mocks.extractReceipt).not.toHaveBeenCalled();
+      expect(mocks.receiptsInsert.mock.calls[0][0].image_url).toMatch(/\.pdf$/);
+    });
+
+    it("still saves the email for review when the attachment read fails", async () => {
+      mocks.findReceiptAttachment.mockResolvedValue(PDF);
+      mocks.extractReceipt.mockRejectedValue(new Error("vision down"));
+      const body = inboundPayload();
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+      expect(mocks.parseAttachmentExtraction).not.toHaveBeenCalled();
+      expect(mocks.receiptsInsert.mock.calls[0][0].status).toBe("pending_review");
+    });
+
+    it("removes the stored attachment when the insert fails", async () => {
+      mocks.findReceiptAttachment.mockResolvedValue(PDF);
+      mocks.extractReceipt.mockResolvedValue({});
+      mocks.parseAttachmentExtraction.mockReturnValue({ status: "pending_review" });
+      mocks.receiptsInsert.mockResolvedValue({ data: null, error: { code: "XX000" } });
+      const body = inboundPayload();
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(500);
+      const removed = mocks.storageRemove.mock.calls.flatMap(([paths]) => paths);
+      expect(removed.some((p: string) => p.endsWith(".pdf"))).toBe(true);
+      expect(removed.some((p: string) => p.endsWith(".eml"))).toBe(true);
     });
   });
 });

@@ -27,3 +27,17 @@ export const EXTENSION_BY_TYPE: Record<AllowedUploadType, string> = {
 export function isAllowedUploadType(type: string): type is AllowedUploadType {
   return (ALLOWED_UPLOAD_TYPES as readonly string[]).includes(type);
 }
+
+// Cap PDF page count so a 50-page contract uploaded by mistake doesn't burn
+// vision tokens. Counted via /Type /Page occurrences — works for the vast
+// majority of PDFs we see in the wild; linearized PDFs may over-count but
+// that's a safe-direction error (false rejects, not false accepts).
+export const MAX_PDF_PAGES = 10;
+
+export function countPdfPages(buf: Uint8Array): number {
+  // Match `/Type /Page` (with optional whitespace) but exclude `/Pages`
+  // (the catalog node). The negative lookahead `(?!s)` keeps the count
+  // accurate on standard PDFs without parsing the cross-ref table.
+  const matches = new TextDecoder("latin1").decode(buf).match(/\/Type\s*\/Page(?!s)/g);
+  return matches ? matches.length : 0;
+}

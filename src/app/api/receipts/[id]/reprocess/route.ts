@@ -22,6 +22,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
+import { UNTRUSTED_LLM_CONFIDENCE_CAP } from "@/lib/receipts/parser";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { Receipt, ReceiptItem } from "@/lib/types";
 
@@ -62,10 +63,15 @@ function inferMediaTypeFromPath(path: string): OcrMediaType | null {
 // Resolve which storage bucket + path holds the artifact we should
 // re-OCR. Mirrors the rule in /api/receipts/[id]/original: new intake
 // paths set original_source_url; the legacy capture path sets image_url.
+// An emailed receipt keeps the .eml as its original and, when the receipt
+// was a PDF or photo attachment, that file as image_url: read the file.
 function resolveArtifact(
   receipt: Receipt
 ): { bucket: "receipt-originals" | "receipts"; path: string } | null {
-  if (receipt.original_source_url) {
+  if (
+    receipt.original_source_url &&
+    (inferMediaTypeFromPath(receipt.original_source_url) || !receipt.image_url)
+  ) {
     return { bucket: "receipt-originals", path: receipt.original_source_url };
   }
   if (receipt.image_url) {
@@ -192,6 +198,9 @@ export async function POST(
 //   - Fields the customer corrected (`edited_fields`) are never
 //     overwritten: their correction beats any extraction.
 //   - Status is recomputed from the merged result.
+//   - Email and SMS rows hold a file a third party chose: a re-read fills
+//     fields but can't verify the receipt. Only the customer's own
+//     confirmation (PATCH) does that, which is also when it's billed.
 export function mergeExtraction(
   existing: Receipt,
   fresh: OcrResult
@@ -206,6 +215,9 @@ export function mergeExtraction(
   const winsOnConfidence = existing.status !== "verified" && newConf >= oldConf;
 
   const editedByCustomer = new Set(existing.edited_fields ?? []);
+  const untrustedSource =
+    existing.status !== "verified" &&
+    (existing.source === "email" || existing.source === "sms");
 
   const writeIfBetter = <K extends keyof Receipt>(
     field: K,
@@ -291,7 +303,10 @@ export function mergeExtraction(
   }
 
   if (newConf > 0) {
-    patch.parse_confidence = Math.max(newConf, oldConf);
+    const confidence = Math.max(newConf, oldConf);
+    patch.parse_confidence = untrustedSource
+      ? Math.min(confidence, UNTRUSTED_LLM_CONFIDENCE_CAP)
+      : confidence;
   }
 
   // Recompute status from the merged view.
@@ -303,6 +318,7 @@ export function mergeExtraction(
     total: mergedView.total,
     parse_confidence: mergedView.parse_confidence,
   });
+  if (untrustedSource) patch.status = "pending_review";
   if (patch.status !== existing.status) changed.push("status");
 
   return { patch, changed };

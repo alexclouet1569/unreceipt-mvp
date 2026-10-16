@@ -19,6 +19,7 @@
 
 import { z } from "zod";
 import { llmExtract, type LlmExtractKind, type LlmExtractResult } from "./llm-extract";
+import type { OcrResult } from "@/lib/ocr";
 import { EMAIL_TEMPLATES, SMS_TEMPLATES } from "./templates";
 import type { PartialFields } from "./templates/types";
 import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
@@ -52,7 +53,7 @@ const TEMPLATE_PARTIAL_CONFIDENCE = 0.7;
 // template hits. Full template hits are still trusted on the template's
 // match only when the mail is DMARC-authenticated and comes from the
 // template's own domain (see parseEmail).
-const UNTRUSTED_LLM_CONFIDENCE_CAP = 0.7;
+export const UNTRUSTED_LLM_CONFIDENCE_CAP = 0.7;
 
 // Zod for the LLM output. Mirrors LlmExtractResult but stricter so a
 // hallucinated invalid currency lands as pending_review rather than
@@ -197,6 +198,20 @@ async function parsePaper(ocrText: string): Promise<ParseResult> {
   }
   const llmResult = await tryLlm("paper", ocrText);
   return mergeAndFinalize({}, llmResult, 0);
+}
+
+// ----------------------------------------------------------------------
+// Email attachment (PDF or photo read by the vision extractor)
+// ----------------------------------------------------------------------
+
+/**
+ * Turns the vision extractor's reading of an emailed attachment into a
+ * parse result. Whoever emails the alias chose the file, so the model's
+ * confidence never makes it verified: the fields pre-fill a row that lands
+ * in Review needed.
+ */
+export function parseAttachmentExtraction(result: OcrResult | null): ParseResult {
+  return mergeAndFinalize({}, result, 0, { untrusted: true });
 }
 
 // ----------------------------------------------------------------------

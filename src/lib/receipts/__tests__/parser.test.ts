@@ -8,7 +8,7 @@ vi.mock("../llm-extract", () => ({
   _resetLlmExtractClientForTests: () => {},
 }));
 
-import { parseReceipt } from "../parser";
+import { parseAttachmentExtraction, parseReceipt } from "../parser";
 
 beforeEach(() => {
   mockLlmExtract.mockReset();
@@ -575,5 +575,30 @@ describe("parseReceipt — paper", () => {
     // Schema validation fails on the items array → entire LLM result
     // is treated as invalid and we fall back to pending_review.
     expect(result.status).toBe("pending_review");
+  });
+});
+
+describe("parseAttachmentExtraction", () => {
+  it("pre-fills the fields but never trusts the model's confidence", () => {
+    const result = parseAttachmentExtraction({
+      merchant: "Scandic Hotel",
+      amount: 1250,
+      currency: "SEK",
+      receipt_date: "2026-10-01",
+      tax_amount: 133.93,
+      tax_rate: 12,
+      category: "accommodation",
+      confidence: 1,
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.merchant_name).toBe("Scandic Hotel");
+    expect(result.fields.total).toBe(1250);
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("is pending review when the file isn't a receipt or the read is empty", () => {
+    expect(parseAttachmentExtraction({ not_a_receipt: true }).status).toBe("pending_review");
+    expect(parseAttachmentExtraction(null).status).toBe("pending_review");
   });
 });

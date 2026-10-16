@@ -8,8 +8,11 @@ import {
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
+import { pdfPageCount } from "@/lib/receipts/pdf-pages";
 import {
+  MAX_PDF_PAGES,
   MAX_UPLOAD_BYTES,
+  countPdfPages,
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
 
@@ -18,20 +21,6 @@ export const dynamic = "force-dynamic";
 // Vision calls typically resolve in 3-8s; give 30s headroom for large
 // images and multi-page PDFs.
 export const maxDuration = 30;
-
-// Cap PDF page count so a 50-page contract uploaded by mistake doesn't burn
-// vision tokens. Counted via /Type /Page occurrences — works for the vast
-// majority of PDFs we see in the wild; linearized PDFs may over-count but
-// that's a safe-direction error (false rejects, not false accepts).
-const MAX_PDF_PAGES = 10;
-
-function countPdfPages(buf: Buffer): number {
-  // Match `/Type /Page` (with optional whitespace) but exclude `/Pages`
-  // (the catalog node). The negative lookahead `(?!s)` keeps the count
-  // accurate on standard PDFs without parsing the cross-ref table.
-  const matches = buf.toString("latin1").match(/\/Type\s*\/Page(?!s)/g);
-  return matches ? matches.length : 0;
-}
 
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
@@ -82,11 +71,12 @@ export async function POST(request: NextRequest) {
     const buf = Buffer.from(await (image as Blob).arrayBuffer());
 
     if (type === "application/pdf") {
-      const pages = countPdfPages(buf);
+      // The byte-scan is only a fallback for PDFs the parser can't open.
+      const pages = (await pdfPageCount(buf)) ?? countPdfPages(buf);
       if (pages > MAX_PDF_PAGES) {
         return NextResponse.json(
           {
-            error: `PDF has ${pages} pages — we currently support up to ${MAX_PDF_PAGES}. Forward to your receipts@ inbox instead, or split the file.`,
+            error: `PDF has ${pages} pages — we currently support up to ${MAX_PDF_PAGES}. Split the file and try again.`,
           },
           { status: 400 }
         );

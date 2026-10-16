@@ -17,6 +17,8 @@
 //   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
 //   7. Run parser. Parser throw → fall back to pending_review (row still
 //      inserted with nullable canonical fields so the user can complete).
+//   7b. No receipt in the body → read the attached PDF or photo with the
+//      vision extractor, and keep the file as the receipt image.
 //   8. Insert row.
 //
 // Provider needs a 2xx to stop retrying. We return 200 even on logical
@@ -36,7 +38,10 @@ import {
   findUserByAliasHash,
   parseAliasFromTo,
 } from "@/lib/email-alias";
-import { parseReceipt } from "@/lib/receipts/parser";
+import { parseAttachmentExtraction, parseReceipt } from "@/lib/receipts/parser";
+import { findReceiptAttachment, type ReceiptAttachment } from "@/lib/receipts/email-attachments";
+import { extractReceipt } from "@/lib/ocr";
+import { hasProductAccess } from "@/lib/subscription-gate";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
@@ -46,9 +51,10 @@ import { loadOwnerAddresses } from "@/lib/owner-addresses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Parser can take a few seconds for the LLM extract path (step 5+). Give
-// it room before Resend's own retry kicks in.
-export const maxDuration = 30;
+// The body's LLM extract plus, when the receipt is an attachment, a vision
+// read of it: each takes a few seconds, sometimes more. Give both room
+// before Resend's own retry kicks in.
+export const maxDuration = 60;
 
 type AddressLike = string | { address?: unknown; name?: unknown };
 
@@ -346,11 +352,72 @@ export async function POST(request: NextRequest) {
     parseResult = { status: "pending_review" };
   }
 
+  // The body gave no receipt ("your receipt is attached", or a photo sent
+  // from a phone): read the attachment instead. Its own, tighter limit,
+  // because every alias can be emailed by anyone and each read is a vision
+  // call. The result is never trusted (Review needed), like any LLM read
+  // of a third party's email.
+  let attachment: ReceiptAttachment | null = null;
+  if (parseResult.status !== "ok" && rawEml && hasRaw) {
+    attachment = await findReceiptAttachment(rawEml);
+    // Without product access (e.g. cancelled, mail still auto-forwarded)
+    // the file is kept but not read; "Re-run extraction" reads it later.
+    if (attachment && (await hasProductAccess(userId))) {
+      const attachmentLimited = await rateLimit("intakeAttachment", aliasHash);
+      if (attachmentLimited.ok) {
+        try {
+          const extracted = await extractReceipt(
+            Buffer.from(attachment.bytes).toString("base64"),
+            attachment.mediaType
+          );
+          parseResult = parseAttachmentExtraction(extracted);
+        } catch (err) {
+          console.error("[intake/email] attachment read failed", err);
+          Sentry.captureException(err, { tags: { area: "intake-attachment" } });
+        }
+      }
+    }
+  }
+
   // Generate the receipt id up front so the storage path and the row both
   // reference the same uuid. If the insert later loses an idempotency race
   // (23505 on intake_ref), we best-effort delete the storage object.
   const receiptId = crypto.randomUUID();
   const storagePath = `${userId}/${receiptId}.eml`;
+
+  // The attachment is kept as the receipt image: the detail view shows it,
+  // and "Re-run extraction" can read it again if the first read failed or
+  // was rate-limited.
+  let attachmentPath: string | null = null;
+  if (attachment) {
+    const path = `${userId}/${receiptId}.${attachment.extension}`;
+    const { error: attachmentUploadError } = await supabase.storage
+      .from("receipts")
+      .upload(path, attachment.bytes, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: attachment.mediaType,
+      });
+    if (attachmentUploadError) {
+      console.error("[intake/email] attachment upload failed", attachmentUploadError);
+    } else {
+      attachmentPath = path;
+    }
+  }
+  const removeStoredFiles = async () => {
+    if (hasRaw) {
+      await supabase.storage
+        .from("receipt-originals")
+        .remove([storagePath])
+        .catch(() => {});
+    }
+    if (attachmentPath) {
+      await supabase.storage
+        .from("receipts")
+        .remove([attachmentPath])
+        .catch(() => {});
+    }
+  };
 
   if (hasRaw) {
     const { error: uploadError } = await supabase.storage
@@ -374,6 +441,7 @@ export async function POST(request: NextRequest) {
     intake_ref: intakeRef,
     original_source_url: hasRaw ? storagePath : null,
     original_source_kind: hasRaw ? ("eml" as const) : null,
+    image_url: attachmentPath,
     // Capped: a 100 KB subject was stored whole.
     notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
   };
@@ -419,12 +487,7 @@ export async function POST(request: NextRequest) {
     // race. Best-effort delete the orphan blob and return the existing
     // row's id so the provider stops retrying.
     if (insertError && (insertError as { code?: string }).code === "23505") {
-      if (hasRaw) {
-        await supabase.storage
-          .from("receipt-originals")
-          .remove([storagePath])
-          .catch(() => {});
-      }
+      await removeStoredFiles();
       const { data: winner } = await supabase
         .from("receipts")
         .select("id")
@@ -441,12 +504,7 @@ export async function POST(request: NextRequest) {
       tags: { area: "intake-insert" },
       extra: { code: (insertError as { code?: string } | null)?.code },
     });
-    if (hasRaw) {
-      await supabase.storage
-        .from("receipt-originals")
-        .remove([storagePath])
-        .catch(() => {});
-    }
+    await removeStoredFiles();
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
   }
 

@@ -205,14 +205,25 @@ export async function GET(
   let path: string;
   let kind: ReceiptOriginalKind;
 
-  if (receipt.original_source_url) {
+  // An emailed receipt whose receipt was a PDF or photo attachment shows
+  // that file: the email around it only says "receipt attached". The .eml
+  // stays in storage and in the export.
+  const attachmentOfEmail =
+    receipt.image_url != null &&
+    receipt.source === "email" &&
+    (receipt.original_source_kind === "eml" ||
+      (receipt.original_source_url?.endsWith(".eml") ?? false));
+
+  if (receipt.original_source_url && !attachmentOfEmail) {
     bucket = "receipt-originals";
     path = receipt.original_source_url;
     kind = receipt.original_source_kind ?? inferKindFromPath(path);
   } else if (receipt.image_url) {
     bucket = "receipts";
     path = receipt.image_url;
-    kind = receipt.original_source_kind ?? inferKindFromPath(path);
+    kind = attachmentOfEmail
+      ? inferKindFromPath(path)
+      : (receipt.original_source_kind ?? inferKindFromPath(path));
   } else {
     return NextResponse.json({ error: "no_original" }, { status: 404 });
   }
