@@ -34,17 +34,21 @@ const notFound = () =>
   });
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<NextResponse> {
   const { slug } = await params;
   const domain = merchantLogoDomain(slug);
-  if (!domain) return notFound();
+  // A query string would get a fresh CDN cache entry, and so a fresh
+  // upstream fetch, per request; the logo never needs one.
+  if (!domain || request.nextUrl.search) return notFound();
 
   try {
     const res = await fetch(
       `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${ICON_SIZE}`,
-      { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), redirect: "follow" },
+      // No Next data cache: it would also keep a temporary failure for
+      // the whole revalidate window. The CDN cache below is enough.
+      { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), redirect: "follow", cache: "no-store" },
     );
     const type = (res.headers.get("content-type") ?? "").split(";")[0].trim();
     // The service answers 404 with a generic globe when a site has no icon.

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
 import { GET } from "@/app/api/merchant-logo/[slug]/route";
 
-const call = (slug: string) =>
-  GET({} as NextRequest, { params: Promise.resolve({ slug }) });
+const call = (slug: string, search = "") =>
+  GET({ nextUrl: { search } } as NextRequest, { params: Promise.resolve({ slug }) });
 
 const iconResponse = (type: string, bytes = 10, status = 200) =>
   new Response(new Uint8Array(bytes), { status, headers: { "content-type": type } });
@@ -36,6 +36,11 @@ describe("GET /api/merchant-logo/[slug]", () => {
       const res = await call(slug);
       expect(res.status).toBe(404);
     }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a query string, which would bypass the CDN cache", async () => {
+    expect((await call("ica", "?x=1")).status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
