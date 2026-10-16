@@ -26,6 +26,7 @@ export function ForwardingGuide({
             value={forwardingEmail}
             mono
             copyLabel="Copy forwarding address"
+            quiet
           />
           <ul
             role="list"
@@ -104,7 +105,7 @@ function SectionLabel({ id, children }: { id: string; children: React.ReactNode 
   return (
     <h2
       id={id}
-      className="uppercase text-[var(--ink-faint)]"
+      className="uppercase text-[var(--ink-faint)] scroll-mt-16"
       style={{
         fontSize: "11px",
         fontWeight: 600,

@@ -1,9 +1,10 @@
 // @vitest-environment node
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
-  user: { id: "11111111-1111-4111-8111-111111111111", email: "anna@acme.se" } as { id: string; email?: string } | null,
+  user: { id: "11111111-1111-4111-8111-111111111111", email: "anna@acme.se", email_confirmed_at: "2026-10-01T00:00:00Z" } as { id: string; email?: string; email_confirmed_at?: string | null } | null,
   confirmation: { data: null as unknown, error: null as unknown },
   latest: { data: null as unknown, error: null as unknown },
   eqs: [] as [string, unknown][],
@@ -69,15 +70,23 @@ describe("/api/forwarding/status", () => {
   });
 });
 
+const post = (origin?: string) =>
+  POST(
+    new NextRequest("https://app.unreceipt.com/api/forwarding/send-link", {
+      method: "POST",
+      headers: { host: "app.unreceipt.com", ...(origin ? { origin } : {}) },
+    }),
+  );
+
 describe("/api/forwarding/send-link", () => {
   beforeEach(() => {
-    mocks.user = { id: "11111111-1111-4111-8111-111111111111", email: "anna@acme.se" };
+    mocks.user = { id: "11111111-1111-4111-8111-111111111111", email: "anna@acme.se", email_confirmed_at: "2026-10-01T00:00:00Z" };
     mocks.send.mockReset().mockResolvedValue({ ok: true, id: "x" });
     mocks.limit.mockReset().mockResolvedValue({ ok: true });
   });
 
   it("emails the setup link to the caller's own sign-in address only", async () => {
-    const res = await POST();
+    const res = await post("https://app.unreceipt.com");
     expect(res.status).toBe(200);
     expect(mocks.send).toHaveBeenCalledWith(
       expect.objectContaining({ to: "anna@acme.se", tag: "forwarding_setup" }),
@@ -88,7 +97,15 @@ describe("/api/forwarding/send-link", () => {
 
   it("is rate-limited", async () => {
     mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 60 });
-    expect((await POST()).status).toBe(429);
+    expect((await post()).status).toBe(429);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unconfirmed email and a cross-site request", async () => {
+    mocks.user = { id: "11111111-1111-4111-8111-111111111111", email: "anna@acme.se", email_confirmed_at: null };
+    expect((await post()).status).toBe(400);
+    mocks.user = { id: "11111111-1111-4111-8111-111111111111", email: "anna@acme.se", email_confirmed_at: "2026-10-01T00:00:00Z" };
+    expect((await post("https://evil.example")).status).toBe(403);
     expect(mocks.send).not.toHaveBeenCalled();
   });
 });

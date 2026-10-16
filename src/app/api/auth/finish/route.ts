@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { syncProfile } from "@/lib/profile-sync";
 import { scheduleWelcomeEmail } from "@/lib/welcome-email";
+import { isSameHost } from "@/lib/same-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,12 +41,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-}
-
-function isSameHost(origin: string, host: string | null): boolean {
-  try {
-    return host !== null && new URL(origin).host === host;
-  } catch {
-    return false;
-  }
 }

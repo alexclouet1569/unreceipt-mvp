@@ -3,7 +3,8 @@
 // phone: Gmail and Outlook rules can only be made in a browser on a
 // computer. Rate-limited per user because it sends email.
 
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
@@ -14,10 +15,19 @@ export const dynamic = "force-dynamic";
 
 const PRODUCT_URL_FALLBACK = "https://app.unreceipt.com";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Same-origin only: browsers always send Origin on cross-site POSTs.
+  const origin = request.headers.get("origin");
+  if (origin && !isSameHost(origin, request.headers.get("host"))) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!user.email) return NextResponse.json({ error: "no email on this account" }, { status: 400 });
+  // Only to an inbox the user has proved they own.
+  if (!user.email || !user.email_confirmed_at) {
+    return NextResponse.json({ error: "Confirm your email address first." }, { status: 400 });
+  }
 
   const limited = await rateLimit("forwardingLink", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);

@@ -206,7 +206,7 @@ function loadSaved(): Saved {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
     if (parsed && (parsed.provider === null || (parsed.provider && parsed.provider in STEPS))) {
-      return { provider: parsed.provider ?? null, step: Number(parsed.step) || 0, done: Boolean(parsed.done) };
+      return { provider: parsed.provider ?? null, step: Math.max(0, Number(parsed.step) || 0), done: Boolean(parsed.done) };
     }
   } catch {
     /* storage unavailable: start fresh */
@@ -333,7 +333,7 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
                   type="button"
                   onClick={() => choose(p.id)}
                   className="w-full flex items-center justify-between gap-3 text-left bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
-                  style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px", minHeight: "56px" }}
+                  style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "12px 14px", minHeight: "56px" }}
                 >
                   <span>
                     <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
@@ -362,7 +362,7 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
           <button
             type="button"
             onClick={restart}
-            className="text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors duration-100"
+            className="text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
             style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
           >
             Set up another inbox
@@ -370,8 +370,8 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
         </>
       ) : current ? (
         <>
-          <div className="flex items-center justify-between gap-2" style={{ marginBottom: "10px" }}>
-            <p className="text-[var(--ink-faint)]" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <div className="flex items-center justify-between gap-2" style={{ marginBottom: "8px" }}>
+            <p className="text-[var(--ink-muted)]" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
               {PROVIDERS.find((p) => p.id === provider)?.label} · Step {index + 1} of {total}
             </p>
             <Dots total={total} index={index} />
@@ -386,7 +386,7 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
             <button
               type="button"
               onClick={() => (index === 0 ? restart() : goTo(index - 1))}
-              className="inline-flex items-center gap-1 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors duration-100"
+              className="inline-flex items-center gap-1 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
               style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
@@ -395,7 +395,11 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
             <Button
               type="button"
               className="h-11 px-5"
-              onClick={() => (index === total - 1 ? setDone(true) : goTo(index + 1))}
+              onClick={() => {
+                if (index < total - 1) return goTo(index + 1);
+                setDone(true);
+                requestAnimationFrame(() => titleRef.current?.focus());
+              }}
             >
               {index === total - 1 ? "Done" : current.kind === "code" && status?.confirmation?.code ? "I've verified it" : "Next"}
             </Button>
@@ -432,7 +436,7 @@ function OpenLink({ href, children }: { href: string; children: React.ReactNode 
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 text-[var(--ink)] bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+      className="inline-flex items-center gap-2 text-[var(--ink)] bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
       style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "0 14px", minHeight: "44px", fontSize: "14px", fontWeight: 600 }}
     >
       {children}
@@ -458,7 +462,7 @@ function CodeBox({ status }: { status: Status | null }) {
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
           Gmail&apos;s email arrived, but we couldn&apos;t read the code in it.
           Write to{" "}
-          <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)]">
+          <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
             support@unreceipt.com
           </a>{" "}
           and we&apos;ll send it to you.
@@ -502,7 +506,7 @@ function TestBox({ status }: StepContext) {
       </div>
       <Hint>
         Is this inbox different from your sign-in email? Add it under{" "}
-        <a href="#own-heading" className="underline underline-offset-2 text-[var(--ink)]">
+        <a href="#own-heading" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
           Your email addresses
         </a>{" "}
         so its receipts are verified automatically.
@@ -549,9 +553,10 @@ function WordChips({ words }: { words: readonly string[] }) {
 
 function PhoneNotice() {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
   const send = async () => {
     setState("sending");
+    setMessage("");
     try {
       const res = await fetch("/api/forwarding/send-link", { method: "POST" });
       const body = (await res.json().catch(() => ({}))) as { sentTo?: string; error?: string };
@@ -570,38 +575,38 @@ function PhoneNotice() {
   return (
     <div
       className="space-y-2"
-      style={{ borderBottom: "1px solid var(--hairline)", paddingBottom: "14px", marginBottom: "14px" }}
+      style={{ borderBottom: "1px solid var(--hairline)", paddingBottom: "16px", marginBottom: "16px" }}
     >
       <p className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
         <Strong>Best done on a computer.</Strong> Gmail and Outlook only let you
         create forwarding rules in a browser, not in their phone apps.
       </p>
-      {state === "sent" ? (
-        <p role="status" className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-          {message}
-        </p>
-      ) : (
-        <Button type="button" variant="outline" className="h-11" onClick={send} disabled={state === "sending"}>
-          {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Email me this page
-        </Button>
-      )}
-      {state === "error" ? (
-        <p
-          role="alert"
-          className="text-sm rounded-[10px] px-3 py-2 text-[var(--attention-deep)]"
-          style={{ background: "var(--attention-tint)" }}
-        >
-          {message}
-        </p>
-      ) : null}
+      {/* Stays mounted (disabled once sent) so focus isn't lost. */}
+      <button
+        type="button"
+        onClick={send}
+        disabled={state === "sending" || state === "sent"}
+        className="inline-flex items-center gap-2 text-[var(--ink)] bg-card hover:bg-[var(--surface)] transition-colors duration-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+        style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "0 14px", minHeight: "44px", fontSize: "14px", fontWeight: 600 }}
+      >
+        {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
+        {state === "sent" ? <Check className="w-4 h-4" aria-hidden="true" /> : null}
+        {state === "sent" ? "Sent" : "Email me this page"}
+      </button>
+      <p
+        role="status"
+        className={state === "error" ? "text-sm rounded-[10px] px-3 py-2 text-[var(--attention-deep)]" : "text-[var(--ink-muted)]"}
+        style={state === "error" ? { background: "var(--attention-tint)" } : { fontSize: "14px" }}
+      >
+        {message}
+      </p>
     </div>
   );
 }
 
 function Dots({ total, index }: { total: number; index: number }) {
   return (
-    <div className="flex gap-1.5" aria-hidden="true">
+    <div className="flex gap-2" aria-hidden="true">
       {Array.from({ length: total }, (_, n) => (
         <span
           key={n}

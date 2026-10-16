@@ -31,12 +31,12 @@ export default async function ForwardingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
+      <header className="sticky top-0 z-40 bg-background border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
           <Link
             href="/app/settings"
             aria-label="Back to settings"
-            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors"
             style={{ width: "44px", height: "44px", borderRadius: "10px" }}
           >
             <ArrowLeft className="w-5 h-5" />
