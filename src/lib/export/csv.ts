@@ -9,6 +9,7 @@
  */
 
 import { CATEGORY_CONFIG } from "@/lib/receipt-format";
+import { checkSwedishVat } from "@/lib/compliance/se-vat-check";
 import type { Receipt } from "@/lib/types";
 
 export const CSV_COLUMNS = [
@@ -22,6 +23,9 @@ export const CSV_COLUMNS = [
   "Payment method",
   "Card last 4",
   "Merchant VAT no.",
+  "Merchant org. no.",
+  "Billed to",
+  "VAT check (Sweden)",
   "Status",
   "Source",
   "Edited by you",
@@ -80,6 +84,17 @@ function stockholmDateTime(iso: string | null | undefined): string {
   return d.toLocaleString("sv-SE", { timeZone: "Europe/Stockholm" }).slice(0, 16);
 }
 
+/**
+ * The VAT check in one cell, for the accountant: "OK", the findings'
+ * titles, or empty when the check doesn't apply (no VAT, other currency).
+ */
+export function vatCheckSummary(r: Receipt): string {
+  const result = checkSwedishVat(r);
+  if (!result.applies) return "";
+  if (result.findings.length === 0) return "OK";
+  return result.findings.map((f) => f.title).join("; ");
+}
+
 export function buildReceiptsCsv(rows: CsvRow[]): string {
   const lines = [CSV_COLUMNS.map(csvCell).join(";")];
   for (const { receipt: r, pdfFile, originalFile } of rows) {
@@ -95,6 +110,9 @@ export function buildReceiptsCsv(rows: CsvRow[]): string {
         csvCell(r.payment_method),
         csvCell(r.card_last_four),
         csvCell(r.merchant_vat_number),
+        csvCell(r.merchant_org_number ?? null),
+        csvCell([r.buyer_name, r.buyer_address].filter(Boolean).join(", ") || null),
+        csvCell(vatCheckSummary(r)),
         csvCell(r.status === "verified" ? "Ready" : "Needs review"),
         csvCell(r.source),
         csvCell(r.edited_at ? r.edited_at.slice(0, 10) : ""),

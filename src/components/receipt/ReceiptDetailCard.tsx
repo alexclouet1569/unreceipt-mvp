@@ -40,7 +40,15 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
   const editedFields = editedFieldLabels(receipt);
   const hasOriginal = Boolean(receipt.image_url || receipt.original_source_url);
   const hasMeta =
-    receipt.payment_method || receipt.transaction_ref || receipt.merchant_vat_number;
+    receipt.payment_method ||
+    receipt.transaction_ref ||
+    receipt.merchant_vat_number ||
+    receipt.merchant_org_number ||
+    receipt.buyer_name;
+  // Several VAT rates on one receipt (a grocery receipt mixes 6 % and 25 %).
+  const vatLines =
+    receipt.vat_breakdown && receipt.vat_breakdown.length > 1 ? receipt.vat_breakdown : null;
+  const billedTo = [receipt.buyer_name, receipt.buyer_address].filter(Boolean).join(", ");
 
   const when = [
     formatDate(receipt.receipt_date),
@@ -154,11 +162,22 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
 
         {showTax ? (
           <div className="mt-2 space-y-1">
-            <Leader
-              label={receipt.tax_rate != null ? `VAT ${receipt.tax_rate} %` : "VAT"}
-              value={formatAmount(receipt.tax_amount, currency)}
-              mono
-            />
+            {vatLines ? (
+              vatLines.map((line) => (
+                <Leader
+                  key={line.rate}
+                  label={`VAT ${line.rate} %`}
+                  value={formatAmount(line.vat_amount, currency)}
+                  mono
+                />
+              ))
+            ) : (
+              <Leader
+                label={receipt.tax_rate != null ? `VAT ${receipt.tax_rate} %` : "VAT"}
+                value={formatAmount(receipt.tax_amount, currency)}
+                mono
+              />
+            )}
             {net != null ? <Leader label="Excl. VAT" value={formatAmount(net, currency)} mono /> : null}
           </div>
         ) : null}
@@ -176,6 +195,10 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
               {receipt.merchant_vat_number ? (
                 <Leader label="VAT No." value={receipt.merchant_vat_number} />
               ) : null}
+              {receipt.merchant_org_number ? (
+                <Leader label="Org. No." value={receipt.merchant_org_number} />
+              ) : null}
+              {billedTo ? <Leader label="Billed to" value={billedTo} /> : null}
             </div>
           </>
         ) : null}

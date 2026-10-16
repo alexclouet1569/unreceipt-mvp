@@ -362,6 +362,15 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
                 value={receipt.merchant_vat_number}
               />
             ) : null}
+            {receipt.merchant_org_number ? (
+              <BodyRow label="Merchant org. no." value={receipt.merchant_org_number} />
+            ) : null}
+            {receipt.buyer_name || receipt.buyer_address ? (
+              <BodyRow
+                label="Billed to"
+                value={[receipt.buyer_name, receipt.buyer_address].filter(Boolean).join(", ")}
+              />
+            ) : null}
           </View>
 
           {receipt.items && receipt.items.length > 0 ? (

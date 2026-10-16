@@ -232,6 +232,28 @@ describe("PATCH /api/receipts/[id]", () => {
     ]);
   });
 
+  it("saves the VAT check fields and records them as edits", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: verifiedRow(), error: null });
+
+    const res = await PATCH(
+      req({ merchant_org_number: "556677-8899", buyer_name: "Acme AB", buyer_address: null }),
+      params(),
+    );
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.merchant_org_number).toBe("556677-8899");
+    expect(payload.buyer_name).toBe("Acme AB");
+    expect(payload.buyer_address).toBeNull();
+    expect(payload.edited_fields).toEqual(["merchant_org_number", "buyer_name"]);
+  });
+
+  it("rejects an over-long buyer name", async () => {
+    const res = await PATCH(req({ buyer_name: "x".repeat(201) }), params());
+    expect(res.status).toBe(400);
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
   it("keeps earlier edits in the history and the field list", async () => {
     mocks.maybeSingle.mockResolvedValueOnce({
       data: {

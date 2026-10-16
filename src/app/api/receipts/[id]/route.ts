@@ -30,8 +30,12 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import { editMarker } from "@/lib/receipts/edits";
 import {
+  BuyerAddressSchema,
+  BuyerNameSchema,
   MAX_AMOUNT,
   PaymentMethodSchema,
+  SellerIdSchema,
+  VatBreakdownSchema,
   ReceiptItemsSchema,
   TaxAmountSchema,
   TaxRateSchema,
@@ -58,6 +62,11 @@ const PatchSchema = z.object({
   tax_rate: TaxRateSchema.nullable().optional(),
   payment_method: PaymentMethodSchema.nullable().optional(),
   items: ReceiptItemsSchema.nullable().optional(),
+  merchant_vat_number: SellerIdSchema.nullable().optional(),
+  merchant_org_number: SellerIdSchema.nullable().optional(),
+  buyer_name: BuyerNameSchema.nullable().optional(),
+  buyer_address: BuyerAddressSchema.nullable().optional(),
+  vat_breakdown: VatBreakdownSchema.nullable().optional(),
 });
 
 async function getUserScopedClient() {
@@ -185,6 +194,18 @@ export async function PATCH(
   }
   if (patch.items !== undefined) {
     update.items = patch.items && patch.items.length > 0 ? patch.items : null;
+  }
+  for (const key of [
+    "merchant_vat_number",
+    "merchant_org_number",
+    "buyer_name",
+    "buyer_address",
+  ] as const) {
+    if (patch[key] !== undefined) update[key] = patch[key];
+  }
+  if (patch.vat_breakdown !== undefined) {
+    update.vat_breakdown =
+      patch.vat_breakdown && patch.vat_breakdown.length > 0 ? patch.vat_breakdown : null;
   }
 
   // VAT can't exceed the total — checked on the result, since the patch may

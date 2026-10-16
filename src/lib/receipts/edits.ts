@@ -23,6 +23,11 @@ export const TRACKED_EDIT_FIELDS = [
   "tax_rate",
   "payment_method",
   "items",
+  "merchant_vat_number",
+  "merchant_org_number",
+  "buyer_name",
+  "buyer_address",
+  "vat_breakdown",
 ] as const;
 export type TrackedEditField = (typeof TRACKED_EDIT_FIELDS)[number];
 
@@ -35,6 +40,11 @@ export const EDIT_FIELD_LABELS: Record<TrackedEditField, string> = {
   tax_rate: "VAT rate",
   payment_method: "Payment method",
   items: "Line items",
+  merchant_vat_number: "Seller VAT number",
+  merchant_org_number: "Seller org. number",
+  buyer_name: "Billed to",
+  buyer_address: "Billing address",
+  vat_breakdown: "VAT per rate",
 };
 
 // Enough for any realistic correction trail; keeps the row small.
@@ -57,6 +67,9 @@ function normalizeItems(items: unknown): ReceiptItem[] {
 function sameValue(field: TrackedEditField, a: unknown, b: unknown): boolean {
   if (field === "items") {
     return JSON.stringify(normalizeItems(a)) === JSON.stringify(normalizeItems(b));
+  }
+  if (field === "vat_breakdown") {
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   }
   if (a == null || b == null) return a == null && b == null;
   if (field === "total" || field === "tax_amount" || field === "tax_rate") {
@@ -186,6 +199,12 @@ function formatWas(field: TrackedEditField, value: unknown, currency: string): s
     case "items": {
       const n = Array.isArray(value) ? value.length : 0;
       return n === 0 ? "empty" : `${n} line${n === 1 ? "" : "s"}`;
+    }
+    case "vat_breakdown": {
+      if (!Array.isArray(value) || value.length === 0) return "empty";
+      return value
+        .map((b) => `${Number(b?.rate)}%: ${formatAmount(Number(b?.vat_amount), currency)}`)
+        .join(", ");
     }
     default:
       return String(value);

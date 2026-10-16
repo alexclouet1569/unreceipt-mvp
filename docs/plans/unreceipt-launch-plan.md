@@ -212,17 +212,17 @@
 
 ## Phase 3 — Swedish compliance engine (the moat) (🤖, rules reviewed by the accountant)
 
-- [ ] 59 ★ M — Extraction schema: seller org.nr / momsreg.nr, VAT **per rate** (25/12/6), and card last-4 only (never a full card number).
-- [ ] 60 ★ S — Rules config file with dated 2026 values: 4,000 kr limit, schablons, and the food-VAT 6% window from 2026-04-01 to 2027-12-31. Next year becomes a config edit.
-- [ ] 61 ★ S — Rule: förenklad faktura (≤ 4,000 kr) with no org.nr or VAT shown gets a "Not valid for momsavdrag" badge.
-- [ ] 62 ★ S — Rule: over 4,000 kr prompts "Ask the seller for a full invoice".
-- [ ] 63 S — Rule: foreign VAT is flagged as non-deductible in Swedish moms.
+- [x] 59 ★ M — Extraction schema: seller org.nr / momsreg.nr, VAT **per rate** (25/12/6), and card last-4 only (never a full card number). *(2026-10-16: plus buyer name and address, for the full-invoice rule; editable with Edit.)*
+- [x] 60 ★ S — Rules config file with dated 2026 values: 4,000 kr limit, schablons, and the food-VAT 6% window from 2026-04-01 to 2027-12-31. Next year becomes a config edit. *(2026-10-16: `src/lib/compliance/se-vat-rules.ts`, each value with its Skatteverket page and read date. Schablons wait for 64–65. The food rate needs no window: 6 % and 12 % are both valid rates.)*
+- [x] 61 ★ S — Rule: förenklad faktura (≤ 4,000 kr) with no org.nr or VAT shown gets a "Not valid for momsavdrag" badge. *(Worded "May not support a VAT deduction" and "we couldn't find…": a missing field can be a misread.)*
+- [x] 62 ★ S — Rule: over 4,000 kr prompts "Ask the seller for a full invoice".
+- [x] 63 S — Rule: foreign VAT is flagged as non-deductible in Swedish moms.
 - [ ] 64 M — Representation flow: attendees (count and names) and purpose fields.
 - [ ] 65 S — Representation calculation: deductible moms using the 36 / 46 / 33 kr schablons.
 - [ ] 66 M — Capture quality check (blur, cut-off edges) with a retake prompt.
 - [ ] 67 ★ M — Proof PDF v2: the original embedded unaltered, plus extracted data, a SHA-256 hash, the capture timestamp and the BFL 5 kap. fields.
 - [ ] 68 ★ S — Check that PDF attachments in forwarded emails are stored byte-for-byte as received.
-- [ ] 69 ★ M — Fixture test suite: 20 real Swedish receipts with expected rule outcomes.
+- [ ] 69 ★ M — Fixture test suite: 20 real Swedish receipts with expected rule outcomes. *(2026-10-16: rule fixtures exist but are synthetic; the 20 real receipts still need collecting from pilots.)*
 
 ## Phase 4 — Native apps with Capacitor (🤖 builds it, 🧑 runs Xcode/Android Studio on real devices)
 

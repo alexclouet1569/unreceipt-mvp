@@ -301,6 +301,31 @@ describe("POST /api/capture", () => {
     });
   });
 
+  it("stores the seller ids, buyer and VAT per rate read off the photo", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const details = {
+      merchant_org_number: "556677-8899",
+      buyer_name: "Acme AB",
+      vat_breakdown: [{ rate: 6, vat_amount: 2 }, { rate: 25, vat_amount: 5 }],
+    };
+    const res = await POST(
+      buildRequest(buildFormData({ vat_details: JSON.stringify(details) }))
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject(details);
+  });
+
+  it("rejects malformed VAT details", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const notJson = await POST(buildRequest(buildFormData({ vat_details: "{nope" })));
+    expect(notJson.status).toBe(400);
+    const tooLong = await POST(
+      buildRequest(buildFormData({ vat_details: JSON.stringify({ buyer_name: "x".repeat(201) }) }))
+    );
+    expect(tooLong.status).toBe(400);
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("stores null VAT and payment method when they are left blank", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
 

@@ -24,6 +24,12 @@ export type LlmExtractResult = {
   tax_rate?: number;
   payment_method?: string;
   card_last_four?: string;
+  // Read for the Swedish VAT check; validated by pickVatDetails().
+  merchant_vat_number?: string;
+  merchant_org_number?: string;
+  buyer_name?: string;
+  buyer_address?: string;
+  vat_breakdown?: Array<{ rate: number; vat_amount: number }>;
   notes?: string;
   items?: LlmExtractItem[];
   confidence?: number;
@@ -72,6 +78,11 @@ Return ONLY valid JSON matching this shape — no markdown, no prose, no code fe
   "tax_rate": <VAT percentage 0-100, or omit>,
   "payment_method": "<card | cash | klarna | swish | wire | apple_pay | google_pay, or omit>",
   "card_last_four": "<last 4 digits of card if mentioned, or omit>",
+  "merchant_vat_number": "<seller's VAT registration number exactly as printed, e.g. SE556677889901, or omit>",
+  "merchant_org_number": "<seller's organisation number (org.nr), e.g. 556677-8899, or omit>",
+  "buyer_name": "<name of the company or person the receipt/invoice is billed to, only when printed as the buyer, or omit>",
+  "buyer_address": "<the buyer's address when printed, or omit>",
+  "vat_breakdown": [{ "rate": <VAT percentage>, "vat_amount": <VAT at that rate> }],
   "notes": "<one short line worth retaining, e.g. 'Trip from Hötorget to Arlanda', or omit>",
   "items": [
     {
@@ -96,6 +107,10 @@ Rules:
 - Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when not on the receipt.
 - The SUM of item totals should approximately equal the receipt subtotal (or total when there's no tax line). If it doesn't, prefer the printed subtotal/total — don't adjust items to match.
 - If the input is clearly NOT a receipt (newsletter, marketing email, conversation, ad), return ONLY: {"not_a_receipt": true}
+- merchant_vat_number / merchant_org_number: copy only what is printed (often "Org.nr", "Momsreg.nr", "VAT No", "Moms nr"). Never derive one from the other. A personnummer is not an org number unless labelled as the seller's.
+- buyer_name / buyer_address: only the customer the document is addressed to ("Kund", "Faktureras till", "Bill to"). Never the seller. Omit on ordinary till receipts that name no customer.
+- vat_breakdown: one entry per VAT rate printed in a VAT summary (e.g. "Moms 6% 10,20" and "Moms 25% 4,00"). Omit when only one rate or no summary is printed.
+- Never return a full card number anywhere.
 - For SMS inputs, the bank pattern is often: "Köp <amount> SEK/kr hos <MERCHANT> <date>" — the merchant is BETWEEN "hos" and the date. SMS receipts NEVER have items.`;
 
 function userTurnFor(kind: LlmExtractKind, body: string, hint?: string): string {

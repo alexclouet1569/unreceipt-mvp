@@ -26,6 +26,12 @@ export interface OcrResult {
   tax_amount?: number;
   tax_rate?: number;
   payment_method?: string;
+  // Read for the Swedish VAT check; validated by pickVatDetails().
+  merchant_vat_number?: string;
+  merchant_org_number?: string;
+  buyer_name?: string;
+  buyer_address?: string;
+  vat_breakdown?: Array<{ rate: number; vat_amount: number }>;
   // Every line item visible on the receipt — what makes the digital
   // copy usable as proof of payment instead of just a summary.
   items?: OcrItem[];
@@ -69,6 +75,11 @@ Extract fields from the user's receipt image and return ONLY valid JSON matching
   "tax_amount": <VAT/MOMS as a number, or omit if not visible>,
   "tax_rate": <VAT percentage as a number 0-100, or omit>,
   "payment_method": "<e.g. card, cash, klarna, swish, or omit>",
+  "merchant_vat_number": "<seller's VAT registration number exactly as printed, e.g. SE556677889901, or omit>",
+  "merchant_org_number": "<seller's organisation number (org.nr), e.g. 556677-8899, or omit>",
+  "buyer_name": "<name of the company or person the receipt/invoice is billed to, only when printed as the buyer, or omit>",
+  "buyer_address": "<the buyer's address when printed, or omit>",
+  "vat_breakdown": [{ "rate": <VAT percentage>, "vat_amount": <VAT at that rate> }],
   "items": [
     {
       "label": "<exact line label, preserve original language>",
@@ -87,7 +98,11 @@ Rules:
 - currency: infer from currency symbol (€=EUR, kr=SEK, $=USD), or default to SEK for Swedish-looking receipts.
 - category: pick the closest match from the allowed list, default to "other" if unclear.
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.
-- Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when the receipt doesn't print them.`;
+- Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when the receipt doesn't print them.
+- merchant_vat_number / merchant_org_number: copy only what is printed (often "Org.nr", "Momsreg.nr", "VAT No", "Moms nr"). Never derive one from the other. A personnummer is not an org number unless labelled as the seller's.
+- buyer_name / buyer_address: only the customer the document is addressed to ("Kund", "Faktureras till", "Bill to"). Never the seller. Omit on ordinary till receipts that name no customer.
+- vat_breakdown: one entry per VAT rate printed in a VAT summary (e.g. "Moms 6% 10,20" and "Moms 25% 4,00"). Omit when only one rate or no summary is printed.
+- Never return a full card number anywhere.`;
 
 export async function extractReceipt(
   imageBase64: string,

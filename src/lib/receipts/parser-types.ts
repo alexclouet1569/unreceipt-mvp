@@ -4,6 +4,8 @@
 // SDK into client-side bundles if anyone forgets the SERVER-ONLY
 // boundary).
 
+import type { VatDetails } from "./receipt-fields";
+
 export type ParseInput =
   | { kind: "email"; raw: EmailRaw }
   | { kind: "sms"; raw: SmsRaw }
@@ -48,6 +50,9 @@ export type CanonicalReceiptFields = {
   // Line items lifted off the original receipt. Optional — many
   // receipts (Uber, SaaS subscriptions) have no per-line breakdown.
   items?: ParsedReceiptItem[] | null;
+  // Seller ids, buyer and VAT per rate for the Swedish VAT check; only the
+  // fields the reader found. See pickVatDetails().
+  vat_details?: VatDetails;
   parse_confidence: number;
 };
 

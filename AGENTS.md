@@ -89,6 +89,10 @@ To flip back to paid: in Vercel → Settings → Environment Variables, remove `
 
 Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.
 
+# Swedish VAT check
+
+`src/lib/compliance/se-vat-check.ts` (`checkSwedishVat()`) checks what a receipt shows against Skatteverket's rules for a VAT deduction: up to 4,000 kr incl. VAT a simplified invoice needs the seller's VAT or organisation number and the VAT; above it a full invoice (seller VAT number, buyer name and address); foreign VAT is never deductible in the Swedish return; rates other than 25/12/6/0 % are flagged. Every value and its Skatteverket source, with the date it was read, lives in `src/lib/compliance/se-vat-rules.ts`: change a rule there, with a new `checkedOn` date and fixture tests in `src/lib/compliance/__tests__`. The check is computed when a receipt is shown or exported (`VatCheckPanel`, the CSV's "VAT check (Sweden)" column), never stored. The readers (`ocr.ts`, `llm-extract.ts`) fill `merchant_vat_number`, `merchant_org_number`, `buyer_name`, `buyer_address` and `vat_breakdown`, validated by `pickVatDetails()`; the customer can correct them with Edit. `reviewedByAccountant` stays false until an accountant has reviewed the rules (launch plan action 11); the UI says it isn't tax advice either way.
+
 # Scheduled jobs
 
 `vercel.json` schedules three daily Vercel Cron jobs (Hobby allows one run per day, ±59 min). Each route calls `isAuthorizedCron()` (`src/lib/cron-auth.ts`), which requires `Authorization: Bearer $CRON_SECRET` and refuses everything when `CRON_SECRET` is unset.

@@ -16,6 +16,7 @@ import {
   ReceiptItemsSchema,
   TaxAmountSchema,
   TaxRateSchema,
+  VatDetailsSchema,
   optionalNumber,
   optionalString,
   taxExceedsTotal,
@@ -47,6 +48,9 @@ const CaptureSchema = z
     // Line items extracted by OCR on the client. Optional — manual
     // entries skip this, supermarket scans include the full list.
     items: ReceiptItemsSchema.optional(),
+    // Seller ids, buyer and VAT per rate read off the photo, for the
+    // Swedish VAT check.
+    vat_details: VatDetailsSchema.optional(),
   })
   .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
     message: "VAT can't be more than the total",
@@ -72,6 +76,19 @@ export async function POST(request: NextRequest) {
     form = await request.formData();
   } catch {
     return NextResponse.json({ error: "invalid form data" }, { status: 400 });
+  }
+
+  const vatDetailsRaw = form.get("vat_details");
+  let vatDetailsJson: unknown = undefined;
+  if (typeof vatDetailsRaw === "string" && vatDetailsRaw.length > 0) {
+    try {
+      vatDetailsJson = JSON.parse(vatDetailsRaw);
+    } catch {
+      return NextResponse.json(
+        { error: "vat_details must be a JSON object" },
+        { status: 400 }
+      );
+    }
   }
 
   const amountRaw = form.get("amount");
@@ -102,6 +119,7 @@ export async function POST(request: NextRequest) {
     tax_rate: optionalNumber(form.get("tax_rate")),
     payment_method: optionalString(form.get("payment_method")),
     items: itemsJson,
+    vat_details: vatDetailsJson,
   });
 
   if (!parsed.success) {
@@ -195,6 +213,7 @@ export async function POST(request: NextRequest) {
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
       items: data.items && data.items.length > 0 ? data.items : null,
+      ...data.vat_details,
       source,
       status,
     })

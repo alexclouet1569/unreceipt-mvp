@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
+import { VatCheckPanel } from "@/components/receipt/VatCheckPanel";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import {
   CATEGORY_CONFIG,
@@ -179,6 +180,9 @@ export function ReceiptDetailDialog({
                 <TabsContent value="digital">
                   <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
                     <ReceiptDetailCard receipt={receipt} />
+                    <div className="mt-4">
+                      <VatCheckPanel receipt={receipt} />
+                    </div>
                   </div>
                   {form}
                 </TabsContent>
@@ -190,6 +194,9 @@ export function ReceiptDetailDialog({
               <>
                 <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
                   <ReceiptDetailCard receipt={receipt} />
+                  <div className="mt-4">
+                    <VatCheckPanel receipt={receipt} />
+                  </div>
                 </div>
                 {form}
               </>
@@ -338,6 +345,11 @@ type EditFormState = {
   taxAmount: string;
   taxRate: string;
   paymentMethod: string;
+  // Read by the Swedish VAT check; correctable like any other field.
+  sellerVatNumber: string;
+  sellerOrgNumber: string;
+  buyerName: string;
+  buyerAddress: string;
   items: EditItem[];
 };
 
@@ -410,6 +422,10 @@ function deriveFormState(receipt: Receipt): EditFormState {
     taxAmount: receipt.tax_amount != null ? String(receipt.tax_amount) : "",
     taxRate: receipt.tax_rate != null ? String(receipt.tax_rate) : "",
     paymentMethod: receipt.payment_method ?? "",
+    sellerVatNumber: receipt.merchant_vat_number ?? "",
+    sellerOrgNumber: receipt.merchant_org_number ?? "",
+    buyerName: receipt.buyer_name ?? "",
+    buyerAddress: receipt.buyer_address ?? "",
     items: toEditItems(receipt.items),
   };
 }
@@ -459,6 +475,21 @@ export function buildPatchBody(
   }
   if (form.paymentMethod.trim() !== initial.paymentMethod.trim()) {
     body.payment_method = form.paymentMethod.trim() || null;
+  }
+  const textFields = [
+    ["sellerVatNumber", "merchant_vat_number", 40, "Seller VAT number"],
+    ["sellerOrgNumber", "merchant_org_number", 40, "Seller org. number"],
+    ["buyerName", "buyer_name", 200, "Billed to"],
+    ["buyerAddress", "buyer_address", 300, "Billing address"],
+  ] as const;
+  for (const [key, column, max, label] of textFields) {
+    const value = form[key].trim();
+    if (value === initial[key].trim()) continue;
+    if (value.length > max) throw new Error(`${label} is too long`);
+    if ((key === "sellerVatNumber" || key === "sellerOrgNumber") && value.length === 1) {
+      throw new Error(`Check the ${label.toLowerCase()}`);
+    }
+    body[column] = value || null;
   }
   if (includeItems) {
     const items = toReceiptItems(form.items);
@@ -764,6 +795,73 @@ function ReceiptEditForm({
           ))}
         </datalist>
       </div>
+
+      {isEdit ? (
+        <fieldset className="space-y-2">
+          <legend className={LABEL_CLASS}>Seller and buyer</legend>
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+            As printed on the receipt. The VAT check uses them.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
+              <label htmlFor={id("seller-vat")} className={LABEL_CLASS}>
+                Seller VAT no.
+              </label>
+              <Input
+                id={id("seller-vat")}
+                className="h-11"
+                value={form.sellerVatNumber}
+                onChange={(e) => update("sellerVatNumber", e.target.value)}
+                placeholder="SE556677889901"
+                maxLength={40}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor={id("seller-org")} className={LABEL_CLASS}>
+                Seller org. no.
+              </label>
+              <Input
+                id={id("seller-org")}
+                className="h-11"
+                value={form.sellerOrgNumber}
+                onChange={(e) => update("sellerOrgNumber", e.target.value)}
+                placeholder="556677-8899"
+                maxLength={40}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor={id("buyer-name")} className={LABEL_CLASS}>
+              Billed to
+            </label>
+            <Input
+              id={id("buyer-name")}
+              className="h-11"
+              value={form.buyerName}
+              onChange={(e) => update("buyerName", e.target.value)}
+              placeholder="Your company AB"
+              maxLength={200}
+              autoComplete="off"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor={id("buyer-address")} className={LABEL_CLASS}>
+              Billing address
+            </label>
+            <Input
+              id={id("buyer-address")}
+              className="h-11"
+              value={form.buyerAddress}
+              onChange={(e) => update("buyerAddress", e.target.value)}
+              placeholder="Storgatan 1, 111 22 Stockholm"
+              maxLength={300}
+              autoComplete="off"
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
       {isEdit ? (
         <fieldset className="space-y-2">

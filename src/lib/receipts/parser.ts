@@ -20,6 +20,7 @@
 import { z } from "zod";
 import { llmExtract, type LlmExtractKind, type LlmExtractResult } from "./llm-extract";
 import type { OcrResult } from "@/lib/ocr";
+import { pickVatDetails, type VatDetails } from "./receipt-fields";
 import { EMAIL_TEMPLATES, SMS_TEMPLATES } from "./templates";
 import type { PartialFields } from "./templates/types";
 import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
@@ -329,13 +330,14 @@ function mergeAndFinalize(
       ? llm.category
       : null;
 
-  return finalize(merged, effectiveConfidence, category);
+  return finalize(merged, effectiveConfidence, category, pickVatDetails(llmRaw));
 }
 
 function finalize(
   fields: PartialFields,
   confidence: number,
-  category: string | null = null
+  category: string | null = null,
+  vatDetails: VatDetails = {}
 ): ParseResult {
   if (!hasAllRequired(fields)) return { status: "pending_review" };
   const canonical: CanonicalReceiptFields = {
@@ -351,6 +353,7 @@ function finalize(
     card_last_four: fields.card_last_four ?? null,
     notes: fields.notes ?? null,
     items: fields.items ?? null,
+    vat_details: vatDetails,
     parse_confidence: clamp01(confidence),
   };
   return { status: "ok", fields: canonical };

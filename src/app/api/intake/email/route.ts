@@ -462,6 +462,7 @@ export async function POST(request: NextRequest) {
           card_last_four: parseResult.fields.card_last_four ?? null,
           category: parseResult.fields.category ?? "other",
           items: parseResult.fields.items ?? null,
+          ...parseResult.fields.vat_details,
           parse_confidence: parseResult.fields.parse_confidence,
           status: computeReceiptStatus({
             merchant_name: parseResult.fields.merchant_name,

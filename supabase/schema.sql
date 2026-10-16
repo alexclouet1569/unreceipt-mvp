@@ -1074,3 +1074,35 @@ REVOKE INSERT, UPDATE, DELETE ON public.user_email_addresses FROM anon, authenti
 DROP POLICY IF EXISTS "Users can view own email addresses" ON public.user_email_addresses;
 CREATE POLICY "Users can view own email addresses"
   ON public.user_email_addresses FOR SELECT USING ((select auth.uid()) = user_id);
+
+-- =============================================================================
+-- 2026-10-16 — Swedish VAT check fields (launch plan action 59)
+--
+-- What the receipt check (src/lib/compliance/se-vat-check.ts) needs beyond
+-- the existing merchant_vat_number: the seller's organisation number (Swedish
+-- till receipts usually print org.nr, not the VAT number), who the receipt is
+-- billed to (a full invoice above 4,000 kr needs the buyer's name and
+-- address), and the VAT per rate (a grocery receipt mixes 6 % and 25 %).
+-- Filled by the reader and editable by the customer. Writes stay service-role
+-- only (receipts has no INSERT/UPDATE grant for users). Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS merchant_org_number TEXT;
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS buyer_name TEXT;
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS buyer_address TEXT;
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS vat_breakdown JSONB;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'receipts_vat_check_fields_size'
+  ) THEN
+    ALTER TABLE public.receipts ADD CONSTRAINT receipts_vat_check_fields_size CHECK (
+      (merchant_org_number IS NULL OR char_length(merchant_org_number) <= 40)
+      AND (merchant_vat_number IS NULL OR char_length(merchant_vat_number) <= 40)
+      AND (buyer_name IS NULL OR char_length(buyer_name) <= 200)
+      AND (buyer_address IS NULL OR char_length(buyer_address) <= 300)
+      AND (vat_breakdown IS NULL OR jsonb_typeof(vat_breakdown) = 'array')
+    ) NOT VALID;
+  END IF;
+END $$;

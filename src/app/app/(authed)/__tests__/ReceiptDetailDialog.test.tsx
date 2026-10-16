@@ -147,6 +147,34 @@ describe("ReceiptDetailDialog (CQ2)", () => {
     expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("lets the user add the buyer and seller ids the VAT check needs", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, status: "verified" }),
+    });
+    renderDialog({ status: "verified" });
+
+    await user.click(screen.getByRole("button", { name: /Edit receipt/i }));
+    await user.type(screen.getByLabelText(/Seller org\. no\./i), "556677-8899");
+    await user.type(screen.getByLabelText(/Billed to/i), "Acme AB");
+    await user.click(screen.getByRole("button", { name: /Save changes/i }));
+
+    const [, init] = mocks.fetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      merchant_org_number: "556677-8899",
+      buyer_name: "Acme AB",
+    });
+  });
+
+  it("shows the Swedish VAT check under the receipt", () => {
+    renderDialog({ currency: "SEK", total: 342, tax_amount: 19.36, tax_rate: 6 });
+    expect(screen.getByTestId("vat-check-panel")).toHaveTextContent(
+      /May not support a VAT deduction/,
+    );
+  });
+
   it("closes the edit form without a request when nothing changed", async () => {
     const user = userEvent.setup();
     renderDialog({ status: "verified" });

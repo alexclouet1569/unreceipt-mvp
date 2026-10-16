@@ -602,3 +602,30 @@ describe("parseAttachmentExtraction", () => {
     expect(parseAttachmentExtraction(null).status).toBe("pending_review");
   });
 });
+
+describe("parseReceipt — VAT check fields", () => {
+  it("carries the seller ids and buyer the model read, without trusting them", async () => {
+    mockLlmExtract.mockResolvedValue({
+      merchant: "Scandic",
+      amount: 5200,
+      currency: "SEK",
+      receipt_date: "2026-10-01",
+      merchant_vat_number: "SE556677889901",
+      buyer_name: "Acme AB",
+      buyer_address: "Storgatan 1, Stockholm",
+      merchant_org_number: 12345,
+      confidence: 0.9,
+    });
+    const result = await parseReceipt({
+      kind: "email",
+      raw: { from: "noreply@scandic.example", to: "x@in.unreceipt.com", subject: "Kvitto", text: "Kvitto ".repeat(20), html: null },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.vat_details).toEqual({
+      merchant_vat_number: "SE556677889901",
+      buyer_name: "Acme AB",
+      buyer_address: "Storgatan 1, Stockholm",
+    });
+  });
+});

@@ -73,3 +73,50 @@ export function optionalString(value: FormDataEntryValue | null): string | undef
   const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
 }
+
+// Fields the Swedish VAT check reads (src/lib/compliance/se-vat-check.ts).
+// The seller's VAT number ("SE556677889901") or organisation number
+// ("556677-8899"); who the receipt is billed to; the VAT per rate.
+export const SellerIdSchema = z.string().trim().min(2).max(40);
+export const BuyerNameSchema = z.string().trim().min(1).max(200);
+export const BuyerAddressSchema = z.string().trim().min(1).max(300);
+export const VatBreakdownSchema = z
+  .array(
+    z.object({
+      rate: TaxRateSchema,
+      vat_amount: TaxAmountSchema,
+    }),
+  )
+  .max(5);
+
+export const VatDetailsSchema = z.object({
+  merchant_vat_number: SellerIdSchema.optional(),
+  merchant_org_number: SellerIdSchema.optional(),
+  buyer_name: BuyerNameSchema.optional(),
+  buyer_address: BuyerAddressSchema.optional(),
+  vat_breakdown: VatBreakdownSchema.optional(),
+});
+export type VatDetails = z.infer<typeof VatDetailsSchema>;
+
+/**
+ * The VAT check fields from a reader's output, keeping each valid one and
+ * dropping the rest: one misread field shouldn't lose the others. A card
+ * number never ends up here: the readers return only its last four digits,
+ * in another field.
+ */
+export function pickVatDetails(raw: unknown): VatDetails {
+  if (!raw || typeof raw !== "object") return {};
+  const source = raw as Record<string, unknown>;
+  const out: VatDetails = {};
+  const take = <K extends keyof VatDetails>(key: K, schema: z.ZodType<VatDetails[K]>) => {
+    const parsed = schema.safeParse(source[key]);
+    if (parsed.success && parsed.data !== undefined) out[key] = parsed.data;
+  };
+  take("merchant_vat_number", SellerIdSchema);
+  take("merchant_org_number", SellerIdSchema);
+  take("buyer_name", BuyerNameSchema);
+  take("buyer_address", BuyerAddressSchema);
+  const breakdown = VatBreakdownSchema.safeParse(source.vat_breakdown);
+  if (breakdown.success && breakdown.data.length > 0) out.vat_breakdown = breakdown.data;
+  return out;
+}

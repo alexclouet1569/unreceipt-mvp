@@ -104,6 +104,15 @@ export interface Receipt {
   // or a Stripe line-itemed invoice they go here.
   items: ReceiptItem[] | null;
 
+  // Swedish VAT check fields (schema 2026-10-16, launch plan 59). Optional
+  // in the type because rows and fixtures from before the columns existed
+  // don't carry them. See src/lib/compliance/se-vat-check.ts.
+  merchant_org_number?: string | null;
+  buyer_name?: string | null;
+  buyer_address?: string | null;
+  // VAT per rate, e.g. [{ rate: 6, vat_amount: 10.2 }, { rate: 25, vat_amount: 4 }].
+  vat_breakdown?: VatBreakdownEntry[] | null;
+
   // Customer corrections (launch plan 41–42). Set by PATCH only, when a
   // factual field changes. See src/lib/receipts/edits.ts.
   edited_at: string | null;
@@ -127,6 +136,12 @@ export interface EditHistoryEntry {
   by?: string;
   // Column name → value before and after, for each tracked field changed.
   changes: Record<string, EditChange>;
+}
+
+export interface VatBreakdownEntry {
+  /** Percentage, e.g. 25. */
+  rate: number;
+  vat_amount: number;
 }
 
 export interface ReceiptItem {

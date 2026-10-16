@@ -24,6 +24,7 @@ import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { UNTRUSTED_LLM_CONFIDENCE_CAP } from "@/lib/receipts/parser";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { pickVatDetails } from "@/lib/receipts/receipt-fields";
 import type { Receipt, ReceiptItem } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -280,6 +281,12 @@ export function mergeExtraction(
     "payment_method",
     typeof fresh.payment_method === "string" ? fresh.payment_method : null
   );
+  const vat = pickVatDetails(fresh);
+  writeIfBetter("merchant_vat_number", vat.merchant_vat_number);
+  writeIfBetter("merchant_org_number", vat.merchant_org_number);
+  writeIfBetter("buyer_name", vat.buyer_name);
+  writeIfBetter("buyer_address", vat.buyer_address);
+  writeIfBetter("vat_breakdown", vat.vat_breakdown);
 
   // Items: always backfill if the row currently has none. If it already
   // has some, only overwrite when the new extraction wins on confidence.

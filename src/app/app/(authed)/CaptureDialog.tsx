@@ -45,10 +45,13 @@ import {
 import type { OcrItem, OcrResult } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
+import { VatCheckPanel } from "@/components/receipt/VatCheckPanel";
 import { cn } from "@/lib/utils";
 import {
   PAYMENT_METHOD_SUGGESTIONS,
+  pickVatDetails,
   vatFromGross,
+  type VatDetails,
 } from "@/lib/receipts/receipt-fields";
 
 type CaptureDialogProps = {
@@ -171,6 +174,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // Line items extracted by OCR, forwarded to /api/capture so the digital
   // receipt renders the full line breakdown.
   const [items, setItems] = useState<OcrItem[] | null>(null);
+  // Seller ids, buyer and VAT per rate read off the photo, for the Swedish
+  // VAT check. Saved as read; corrected later with Edit.
+  const [vatDetails, setVatDetails] = useState<VatDetails>({});
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
 
   // Reset everything when the sheet closes so the next open is fresh.
@@ -193,6 +199,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       setTaxAuto(false);
       setShowNotes(false);
       setItems(null);
+      setVatDetails({});
       setSavedReceipt(null);
     }
   }
@@ -339,6 +346,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (Array.isArray(data.items) && data.items.length > 0) {
         setItems(data.items);
       }
+      setVatDetails(pickVatDetails(data));
     } catch (err) {
       if (run !== ocrRunRef.current) return;
       console.error("[capture] ocr failed:", err);
@@ -389,6 +397,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     setOcrError(null);
     setOcrFilled(false);
     setItems(null);
+    setVatDetails({});
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -416,6 +425,14 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (imageFile) fd.append("image", imageFile);
       if (items && items.length > 0) {
         fd.append("items", JSON.stringify(items));
+      }
+      // Seller ids and the buyer are kept either way; the VAT breakdown
+      // follows the Include VAT switch like the VAT amount.
+      const details: VatDetails = includeVat
+        ? vatDetails
+        : { ...vatDetails, vat_breakdown: undefined };
+      if (Object.values(details).some((v) => v !== undefined)) {
+        fd.append("vat_details", JSON.stringify(details));
       }
 
       const res = await fetch("/api/capture", {
@@ -768,6 +785,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               style={{ animation: "ocr-reveal 320ms cubic-bezier(0.32, 0.72, 0, 1) both" }}
             >
               <ReceiptDetailCard receipt={savedReceipt} />
+              <div className="mt-4">
+                <VatCheckPanel receipt={savedReceipt} />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 border-t border-[var(--hairline)] px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
               <a
