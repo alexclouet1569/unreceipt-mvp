@@ -56,38 +56,56 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
     // crashing the tree. Everything that depends on the client lives inside
     // this try; the cleanup only unsubscribes if we got that far.
     let subscription: { unsubscribe: () => void } | undefined;
+    // Set on cleanup so a check still pending from the previous pathname
+    // doesn't redirect after the user has moved on.
+    let cancelled = false;
     try {
       const supabase = getSupabaseClient();
-      const { data } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          // No session at all → redirect off authed surfaces.
-          if (!session) {
-            if (pathname !== "/app/login") {
-              router.replace("/app/login");
-            }
-            return;
-          }
 
-          // Session present — validate against the API before trusting it.
-          // A deleted user still has a syntactically valid JWT in cookies;
-          // getUser() round-trips and returns null in that case.
-          const { data, error } = await supabase.auth.getUser();
-          if (error || !data.user) {
-            // Stale cookie. Clear it locally so the next render is clean and
-            // we don't ping-pong with the server gate.
-            await supabase.auth.signOut().catch(() => {});
-            if (pathname !== "/app/login") {
-              router.replace("/app/login");
-            }
-            return;
+      // Session present — validate against the API before trusting it.
+      // A deleted user still has a syntactically valid JWT in cookies;
+      // getUser() round-trips and returns null in that case.
+      const validateSession = async () => {
+        const { data, error } = await supabase.auth.getUser();
+        if (cancelled) return;
+        if (error || !data.user) {
+          // Stale cookie. Clear it locally so the next render is clean and
+          // we don't ping-pong with the server gate.
+          await supabase.auth.signOut().catch(() => {});
+          if (pathname !== "/app/login") {
+            router.replace("/app/login");
           }
-
-          // Real user — safe to drop them onto the dashboard from /app/login.
-          if (pathname === "/app/login") {
-            router.replace("/app");
-          }
+          return;
         }
-      );
+
+        // Real user — safe to drop them onto the dashboard from /app/login.
+        if (pathname === "/app/login") {
+          router.replace("/app");
+        }
+      };
+
+      // The callback must stay synchronous and must not call supabase.auth.*
+      // itself. supabase-js awaits it while holding its auth lock (session
+      // restore on page load, token refresh), and getUser()/signOut() wait
+      // for that same lock — awaiting them in here deadlocked the client for
+      // the life of the page. Every later sign-in, sign-out and
+      // signInWithPassword then hung until the login form's timeout fired
+      // ("Sign-in is taking too long. Reload the page"). setTimeout runs the
+      // check after supabase-js has released the lock.
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        // No session at all → redirect off authed surfaces.
+        if (!session) {
+          if (pathname !== "/app/login") {
+            router.replace("/app/login");
+          }
+          return;
+        }
+        setTimeout(() => {
+          validateSession().catch((err) => {
+            console.error("[client-shell] session check failed", err);
+          });
+        }, 0);
+      });
       subscription = data.subscription;
     } catch (err) {
       console.error("[client-shell] Supabase client unavailable", err);
@@ -99,7 +117,10 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       setClientUnavailable(true);
     }
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
   }, [router, pathname]);
 
   return (

@@ -62,7 +62,7 @@ export function IntakeRow({
           className="shrink-0 inline-flex items-center gap-1.5 text-white"
           style={{
             background: copied
-              ? "var(--brand-deep, #1F9D63)"
+              ? "var(--brand-action-deep)"
               : "var(--primary)",
             padding: "6px 12px",
             minHeight: "44px",

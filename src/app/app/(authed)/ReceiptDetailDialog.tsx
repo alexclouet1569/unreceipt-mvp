@@ -237,7 +237,7 @@ export function ReceiptDetailDialog({
                     href={`/api/receipts/${receipt.id}/pdf`}
                     download
                     data-testid="receipt-download-link"
-                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-action-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     <Download className="w-4 h-4" />
                     Download PDF

@@ -67,8 +67,10 @@ Restrained palette. Brand green is an accent, not a background.
 
 | Token | Hex | Role |
 |---|---|---|
-| `--brand` | `#27BE7B` | FAB, key totals, focus rings, brand badges. Used sparingly. |
-| `--brand-deep` | `#1F9D63` | Hover / pressed on brand surfaces |
+| `--brand` | `#27BE7B` | Brand accent: wordmark, key totals, brand badges, icons. Used sparingly. **Never under white text** (2.4:1). |
+| `--brand-deep` | `#1F9D63` | Hover on brand accents |
+| `--brand-action` | `#1A7F52` | Anything pressed or focused: primary buttons, the FAB, focus rings (`--primary`, `--ring`). White text 5.0:1 (AA). |
+| `--brand-action-deep` | `#176E47` | Hover / pressed on `--brand-action` |
 | `--brand-tint` | `#ECF7E7` | Empty-state hero card, pilot banner, VAT-summary panel. **Never the page background.** |
 | `--surface` | `#FAFAF7` | Page background — Nordic cream, evokes paper |
 | `--card` | `#FFFFFF` | Receipt cards, sheets, popovers |
@@ -104,7 +106,7 @@ Restrained palette. Brand green is an accent, not a background.
 --card-foreground: var(--ink);
 --popover: var(--card);
 --popover-foreground: var(--ink);
---primary: var(--brand);
+--primary: var(--brand-action);
 --primary-foreground: #FFFFFF;
 --secondary: var(--brand-tint);
 --secondary-foreground: var(--ink);
@@ -115,7 +117,7 @@ Restrained palette. Brand green is an accent, not a background.
 --destructive: var(--negative);
 --border: var(--hairline);
 --input: var(--hairline);
---ring: var(--brand);
+--ring: var(--brand-action);
 ```
 
 ## Spacing (4px base)
@@ -142,7 +144,7 @@ xl   24px   Section gutters
 - **Approach.** Strict single-column. Mobile-first 390px primary canvas. No sidebar, ever.
 - **Header.** Compact 12px-padded top bar with the `UnReceipt` wordmark on the left and a small filter/search icon-button on the right (36px). No nav tabs in v1.
 - **List.** Receipt cards in a single column with `8px` gaps. Date groups (`Today`, `Yesterday`, `This week`, `Earlier in May`) as `micro` labels above the relevant cluster.
-- **FAB.** Fixed bottom-center, `64×64`, brand green, white `+` icon. Safe-area-inset aware (Capacitor).
+- **FAB.** Fixed bottom-center, `64×64`, `--brand-action` green, white `+` icon. Safe-area-inset aware (Capacitor).
 - **Detail view.** Full-screen sheet. Perforated edge at the top. Large mono total, merchant block, items section, VAT panel in `--brand-tint`, details section. Dashed `1px hairline` dividers between sections.
 - **Empty state.** Calm illustrated mark in a `64×64 brand-tint` square, short pitch, then a `card` showing the user's unique `u-XXXX@unreceipt.com` email and a `Copy` button.
 
@@ -221,7 +223,7 @@ full 9999   FAB, avatars, pill badges
 
 ### FAB
 
-- `64×64` circular, `bg: --brand`, `border: none`.
+- `64×64` circular, `bg: --brand-action` (via `--primary`), `border: none`.
 - `box-shadow: 0 8px 24px -8px rgba(31, 157, 99, 0.45), 0 2px 6px -2px rgba(23, 26, 46, 0.08)` — only place shadow exists in the system.
 - Icon: white `+`, 28×28, stroke 2.5.
 - Position: `fixed`, `bottom: env(safe-area-inset-bottom) + 32px`, `left: 50%`, `transform: translateX(-50%)`.
@@ -265,6 +267,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-15 | **Non-destructive errors use the honey "attention" tokens**, not red (form validation, export errors, unsupported-photo guidance). Red stays for delete flows. | Matches "red only for destructive actions"; these messages ask the user to fix something, nothing is lost. |
 | 2026-10-15 | **First-run onboarding hides the FAB**; each of its 3 screens has its own call to action (step 2 opens capture). Progress dots are ink, so brand green appears once per screen (the CTA). The 64×64 brand-tint mark counts as the empty-state hero. | One obvious action per screen. |
 | 2026-10-15 | **`--brand`, `--brand-deep`, `--negative`, `--destructive-foreground` defined in globals.css**; `--primary`, `--ring`, `--destructive` alias them. Motion is disabled under `prefers-reduced-motion`. | They were referenced but undefined. |
+| 2026-10-16 | **Action green `--brand-action` #1A7F52** for primary buttons, the FAB and focus rings (`--primary`, `--ring` point at it); `--brand` #27BE7B stays for the wordmark and accents. **`--ink-muted` set to its spec value #5A5F7A** in globals.css (it had drifted to 65% Deep Space, 3.8:1). | White on #27BE7B is 2.4:1 and the old muted text 3.8:1 — both under WCAG AA (4.5:1). Same hue, so the brand still reads green; now 5.0:1 and 6.3:1. |
 
 ---
 
