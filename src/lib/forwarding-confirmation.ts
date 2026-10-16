@@ -9,10 +9,10 @@
 // pass (computed on receipt, not forgeable by the sender) as proof the
 // email really came from google.com. Without it the email falls through to
 // the normal receipt path (Review needed, where the user can still read the
-// code in the original). Either
-// way we keep only what is safe to show the alias owner: a digits-only code (a fake one simply fails
-// in Gmail) and the Gmail address, if it looks like one. Never the link: a
-// spoofed link would be a phishing lure shown inside our own UI.
+// code in the original). Either way we keep only what is safe to show the
+// alias owner: a digits-only code (a fake one simply fails in Gmail) and the
+// Gmail address, if it looks like one. Never the link: a spoofed link would
+// be a phishing lure shown inside our own UI.
 
 export const GMAIL_FORWARDING_SENDER = "forwarding-noreply@google.com";
 
@@ -76,7 +76,6 @@ function findForAddress(subject: string, text: string): string | null {
   }
   return null;
 }
-
 
 export function parseForwardingConfirmation(input: {
   from: string;
