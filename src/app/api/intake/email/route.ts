@@ -10,6 +10,8 @@
 //      generic body (don't leak which hashes are valid).
 //   3b. Load the body, headers and original .eml from Resend's Receiving
 //      API by email_id — the webhook itself carries metadata only.
+//   3c. Gmail's forwarding confirmation email → keep its code for the
+//      setup guide and stop (it isn't a receipt).
 //   4. Compute intake_ref = Message-Id header || sha256(raw .eml).
 //   5. Upsert by (user_id, intake_ref). Existing row → 200 idempotent.
 //   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
@@ -37,6 +39,10 @@ import {
 import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
+import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
+import { buildForwardingAddress } from "@/lib/email-alias";
+import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
+import { loadOwnerAddresses } from "@/lib/owner-addresses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +97,8 @@ async function loadEmailContent(
       headers: data.headers ?? {},
       messageId: typeof data.message_id === "string" ? data.message_id : null,
       rawEml: typeof data.raw === "string" ? Buffer.from(data.raw, "base64") : null,
+      // An inline payload carries no verdict we can trust.
+      authentication: null,
     };
   }
   return fetchReceivedEmail(data.email_id);
@@ -126,6 +134,8 @@ function pickHeader(
   }
   return null;
 }
+
+
 
 function genericNotFound() {
   // Same body whether the alias was malformed or simply not registered —
@@ -215,6 +225,49 @@ export async function POST(request: NextRequest) {
   if (!content) {
     return NextResponse.json({ error: "email content unavailable" }, { status: 502 });
   }
+  const supabase = getSupabaseAdmin();
+  // Postgres text can't hold NUL; one in the subject failed the insert and
+  // lost the email on every retry.
+  // Capped too: real subjects are short, and long ones feed slow regexes.
+  const subject =
+    typeof data.subject === "string" ? data.subject.replace(/\u0000/g, "").slice(0, 500) : "";
+  const text = content.text?.replace(/\u0000/g, "") ?? null;
+  const html = content.html?.replace(/\u0000/g, "") ?? null;
+  // Resend's own DMARC verdict: the From: domain is genuine.
+  const dmarc = content.authentication?.dmarc ?? null;
+
+  // Gmail's "confirm this forwarding address" email isn't a receipt: keep
+  // its code for the setup guide and stop here. 500 on a failed write so
+  // Resend retries; the user can't finish the Gmail setup without it.
+  const confirmation = parseForwardingConfirmation({
+    from: fromAddr,
+    subject,
+    text,
+    dmarc,
+  });
+  if (confirmation) {
+    const { error: confirmationError } = await supabase
+      .from("email_forwarding_confirmations")
+      .upsert(
+        {
+          user_id: userId,
+          provider: confirmation.provider,
+          code: confirmation.code,
+          for_address: confirmation.forAddress,
+          received_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+    if (confirmationError) {
+      console.error("[intake/email] forwarding confirmation save failed", confirmationError);
+      Sentry.captureException(new Error("forwarding confirmation save failed"), {
+        tags: { area: "intake-forwarding-confirmation" },
+      });
+      return NextResponse.json({ error: "save failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, forwardingConfirmation: true });
+  }
+
   const rawEml = content.rawEml;
   const hasRaw = rawEml !== null && rawEml.length > 0;
 
@@ -236,14 +289,12 @@ export async function POST(request: NextRequest) {
             toAddr,
             fromAddr,
             subject: data.subject,
-            text: content.text,
+            text,
           })
         )
         .digest("hex")}`;
     }
   }
-
-  const supabase = getSupabaseAdmin();
 
   // Idempotency: existing row → 200 with its id, no side effects. Scoped
   // to the user: Message-Id is sender-controlled, so a global key would let
@@ -262,6 +313,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, id: existing.id, duplicate: true });
   }
 
+  // Who the email was originally sent to: the To: header of the message
+  // itself, read from the raw .eml, never the webhook's recipient list or
+  // the envelope that brought it here. Without the raw message we can't
+  // count To: headers reliably, so nothing is trusted. Only looked up for a
+  // DMARC-authenticated mail, the only kind a template can trust.
+  let recipient: RecipientOwnership = "none";
+  if (dmarc === "pass" && rawEml && hasRaw) {
+    const toHeaders = rawHeaderValues(rawEml.toString("latin1"), "to");
+    const owner = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
+    recipient = recipientOwnership(toHeaders, owner);
+  }
+
   // Parse (best-effort). Throw → pending_review.
   let parseResult: Awaited<ReturnType<typeof parseReceipt>>;
   try {
@@ -270,9 +333,11 @@ export async function POST(request: NextRequest) {
       raw: {
         from: fromAddr,
         to: toAddr,
-        subject: typeof data.subject === "string" ? data.subject : "",
-        text: content.text,
-        html: content.html,
+        subject,
+        text,
+        html,
+        authenticated: dmarc === "pass",
+        recipient,
       },
     });
   } catch (err) {
@@ -309,7 +374,8 @@ export async function POST(request: NextRequest) {
     intake_ref: intakeRef,
     original_source_url: hasRaw ? storagePath : null,
     original_source_kind: hasRaw ? ("eml" as const) : null,
-    notes: typeof data.subject === "string" && data.subject.length > 0 ? `Subject: ${data.subject}` : null,
+    // Capped: a 100 KB subject was stored whole.
+    notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
   };
 
   const rowToInsert =

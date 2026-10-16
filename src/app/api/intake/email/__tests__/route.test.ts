@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   storageUpload: vi.fn(),
   storageRemove: vi.fn(),
   fetchReceivedEmail: vi.fn(),
+  upsert: vi.fn(),
 }));
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
@@ -39,7 +40,13 @@ vi.mock("@/lib/resend-inbound", () => ({
 vi.mock("@/lib/email-alias", () => ({
   findUserByAliasHash: mocks.findUserByAliasHash,
   parseAliasFromTo: mocks.parseAliasFromTo,
+  buildForwardingAddress: (hash: string) => `receipts+${hash}@in.unreceipt.com`,
 }));
+
+const ownerAddressesMock = vi.hoisted(() =>
+  vi.fn(async (_userId: string, alias: string) => ({ personal: ["anna@gmail.com"], alias })),
+);
+vi.mock("@/lib/owner-addresses", () => ({ loadOwnerAddresses: ownerAddressesMock }));
 
 vi.mock("@/lib/receipts/parser", () => ({
   parseReceipt: mocks.parseReceipt,
@@ -47,7 +54,8 @@ vi.mock("@/lib/receipts/parser", () => ({
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
-    from: (_table: string) => ({
+    from: (table: string) => ({
+      upsert: (row: unknown, options?: unknown) => mocks.upsert(table, row, options),
       insert: (row: unknown) => ({
         select: () => ({
           single: () => mocks.receiptsInsert(row),
@@ -131,6 +139,7 @@ beforeEach(() => {
   });
   mocks.storageUpload.mockResolvedValue({ error: null });
   mocks.storageRemove.mockResolvedValue({ error: null });
+  mocks.upsert.mockResolvedValue({ error: null });
 });
 
 afterEach(() => {
@@ -395,5 +404,132 @@ describe("POST /api/intake/email", () => {
 
     expect(res.status).toBe(404);
     expect(mocks.fetchReceivedEmail).not.toHaveBeenCalled();
+  });
+
+  function gmailConfirmation(dmarc: string | null) {
+    mocks.fetchReceivedEmail.mockResolvedValue({
+      text: "anna@gmail.com has requested to automatically forward mail …",
+      html: null,
+      headers: {},
+      messageId: "<confirm-1@google.com>",
+      rawEml: null,
+      authentication: dmarc ? { spf: "pass", dkim: dmarc, dmarc } : null,
+    });
+    return metadataOnlyPayload({
+      from: "Gmail Team <forwarding-noreply@google.com>",
+      subject: "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna@gmail.com",
+    });
+  }
+
+  it("keeps Gmail's forwarding confirmation code instead of filing a receipt", async () => {
+    const body = gmailConfirmation("pass");
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, forwardingConfirmation: true });
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      "email_forwarding_confirmations",
+      expect.objectContaining({
+        user_id: USER_ID,
+        provider: "gmail",
+        code: "593872831",
+        for_address: "anna@gmail.com",
+      }),
+      { onConflict: "user_id" },
+    );
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+    expect(usageMock).not.toHaveBeenCalled();
+  });
+
+  it("files a forged Gmail confirmation (DMARC fail) as an ordinary email", async () => {
+    const body = gmailConfirmation("fail");
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt.mock.calls[0][0].raw.authenticated).toBe(false);
+    expect(mocks.receiptsInsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers 500 (so Resend retries) when the confirmation code can't be saved", async () => {
+    mocks.upsert.mockResolvedValue({ error: { message: "boom" } });
+    const body = gmailConfirmation("pass");
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(500);
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("tells the parser the sender is authenticated only on Resend's DMARC pass", async () => {
+    mocks.fetchReceivedEmail.mockResolvedValue({
+      text: "Total: 189 kr",
+      html: null,
+      headers: {},
+      messageId: "<msg-uber-009@uber.com>",
+      rawEml: null,
+      authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
+    });
+    const body = metadataOnlyPayload({ subject: "Bad\u0000subject " + "x".repeat(5000) });
+
+    const res = await POST(buildRequest(body, sign(body)));
+
+    expect(res.status).toBe(200);
+    const raw = mocks.parseReceipt.mock.calls[0][0].raw;
+    expect(raw.authenticated).toBe(true);
+    expect(raw.subject).not.toContain("\u0000");
+    const row = mocks.receiptsInsert.mock.calls[0][0] as { notes: string };
+    expect(row.notes.length).toBeLessThanOrEqual(310);
+  });
+
+  describe("receipt ownership", () => {
+    function uberEmail(rawHeaders: string) {
+      mocks.fetchReceivedEmail.mockResolvedValue({
+        text: "Total: 189 SEK",
+        html: null,
+        headers: {},
+        messageId: `<own-${rawHeaders.length}@uber.com>`,
+        rawEml: Buffer.from(`From: noreply@uber.com\r\n${rawHeaders}Subject: Your trip\r\n\r\nTotal: 189 SEK`),
+        authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
+      });
+      // The webhook's own recipient list names the alias; it must not count.
+      return metadataOnlyPayload({
+        to: [`receipts+${VALID_HASH}@in.unreceipt.com`],
+        received_for: [`receipts+${VALID_HASH}@in.unreceipt.com`],
+      });
+    }
+    const recipientSeen = () => mocks.parseReceipt.mock.calls[0][0].raw.recipient;
+
+    it("reads the To: header of the message itself", async () => {
+      const body = uberEmail("To: Anna <anna@gmail.com>\r\n");
+      await POST(buildRequest(body, sign(body)));
+      expect(ownerAddressesMock).toHaveBeenCalledWith(USER_ID, `receipts+${VALID_HASH}@in.unreceipt.com`);
+      expect(recipientSeen()).toBe("personal");
+    });
+
+    it("doesn't take someone else's receipt for the user's, whatever the webhook says", async () => {
+      const body = uberEmail("To: bjorn@gmail.com\r\n");
+      await POST(buildRequest(body, sign(body)));
+      expect(recipientSeen()).toBe("none");
+    });
+
+    it("refuses a slipped-in second To: or a Cc: naming the alias", async () => {
+      const twice = uberEmail(`To: receipts+${VALID_HASH}@in.unreceipt.com\r\nTo: bjorn@gmail.com\r\n`);
+      await POST(buildRequest(twice, sign(twice)));
+      expect(recipientSeen()).toBe("none");
+      mocks.parseReceipt.mockClear();
+      const cc = uberEmail(`To: bjorn@gmail.com\r\nCc: receipts+${VALID_HASH}@in.unreceipt.com\r\n`);
+      await POST(buildRequest(cc, sign(cc)));
+      expect(recipientSeen()).toBe("none");
+    });
+
+    it("recognises a receipt sent straight to the alias", async () => {
+      const body = uberEmail(`To: receipts+${VALID_HASH}@in.unreceipt.com\r\n`);
+      await POST(buildRequest(body, sign(body)));
+      expect(recipientSeen()).toBe("alias");
+    });
   });
 });

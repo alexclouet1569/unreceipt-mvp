@@ -37,6 +37,7 @@ describe("parseReceipt — email templates", () => {
           "Payment: Visa •• 4242",
         ].join("\n"),
         html: null,
+        authenticated: true, recipient: "personal" as const,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -69,6 +70,7 @@ describe("parseReceipt — email templates", () => {
           "Powered by Stripe.",
         ].join("\n"),
         html: null,
+        authenticated: true, recipient: "personal" as const,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -81,7 +83,200 @@ describe("parseReceipt — email templates", () => {
   });
 });
 
+describe("parseReceipt — template amounts and formats", () => {
+  const raw = (from: string, subject: string, text: string | null, html: string | null = null) => ({
+    kind: "email" as const,
+    raw: { from, to: "x", subject, text, html, authenticated: true, recipient: "personal" as const },
+  });
+  const uber = (text: string, subject = "Your Thursday evening trip with Uber") =>
+    parseReceipt(raw("noreply@uber.com", subject, text));
+  const stripe = (text: string, subject = "Your receipt from Linear #2794-5305") =>
+    parseReceipt(raw("receipts+acct@stripe.com", subject, text));
+  const okFields = async (p: ReturnType<typeof parseReceipt>) => {
+    const result = await p;
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("not ok");
+    return result.fields;
+  };
+
+  it.each([
+    ["Total 1 234,50 kr\nVarav moms 74,07 kr\n15 October 2026", 1234.5, "SEK"],
+    ["Totalt 189,00 kr\nVarav moms 10,70 kr\n15 October 2026", 189, "SEK"],
+    ["Moms totalt 10,70 kr\nTotalt 189,00 kr\nVarav moms 10,70 kr\n15 October 2026", 189, "SEK"],
+    ["Totalt inkl. moms 189,00 kr\n15 October 2026", 189, "SEK"],
+    ["Total $1,234.56\nOctober 15, 2026", 1234.56, "USD"],
+  ])("Uber reads %j", async (text, total, currency) => {
+    const fields = await okFields(uber(text));
+    expect(fields.total).toBe(total);
+    expect(fields.currency).toBe(currency);
+    expect(fields.purchased_at.startsWith("2026-10-15")).toBe(true);
+    expect(fields.parse_confidence).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it.each([
+    ["Amount paid 1\u00a0250,00 SEK\nDate paid Oct 14, 2026", 1250, "SEK"],
+    ["Amount paid 1.234,56 €\nDate paid 14 Oct 2026", 1234.56, "EUR"],
+    // Invoice layout: Subtotal comes first but isn't what was charged.
+    ["$50.00 Paid October 14, 2026\nSubtotal $40.00\nVAT (25%) $10.00\nTotal $50.00\nAmount paid $50.00", 50, "USD"],
+    ["Subtotal $40.00\nTotal excluding tax $40.00\nTotal $50.00\nOct 14, 2026", 50, "USD"],
+  ])("Stripe reads %j", async (text, total, currency) => {
+    const fields = await okFields(stripe(text));
+    expect(fields.merchant_name).toBe("Linear");
+    expect(fields.total).toBe(total);
+    expect(fields.currency).toBe(currency);
+    expect(fields.purchased_at.startsWith("2026-10-14")).toBe(true);
+  });
+
+  it("never glues numbers from separate lines into one amount", async () => {
+    expect((await okFields(uber("Total 189 kr\n200 varav moms\n15 October 2026"))).total).toBe(189);
+    expect((await okFields(stripe("Amount paid $49\n4242\nOct 14, 2026"))).total).toBe(49);
+  });
+
+  it("reads amounts written with HTML entities in an HTML-only email", async () => {
+    const html = "<table><tr><td>Amount paid</td><td>SEK 1&#160;234,50</td></tr></table><p>Date paid Oct 14, 2026</p>";
+    const fields = await okFields(parseReceipt(raw("receipts@stripe.com", "Your receipt from Linear", null, html)));
+    expect(fields.total).toBe(1234.5);
+    expect(fields.currency).toBe("SEK");
+  });
+
+  it("takes the paid date, not a line item's date, and rejects impossible dates", async () => {
+    const fields = await okFields(stripe("Amount paid $49.00\nDate paid Oct 14, 2026\nPro plan 14 Nov 2026 – 14 Dec 2026"));
+    expect(fields.purchased_at.startsWith("2026-10-14")).toBe(true);
+    mockLlmExtract.mockResolvedValue({ ok: false, error: "no key" } as never);
+    expect((await stripe("Amount paid $49.00\nOctober 45, 2026")).status).toBe("pending_review");
+  });
+
+  it("sends anything it can't be sure of to review instead of guessing", async () => {
+    mockLlmExtract.mockResolvedValue({ ok: false, error: "no key" } as never);
+    // No currency shown: no USD guess, no pre-filled "DAT" from "Date paid".
+    expect((await stripe("Amount paid 49.00 Date paid Oct 14, 2026")).status).toBe("pending_review");
+    // "kr" without anything Swedish could be NOK or DKK.
+    expect((await uber("Total 189,00 kr\n15 October 2026")).status).toBe("pending_review");
+    // A VAT percentage isn't an amount.
+    expect((await uber("Total 12,5 % varav moms\n15 October 2026")).status).toBe("pending_review");
+    // A negative total isn't read as positive.
+    expect((await uber("Total -189,00 kr varav moms\n15 October 2026")).status).toBe("pending_review");
+  });
+
+  it("never takes a billing or due date for the purchase date", async () => {
+    const fields = await okFields(
+      stripe("Amount paid $50.00\nNext billing date Nov 14, 2026\nDue date Nov 20, 2026\nDate paid Oct 14, 2026"),
+    );
+    expect(fields.purchased_at.startsWith("2026-10-14")).toBe(true);
+  });
+
+  it("doesn't book Danish kroner as SEK", async () => {
+    mockLlmExtract.mockResolvedValue({ ok: false, error: "no key" } as never);
+    expect((await uber("Total 189,00 kr\nheraf moms 37,80 kr\n15 October 2026")).status).toBe("pending_review");
+  });
+
+  it("doesn't read a 'Total tax' line as the total", async () => {
+    const fields = await okFields(stripe("Total tax 10,00 SEK\nTotal 50,00 SEK\nOct 14, 2026"));
+    expect(fields.total).toBe(50);
+  });
+
+  it("doesn't trust a Swedish refund, but does trust a receipt with a refund policy", async () => {
+    const refund = await okFields(uber("Återbetalning\nTotalt 189,00 kr\nVarav moms 10,70 kr\n15 October 2026"));
+    expect(refund.parse_confidence).toBeLessThan(0.75);
+    const receipt = await okFields(stripe("Amount paid $49.00\nOct 14, 2026\nSee our refund policy."));
+    expect(receipt.parse_confidence).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it("doesn't trust a refund email even from the real sender", async () => {
+    const fields = await okFields(stripe("Refunded\nAmount paid $49.00\nOct 14, 2026"));
+    expect(fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("caps template totals at 1,000,000", async () => {
+    mockLlmExtract.mockResolvedValue({ ok: false, error: "no key" } as never);
+    expect((await stripe("Amount paid $2,000,000.00\nOct 14, 2026")).status).toBe("pending_review");
+  });
+
+  it("strips huge hostile HTML quickly", async () => {
+    const started = Date.now();
+    await parseReceipt(raw("noreply@uber.com", "x", null, "<a".repeat(150_000) + "<style>".repeat(80_000)));
+    expect(Date.now() - started).toBeLessThan(3000);
+  });
+
+  it("reads card digits fast even after a huge run of mask characters", async () => {
+    const started = Date.now();
+    const fields = await okFields(uber("Total 24,90 SEK\n15 October 2026\nVisa •• 4242\n" + ".".repeat(200_000)));
+    expect(fields.card_last_four).toBe("4242");
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it("keeps a crafted Stripe subject fast", async () => {
+    const started = Date.now();
+    await stripe("Amount paid $1.00\nOct 14, 2026", "receipt from" + " ".repeat(2000) + "x\ny");
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+});
+
 describe("parseReceipt — sender trust", () => {
+  it("doesn't trust a full Uber look-alike from another domain", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "billing@attacker.example",
+        to: "x",
+        subject: "Your trip with Uber",
+        text: "Total 4999 SEK\n15 October 2026",
+        html: null,
+        authenticated: true, recipient: "personal" as const,
+      },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("doesn't trust someone else's real receipt resent to this user", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "noreply@uber.com",
+        to: "bjorn@gmail.com",
+        subject: "Your trip with Uber",
+        text: "Total 189 SEK\n15 October 2026",
+        html: null,
+        authenticated: true,
+        recipient: "none" as const,
+      },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("doesn't trust a receipt sent straight to the alias (anyone can type that address)", async () => {
+    const direct = (from: string, subject: string, text: string) =>
+      parseReceipt({
+        kind: "email",
+        raw: { from, to: "x", subject, text, html: null, authenticated: true, recipient: "alias" },
+      });
+    const uber = await direct("noreply@uber.com", "Your trip with Uber", "Total 189 SEK\n15 October 2026");
+    const stripe = await direct("receipts@stripe.com", "Your receipt from Acme", "Amount paid $49.00\nOct 14, 2026");
+    if (uber.status !== "ok" || stripe.status !== "ok") throw new Error("not ok");
+    expect(uber.fields.parse_confidence).toBeLessThan(0.75);
+    expect(stripe.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("doesn't trust a real-looking Uber sender without a DMARC pass", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "noreply@uber.com",
+        to: "x",
+        subject: "Your trip with Uber",
+        text: "Total 189 SEK\n15 October 2026",
+        html: null,
+      },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
   it("does not treat a look-alike sender domain as Stripe", async () => {
     mockLlmExtract.mockResolvedValue({ not_a_receipt: true });
 

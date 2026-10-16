@@ -13,11 +13,19 @@ export function IntakeRow({
   value,
   mono,
   copyLabel,
+  breakWords = false,
+  quiet = false,
 }: {
   callout: string;
   value: string;
   mono: boolean;
   copyLabel: string;
+  // Wrap long text between words (a filter query) instead of anywhere (an
+  // address, which has no spaces).
+  breakWords?: boolean;
+  // Outlined copy button, for secondary values on a screen whose one brand-
+  // green action is elsewhere (DESIGN.md: green once per screen).
+  quiet?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -49,7 +57,8 @@ export function IntakeRow({
       >
         <span
           className={cn(
-            "flex-1 min-w-0 text-[var(--ink)] break-all",
+            "flex-1 min-w-0 text-[var(--ink)]",
+            breakWords ? "break-words" : "break-all",
             mono ? "font-mono" : "",
           )}
           style={{ fontSize: "14px", fontWeight: 500 }}
@@ -59,11 +68,17 @@ export function IntakeRow({
         <button
           type="button"
           onClick={handleCopy}
-          className="shrink-0 inline-flex items-center gap-1.5 text-white"
+          className={cn(
+            "shrink-0 inline-flex items-center gap-1.5",
+            quiet ? "text-[var(--ink)] bg-card" : "text-white",
+          )}
           style={{
-            background: copied
-              ? "var(--brand-action-deep)"
-              : "var(--primary)",
+            background: quiet
+              ? undefined
+              : copied
+                ? "var(--brand-action-deep)"
+                : "var(--primary)",
+            border: quiet ? "1px solid var(--hairline)" : undefined,
             padding: "6px 12px",
             minHeight: "44px",
             borderRadius: "9px",
@@ -71,7 +86,8 @@ export function IntakeRow({
             fontWeight: 600,
             transition: "background 160ms ease-out",
           }}
-          aria-label={copyLabel}
+          // Announce the result too: a fixed label would hide "Copied".
+          aria-label={copied ? "Copied" : copyLabel}
         >
           {copied ? (
             <>

@@ -194,3 +194,21 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
+
+// Latest Gmail forwarding confirmation code sent to a user's alias
+// (public.email_forwarding_confirmations), shown in the forwarding guide.
+export interface EmailForwardingConfirmation {
+  user_id: string;
+  provider: "gmail";
+  code: string | null;
+  for_address: string | null;
+  received_at: string;
+}
+
+// An address the user declared as their own (public.user_email_addresses):
+// receipts originally sent to it can be trusted automatically.
+export interface UserEmailAddress {
+  user_id: string;
+  address: string;
+  created_at: string;
+}

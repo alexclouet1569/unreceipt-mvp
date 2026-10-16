@@ -244,9 +244,9 @@
 ## Phase 5 — The agent features (email, photos, payment moment)
 
 **Email**
-- [ ] 84 ★ M — Gmail auto-forward setup. Gmail sends a **confirmation code to the forwarding address**: detect that email in intake and show the code/link to the user in the app.
-- [ ] 85 ★ S — Guided setup screen for Gmail and Outlook/M365 forwarding rules, with a "test it" button.
-- [ ] 85a ★ M — Verify inbound authentication (DKIM/SPF/ARC results on the received message) before a sender-based template marks a receipt verified. Today a spoofed "Uber" or "Stripe" email that fully matches a template is trusted. This must ship before any receipt is pushed to Fortnox/Findity automatically.
+- [x] 84 ★ M — Gmail auto-forward setup. Gmail sends a **confirmation code to the forwarding address**: detect that email in intake and show the code/link to the user in the app. *(2026-10-16: code only, never the link; trusted only on Resend's DMARC pass for google.com.)*
+- [x] 85 ★ S — Guided setup screen for Gmail and Outlook/M365 forwarding rules, with a "test it" button. *(2026-10-16: `/app/settings/forwarding`; the test is a "Test receipt" email, not a button.)*
+- [x] 85a ★ M — Verify inbound authentication (DKIM/SPF/ARC results on the received message) before a sender-based template marks a receipt verified. *(2026-10-16: a full template hit is trusted only on Resend's DMARC pass from the template's own domain; ARC for forwarded mail not handled. It must also have been originally sent to this user: the message's single To: header (raw .eml; a second To: or a Cc: never counts) names their sign-in email or an address under "Your email addresses"; a receipt sent straight to the alias is never trusted as-is (Uber and Stripe let anyone type any receipt address). Someone else's real receipt resent here stays in Review needed. Remaining, accepted for now: the check assumes the sender's DKIM signature covers To (Uber and Stripe do).)* Today a spoofed "Uber" or "Stripe" email that fully matches a template is trusted. This must ship before any receipt is pushed to Fortnox/Findity automatically.
 - [ ] 86 ★ M — Receipt classifier on inbound mail. Non-receipts are ignored and logged, never shown as receipts. Use a cheaper model for this step.
 - [ ] 87 ★ M — **"Is this a receipt? Add it?"** tab: uncertain candidates wait for a one-tap confirm or dismiss.
 - [ ] 88 M — Outlook/M365 OAuth (Graph `Mail.Read`), read-only, with a receipt-only search window.

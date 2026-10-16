@@ -25,6 +25,10 @@ export type PartialItem = {
 
 export interface EmailTemplate {
   name: string;
+  // Sender domains whose authenticated mail (DMARC pass) is trusted on a
+  // full template hit. Anything else that matches (subject look-alikes, a
+  // manual "Fwd:") is extracted but lands in Review needed.
+  trustedDomains: readonly string[];
   match(raw: EmailRaw): boolean;
   extract(raw: EmailRaw): PartialFields;
 }

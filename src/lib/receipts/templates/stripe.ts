@@ -4,22 +4,42 @@
 // in stripe.com.
 
 import type { EmailTemplate, PartialFields } from "./types";
+import {
+  AMOUNT_PATTERN,
+  CURRENCY_TOKEN,
+  currencyAround,
+  findDate,
+  isFromDomain,
+  parseAmount,
+  stripHtml,
+} from "./amount";
 
-const SUBJECT_RE = /receipt from\s+(.+?)(?:\s+\[#?[A-Z0-9-]+\])?$/i;
-const AMOUNT_LINE_RE =
-  /(?:amount\s+paid|total)\s*[:\s]\s*([A-Z]{3}|\$|€|kr|SEK)?\s*([\d.,]+)\s*([A-Z]{3}|\$|€|kr|SEK)?/i;
-const DATE_RE =
-  /(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})/i;
-const CARD_RE = /(?:•{2,}|\.{2,}|x{4,}|\*{4,})\s*(\d{4})/;
+// "Your receipt from Linear #2794-5305" or "… [#1234-5678]" → "Linear".
+// Bounded and single-line so a crafted subject can't backtrack for seconds.
+const SUBJECT_RE = /receipt from[ \t]+([^\n]{1,200}?)(?:[ \t]+\[?#[A-Z0-9-]{1,40}\]?)?[ \t]*$/i;
+const amountAfter = (label: string) =>
+  new RegExp(
+    String.raw`${label}[ \t]*[:]?\s*(${CURRENCY_TOKEN})?[ \t\u00a0]*(${AMOUNT_PATTERN})[ \t\u00a0]*(${CURRENCY_TOKEN})?`,
+    "im"
+  );
+// "Amount paid" is what the card was charged. Only without it fall back to
+// a line starting "Total" — never "Subtotal", "Total excluding tax" or
+// "Total tax".
+const AMOUNT_PAID_RE = amountAfter(String.raw`\bamount[ \t]+paid\b`);
+const TOTAL_RE = amountAfter(String.raw`^[ \t]*total\b(?![ \t]+(?:excl|excluding|before|ex|tax|vat|moms)\b)`);
+// Bounded: unbounded runs were quadratic on a body of dots (200 KB: 74 s).
+const CARD_RE = /(?:•{2,8}|\.{2,8}|x{4,8}|\*{4,8})[ \t]{0,3}(\d{4})/;
 
 export const stripeTemplate: EmailTemplate = {
   name: "stripe",
+  // Merchants sending through Stripe from their own domain still match (by
+  // subject + body), but only mail from stripe.com can be trusted as-is.
+  trustedDomains: ["stripe.com"],
 
   match(raw) {
     // Match the sender's domain exactly: `includes("@stripe.com")` also
     // matched look-alikes such as x@stripe.com.evil.example.
-    const domain = senderDomain(raw.from);
-    if (domain === "stripe.com" || domain?.endsWith(".stripe.com")) {
+    if (isFromDomain(raw.from, this.trustedDomains)) {
       return true;
     }
     // Defensive: merchants can configure their own from-address. Fall
@@ -33,26 +53,25 @@ export const stripeTemplate: EmailTemplate = {
 
   extract(raw) {
     const text = stripHtml(raw.text ?? raw.html ?? "");
-    const fields: PartialFields = { currency: "USD" };
+    // No default currency: guessing USD turned "1 250,00 kr" into 1 USD.
+    const fields: PartialFields = {};
 
-    const subjectMerchant = raw.subject.match(SUBJECT_RE);
+    // First line only, capped: keeps SUBJECT_RE linear on crafted subjects.
+    const subjectMerchant = raw.subject.split(/[\r\n\u2028\u2029]/)[0].slice(0, 300).match(SUBJECT_RE);
     if (subjectMerchant) {
       fields.merchant_name = subjectMerchant[1].trim();
     }
 
-    const amountMatch = text.match(AMOUNT_LINE_RE);
+    const amountMatch = text.match(AMOUNT_PAID_RE) ?? text.match(TOTAL_RE);
     if (amountMatch) {
-      const sym = (amountMatch[1] ?? amountMatch[3] ?? "").toLowerCase();
       const amount = parseAmount(amountMatch[2]);
       if (amount != null) fields.total = amount;
-      fields.currency = currencyFromSymbol(sym) ?? fields.currency;
+      const currency = currencyAround(amountMatch[1], amountMatch[3], text);
+      if (currency) fields.currency = currency;
     }
 
-    const dateMatch = text.match(DATE_RE);
-    if (dateMatch) {
-      const iso = toIsoDate(dateMatch[1], dateMatch[2], dateMatch[3]);
-      if (iso) fields.purchased_at = `${iso}T12:00:00.000Z`;
-    }
+    const iso = findDate(text);
+    if (iso) fields.purchased_at = `${iso}T12:00:00.000Z`;
 
     const cardMatch = text.match(CARD_RE);
     if (cardMatch) {
@@ -63,47 +82,3 @@ export const stripeTemplate: EmailTemplate = {
     return fields;
   },
 };
-
-function stripHtml(input: string): string {
-  return input
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function parseAmount(raw: string): number | null {
-  // Handle both "1,234.56" (US) and "1.234,56" (EU) and "194,00" (kr).
-  const cleaned = raw.includes(",") && !raw.includes(".")
-    ? raw.replace(",", ".")
-    : raw.replace(/,/g, "");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
-function currencyFromSymbol(sym: string): string | undefined {
-  if (sym === "$") return "USD";
-  if (sym === "€") return "EUR";
-  if (sym === "kr" || sym === "sek") return "SEK";
-  if (/^[a-z]{3}$/i.test(sym)) return sym.toUpperCase();
-  return undefined;
-}
-
-const MONTHS: Record<string, string> = {
-  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
-  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
-};
-
-function toIsoDate(d: string, m: string, y: string): string | null {
-  const mm = MONTHS[m.toLowerCase().slice(0, 3)];
-  if (!mm) return null;
-  const dd = d.padStart(2, "0");
-  return `${y}-${mm}-${dd}`;
-}
-
-// "Name <user@example.com>" or "user@example.com" → "example.com".
-function senderDomain(from: string): string | null {
-  const m = from.toLowerCase().match(/@([a-z0-9.-]+)>?\s*$/);
-  return m ? m[1] : null;
-}

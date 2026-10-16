@@ -15,6 +15,13 @@ export type EmailRaw = {
   subject: string;
   text: string | null;
   html: string | null;
+  // True only when the receiving server's DMARC check passed, i.e. the
+  // From: domain is genuine. Absent → not authenticated.
+  authenticated?: boolean;
+  // Whose receipt this is, from the message's single signed To: header:
+  // one of the user's own inboxes ("personal"), sent straight to their
+  // forwarding alias ("alias"), or neither. Absent → "none".
+  recipient?: "personal" | "alias" | "none";
 };
 
 export type SmsRaw = {

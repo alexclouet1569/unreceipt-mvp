@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
@@ -122,13 +122,22 @@ export default async function SettingsPage() {
                 copyLabel="Copy SMS number"
               />
             ) : null}
-            <p
-              className="font-accent italic text-[var(--ink-muted)]"
-              style={{ fontSize: "13px" }}
+            <Link
+              href="/app/settings/forwarding"
+              className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors"
+              style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
             >
-              Tip: set up an automatic forwarding rule in your email so
-              receipts arrive here without you lifting a finger.
-            </p>
+              <span>
+                <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
+                  How it works and automatic forwarding
+                </span>
+                <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+                  Every email sent to this address becomes a receipt. Set a
+                  rule once in Gmail or Outlook and receipts arrive by themselves.
+                </span>
+              </span>
+              <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
+            </Link>
           </div>
         </section>
 

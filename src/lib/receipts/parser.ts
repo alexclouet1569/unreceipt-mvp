@@ -21,6 +21,7 @@ import { z } from "zod";
 import { llmExtract, type LlmExtractKind, type LlmExtractResult } from "./llm-extract";
 import { EMAIL_TEMPLATES, SMS_TEMPLATES } from "./templates";
 import type { PartialFields } from "./templates/types";
+import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type {
   CanonicalReceiptFields,
@@ -49,8 +50,8 @@ const TEMPLATE_PARTIAL_CONFIDENCE = 0.7;
 // person confirms it before it can be exported as a verified receipt.
 // Applies whenever the model contributed fields, including partial
 // template hits. Full template hits are still trusted on the template's
-// own match, which keys on sender/subject text — see the launch plan's
-// "verify inbound DKIM" action before trusting those for auto-export.
+// match only when the mail is DMARC-authenticated and comes from the
+// template's own domain (see parseEmail).
 const UNTRUSTED_LLM_CONFIDENCE_CAP = 0.7;
 
 // Zod for the LLM output. Mirrors LlmExtractResult but stricter so a
@@ -105,7 +106,20 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
     if (!template.match(raw)) continue;
     const fields = template.extract(raw);
     if (hasAllRequired(fields)) {
-      return finalize(fields, TEMPLATE_HIT_CONFIDENCE);
+      // Anyone who knows an alias can write "Your trip with Uber" or
+      // "Powered by Stripe", or resend someone else's real receipt. Trust
+      // the hit only from the template's own, DMARC-authenticated domain,
+      // originally sent to one of this user's own inboxes; otherwise keep
+      // the fields but let a person confirm them (Review needed, not billed
+      // until then). A receipt sent straight to the forwarding alias isn't
+      // enough: Uber and Stripe let anyone type any receipt address. Refund
+      // emails share the layout but aren't expenses.
+      const trusted =
+        raw.authenticated === true &&
+        raw.recipient === "personal" &&
+        isFromDomain(raw.from, template.trustedDomains) &&
+        !looksLikeRefund(raw.subject, raw.text ?? raw.html ?? "");
+      return finalize(fields, trusted ? TEMPLATE_HIT_CONFIDENCE : TEMPLATE_PARTIAL_CONFIDENCE);
     }
     // Partial template hit — feed what we have to the LLM as a hint so
     // the model fills the gaps without re-doing the merchant extraction.
@@ -133,12 +147,16 @@ function emailToText(raw: EmailRaw): string {
 }
 
 function stripHtml(input: string): string {
+  // Capped like the templates' stripHtml: the lazy <style>/<script>
+  // strippers are quadratic on hostile HTML.
   return input
+    .slice(0, MAX_BODY_CHARS)
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, " ")
+    // `<[^<>]*>`: `<[^>]+>` backtracks quadratically on many unclosed "<".
+    .replace(/<[^<>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
@@ -329,6 +347,8 @@ function hasAllRequired(fields: PartialFields): boolean {
     fields.merchant_name.length > 0 &&
     typeof fields.total === "number" &&
     fields.total > 0 &&
+    // Same ceiling as the LLM path: a bigger "receipt" is a misread.
+    fields.total <= 1_000_000 &&
     typeof fields.purchased_at === "string" &&
     /^\d{4}-\d{2}-\d{2}T/.test(fields.purchased_at) &&
     typeof fields.currency === "string" &&
