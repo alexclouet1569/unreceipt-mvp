@@ -16,6 +16,7 @@ import {
   type CategoryKey,
 } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 import { FirstRun, type FirstRunStep } from "./_first-run";
@@ -205,9 +206,9 @@ export function Dashboard({
             <ViewToggle view={view} onChange={setView} />
 
             <div
-              role="tablist"
+              role="group"
               aria-label="Filter receipts"
-              className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <FilterChip
                 active={filter === "all"}
@@ -253,7 +254,7 @@ export function Dashboard({
             {groupedReceipts.map(({ label, items, total }) => (
               <section key={label} className="mb-5">
                 <h2
-                  className="mb-2 flex items-baseline justify-between gap-3 text-[var(--ink-faint)]"
+                  className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[var(--ink-muted)]"
                   style={{
                     fontSize: "11px",
                     fontWeight: 600,
@@ -261,10 +262,10 @@ export function Dashboard({
                     textTransform: "uppercase",
                   }}
                 >
-                  <span>
+                  <span className="min-w-0 truncate">
                     {label}
                     {total != null ? (
-                      <span className="ml-1.5 font-mono tabular-nums">· {items.length}</span>
+                      <span className="ml-1.5 tabular-nums">· {items.length}</span>
                     ) : null}
                   </span>
                   {total != null ? (
@@ -406,7 +407,7 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
   ];
   return (
     <div
-      role="radiogroup"
+      role="group"
       aria-label="Group receipts"
       className="mb-3 grid grid-cols-2 rounded-[10px] border border-[var(--hairline)] bg-[var(--surface)] p-1"
     >
@@ -416,13 +417,12 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
           <button
             key={o.value}
             type="button"
-            role="radio"
-            aria-checked={active}
+            aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={
               active
-                ? "h-10 rounded-[6px] border border-[var(--hairline)] bg-card text-[14px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                : "h-10 rounded-[6px] border border-transparent text-[14px] font-semibold text-[var(--ink-muted)] outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                ? "h-11 rounded-[6px] border border-[var(--hairline)] bg-card text-[14px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                : "h-11 rounded-[6px] border border-transparent text-[14px] font-semibold text-[var(--ink-muted)] outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             }
           >
             {o.label}
@@ -446,47 +446,26 @@ function FilterChip({
   count: number;
   attention?: boolean;
 }) {
+  // A 36px pill inside a 44px tap target.
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
-      aria-current={active ? "true" : undefined}
+      aria-pressed={active}
       onClick={onClick}
-      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors"
-      style={{
-        height: "36px",
-        padding: "0 12px",
-        borderRadius: "999px",
-        fontSize: "12px",
-        fontWeight: 600,
-        letterSpacing: "0.02em",
-        border: active
-          ? attention
-            ? "1px solid var(--attention)"
-            : "1px solid var(--primary)"
-          : "1px solid var(--hairline)",
-        background: active
-          ? attention
-            ? "var(--attention-tint)"
-            : "var(--brand-tint, #ECF7E7)"
-          : "transparent",
-        color: active
-          ? attention
-            ? "var(--attention-deep)"
-            : "var(--ink)"
-          : "var(--ink-muted)",
-      }}
+      className="group flex h-11 shrink-0 items-center rounded-full outline-none"
     >
-      <span>{label}</span>
       <span
-        className="font-mono tabular-nums"
-        style={{
-          fontSize: "11px",
-          opacity: 0.7,
-        }}
+        className={cn(
+          "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-semibold tracking-[0.02em] whitespace-nowrap transition-colors group-focus-visible:ring-2 group-focus-visible:ring-[var(--ring)]",
+          active
+            ? attention
+              ? "border-[var(--attention)] bg-[var(--attention-tint)] text-[var(--attention-deep)]"
+              : "border-[var(--ink)] bg-card text-[var(--ink)]"
+            : "border-[var(--hairline)] bg-transparent text-[var(--ink-muted)]",
+        )}
       >
-        {count}
+        <span>{label}</span>
+        <span className="text-[11px] tabular-nums opacity-70">{count}</span>
       </span>
     </button>
   );

@@ -52,7 +52,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
 
   return (
     <article
-      className="receipt-torn flex flex-col border border-b-0 border-[var(--hairline)] bg-card text-[var(--ink)]"
+      className="receipt-torn flex flex-col border border-t-0 border-b-0 border-[var(--hairline)] bg-card text-[var(--ink)]"
       data-testid="receipt-detail-card"
     >
       <PerfEdge variant="edge" direction="top" />
@@ -60,7 +60,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
       <div className="flex flex-col px-5 pt-3 pb-7">
         <header className="flex flex-col items-center gap-0.5">
           <Wordmark variant="wordmark" style={{ fontSize: "17px" }} />
-          <p className="text-[11px] font-semibold tracking-[0.1em] text-[var(--ink-muted)] uppercase">
+          <p className="text-[11px] font-semibold tracking-[0.06em] text-[var(--ink-muted)] uppercase">
             Digital receipt{receipt.receipt_number ? ` · No. ${receipt.receipt_number}` : ""}
           </p>
         </header>
@@ -78,7 +78,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           </div>
         </div>
 
-        <p className="mt-3 font-mono text-[12px] text-[var(--ink-muted)]">{when}</p>
+        <p className="mt-3 text-[12px] font-medium text-[var(--ink-muted)] tabular-nums">{when}</p>
 
         {editedOn ? (
           <p
@@ -106,14 +106,20 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
                         {item.qty != null && item.qty !== 1 ? (
                           <span className="font-medium">
                             {` × ${formatQty(item.qty)}`}
-                            {item.unit_amount != null
-                              ? ` @ ${formatAmount(item.unit_amount, currency)}`
-                              : ""}
+                            {item.unit_amount != null ? (
+                              <>
+                                {" @ "}
+                                <span className="font-mono tabular-nums">
+                                  {formatAmount(item.unit_amount, currency)}
+                                </span>
+                              </>
+                            ) : null}
                           </span>
                         ) : null}
                       </>
                     }
                     value={formatNumber(item.total_amount)}
+                    mono
                     wrap
                   />
                 </li>
@@ -127,9 +133,9 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
         {receipt.subtotal != null || showTip ? (
           <div className="mb-2 space-y-1">
             {receipt.subtotal != null ? (
-              <Leader label="Subtotal" value={formatAmount(receipt.subtotal, currency)} />
+              <Leader label="Subtotal" value={formatAmount(receipt.subtotal, currency)} mono />
             ) : null}
-            {showTip ? <Leader label="Tip" value={formatAmount(receipt.tip_amount, currency)} /> : null}
+            {showTip ? <Leader label="Tip" value={formatAmount(receipt.tip_amount, currency)} mono /> : null}
           </div>
         ) : null}
 
@@ -151,8 +157,9 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
             <Leader
               label={receipt.tax_rate != null ? `VAT ${receipt.tax_rate} %` : "VAT"}
               value={formatAmount(receipt.tax_amount, currency)}
+              mono
             />
-            {net != null ? <Leader label="Excl. VAT" value={formatAmount(net, currency)} /> : null}
+            {net != null ? <Leader label="Excl. VAT" value={formatAmount(net, currency)} mono /> : null}
           </div>
         ) : null}
 
@@ -161,7 +168,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
             <Rule />
             <div className="space-y-1">
               {receipt.payment_method ? (
-                <Leader label="Payment" value={receipt.payment_method} mono={false} />
+                <Leader label="Payment" value={receipt.payment_method} />
               ) : null}
               {receipt.transaction_ref ? (
                 <Leader label="Transaction" value={receipt.transaction_ref} />
@@ -217,7 +224,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           {receipt.verification_code ? (
             <div className="flex flex-col items-center gap-1.5">
               <div className="receipt-barcode h-8 w-[78%]" aria-hidden="true" />
-              <p className="font-mono text-[11px] tracking-[0.08em] text-[var(--ink-muted)]">
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-[var(--ink-muted)] tabular-nums">
                 {receipt.verification_code}
               </p>
             </div>
@@ -232,11 +239,11 @@ function Rule() {
   return <div className="my-3 border-t border-dashed border-[var(--hairline)]" aria-hidden="true" />;
 }
 
-/** Label … dotted leader … value, the receipt line. */
+/** Label … dotted leader … value, the receipt line. `mono` only for amounts. */
 function Leader({
   label,
   value,
-  mono = true,
+  mono = false,
   wrap = false,
 }: {
   label: React.ReactNode;
@@ -259,7 +266,15 @@ function Leader({
         className="min-w-4 flex-1 translate-y-[-4px] border-b border-dotted border-[var(--hairline)]"
         aria-hidden="true"
       />
-      <span className={mono ? "shrink-0 font-mono tabular-nums" : "shrink-0"}>{value}</span>
+      <span
+        className={
+          wrap
+            ? `shrink-0 ${mono ? "font-mono tabular-nums" : ""}`
+            : `min-w-0 text-right break-words ${mono ? "font-mono tabular-nums" : ""}`
+        }
+      >
+        {value}
+      </span>
     </div>
   );
 }

@@ -85,8 +85,8 @@ describe("Dashboard grouping and filters", () => {
     const user = userEvent.setup();
     renderDashboard();
 
-    expect(screen.getByRole("radio", { name: "By date" })).toHaveAttribute("aria-checked", "true");
-    await user.click(screen.getByRole("radio", { name: "By category" }));
+    expect(screen.getByRole("button", { name: "By date" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "By category" }));
 
     const headings = screen.getAllByRole("heading", { level: 2 });
     expect(headings.map((h) => h.textContent)).toEqual([
@@ -98,13 +98,14 @@ describe("Dashboard grouping and filters", () => {
   it("filters to one category from its chip, and back to all on a second tap", async () => {
     const user = userEvent.setup();
     renderDashboard();
-    const chips = screen.getByRole("tablist", { name: "Filter receipts" });
+    const chips = screen.getByRole("group", { name: "Filter receipts" });
 
-    await user.click(within(chips).getByRole("tab", { name: /Travel/ }));
+    await user.click(within(chips).getByRole("button", { name: /Travel/ }));
     expect(screen.getByText("Tåg Tre")).toBeInTheDocument();
     expect(screen.queryByText("Kafé Ett")).toBeNull();
 
-    await user.click(within(chips).getByRole("tab", { name: /Travel/ }));
+    expect(within(chips).getByRole("button", { name: /Travel/ })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(chips).getByRole("button", { name: /Travel/ }));
     expect(screen.getByText("Kafé Ett")).toBeInTheDocument();
   });
 });

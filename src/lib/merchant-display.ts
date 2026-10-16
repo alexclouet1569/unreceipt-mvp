@@ -4,16 +4,18 @@
  * Same merchant → same color every render.
  */
 
+// Every colour carries white initials at AA (4.5:1 or better); see
+// DESIGN.md "Merchant logo".
 const PALETTE = [
-  "#27BE7B", // brand green
-  "#1F9D63", // brand deep
-  "#303568", // deep space
-  "#5b8def",
-  "#c08be0",
-  "#e08b8b",
-  "#e0b48b",
-  "#8bbfa7",
-  "#a1a6c8",
+  "#1A7F52", // brand action green, 5.0:1
+  "#303568", // deep space, 11.5:1
+  "#3B5B8C", // slate blue, 6.9:1
+  "#6B4E8C", // plum, 6.8:1
+  "#8C4A3B", // clay, 6.7:1
+  "#2F6B7A", // teal, 6.0:1
+  "#8C6320", // honey deep, 5.4:1
+  "#A0405A", // berry, 6.2:1
+  "#5A5F7A", // ink muted, 6.3:1
 ];
 
 function hash(str: string): number {
