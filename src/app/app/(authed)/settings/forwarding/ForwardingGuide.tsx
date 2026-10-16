@@ -51,6 +51,7 @@ export function ForwardingGuide({
             copyLabel="Copy forwarding address"
           />
           <ul
+            role="list"
             className="bg-card divide-y divide-[var(--hairline)]"
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px" }}
           >
@@ -107,7 +108,7 @@ export function ForwardingGuide({
         </div>
 
         {provider === "gmail" ? (
-          <GmailSteps forwardingEmail={forwardingEmail} confirmation={confirmation} />
+          <GmailSteps confirmation={confirmation} />
         ) : null}
         {provider === "outlook" ? <OutlookSteps inboundDomain={inboundDomain} /> : null}
         {provider === "other" ? <OtherSteps /> : null}
@@ -120,20 +121,14 @@ export function ForwardingGuide({
           with the subject <Strong>Test receipt</Strong>. Within a minute it
           should appear in UnReceipt under Review needed. Delete it
           afterwards; it doesn&apos;t count toward your plan. Nothing after 5
-          minutes? Check the rule, or write to support@unreceipt.com.
+          minutes? Check the rule, or write to <SupportLink />.
         </p>
       </section>
     </div>
   );
 }
 
-function GmailSteps({
-  forwardingEmail,
-  confirmation,
-}: {
-  forwardingEmail: string;
-  confirmation: GuideConfirmation | null;
-}) {
+function GmailSteps({ confirmation }: { confirmation: GuideConfirmation | null }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -170,17 +165,9 @@ function GmailSteps({
           the <Strong>Forwarding and POP/IMAP</Strong> tab.
         </Step>
         <Step n={2}>
-          Click <Strong>Add a forwarding address</Strong>, paste your address,
-          then <Strong>Next</Strong>, <Strong>Proceed</Strong> and{" "}
-          <Strong>OK</Strong>.
-          <div style={{ marginTop: "8px" }}>
-            <IntakeRow
-              callout="Your address"
-              value={forwardingEmail}
-              mono
-              copyLabel="Copy forwarding address"
-            />
-          </div>
+          Click <Strong>Add a forwarding address</Strong>, paste your address
+          from the top of this page, then <Strong>Next</Strong>,{" "}
+          <Strong>Proceed</Strong> and <Strong>OK</Strong>.
         </Step>
         <Step n={3}>
           Gmail sends a confirmation code to UnReceipt. It appears below: type
@@ -206,6 +193,7 @@ function GmailSteps({
               mono={false}
               copyLabel="Copy Gmail filter"
               breakWords
+              quiet
             />
           </div>
         </Step>
@@ -231,49 +219,60 @@ function ConfirmationCode({ confirmation }: { confirmation: GuideConfirmation | 
     };
   }, []);
 
-  if (!confirmation) {
-    return (
-      <p
-        role="status"
-        className="bg-card text-[var(--ink-muted)]"
-        style={{
-          border: "1px dashed var(--hairline)",
-          borderRadius: "12px",
-          padding: "12px 14px",
-          fontSize: "14px",
-        }}
-      >
-        Waiting for Gmail&apos;s email… This page checks by itself.
-      </p>
-    );
-  }
-
-  if (!confirmation.code) {
-    return (
-      <p role="status" className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-        Gmail&apos;s email arrived, but we couldn&apos;t read the code in it.
-        Write to support@unreceipt.com and we&apos;ll send it to you.
-      </p>
-    );
-  }
-
-  const minutes = now == null ? null : Math.max(0, Math.round((now - Date.parse(confirmation.receivedAt)) / 60_000));
+  const minutes =
+    now == null || !confirmation
+      ? null
+      : Math.max(0, Math.round((now - Date.parse(confirmation.receivedAt)) / 60_000));
   const age =
-    minutes == null ? "" : minutes < 1 ? " · just now" : minutes < 120 ? ` · ${minutes} min ago` : " · earlier";
-  const forWhom = confirmation.forAddress ? `Code for ${confirmation.forAddress}` : "Gmail's code";
+    minutes == null ? "" : minutes < 1 ? "just now" : minutes < 120 ? `${minutes} min ago` : "earlier";
 
+  // One live region that stays mounted, so the code arriving is announced;
+  // the ticking age sits outside it so it isn't re-read every minute.
   return (
-    <div role="status">
-      <IntakeRow
-        callout={`${forWhom}${age}`}
-        value={confirmation.code}
-        mono={false}
-        copyLabel="Copy Gmail confirmation code"
-      />
-      <p className="text-[var(--ink-faint)]" style={{ fontSize: "12px", marginTop: "6px" }}>
-        Added the address again? The newest code replaces this one here.
-      </p>
+    <div>
+      <div role="status">
+        {!confirmation ? (
+          <p
+            className="bg-card text-[var(--ink-muted)]"
+            style={{
+              border: "1px dashed var(--hairline)",
+              borderRadius: "12px",
+              padding: "12px 14px",
+              fontSize: "14px",
+            }}
+          >
+            Waiting for Gmail&apos;s email… This page checks by itself.
+          </p>
+        ) : !confirmation.code ? (
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+            Gmail&apos;s email arrived, but we couldn&apos;t read the code in it.
+            Write to <SupportLink /> and we&apos;ll send it to you.
+          </p>
+        ) : (
+          <IntakeRow
+            callout={confirmation.forAddress ? `Code for ${confirmation.forAddress}` : "Gmail's code"}
+            value={confirmation.code}
+            mono={false}
+            copyLabel="Copy Gmail confirmation code"
+            quiet
+          />
+        )}
+      </div>
+      {confirmation?.code ? (
+        <p className="text-[var(--ink-muted)]" style={{ fontSize: "12px", marginTop: "6px" }}>
+          {age ? `Received ${age}. ` : ""}Added the address again? The newest
+          code replaces this one here.
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+function SupportLink() {
+  return (
+    <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)]">
+      support@unreceipt.com
+    </a>
   );
 }
 
@@ -344,15 +343,15 @@ function OtherSteps() {
 
 function WordList() {
   return (
-    <ul className="flex flex-wrap gap-1.5" style={{ marginTop: "8px" }} aria-label="Subject words">
+    <ul role="list" className="flex flex-wrap gap-2" style={{ marginTop: "8px" }} aria-label="Subject words">
       {RECEIPT_SUBJECT_WORDS.map((w) => (
         <li
           key={w}
           className="text-[var(--ink)]"
           style={{
             border: "1px solid var(--hairline)",
-            borderRadius: "999px",
-            padding: "2px 10px",
+            borderRadius: "6px",
+            padding: "4px 8px",
             fontSize: "13px",
             fontWeight: 500,
           }}
@@ -396,12 +395,18 @@ function ProviderButton({
 }
 
 function Steps({ children }: { children: React.ReactNode }) {
-  return <ol className="space-y-4">{children}</ol>;
+  // role="list": Safari drops list semantics when list-style is none.
+  return (
+    <ol role="list" className="space-y-4">
+      {children}
+    </ol>
+  );
 }
 
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <li className="flex gap-3">
+      <span className="sr-only">Step {n}: </span>
       <span
         aria-hidden="true"
         className="shrink-0 inline-flex items-center justify-center text-[var(--ink)]"
@@ -445,7 +450,7 @@ function Note({ children }: { children: React.ReactNode }) {
         fontSize: "13px",
         lineHeight: 1.5,
         borderLeft: "2px solid var(--hairline)",
-        paddingLeft: "10px",
+        paddingLeft: "12px",
       }}
     >
       {children}

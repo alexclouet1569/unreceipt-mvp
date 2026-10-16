@@ -5,12 +5,19 @@
 // guide (/app/settings/forwarding) instead of filing it as a receipt
 // (launch plan action 84).
 //
-// Pure: no I/O. The sender is spoofable, so we keep only what is safe to
-// show the alias owner: a digits-only code (a fake one simply fails in
-// Gmail) and the Gmail address, if it looks like one. Never the link: a
+// Pure: no I/O. The From: header is spoofable, so when the receiving server
+// left a DKIM verdict we require Google's signature; a forged email then
+// falls through to the normal receipt path. Either way we keep only what is
+// safe to show the alias owner: a digits-only code (a fake one simply fails
+// in Gmail) and the Gmail address, if it looks like one. Never the link: a
 // spoofed link would be a phishing lure shown inside our own UI.
 
 export const GMAIL_FORWARDING_SENDER = "forwarding-noreply@google.com";
+
+// The guide stops offering a code after this, and the daily cleanup deletes
+// it: by then it's from an earlier attempt and only the Gmail address is
+// left, which we have no reason to keep.
+export const CONFIRMATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ForwardingConfirmation = {
   provider: "gmail";
@@ -52,12 +59,26 @@ function findForAddress(subject: string, text: string): string | null {
   return match[0].toLowerCase();
 }
 
+// The topmost Authentication-Results header is the one our receiving server
+// added; any below it came with the message and can be forged. Returns
+// "absent" when there is none, so a provider that doesn't add one doesn't
+// break Gmail setup.
+export function googleDkimVerdict(
+  authenticationResults: string | string[] | null | undefined
+): "pass" | "fail" | "absent" {
+  const top = Array.isArray(authenticationResults) ? authenticationResults[0] : authenticationResults;
+  if (typeof top !== "string" || top.trim().length === 0) return "absent";
+  return /\bdkim=pass\b[^;]*\bheader\.(?:d=|i=@)google\.com(?=[\s;)]|$)/i.test(top) ? "pass" : "fail";
+}
+
 export function parseForwardingConfirmation(input: {
   from: string;
   subject: string;
   text: string | null;
+  authenticationResults?: string | string[] | null;
 }): ForwardingConfirmation | null {
   if (bareAddress(input.from) !== GMAIL_FORWARDING_SENDER) return null;
+  if (googleDkimVerdict(input.authenticationResults) === "fail") return null;
   const text = input.text ?? "";
   return {
     provider: "gmail",

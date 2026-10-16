@@ -130,6 +130,22 @@ function pickHeader(
   return null;
 }
 
+// Every value of a header, in order (Authentication-Results can repeat).
+function headerValues(
+  headers: Record<string, string | string[] | undefined> | undefined,
+  name: string
+): string[] {
+  if (!headers) return [];
+  const lower = name.toLowerCase();
+  const values: string[] = [];
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() !== lower) continue;
+    if (typeof v === "string") values.push(v);
+    else if (Array.isArray(v)) values.push(...v.filter((x): x is string => typeof x === "string"));
+  }
+  return values;
+}
+
 function genericNotFound() {
   // Same body whether the alias was malformed or simply not registered —
   // an attacker spraying aliases should not be able to enumerate which
@@ -227,6 +243,7 @@ export async function POST(request: NextRequest) {
     from: fromAddr,
     subject: typeof data.subject === "string" ? data.subject : "",
     text: content.text,
+    authenticationResults: headerValues(content.headers, "Authentication-Results"),
   });
   if (confirmation) {
     const { error: confirmationError } = await supabase

@@ -8,15 +8,13 @@ import {
   getOrCreateAliasForUser,
 } from "@/lib/email-alias";
 import type { EmailForwardingConfirmation } from "@/lib/types";
+import { CONFIRMATION_MAX_AGE_MS } from "@/lib/forwarding-confirmation";
 import { ForwardingGuide, type GuideConfirmation } from "./ForwardingGuide";
 
 // The setup guide for the forwarding address (launch plan actions 84–85):
 // what the address does, and step-by-step rules for Gmail, Outlook and
 // others. Like Settings, reachable without an active subscription.
 export const dynamic = "force-dynamic";
-
-// A Gmail code older than this is from an earlier attempt; don't offer it.
-const CONFIRMATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function loadConfirmation(userId: string): Promise<GuideConfirmation | null> {
   const { data, error } = await getSupabaseAdmin()

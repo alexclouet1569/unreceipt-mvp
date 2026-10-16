@@ -124,7 +124,7 @@ export default async function SettingsPage() {
             ) : null}
             <Link
               href="/app/settings/forwarding"
-              className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--brand-tint)] transition-colors"
+              className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors"
               style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
             >
               <span>

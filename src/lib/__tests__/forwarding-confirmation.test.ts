@@ -81,3 +81,36 @@ describe("gmailFilterQuery", () => {
     );
   });
 });
+
+describe("Google DKIM check", () => {
+  const confirmation = (authenticationResults: string | string[] | null) =>
+    parseForwardingConfirmation({
+      from: "forwarding-noreply@google.com",
+      subject: "(#593872831) Gmail Forwarding Confirmation",
+      text: "",
+      authenticationResults,
+    });
+
+  it("accepts a Google-signed email", async () => {
+    const { googleDkimVerdict } = await import("@/lib/forwarding-confirmation");
+    const header =
+      "amazonses.com; spf=pass smtp.mailfrom=google.com; dkim=pass header.d=google.com header.s=20230601; dmarc=pass";
+    expect(googleDkimVerdict(header)).toBe("pass");
+    expect(confirmation(header)?.code).toBe("593872831");
+  });
+
+  it("treats a forged Gmail sender as an ordinary email", () => {
+    expect(confirmation("mx.example; spf=fail; dkim=none; dmarc=fail")).toBeNull();
+    expect(confirmation("mx.example; dkim=pass header.d=google.com.evil.io")).toBeNull();
+  });
+
+  it("only trusts the topmost header, which the receiving server added", () => {
+    expect(
+      confirmation(["mx.example; dkim=fail", "forged; dkim=pass header.d=google.com"]),
+    ).toBeNull();
+  });
+
+  it("still works when the receiving server left no verdict", () => {
+    expect(confirmation(null)?.code).toBe("593872831");
+  });
+});
