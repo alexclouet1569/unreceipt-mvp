@@ -50,7 +50,7 @@ export function PilotBanner() {
         <p className="text-xs text-amber-900 flex-1">
           You&apos;re using the UnReceipt free pilot. When we open paid access
           in the coming weeks, we&apos;ll send you a heads-up. Until then,
-          every receipt you forward gets concierge processing within 24 hours.
+          everything is free, with no receipt limit.
         </p>
         <button
           type="button"

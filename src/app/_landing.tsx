@@ -98,7 +98,7 @@ function ReceiptEdge({ color = "#27BE7B", flip = false }: { color?: string; flip
 /* ── Scrolling receipt ticker ── */
 function ReceiptTicker({ t, samples }: { t: LandingCopy["ticker"]; samples: LandingCopy["samples"] }) {
   // Example receipts. Source is how it reached UnReceipt (forwarded email
-  // or a photo); every receipt ends up verified by the concierge.
+  // or a photo); every receipt is read and sorted automatically.
   const receipts = samples.ticker.map((r) => ({ ...r, category: t.categories[r.category] }));
 
   const doubled = [...receipts, ...receipts];
@@ -397,7 +397,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                       <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
                     </div>
                     <div className="p-4 space-y-3">
-                      {/* Latest receipt, verified by the concierge */}
+                      {/* Latest receipt, read and verified */}
                       <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />

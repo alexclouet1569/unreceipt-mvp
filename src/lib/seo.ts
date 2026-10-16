@@ -11,24 +11,24 @@ import { PLANS, formatEurFr } from "@/lib/plans";
 export const SITE_URL = "https://unreceipt.com";
 
 export const DESCRIPTION =
-  "Forward email receipts or snap paper ones. UnReceipt turns every receipt into a VAT-ready record within 24 hours — merchant, line items, VAT and category. Built for small businesses in Sweden. Plans from €5.99/month.";
+  "Forward email receipts or snap paper ones. UnReceipt reads every receipt within a minute — merchant, line items, VAT and category. Built for small businesses in Sweden. Plans from €5.99/month.";
 
 export const SHARE_DESCRIPTION =
-  "Forward any receipt — email or photo — and get a VAT-ready record within 24 hours. Built for small businesses in Sweden.";
+  "Forward any receipt — email, PDF or photo — and have it read within a minute, VAT included. Built for small businesses in Sweden.";
 
 export const SV_TITLE = "UnReceipt — Kvittohantering för småföretag";
 
-export const SV_DESCRIPTION = `Vidarebefordra e-postkvitton eller fota papperskvitton. UnReceipt gör varje kvitto till ett kontrollerat underlag inom 24 timmar — säljare, rader, moms och kategori. Byggt för småföretag i Sverige. Från ${PLANS[0].priceSek} kr/mån.`;
+export const SV_DESCRIPTION = `Vidarebefordra e-postkvitton eller fota papperskvitton. UnReceipt läser av varje kvitto inom en minut — säljare, rader, moms och kategori. Byggt för småföretag i Sverige. Från ${PLANS[0].priceSek} kr/mån.`;
 
 export const SV_SHARE_DESCRIPTION =
-  "Skicka vilket kvitto som helst — mejl eller foto — och få ett kontrollerat underlag inom 24 timmar. Byggt för småföretag i Sverige.";
+  "Skicka vilket kvitto som helst — mejl, PDF eller foto — och få det avläst inom en minut, moms inräknad. Byggt för småföretag i Sverige.";
 
 export const FR_TITLE = "UnReceipt — Gestion des reçus et justificatifs pour les petites entreprises";
 
-export const FR_DESCRIPTION = `Transférez vos factures et reçus envoyés par e-mail ou photographiez vos tickets papier. UnReceipt transforme chaque reçu en fiche vérifiée sous 24 heures — fournisseur, lignes, TVA et catégorie. À partir de ${formatEurFr(PLANS[0].price)}\u00a0HT par mois.`;
+export const FR_DESCRIPTION = `Transférez vos factures et reçus envoyés par e-mail ou photographiez vos tickets papier. UnReceipt lit chaque reçu en une minute — fournisseur, lignes, TVA et catégorie. À partir de ${formatEurFr(PLANS[0].price)}\u00a0HT par mois.`;
 
 export const FR_SHARE_DESCRIPTION =
-  "Envoyez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié sous 24 heures, avec sa TVA relevée.";
+  "Envoyez n’importe quel reçu — e-mail, PDF ou photo — et retrouvez-le lu en une minute, avec sa TVA relevée.";
 
 /**
  * hreflang alternates shared by every language's landing page, so each

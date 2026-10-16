@@ -61,11 +61,11 @@ function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is a receipt service for small businesses. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
+      a: "UnReceipt is a receipt service for small businesses. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within a minute each one is in your dashboard with merchant, date, line items, VAT and category read out.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
-      a: "Forward email receipts to your private UnReceipt address, or take a photo of a paper receipt in the app — the fields fill themselves. No bank connection or new card is needed.",
+      a: "Forward email receipts to your private UnReceipt address — a PDF or photo attached to the email is read too — or take a photo of a paper receipt in the app. The fields fill themselves. No bank connection or new card is needed.",
     },
     {
       q: "How much does UnReceipt cost?",
@@ -77,7 +77,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Who checks my receipts?",
-      a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
+      a: "Each receipt is read automatically, and you stay in control of what counts as verified. A photo you take is saved once you've checked the filled-in fields. Email receipts from known senders such as Uber and Stripe are verified automatically when the email is authenticated and was sent to your own inbox. Everything else waits in Review needed until you confirm it, and isn't counted toward your plan until then.",
     },
     {
       q: "How long do companies have to keep receipts?",
@@ -98,11 +98,11 @@ function faqSv(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Vad är UnReceipt?",
-      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett kontrollerat underlag i din översikt: säljare, datum, kvittorader, moms och kategori. Appen är på engelska än så länge.",
+      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så ligger varje kvitto inom en minut i din översikt med säljare, datum, kvittorader, moms och kategori avlästa. Appen är på engelska än så länge.",
     },
     {
       q: "Hur skickar jag kvitton till UnReceipt?",
-      a: "Vidarebefordra e-postkvitton till din privata UnReceipt-adress, eller ta ett foto av ett papperskvitto i appen — fälten fylls i automatiskt. Ingen bankkoppling eller nytt kort behövs.",
+      a: "Vidarebefordra e-postkvitton till din privata UnReceipt-adress — en PDF eller ett foto som bifogas mejlet läses också av — eller ta ett foto av ett papperskvitto i appen. Fälten fylls i automatiskt. Ingen bankkoppling eller nytt kort behövs.",
     },
     {
       q: "Vad kostar UnReceipt?",
@@ -114,7 +114,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Vem kontrollerar mina kvitton?",
-      a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som kontrollerat.",
+      a: "Varje kvitto läses av automatiskt, och det är du som bestämmer vad som räknas som kontrollerat. Ett foto du tar sparas när du har kollat de ifyllda fälten. E-postkvitton från kända avsändare som Uber och Stripe kontrolleras automatiskt när mejlet är autentiserat och skickades till din egen inkorg. Allt annat väntar på att du bekräftar det, och räknas inte mot din plan förrän dess.",
     },
     {
       q: "Hur länge måste företag spara kvitton?",
@@ -139,11 +139,11 @@ function faqFr(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Qu’est-ce qu’UnReceipt\u00a0?",
-      a: "UnReceipt est un service de gestion des reçus pour les petites entreprises. Transférez vos factures et reçus envoyés par e-mail à l’adresse UnReceipt privée de votre entreprise ou photographiez un ticket papier\u00a0: sous 24 heures, chacun devient une fiche vérifiée dans votre tableau de bord — fournisseur, date, lignes, TVA et catégorie. L’application est pour l’instant en anglais.",
+      a: "UnReceipt est un service de gestion des reçus pour les petites entreprises. Transférez vos factures et reçus envoyés par e-mail à l’adresse UnReceipt privée de votre entreprise ou photographiez un ticket papier\u00a0: en une minute, chacun est dans votre tableau de bord avec fournisseur, date, lignes, TVA et catégorie relevés. L’application est pour l’instant en anglais.",
     },
     {
       q: "Comment envoyer mes reçus à UnReceipt\u00a0?",
-      a: "Transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt privée, ou prenez en photo un ticket papier dans l’application — les champs se remplissent tout seuls. Aucune connexion bancaire ni nouvelle carte n’est nécessaire.",
+      a: "Transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt privée, un PDF ou une photo joint à l’e-mail est lu aussi — ou prenez en photo un ticket papier dans l’application. Les champs se remplissent tout seuls. Aucune connexion bancaire ni nouvelle carte n’est nécessaire.",
     },
     {
       q: "Combien coûte UnReceipt\u00a0?",
@@ -155,7 +155,7 @@ function faqFr(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Qui vérifie mes reçus\u00a0?",
-      a: "Chaque reçu est lu automatiquement, puis vérifié par notre équipe sous 24 heures avant d’être marqué comme vérifié.",
+      a: "Chaque reçu est lu automatiquement, et c’est vous qui décidez de ce qui est vérifié. Une photo que vous prenez est enregistrée une fois que vous avez contrôlé les champs remplis. Les reçus envoyés par e-mail par des expéditeurs connus comme Uber et Stripe sont vérifiés automatiquement quand l’e-mail est authentifié et vous était adressé. Tout le reste attend votre confirmation et n’est pas décompté de votre formule avant.",
     },
     {
       q: "Combien de temps faut-il conserver les justificatifs\u00a0?",
