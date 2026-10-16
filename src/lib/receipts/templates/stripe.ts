@@ -6,23 +6,26 @@
 import type { EmailTemplate, PartialFields } from "./types";
 import {
   AMOUNT_PATTERN,
+  CURRENCY_TOKEN,
   currencyFromSymbol,
+  findDate,
   isFromDomain,
   parseAmount,
   stripHtml,
 } from "./amount";
 
 // "Your receipt from Linear #2794-5305" or "… [#1234-5678]" → "Linear".
-const SUBJECT_RE = /receipt from\s+(.+?)(?:\s+\[?#[A-Z0-9-]+\]?)?$/i;
-const AMOUNT_LINE_RE = new RegExp(
-  String.raw`(?:amount\s+paid|total)\s*[:\s]\s*([A-Z]{3}|\$|€|kr|SEK)?\s*(${AMOUNT_PATTERN})\s*([A-Z]{3}|\$|€|kr|SEK)?`,
-  "i"
-);
-// "14 Oct 2026" (en-GB) or "Oct 14, 2026" (en-US).
-const DATE_RE =
-  /(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})/i;
-const US_DATE_RE =
-  /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/i;
+// Bounded and single-line so a crafted subject can't backtrack for seconds.
+const SUBJECT_RE = /receipt from[ \t]+([^\n]{1,200}?)(?:[ \t]+\[?#[A-Z0-9-]{1,40}\]?)?[ \t]*$/i;
+const amountAfter = (label: string) =>
+  new RegExp(
+    String.raw`${label}[ \t]*[:]?\s*(${CURRENCY_TOKEN})?[ \t\u00a0]*(${AMOUNT_PATTERN})[ \t\u00a0]*(${CURRENCY_TOKEN})?`,
+    "im"
+  );
+// "Amount paid" is what the card was charged. Only without it fall back to
+// a line starting "Total" — never "Subtotal" or "Total excluding tax".
+const AMOUNT_PAID_RE = amountAfter(String.raw`\bamount[ \t]+paid\b`);
+const TOTAL_RE = amountAfter(String.raw`^[ \t]*total\b(?![ \t]+(?:excl|excluding|before|ex)\b)`);
 const CARD_RE = /(?:•{2,}|\.{2,}|x{4,}|\*{4,})\s*(\d{4})/;
 
 export const stripeTemplate: EmailTemplate = {
@@ -51,26 +54,21 @@ export const stripeTemplate: EmailTemplate = {
     // No default currency: guessing USD turned "1 250,00 kr" into 1 USD.
     const fields: PartialFields = {};
 
-    const subjectMerchant = raw.subject.match(SUBJECT_RE);
+    // First line only, capped: keeps SUBJECT_RE linear on crafted subjects.
+    const subjectMerchant = raw.subject.split(/[\r\n\u2028\u2029]/)[0].slice(0, 300).match(SUBJECT_RE);
     if (subjectMerchant) {
       fields.merchant_name = subjectMerchant[1].trim();
     }
 
-    const amountMatch = text.match(AMOUNT_LINE_RE);
+    const amountMatch = text.match(AMOUNT_PAID_RE) ?? text.match(TOTAL_RE);
     if (amountMatch) {
       const amount = parseAmount(amountMatch[2]);
       if (amount != null) fields.total = amount;
-      const currency = currencyFromSymbol(amountMatch[1] ?? amountMatch[3] ?? "");
+      const currency = currencyFromSymbol(amountMatch[1] ?? amountMatch[3] ?? "", text);
       if (currency) fields.currency = currency;
     }
 
-    const dateMatch = text.match(DATE_RE);
-    const usDateMatch = dateMatch ? null : text.match(US_DATE_RE);
-    const iso = dateMatch
-      ? toIsoDate(dateMatch[1], dateMatch[2], dateMatch[3])
-      : usDateMatch
-        ? toIsoDate(usDateMatch[2], usDateMatch[1], usDateMatch[3])
-        : null;
+    const iso = findDate(text);
     if (iso) fields.purchased_at = `${iso}T12:00:00.000Z`;
 
     const cardMatch = text.match(CARD_RE);
@@ -82,16 +80,3 @@ export const stripeTemplate: EmailTemplate = {
     return fields;
   },
 };
-
-const MONTHS: Record<string, string> = {
-  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
-  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
-};
-
-function toIsoDate(d: string, m: string, y: string): string | null {
-  const mm = MONTHS[m.toLowerCase().slice(0, 3)];
-  if (!mm) return null;
-  const dd = d.padStart(2, "0");
-  return `${y}-${mm}-${dd}`;
-}
-

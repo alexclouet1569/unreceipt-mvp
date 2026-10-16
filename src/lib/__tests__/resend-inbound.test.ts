@@ -64,6 +64,21 @@ describe("fetchReceivedEmail", () => {
     expect(content?.rawEml?.toString()).toContain("Total 189 kr");
   });
 
+  it("returns Resend's SPF/DKIM/DMARC verdict, or null when it's missing", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        okJson({ ...receivedEmail, raw: null, authentication: { spf: "pass", dkim: "pass", dmarc: "pass" } })
+      )
+      .mockResolvedValueOnce(okJson({ ...receivedEmail, raw: null }));
+
+    expect((await fetchReceivedEmail(EMAIL_ID))?.authentication).toEqual({
+      spf: "pass",
+      dkim: "pass",
+      dmarc: "pass",
+    });
+    expect((await fetchReceivedEmail(EMAIL_ID))?.authentication).toBeNull();
+  });
+
   it("still returns the body when the .eml download fails", async () => {
     fetchMock
       .mockResolvedValueOnce(okJson(receivedEmail))

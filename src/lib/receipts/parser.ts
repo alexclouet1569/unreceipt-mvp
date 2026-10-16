@@ -21,7 +21,7 @@ import { z } from "zod";
 import { llmExtract, type LlmExtractKind, type LlmExtractResult } from "./llm-extract";
 import { EMAIL_TEMPLATES, SMS_TEMPLATES } from "./templates";
 import type { PartialFields } from "./templates/types";
-import { isFromDomain } from "./templates/amount";
+import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type {
   CanonicalReceiptFields,
@@ -110,7 +110,11 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
       // "Powered by Stripe". Trust the hit only from the template's own,
       // DMARC-authenticated domain; otherwise keep the fields but let a
       // person confirm them (Review needed, not billed until then).
-      const trusted = raw.authenticated === true && isFromDomain(raw.from, template.trustedDomains);
+      // Refund emails share the receipt layout but aren't expenses.
+      const trusted =
+        raw.authenticated === true &&
+        isFromDomain(raw.from, template.trustedDomains) &&
+        !looksLikeRefund(raw.subject, raw.text ?? raw.html ?? "");
       return finalize(fields, trusted ? TEMPLATE_HIT_CONFIDENCE : TEMPLATE_PARTIAL_CONFIDENCE);
     }
     // Partial template hit — feed what we have to the LLM as a hint so
@@ -139,7 +143,10 @@ function emailToText(raw: EmailRaw): string {
 }
 
 function stripHtml(input: string): string {
+  // Capped like the templates' stripHtml: the lazy <style>/<script>
+  // strippers are quadratic on hostile HTML.
   return input
+    .slice(0, MAX_BODY_CHARS)
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -336,6 +343,8 @@ function hasAllRequired(fields: PartialFields): boolean {
     fields.merchant_name.length > 0 &&
     typeof fields.total === "number" &&
     fields.total > 0 &&
+    // Same ceiling as the LLM path: a bigger "receipt" is a misread.
+    fields.total <= 1_000_000 &&
     typeof fields.purchased_at === "string" &&
     /^\d{4}-\d{2}-\d{2}T/.test(fields.purchased_at) &&
     typeof fields.currency === "string" &&

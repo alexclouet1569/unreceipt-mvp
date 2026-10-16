@@ -132,21 +132,6 @@ function pickHeader(
   return null;
 }
 
-// Every value of a header, in order (Authentication-Results can repeat).
-function headerValues(
-  headers: Record<string, string | string[] | undefined> | undefined,
-  name: string
-): string[] {
-  if (!headers) return [];
-  const lower = name.toLowerCase();
-  const values: string[] = [];
-  for (const [k, v] of Object.entries(headers)) {
-    if (k.toLowerCase() !== lower) continue;
-    if (typeof v === "string") values.push(v);
-    else if (Array.isArray(v)) values.push(...v.filter((x): x is string => typeof x === "string"));
-  }
-  return values;
-}
 
 function genericNotFound() {
   // Same body whether the alias was malformed or simply not registered —
@@ -239,7 +224,11 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabaseAdmin();
   // Postgres text can't hold NUL; one in the subject failed the insert and
   // lost the email on every retry.
-  const subject = typeof data.subject === "string" ? data.subject.replace(/\u0000/g, "") : "";
+  // Capped too: real subjects are short, and long ones feed slow regexes.
+  const subject =
+    typeof data.subject === "string" ? data.subject.replace(/\u0000/g, "").slice(0, 500) : "";
+  const text = content.text?.replace(/\u0000/g, "") ?? null;
+  const html = content.html?.replace(/\u0000/g, "") ?? null;
   // Resend's own DMARC verdict: the From: domain is genuine.
   const dmarc = content.authentication?.dmarc ?? null;
 
@@ -249,9 +238,8 @@ export async function POST(request: NextRequest) {
   const confirmation = parseForwardingConfirmation({
     from: fromAddr,
     subject,
-    text: content.text,
+    text,
     dmarc,
-    authenticationResults: headerValues(content.headers, "Authentication-Results"),
   });
   if (confirmation) {
     const { error: confirmationError } = await supabase
@@ -297,7 +285,7 @@ export async function POST(request: NextRequest) {
             toAddr,
             fromAddr,
             subject: data.subject,
-            text: content.text,
+            text,
           })
         )
         .digest("hex")}`;
@@ -330,8 +318,8 @@ export async function POST(request: NextRequest) {
         from: fromAddr,
         to: toAddr,
         subject,
-        text: content.text,
-        html: content.html,
+        text,
+        html,
         authenticated: dmarc === "pass",
       },
     });

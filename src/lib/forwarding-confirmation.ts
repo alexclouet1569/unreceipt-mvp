@@ -5,11 +5,11 @@
 // guide (/app/settings/forwarding) instead of filing it as a receipt
 // (launch plan action 84).
 //
-// Pure: no I/O. The From: header is spoofable, so we require proof the
-// email really came from google.com: Resend's DMARC verdict, or failing
-// that a Google DKIM pass in the receiving server's Authentication-Results.
-// Without either, it falls through to the normal receipt path (Review
-// needed, where the user can still read the code in the original). Either
+// Pure: no I/O. The From: header is spoofable, so we require Resend's DMARC
+// pass (computed on receipt, not forgeable by the sender) as proof the
+// email really came from google.com. Without it the email falls through to
+// the normal receipt path (Review needed, where the user can still read the
+// code in the original). Either
 // way we keep only what is safe to show the alias owner: a digits-only code (a fake one simply fails
 // in Gmail) and the Gmail address, if it looks like one. Never the link: a
 // spoofed link would be a phishing lure shown inside our own UI.
@@ -77,32 +77,16 @@ function findForAddress(subject: string, text: string): string | null {
   return null;
 }
 
-// Fallback when Resend's verdict is missing. The topmost Authentication-
-// Results header is normally the receiving server's; any below it came
-// with the message. Weaker than the DMARC verdict (Resend doesn't document
-// adding this header), so only an explicit pass counts.
-export function googleDkimVerdict(
-  authenticationResults: string | string[] | null | undefined
-): "pass" | "fail" | "absent" {
-  const top = Array.isArray(authenticationResults) ? authenticationResults[0] : authenticationResults;
-  if (typeof top !== "string" || top.trim().length === 0) return "absent";
-  return /\bdkim=pass\b[^;]*\bheader\.(?:d=|i=@)google\.com(?=[\s;)]|$)/i.test(top) ? "pass" : "fail";
-}
 
 export function parseForwardingConfirmation(input: {
   from: string;
   subject: string;
   text: string | null;
   // Resend's DMARC verdict for the From: domain; null when unknown.
-  dmarc?: string | null;
-  authenticationResults?: string | string[] | null;
+  dmarc: string | null;
 }): ForwardingConfirmation | null {
   if (bareAddress(input.from) !== GMAIL_FORWARDING_SENDER) return null;
-  const genuine =
-    input.dmarc != null
-      ? input.dmarc === "pass"
-      : googleDkimVerdict(input.authenticationResults) === "pass";
-  if (!genuine) return null;
+  if (input.dmarc !== "pass") return null;
   const subject = input.subject.slice(0, MAX_SUBJECT);
   const text = (input.text ?? "").slice(0, MAX_TEXT);
   return {
