@@ -302,6 +302,30 @@ export function retentionReminderEmail(opts: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Forwarding setup link — "Email me this page" in the setup wizard, for
+// someone who opened it on a phone (Gmail/Outlook rules need a computer)
+// ---------------------------------------------------------------------------
+
+export function forwardingSetupEmail(opts: { url: string }): EmailContent {
+  const intro =
+    "Here's the link to set up automatic forwarding. Open it on a computer: Gmail and Outlook only let you create forwarding rules in a browser. It takes about 3 minutes, and after that your email receipts arrive in UnReceipt by themselves.";
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">Finish setting up forwarding</h1>`,
+    paragraph(esc(intro)),
+    button("Open the setup", opts.url),
+  ].join("\n");
+  return {
+    subject: "Your UnReceipt forwarding setup link",
+    html: layout({
+      preheader: "Open it on a computer: about 3 minutes.",
+      bodyHtml,
+      footerHtml: "You're receiving this because you asked for the link in UnReceipt.",
+    }),
+    text: ["Finish setting up forwarding", "", intro, "", `Open the setup: ${opts.url}`].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {

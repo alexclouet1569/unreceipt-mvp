@@ -2,44 +2,27 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   buildForwardingAddress,
   getOrCreateAliasForUser,
 } from "@/lib/email-alias";
-import type { EmailForwardingConfirmation } from "@/lib/types";
-import { CONFIRMATION_MAX_AGE_MS } from "@/lib/forwarding-confirmation";
 import { listExtraAddresses } from "@/lib/owner-addresses";
-import { ForwardingGuide, type GuideConfirmation } from "./ForwardingGuide";
+import { ForwardingGuide } from "./ForwardingGuide";
 import { OwnAddresses } from "./OwnAddresses";
 
 // The setup guide for the forwarding address (launch plan actions 84–85):
-// what the address does, and step-by-step rules for Gmail, Outlook and
-// others. Like Settings, reachable without an active subscription.
+// what the address does and a step-by-step wizard for Gmail, Outlook and
+// others (it polls /api/forwarding/status for Gmail's code and the test
+// email). Like Settings, reachable without an active subscription.
 export const dynamic = "force-dynamic";
 
-async function loadConfirmation(userId: string): Promise<GuideConfirmation | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from("email_forwarding_confirmations")
-    .select("code, for_address, received_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) {
-    console.error("[/app/settings/forwarding] confirmation load failed", error);
-    return null;
-  }
-  const row = data as Pick<EmailForwardingConfirmation, "code" | "for_address" | "received_at"> | null;
-  if (!row || Date.now() - Date.parse(row.received_at) > CONFIRMATION_MAX_AGE_MS) return null;
-  return { code: row.code, forAddress: row.for_address, receivedAt: row.received_at };
-}
 
 export default async function ForwardingPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [aliasHash, confirmation, extraAddresses] = await Promise.all([
+  const [aliasHash, extraAddresses] = await Promise.all([
     getOrCreateAliasForUser(user.id),
-    loadConfirmation(user.id),
     listExtraAddresses(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
@@ -48,12 +31,12 @@ export default async function ForwardingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
+      <header className="sticky top-0 z-40 bg-background border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
           <Link
             href="/app/settings"
             aria-label="Back to settings"
-            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors"
             style={{ width: "44px", height: "44px", borderRadius: "10px" }}
           >
             <ArrowLeft className="w-5 h-5" />
@@ -71,7 +54,6 @@ export default async function ForwardingPage() {
         {forwardingEmail ? (
           <ForwardingGuide
             forwardingEmail={forwardingEmail}
-            confirmation={confirmation}
             ownAddresses={
               <OwnAddresses
                 accountEmail={user.email ?? null}

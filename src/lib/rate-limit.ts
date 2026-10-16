@@ -44,6 +44,11 @@ export const RATE_LIMITS = {
     { limit: 10, windowSeconds: 60 * 60 },
     { limit: 30, windowSeconds: 24 * 60 * 60 },
   ],
+  // Emails the user their own setup link: a few retries is plenty.
+  forwardingLink: [
+    { limit: 3, windowSeconds: 60 * 60 },
+    { limit: 10, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [
