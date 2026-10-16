@@ -40,6 +40,9 @@ import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
+import { buildForwardingAddress } from "@/lib/email-alias";
+import { isAddressedToOwner } from "@/lib/email-address";
+import { loadOwnerAddresses } from "@/lib/owner-addresses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -309,6 +312,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, id: existing.id, duplicate: true });
   }
 
+  // Who the email was originally sent to (its own To/Cc, not the envelope
+  // that brought it here). Only looked up for a DMARC-authenticated mail,
+  // the only kind a template can trust.
+  const headerRecipients = allAddresses(data.to, data.cc);
+  let addressedToOwner = false;
+  if (dmarc === "pass") {
+    const ownerAddresses = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
+    addressedToOwner = isAddressedToOwner(headerRecipients, ownerAddresses);
+  }
+
   // Parse (best-effort). Throw → pending_review.
   let parseResult: Awaited<ReturnType<typeof parseReceipt>>;
   try {
@@ -321,6 +334,7 @@ export async function POST(request: NextRequest) {
         text,
         html,
         authenticated: dmarc === "pass",
+        addressedToOwner,
       },
     });
   } catch (err) {

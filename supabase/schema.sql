@@ -1046,3 +1046,31 @@ CREATE TABLE IF NOT EXISTS public.email_forwarding_confirmations (
 
 ALTER TABLE public.email_forwarding_confirmations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.email_forwarding_confirmations FROM anon, authenticated;
+
+-- =============================================================================
+-- 2026-10-16 — the user's own email addresses (receipt ownership check)
+--
+-- A DMARC pass proves an Uber/Stripe receipt really came from Uber/Stripe,
+-- not that it was sent to this user: anyone holding a real receipt could
+-- resend it unchanged to another user's forwarding alias. A full template
+-- hit is therefore trusted only when the receipt's original To/Cc is one of
+-- the user's own addresses: the account email, the forwarding alias, or an
+-- address listed here (e.g. a work inbox that forwards to UnReceipt).
+-- Self-declared on purpose: the list only affects the user's own receipts.
+-- Written only by /api/profile/addresses (service role); users can read
+-- their own rows. Idempotent.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.user_email_addresses (
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  address TEXT NOT NULL CHECK (char_length(address) BETWEEN 3 AND 254),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, address)
+);
+
+ALTER TABLE public.user_email_addresses ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.user_email_addresses FROM anon, authenticated;
+
+DROP POLICY IF EXISTS "Users can view own email addresses" ON public.user_email_addresses;
+CREATE POLICY "Users can view own email addresses"
+  ON public.user_email_addresses FOR SELECT USING ((select auth.uid()) = user_id);

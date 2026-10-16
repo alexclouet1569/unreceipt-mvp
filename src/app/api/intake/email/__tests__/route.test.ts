@@ -40,7 +40,11 @@ vi.mock("@/lib/resend-inbound", () => ({
 vi.mock("@/lib/email-alias", () => ({
   findUserByAliasHash: mocks.findUserByAliasHash,
   parseAliasFromTo: mocks.parseAliasFromTo,
+  buildForwardingAddress: (hash: string) => `receipts+${hash}@in.unreceipt.com`,
 }));
+
+const ownerAddressesMock = vi.hoisted(() => vi.fn(async (_userId: string, alias: string) => [alias, "anna@gmail.com"]));
+vi.mock("@/lib/owner-addresses", () => ({ loadOwnerAddresses: ownerAddressesMock }));
 
 vi.mock("@/lib/receipts/parser", () => ({
   parseReceipt: mocks.parseReceipt,
@@ -477,5 +481,41 @@ describe("POST /api/intake/email", () => {
     expect(raw.subject).not.toContain("\u0000");
     const row = mocks.receiptsInsert.mock.calls[0][0] as { notes: string };
     expect(row.notes.length).toBeLessThanOrEqual(310);
+  });
+
+  describe("receipt ownership", () => {
+    function uberEmail(to: string[]) {
+      mocks.fetchReceivedEmail.mockResolvedValue({
+        text: "Total: 189 SEK",
+        html: null,
+        headers: {},
+        messageId: `<own-${to.join()}@uber.com>`,
+        rawEml: null,
+        authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
+      });
+      return metadataOnlyPayload({
+        to,
+        received_for: [`receipts+${VALID_HASH}@in.unreceipt.com`],
+      });
+    }
+
+    it("marks a receipt originally sent to the user's own address", async () => {
+      const body = uberEmail(["Anna <anna@gmail.com>"]);
+      await POST(buildRequest(body, sign(body)));
+      expect(ownerAddressesMock).toHaveBeenCalledWith(USER_ID, `receipts+${VALID_HASH}@in.unreceipt.com`);
+      expect(mocks.parseReceipt.mock.calls[0][0].raw.addressedToOwner).toBe(true);
+    });
+
+    it("doesn't mark someone else's receipt resent to this user", async () => {
+      const body = uberEmail(["bjorn@gmail.com"]);
+      await POST(buildRequest(body, sign(body)));
+      expect(mocks.parseReceipt.mock.calls[0][0].raw.addressedToOwner).toBe(false);
+    });
+
+    it("never takes the envelope (received_for) as the original recipient", async () => {
+      const body = uberEmail([]);
+      await POST(buildRequest(body, sign(body)));
+      expect(mocks.parseReceipt.mock.calls[0][0].raw.addressedToOwner).toBe(false);
+    });
   });
 });

@@ -9,7 +9,10 @@ import {
 } from "@/lib/email-alias";
 import type { EmailForwardingConfirmation } from "@/lib/types";
 import { CONFIRMATION_MAX_AGE_MS } from "@/lib/forwarding-confirmation";
+import { listExtraAddresses } from "@/lib/owner-addresses";
+import { normalizeAddress } from "@/lib/email-address";
 import { ForwardingGuide, type GuideConfirmation } from "./ForwardingGuide";
+import { OwnAddresses } from "./OwnAddresses";
 
 // The setup guide for the forwarding address (launch plan actions 84–85):
 // what the address does, and step-by-step rules for Gmail, Outlook and
@@ -35,11 +38,20 @@ export default async function ForwardingPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [aliasHash, confirmation] = await Promise.all([
+  const [aliasHash, confirmation, extraAddresses] = await Promise.all([
     getOrCreateAliasForUser(user.id),
     loadConfirmation(user.id),
+    listExtraAddresses(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
+  // Offer the Gmail account that asked to forward here, unless it's listed.
+  const known = new Set(
+    [user.email ?? "", ...extraAddresses].map(normalizeAddress).filter((a): a is string => a != null),
+  );
+  const suggestion =
+    confirmation?.forAddress && !known.has(normalizeAddress(confirmation.forAddress) ?? "")
+      ? confirmation.forAddress
+      : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,7 +76,17 @@ export default async function ForwardingPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-6">
         {forwardingEmail ? (
-          <ForwardingGuide forwardingEmail={forwardingEmail} confirmation={confirmation} />
+          <ForwardingGuide
+            forwardingEmail={forwardingEmail}
+            confirmation={confirmation}
+            ownAddresses={
+              <OwnAddresses
+                accountEmail={user.email ?? null}
+                addresses={extraAddresses}
+                suggestion={suggestion}
+              />
+            }
+          />
         ) : (
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
             Your forwarding address isn&apos;t ready yet. Reload this page in a

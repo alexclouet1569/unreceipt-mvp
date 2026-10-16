@@ -204,3 +204,11 @@ export interface EmailForwardingConfirmation {
   for_address: string | null;
   received_at: string;
 }
+
+// An address the user declared as their own (public.user_email_addresses):
+// receipts originally sent to it can be trusted automatically.
+export interface UserEmailAddress {
+  user_id: string;
+  address: string;
+  created_at: string;
+}

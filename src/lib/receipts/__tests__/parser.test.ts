@@ -37,7 +37,7 @@ describe("parseReceipt — email templates", () => {
           "Payment: Visa •• 4242",
         ].join("\n"),
         html: null,
-        authenticated: true,
+        authenticated: true, addressedToOwner: true,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("parseReceipt — email templates", () => {
           "Powered by Stripe.",
         ].join("\n"),
         html: null,
-        authenticated: true,
+        authenticated: true, addressedToOwner: true,
       },
     });
     expect(mockLlmExtract).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("parseReceipt — email templates", () => {
 describe("parseReceipt — template amounts and formats", () => {
   const raw = (from: string, subject: string, text: string | null, html: string | null = null) => ({
     kind: "email" as const,
-    raw: { from, to: "x", subject, text, html, authenticated: true },
+    raw: { from, to: "x", subject, text, html, authenticated: true, addressedToOwner: true },
   });
   const uber = (text: string, subject = "Your Thursday evening trip with Uber") =>
     parseReceipt(raw("noreply@uber.com", subject, text));
@@ -222,7 +222,25 @@ describe("parseReceipt — sender trust", () => {
         subject: "Your trip with Uber",
         text: "Total 4999 SEK\n15 October 2026",
         html: null,
+        authenticated: true, addressedToOwner: true,
+      },
+    });
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("doesn't trust someone else's real receipt resent to this user", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "noreply@uber.com",
+        to: "bjorn@gmail.com",
+        subject: "Your trip with Uber",
+        text: "Total 189 SEK\n15 October 2026",
+        html: null,
         authenticated: true,
+        addressedToOwner: false,
       },
     });
     expect(result.status).toBe("ok");

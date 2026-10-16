@@ -38,9 +38,12 @@ const POLL_FOR_MS = 10 * 60 * 1000;
 export function ForwardingGuide({
   forwardingEmail,
   confirmation,
+  ownAddresses,
 }: {
   forwardingEmail: string;
   confirmation: GuideConfirmation | null;
+  // The "Your email addresses" manager, rendered by the server page.
+  ownAddresses?: React.ReactNode;
 }) {
   const [provider, setProvider] = useState<Provider>("gmail");
   const inboundDomain = forwardingEmail.split("@")[1] ?? forwardingEmail;
@@ -119,6 +122,13 @@ export function ForwardingGuide({
         {provider === "outlook" ? <OutlookSteps inboundDomain={inboundDomain} /> : null}
         {provider === "other" ? <OtherSteps /> : null}
       </section>
+
+      {ownAddresses ? (
+        <section aria-labelledby="own-heading">
+          <SectionLabel id="own-heading">Your email addresses</SectionLabel>
+          {ownAddresses}
+        </section>
+      ) : null}
 
       <section aria-labelledby="test-heading">
         <SectionLabel id="test-heading">Check that it works</SectionLabel>
@@ -217,7 +227,8 @@ function GmailSteps({ confirmation }: { confirmation: GuideConfirmation | null }
         <Step n={6}>
           Tick <Strong>Forward it to</Strong>, choose your UnReceipt address,
           and click <Strong>Create filter</Strong>. Done. Address not in the
-          list? Finish step 3 first.
+          list? Finish step 3 first. If this Gmail isn&apos;t your sign-in
+          email, add it under <Strong>Your email addresses</Strong> below.
         </Step>
       </Steps>
     </div>
@@ -317,10 +328,14 @@ function OutlookSteps({ inboundDomain }: { inboundDomain: string }) {
         </Step>
         <Step n={3}>
           Under <Strong>Add an action</Strong>, choose{" "}
-          <Strong>Forward to</Strong> and paste your UnReceipt address.
+          <Strong>Redirect to</Strong> (not &ldquo;Forward to&rdquo;: a
+          redirect keeps the original sender, so we can verify the receipt)
+          and paste your UnReceipt address.
         </Step>
         <Step n={4}>
-          Click <Strong>Save</Strong>. Done.
+          Click <Strong>Save</Strong>. If this Outlook address isn&apos;t your
+          sign-in email, add it under <Strong>Your email addresses</Strong>{" "}
+          below. Done.
         </Step>
       </Steps>
       <Note>

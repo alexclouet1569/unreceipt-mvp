@@ -18,6 +18,9 @@ export type EmailRaw = {
   // True only when the receiving server's DMARC check passed, i.e. the
   // From: domain is genuine. Absent → not authenticated.
   authenticated?: boolean;
+  // True only when the original To/Cc is one of the user's own addresses,
+  // so a real receipt resent to someone else's alias isn't trusted there.
+  addressedToOwner?: boolean;
 };
 
 export type SmsRaw = {
