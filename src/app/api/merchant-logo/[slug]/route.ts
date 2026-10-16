@@ -27,18 +27,23 @@ const ALLOWED_TYPES = new Set(["image/png"]);
 
 /** Width and height from a PNG's IHDR chunk, or null if it isn't a PNG. */
 function pngSize(bytes: Uint8Array): { width: number; height: number } | null {
-  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 24 || signature.some((b, i) => bytes[i] !== b)) return null;
+  // Signature, then the IHDR chunk (length 13, type "IHDR") that a PNG
+  // must start with; its first 8 data bytes are width and height.
+  const header = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52];
+  if (bytes.length < 24 || header.some((b, i) => bytes[i] !== b)) return null;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return { width: view.getUint32(16), height: view.getUint32(20) };
 }
 
-const notFound = () =>
+// Short by default so a temporary failure heals; long when the store's
+// icon is simply too small, which won't change soon.
+const notFound = (seconds = 3600) =>
   new NextResponse(null, {
     status: 404,
-    // Short so a temporary failure heals, long enough to absorb a burst.
-    headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600" },
+    headers: { "Cache-Control": `public, max-age=${seconds}, s-maxage=${seconds}` },
   });
+
+const A_WEEK = 7 * 24 * 3600;
 
 export async function GET(
   request: NextRequest,
@@ -63,7 +68,8 @@ export async function GET(
     const body = await res.arrayBuffer();
     if (body.byteLength === 0 || body.byteLength > MAX_ICON_BYTES) return notFound();
     const size = pngSize(new Uint8Array(body));
-    if (!size || Math.min(size.width, size.height) < MIN_ICON_PX) return notFound();
+    if (!size) return notFound();
+    if (Math.min(size.width, size.height) < MIN_ICON_PX) return notFound(A_WEEK);
     return new NextResponse(body, {
       status: 200,
       headers: {
