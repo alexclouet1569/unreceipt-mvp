@@ -54,6 +54,12 @@ describe("rawHeaderValues", () => {
     expect(rawHeaderValues(eml, "to")).toHaveLength(2);
   });
 
+  it("refuses a CRLF message with a bare LF in its headers", () => {
+    const eml = "To: anna@gmail.com\r\nX-Pad: a\n\nx\r\nFrom: noreply@uber.com\r\nTo: bjorn@gmail.com\r\n\r\nbody";
+    expect(rawHeaderValues(eml, "to")).toBeNull();
+    expect(rawHeaderValues("To: a@b.se\nFrom: x@y.se\n\nbody", "to")).toEqual(["a@b.se"]);
+  });
+
   it("refuses a header block it can't read to the end", () => {
     const eml = "To: receipts+abc123@in.unreceipt.com\r\n" + "X-Pad: y\r\n".repeat(30_000) + "To: bjorn@gmail.com\r\n\r\nbody";
     expect(rawHeaderValues(eml, "to")).toBeNull();

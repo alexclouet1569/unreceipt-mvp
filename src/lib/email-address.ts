@@ -75,11 +75,17 @@ const MAX_HEADER_BLOCK = 256 * 1024;
 // with folded lines joined. The field name is matched trimmed and case-
 // insensitively, as DKIM's relaxed canonicalisation does ("To :" is still
 // To). Returns null when the header block can't be read in full (no blank
-// line within MAX_HEADER_BLOCK): callers must then refuse.
+// line within MAX_HEADER_BLOCK) or mixes line endings: a bare "\n\n"
+// inside a CRLF message could end our view of the headers early while a
+// CRLF-only DKIM verifier still sees the signed ones. Callers must refuse.
 export function rawHeaderValues(rawEml: string, name: string): string[] | null {
-  const end = rawEml.slice(0, MAX_HEADER_BLOCK).search(/\r?\n\r?\n/);
+  const window = rawEml.slice(0, MAX_HEADER_BLOCK);
+  const crlf = rawEml.includes("\r");
+  const end = window.indexOf(crlf ? "\r\n\r\n" : "\n\n");
   if (end === -1) return null;
-  const lines = rawEml.slice(0, end).split(/\r?\n/);
+  const block = window.slice(0, end);
+  if (crlf && /\r(?!\n)|(?<!\r)\n/.test(block)) return null;
+  const lines = block.split(crlf ? "\r\n" : "\n");
   const values: string[] = [];
   const wanted = name.toLowerCase();
   for (let i = 0; i < lines.length; i++) {
