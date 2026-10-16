@@ -173,7 +173,7 @@ full 9999   FAB, avatars, pill badges
 - **List items.** Fade-in on mount, no per-item stagger. Premium apps don't stagger; staggers feel app-store-template.
 - **Card tap.** `transform: scale(0.985)` over 120ms, then the detail sheet slides up over 320ms. No shared-element flight (was a "risk" option — dropped to keep things calm).
 - **FAB press.** Scale 0.92 → 1.04 → 1.0 over 240ms.
-- **OCR moment.** Single `Reading your receipt…` status with all five fields rendered as shimmer skeletons. When the API returns, all fields fade-in together over 480ms (long). No per-field cascade, no typing cursor.
+- **OCR moment.** Single `Reading your receipt…` status with skeletons laid out like the review (amount, VAT panel, field rows). When the API returns, all fields fade-in together over 480ms (long). No per-field cascade, no typing cursor.
 
 ## Components
 
@@ -206,12 +206,22 @@ full 9999   FAB, avatars, pill badges
 - VAT panel: `--brand-tint` background, `1px` border of `color-mix(in srgb, var(--brand) 20%, transparent)`, `radius md (10)`, `padding 14 16`. Each row in `Geist Mono` for values.
 - Line items list: `desc` left in `Figtree 400`, `price` right in `Geist Mono 400`, `border-bottom 1px hairline` per row except the last.
 
-### Capture dialog (OCR moment)
+### Capture sheet (photo first)
 
-- Stage 1: photo picker. Empty placeholder with dashed border and a subtle paper-grain background.
-- Stage 2 (after photo selected): `Reading your receipt…` status row with a pulsing green dot. All five form fields below render as shimmer skeletons (varied widths: 65%, 35%, 50%, 40%, 30%).
-- Stage 3 (API returned): skeletons replaced with filled `field-input`s. All fields fade-in over `long (480ms)`. Submit button enables.
-- Stage 4 (manual review/edit): fields are editable. Save button enables on any edit; otherwise disabled.
+`src/app/app/(authed)/CaptureDialog.tsx`. A bottom sheet (`radius xl (16)` top corners, max 540px wide, `min(92dvh, 760px)` tall) with a fixed header (title + 44px close button) so the way out never scrolls away. No drag handle: the sheet can't be dragged, so it doesn't draw one.
+
+- **Stage 1: choose.** A `--surface` panel with a viewfinder line drawing, "Photograph your receipt" and one sentence on what we read. Below it: **Take photo** (primary, 54px, radius md (10)), **Upload photo or PDF** (white, hairline), and a quiet text link "No receipt? Enter it manually". Tapping the FAB never opens the camera directly.
+- **Stage 2: reading.** The real photo as a 72×96 thumbnail with a brand-green scan line (2.4s loop, `transform` only), `Reading your receipt…` with a pulsing dot, and skeletons laid out like the review (amount, VAT panel, five rows). Nothing to save yet.
+- **Stage 3: check and save.** Fields fade in together over `long (480ms)`.
+  - Hero: photo thumbnail (with a remove control on a 44px target) + `Total paid` in Geist Mono 40px (32 / 26px for long amounts so every digit stays visible) and a 44px currency pill. The currency is the one on the receipt; without a photo it defaults to SEK on a Swedish phone, EUR otherwise.
+  - VAT panel (`--brand-tint`): VAT with its rate, and the amount excl. VAT, in the receipt's currency. Only when both numbers are known.
+  - One hairline card of 52px rows, label in a fixed 84px column (`--ink-muted`, 15/600), value left-aligned after it (16/700; amounts right-aligned in mono). Every value is a real input — tapping it edits in place, no second screen. Rows: Merchant, Date, Category, VAT (rate menu + amount), Payment. The focused row gets a `--ring` outline.
+  - Choosing a VAT rate fills the VAT amount from the total; typing a VAT amount takes over (mixed-rate receipts). VAT printed on the receipt is never recalculated.
+  - **Include VAT** switch row (on by default, remembered per device in browser storage — no profile setting during the pilot). Off hides the VAT panel and VAT row and saves no VAT; OCR still reads it, so switching back on shows it. The switch is ink when on, `--ink-faint` when off, so Save stays the one green.
+  - "Add a note" reveals Notes. Without a photo, "Take photo" / "Upload file" sit next to it.
+  - Footer: "Read from your photo. Tap any value to change it." when OCR filled the form, then **Save receipt** (54px).
+- **Fallback.** If the photo can't be read, the same form shows with the photo still attached, an attention notice ("We couldn't read this photo…") and the title "Fill in the details". Manual entry uses the title "Enter manually" and a back button to stage 1.
+- Placeholders describe the field ("Shop or company", "Card, Swish, cash…"); they never look like example data. No red asterisks: required fields are enforced on save.
 
 ### Empty state
 
@@ -268,6 +278,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-15 | **First-run onboarding hides the FAB**; each of its 3 screens has its own call to action (step 2 opens capture). Progress dots are ink, so brand green appears once per screen (the CTA). The 64×64 brand-tint mark counts as the empty-state hero. | One obvious action per screen. |
 | 2026-10-15 | **`--brand`, `--brand-deep`, `--negative`, `--destructive-foreground` defined in globals.css**; `--primary`, `--ring`, `--destructive` alias them. Motion is disabled under `prefers-reduced-motion`. | They were referenced but undefined. |
 | 2026-10-16 | **Action green `--brand-action` #1A7F52** for primary buttons, the FAB and focus rings (`--primary`, `--ring` point at it); `--brand` #27BE7B stays for the wordmark and accents. **`--ink-muted` set to its spec value #5A5F7A** in globals.css (it had drifted to 65% Deep Space, 3.8:1). | White on #27BE7B is 2.4:1 and the old muted text 3.8:1 — both under WCAG AA (4.5:1). Same hue, so the brand still reads green; now 5.0:1 and 6.3:1. |
+| 2026-10-16 | **Capture becomes a photo-first bottom sheet** (choose → reading → check and save), with edit-in-place rows instead of stacked input boxes, VAT worked out from the rate, and the receipt's own currency. iOS date inputs drop their native chrome (`globals.css`) so they no longer spill into the next column. | The centred dialog put nine boxes before the photo, overlapped on iPhone, scrolled its close button away and used placeholders that looked like real data. Reading the photo is the product; the form is the fallback. |
 
 ---
 

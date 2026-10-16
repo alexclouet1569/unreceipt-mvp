@@ -160,6 +160,32 @@
   }
 }
 
+/* Scan line over the photo while CaptureDialog reads it. */
+@keyframes capture-scan {
+  0%,
+  100% {
+    transform: translateY(10px);
+  }
+  50% {
+    transform: translateY(82px);
+  }
+}
+
+/* iOS Safari gives date inputs an intrinsic width that ignores the
+   column they sit in, so they spill into the next field. Drop the native
+   chrome so `width` and `min-width: 0` apply, and keep the value
+   left-aligned like every other field. */
+@layer base {
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
 /* Respect the OS "reduce motion" setting: no reveal animation, pulses or
    transitions (DESIGN.md motion is decoration, never information). */
 @media (prefers-reduced-motion: reduce) {
