@@ -1,0 +1,24 @@
+[
+  {
+    "id": "real-ica-2026-10-16",
+    "image": "ica-2026-10-16.jpg",
+    "tags": ["real", "sv"],
+    "source": "real",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": ["ica"],
+      "amount": 312.5,
+      "currency": "SEK",
+      "receipt_date": "2026-10-16",
+      "tax_amount": 33.48,
+      "items_count": 9
+    }
+  },
+  {
+    "id": "real-not-a-receipt-menu",
+    "image": "menu.jpg",
+    "tags": ["real", "neg"],
+    "source": "real",
+    "expected": { "not_a_receipt": true }
+  }
+]
