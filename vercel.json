@@ -4,6 +4,7 @@
   "crons": [
     { "path": "/api/cron/cleanup-exports", "schedule": "15 2 * * *" },
     { "path": "/api/cron/retention", "schedule": "30 3 * * *" },
-    { "path": "/api/cron/overage-sweep", "schedule": "45 4 * * *" }
+    { "path": "/api/cron/overage-sweep", "schedule": "45 4 * * *" },
+    { "path": "/api/cron/signup-digest", "schedule": "0 19 * * *" }
   ]
 }

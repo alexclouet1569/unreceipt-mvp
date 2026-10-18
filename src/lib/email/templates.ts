@@ -333,3 +333,200 @@ export function firstNameFrom(fullName: string | null | undefined): string | nul
   const first = fullName.trim().split(/\s+/)[0];
   return first && first.length <= 40 ? first : null;
 }
+
+// ---------------------------------------------------------------------------
+// Signup digest — nightly, to the founder only (src/lib/signup-digest.ts)
+// ---------------------------------------------------------------------------
+
+export type DigestSignup = {
+  email: string;
+  fullName: string | null;
+  companyName: string | null;
+  signedUpAt: Date;
+  confirmed: boolean;
+  provider: string;
+  lastSignInAt: Date | null;
+  onboarded: boolean;
+  photoReceipts: number;
+  emailReceipts: number;
+  ownAddresses: number;
+};
+
+export type DigestWaitlistEntry = { email: string; source: string | null; signedUpAt: Date };
+
+// Personal mailbox providers: their domain says nothing about the company.
+const FREEMAIL = new Set([
+  "gmail.com", "googlemail.com", "hotmail.com", "hotmail.se", "outlook.com", "outlook.se",
+  "live.com", "live.se", "msn.com", "icloud.com", "me.com", "mac.com", "yahoo.com", "yahoo.se",
+  "protonmail.com", "proton.me", "pm.me", "aol.com", "gmx.com", "gmx.net", "mail.com",
+  "telia.com", "bredband.net", "spray.se", "comhem.se", "hey.com", "hotmail.fr", "orange.fr",
+  "free.fr", "laposte.net", "wanadoo.fr", "sfr.fr", "yahoo.fr",
+]);
+
+/** The company website a work address points to, or null for a personal mailbox. */
+export function companySiteFor(email: string): string | null {
+  const domain = email.split("@")[1]?.trim().toLowerCase();
+  if (!domain || !domain.includes(".") || FREEMAIL.has(domain)) return null;
+  return `https://${domain}`;
+}
+
+function stockholm(d: Date): string {
+  return d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Stockholm",
+  });
+}
+
+function progressOf(s: DigestSignup): { line: string; activated: boolean } {
+  const receipts = s.photoReceipts + s.emailReceipts;
+  const parts = [
+    s.confirmed ? "email confirmed" : "never confirmed their email",
+    s.onboarded ? "finished onboarding" : "didn't finish onboarding",
+    receipts === 0
+      ? "no receipts yet"
+      : `${receipts} receipt${receipts === 1 ? "" : "s"} (${s.photoReceipts} photo/upload, ${s.emailReceipts} forwarded)`,
+  ];
+  if (s.ownAddresses > 0) parts.push("added their own email address for forwarding");
+  return { line: parts.join(" · "), activated: receipts > 0 };
+}
+
+/** A ready-to-send first message: feedback if they got a receipt in, otherwise what stopped them. */
+export function signupOutreach(s: DigestSignup): { subject: string; body: string; href: string } {
+  const first = firstNameFrom(s.fullName);
+  const hi = first ? `Hi ${first},` : "Hi,";
+  const { activated } = progressOf(s);
+  const subject = activated ? "Your first receipts in UnReceipt" : "Quick question about UnReceipt";
+  const opener = activated
+    ? "Thanks for joining the UnReceipt pilot, and for already putting receipts in. I'm the founder, and at this stage every bit of feedback shapes what I build next."
+    : "Thanks for joining the UnReceipt pilot. I'm the founder, and I noticed you haven't added a receipt yet. Did something get in the way? Even a one-line answer helps me a lot.";
+  const body = [
+    hi,
+    "",
+    opener,
+    "",
+    "Could I ask you three quick questions (by reply, or a 10-minute call this week if that's easier)?",
+    "1. How do you handle receipts today: an app, paper in a folder, or your accountant?",
+    "2. Roughly how many receipts a month, and how many people in the company pay for things?",
+    "3. Which accounting tool does the company use (Fortnox, Visma, something else)?",
+    "",
+    "Thank you!",
+    "Alexandre",
+    "Founder, UnReceipt",
+  ].join("\n");
+  const href = `mailto:${encodeURIComponent(s.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return { subject, body, href };
+}
+
+// Anyone can sign up with someone else's address; don't offer to write to
+// it until the owner has confirmed it's theirs.
+const UNCONFIRMED_NOTE = "Not confirmed yet: the address may not be theirs, so wait before writing.";
+
+const INTERVIEW_QUESTIONS = [
+  "What made you sign up today? What were you trying to fix?",
+  "How do receipts get from your pocket or inbox to the accountant today, and who does it?",
+  "How many receipts a month, and how many people in the company spend money?",
+  "Which accounting tool, and do you have an accountant (redovisningsbyrå)?",
+  "What would make you stop using UnReceipt? What would make you pay for it?",
+];
+
+export function signupDigestEmail(opts: {
+  signups: DigestSignup[];
+  moreSignups: number;
+  waitlist: DigestWaitlistEntry[];
+  totalAccounts: number;
+}): EmailContent {
+  const accounts = opts.signups.length + opts.moreSignups;
+  const counts = [
+    accounts > 0 ? `${accounts} new account${accounts === 1 ? "" : "s"}` : null,
+    opts.waitlist.length > 0
+      ? `${opts.waitlist.length} waitlist sign-up${opts.waitlist.length === 1 ? "" : "s"}`
+      : null,
+  ].filter(Boolean).join(" and ");
+  const subject = `UnReceipt: ${counts} in the last 24 hours`;
+
+  const signupHtml = opts.signups.map((s) => {
+    const name = [s.fullName, s.companyName].filter(Boolean).join(" · ") || s.email;
+    const site = companySiteFor(s.email);
+    const { line } = progressOf(s);
+    const out = signupOutreach(s);
+    return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${C.hairline};border-radius:12px;margin:0 0 14px;">
+  <tr><td style="padding:16px 18px;">
+    <p style="margin:0 0 4px;font-family:${FONT};font-size:16px;font-weight:700;color:${C.ink};">${esc(name)}</p>
+    <p style="margin:0 0 8px;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.inkMuted};">
+      <a href="mailto:${esc(encodeURIComponent(s.email))}" style="color:${C.ink};">${esc(s.email)}</a>${site ? ` · <a href="${esc(site)}" style="color:${C.ink};">${esc(site.replace("https://", ""))}</a>` : ""}<br>
+      Signed up ${esc(stockholm(s.signedUpAt))} via ${esc(s.provider)}${s.lastSignInAt ? ` · last seen ${esc(stockholm(s.lastSignInAt))}` : ""}
+    </p>
+    <p style="margin:0 0 12px;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.inkMuted};">${esc(line)}</p>
+    ${s.confirmed
+      ? `<a href="${esc(out.href)}" style="font-family:${FONT};font-size:14px;font-weight:600;color:${C.brand};">Write to them (message pre-filled) →</a>`
+      : `<span style="font-family:${FONT};font-size:14px;color:${C.inkFaint};">${esc(UNCONFIRMED_NOTE)}</span>`}
+  </td></tr>
+</table>`;
+  }).join("");
+
+  const waitlistHtml = opts.waitlist.length
+    ? `<p style="margin:20px 0 8px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};">Waitlist</p>` +
+      opts.waitlist
+        .map((w) =>
+          paragraph(
+            `<a href="mailto:${esc(encodeURIComponent(w.email))}" style="color:${C.ink};">${esc(w.email)}</a> · ${esc(stockholm(w.signedUpAt))}${w.source ? ` · ${esc(w.source)}` : ""}`,
+          ),
+        )
+        .join("")
+    : "";
+
+  const questionsHtml = `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.brandTint};border-radius:12px;margin:20px 0 0;">
+  <tr><td style="padding:16px 20px;">
+    <p style="margin:0 0 8px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};">If you get them on a call</p>
+    <ol style="margin:0;padding-left:20px;font-family:${FONT};font-size:14px;line-height:1.6;color:${C.inkMuted};">${INTERVIEW_QUESTIONS.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
+  </td></tr>
+</table>`;
+
+  const more = opts.moreSignups > 0 ? paragraph(esc(`…and ${opts.moreSignups} more, see /admin.`)) : "";
+
+  const bodyHtml = [
+    `<h1 style="margin:0 0 6px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(counts)}</h1>`,
+    paragraph(esc(`${opts.totalAccounts} accounts in total (your admin accounts excluded).`)),
+    signupHtml,
+    more,
+    waitlistHtml,
+    opts.signups.length ? questionsHtml : "",
+  ].join("\n");
+
+  const text = [
+    counts,
+    `${opts.totalAccounts} accounts in total (your admin accounts excluded).`,
+    "",
+    ...opts.signups.flatMap((s) => {
+      const site = companySiteFor(s.email);
+      return [
+        [s.fullName, s.companyName].filter(Boolean).join(" · ") || s.email,
+        `${s.email}${site ? ` · ${site}` : ""}`,
+        `Signed up ${stockholm(s.signedUpAt)} via ${s.provider}${s.lastSignInAt ? ` · last seen ${stockholm(s.lastSignInAt)}` : ""}`,
+        progressOf(s).line,
+        ...(s.confirmed ? [] : [UNCONFIRMED_NOTE]),
+        "",
+      ];
+    }),
+    ...(opts.moreSignups > 0 ? [`…and ${opts.moreSignups} more, see /admin.`, ""] : []),
+    ...(opts.waitlist.length
+      ? ["Waitlist:", ...opts.waitlist.map((w) => `${w.email} · ${stockholm(w.signedUpAt)}${w.source ? ` · ${w.source}` : ""}`), ""]
+      : []),
+    ...(opts.signups.length ? ["If you get them on a call:", ...INTERVIEW_QUESTIONS.map((q, i) => `${i + 1}. ${q}`)] : []),
+  ].join("\n");
+
+  return {
+    subject,
+    html: layout({
+      preheader: "Reach out while they still remember signing up.",
+      bodyHtml,
+      footerHtml: "Sent every night when someone signed up. Only you receive this.",
+    }),
+    text,
+  };
+}
