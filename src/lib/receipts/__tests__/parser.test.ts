@@ -559,21 +559,30 @@ describe("parseReceipt — paper", () => {
     expect(result.fields.items?.[1].qty).toBeNull();
   });
 
-  it("drops malformed items via Zod (missing total_amount) without breaking parse", async () => {
+  it("drops a malformed line item but keeps the rest of the reading", async () => {
     mockLlmExtract.mockResolvedValue({
       merchant: "ICA",
       amount: 100,
       currency: "SEK",
       receipt_date: "2026-05-10",
-      items: [{ label: "X" }],
+      items: [
+        { label: "X" },
+        { label: "Bröd", total_amount: 120 },
+        { label: "Medlemsrabatt", total_amount: -20 },
+      ],
       confidence: 0.9,
     });
     const result = await parseReceipt({
       kind: "paper",
-      raw: { ocrText: "X" },
+      raw: { ocrText: "ICA ... Bröd 120,00 ... Medlemsrabatt -20,00 ... TOTAL 100,00" },
     });
-    // Schema validation fails on the items array → entire LLM result
-    // is treated as invalid and we fall back to pending_review.
-    expect(result.status).toBe("pending_review");
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.merchant_name).toBe("ICA");
+    expect(result.fields.total).toBe(100);
+    expect(result.fields.items?.map((i) => [i.label, i.total_amount])).toEqual([
+      ["Bröd", 120],
+      ["Medlemsrabatt", -20],
+    ]);
   });
 });

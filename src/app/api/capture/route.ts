@@ -13,12 +13,12 @@ import { recordReceiptUsage } from "@/lib/usage";
 import {
   MAX_AMOUNT,
   PaymentMethodSchema,
-  ReceiptItemsSchema,
   TaxAmountSchema,
   TaxRateSchema,
   optionalNumber,
   optionalString,
   taxExceedsTotal,
+  usableItems,
 } from "@/lib/receipts/receipt-fields";
 import {
   EXTENSION_BY_TYPE,
@@ -31,22 +31,26 @@ export const dynamic = "force-dynamic";
 
 const CaptureSchema = z
   .object({
-    merchant: z.string().trim().min(1).max(200),
-    amount: z.number().positive().max(MAX_AMOUNT),
-    currency: z.enum(CURRENCY_OPTIONS),
+    merchant: z
+      .string({ error: "Enter the merchant" })
+      .trim()
+      .min(1, "Enter the merchant")
+      .max(200, "The merchant name can be at most 200 characters"),
+    amount: z
+      .number({ error: "Enter the total paid" })
+      .positive("Enter a total greater than 0")
+      .max(MAX_AMOUNT, "The total is too large"),
+    currency: z.enum(CURRENCY_OPTIONS, { error: "Choose a currency" }),
     receipt_date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "receipt_date must be YYYY-MM-DD"),
-    category: z.enum(CATEGORY_KEYS as [string, ...string[]]),
-    notes: z.string().max(2000).optional(),
+      .string({ error: "Enter the date" })
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the date"),
+    category: z.enum(CATEGORY_KEYS as [string, ...string[]], { error: "Choose a category" }),
+    notes: z.string().max(2000, "The note can be at most 2,000 characters").optional(),
     // VAT and payment method, pre-filled by OCR and editable in the form.
     // All optional: plenty of receipts (foreign, VAT-exempt) show none.
     tax_amount: TaxAmountSchema.optional(),
     tax_rate: TaxRateSchema.optional(),
     payment_method: PaymentMethodSchema.optional(),
-    // Line items extracted by OCR on the client. Optional — manual
-    // entries skip this, supermarket scans include the full list.
-    items: ReceiptItemsSchema.optional(),
   })
   .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
     message: "VAT can't be more than the total",
@@ -101,7 +105,6 @@ export async function POST(request: NextRequest) {
     tax_amount: optionalNumber(form.get("tax_amount")),
     tax_rate: optionalNumber(form.get("tax_rate")),
     payment_method: optionalString(form.get("payment_method")),
-    items: itemsJson,
   });
 
   if (!parsed.success) {
@@ -118,6 +121,10 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
+  // Line items extracted by OCR on the client. Optional — manual entries
+  // skip this, supermarket scans include the full list. Lines that don't
+  // validate are dropped instead of failing the save.
+  const items = usableItems(itemsJson);
   const supabase = getSupabaseAdmin();
 
   let uploadedPath: string | null = null;
@@ -194,7 +201,7 @@ export async function POST(request: NextRequest) {
       payment_method: data.payment_method ?? null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
-      items: data.items && data.items.length > 0 ? data.items : null,
+      items: items ?? null,
       source,
       status,
     })

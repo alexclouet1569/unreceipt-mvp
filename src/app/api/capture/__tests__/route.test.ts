@@ -280,6 +280,56 @@ describe("POST /api/capture", () => {
     expect(mocks.remove).not.toHaveBeenCalled();
   });
 
+  it("stores OCR line items, discount and deposit-return lines included", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const items = [
+      { label: "Laxfilé 250g", qty: 1, unit_amount: 69.9, total_amount: 69.9 },
+      { label: "Medlemsrabatt", qty: null, unit_amount: null, total_amount: -20 },
+      { label: "Pant retur", qty: 2, unit_amount: -1, total_amount: -2 },
+    ];
+
+    const res = await POST(buildRequest(buildFormData({ items: JSON.stringify(items) })));
+
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0].items).toEqual(items);
+  });
+
+  it("drops line items it can't use instead of refusing the receipt", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const items = [
+      { label: "Bröd", total_amount: 32.9 },
+      { label: "", total_amount: 5 },
+      { label: "Kasse", qty: 0, total_amount: 2 },
+      { label: "Okänd", total_amount: null },
+    ];
+
+    const res = await POST(buildRequest(buildFormData({ items: JSON.stringify(items) })));
+
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0].items).toEqual([{ label: "Bröd", total_amount: 32.9 }]);
+  });
+
+  it("stores no items when none of the lines are usable", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(
+      buildRequest(buildFormData({ items: JSON.stringify({ not: "an array" }) }))
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0].items).toBeNull();
+  });
+
+  it("explains a rejected field in plain words", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+
+    const res = await POST(buildRequest(buildFormData({ amount: "-5" })));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.issues[0]).toEqual({ path: "amount", message: "Enter a total greater than 0" });
+  });
+
   it("stores VAT amount, VAT rate and payment method", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
 
