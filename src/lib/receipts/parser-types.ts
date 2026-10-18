@@ -4,6 +4,8 @@
 // SDK into client-side bundles if anyone forgets the SERVER-ONLY
 // boundary).
 
+import type { ReceiptCategory } from "@/lib/types";
+
 export type ParseInput =
   | { kind: "email"; raw: EmailRaw }
   | { kind: "sms"; raw: SmsRaw }
@@ -41,7 +43,7 @@ export type CanonicalReceiptFields = {
   subtotal?: number | null;
   tax_amount?: number | null;
   tax_rate?: number | null;
-  category?: string | null;
+  category?: ReceiptCategory | null;
   payment_method?: string | null;
   card_last_four?: string | null;
   notes?: string | null;

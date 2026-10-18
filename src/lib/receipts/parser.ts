@@ -24,6 +24,7 @@ import type { PartialFields } from "./templates/types";
 import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { usableItems } from "./receipt-fields";
+import type { ReceiptCategory } from "@/lib/types";
 import type {
   CanonicalReceiptFields,
   EmailRaw,
@@ -306,9 +307,7 @@ function mergeAndFinalize(
     : confidence;
 
   const category =
-    llm.category && (CATEGORY_KEYS as readonly string[]).includes(llm.category)
-      ? llm.category
-      : null;
+    CATEGORY_KEYS.find((key) => key === llm.category) ?? null;
 
   return finalize(merged, effectiveConfidence, category);
 }
@@ -316,7 +315,7 @@ function mergeAndFinalize(
 function finalize(
   fields: PartialFields,
   confidence: number,
-  category: string | null = null
+  category: ReceiptCategory | null = null
 ): ParseResult {
   if (!hasAllRequired(fields)) return { status: "pending_review" };
   const canonical: CanonicalReceiptFields = {

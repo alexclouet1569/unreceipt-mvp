@@ -39,6 +39,7 @@ import {
 import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
+import type { Receipt } from "@/lib/types";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 import { buildForwardingAddress } from "@/lib/email-alias";
 import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
@@ -378,7 +379,9 @@ export async function POST(request: NextRequest) {
     notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
   };
 
-  const rowToInsert =
+  // Typed so .insert() gets one row shape; a bare union of the two branches
+  // fails postgrest-js >= 2.117 type inference.
+  const rowToInsert: Partial<Receipt> =
     parseResult.status === "ok"
       ? {
           ...baseFields,
