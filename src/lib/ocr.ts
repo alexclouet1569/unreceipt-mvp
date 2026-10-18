@@ -95,12 +95,16 @@ export async function extractReceipt(
 ): Promise<OcrResult> {
   const c = getClient();
   const res = await c.messages.create({
-    model: "claude-sonnet-4-6",
-    // Items are now part of the output — a long supermarket receipt
-    // with ~30 lines can push the JSON past 1024 tokens, which
-    // truncates the response and breaks JSON.parse. 4096 gives
-    // headroom for ~100 items without breaking the bank.
-    max_tokens: 4096,
+    // Chosen by the receipt OCR eval (evals/receipt-ocr, 2026-10-18):
+    // matched Sonnet 5.5 and Opus 5.5 on total/date/currency at ~1/19th of
+    // Sonnet 4.6's cost. At effort low it misread a UK dd/mm date.
+    model: "claude-haiku-5-5",
+    output_config: { effort: "medium" },
+    // Haiku 5.5 thinks before answering, and thinking counts against
+    // max_tokens: 4096 could cut the JSON off on a long receipt. The
+    // eval's longest answer was ~2k tokens; much past 8k can't stream
+    // back inside the routes' 30 s maxDuration anyway.
+    max_tokens: 8000,
     system: [
       {
         type: "text",

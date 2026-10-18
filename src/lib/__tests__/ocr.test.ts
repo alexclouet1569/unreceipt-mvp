@@ -59,7 +59,9 @@ describe("extractReceipt", () => {
 
     expect(mocks.create).toHaveBeenCalledTimes(1);
     const call = mocks.create.mock.calls[0][0];
-    expect(call.model).toBe("claude-sonnet-4-6");
+    expect(call.model).toBe("claude-haiku-5-5");
+    expect(call.output_config).toEqual({ effort: "medium" });
+    expect(call.max_tokens).toBe(8000);
     expect(Array.isArray(call.system)).toBe(true);
     expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
     expect(call.system[0].text).toMatch(/receipt OCR extractor/i);
