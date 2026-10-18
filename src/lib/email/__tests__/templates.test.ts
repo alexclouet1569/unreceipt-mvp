@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { firstNameFrom, pilotWelcomeEmail, waitlistEmail } from "../templates";
+import {
+  companySiteFor,
+  firstNameFrom,
+  pilotWelcomeEmail,
+  signupDigestEmail,
+  signupOutreach,
+  waitlistEmail,
+} from "../templates";
 
 const welcome = (overrides: Partial<Parameters<typeof pilotWelcomeEmail>[0]> = {}) =>
   pilotWelcomeEmail({
@@ -82,5 +89,70 @@ describe("firstNameFrom", () => {
   it("returns null for missing or empty names", () => {
     expect(firstNameFrom(null)).toBeNull();
     expect(firstNameFrom("   ")).toBeNull();
+  });
+});
+
+describe("signup digest helpers", () => {
+  const base = {
+    email: "anna@gmail.com",
+    fullName: "Anna <b>Berg</b>",
+    companyName: null,
+    signedUpAt: new Date("2026-10-18T08:15:00Z"),
+    confirmed: true,
+    provider: "email",
+    lastSignInAt: null,
+    onboarded: true,
+    photoReceipts: 0,
+    emailReceipts: 0,
+    ownAddresses: 0,
+  };
+
+  it("guesses a company site only for work addresses", () => {
+    expect(companySiteFor("anna@gmail.com")).toBeNull();
+    expect(companySiteFor("anna@Bygg-AB.se")).toBe("https://bygg-ab.se");
+    expect(companySiteFor("broken")).toBeNull();
+  });
+
+  it("asks what got in the way when there's no receipt, and for feedback otherwise", () => {
+    expect(signupOutreach(base).body).toContain("haven't added a receipt yet");
+    const active = signupOutreach({ ...base, photoReceipts: 1 });
+    expect(active.subject).toBe("Your first receipts in UnReceipt");
+    expect(active.body.startsWith("Hi Anna,")).toBe(true);
+  });
+
+  it("escapes names in the HTML", () => {
+    const email = signupDigestEmail({ signups: [base], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    expect(email.html).not.toContain("<b>Berg</b>");
+    expect(email.html).toContain("&lt;b&gt;Berg&lt;/b&gt;");
+  });
+});
+
+describe("signupDigestEmail links", () => {
+  const signup = {
+    email: "hi?bcc=x%40evil.com&subject=y@evil.com",
+    fullName: null,
+    companyName: null,
+    signedUpAt: new Date("2026-10-18T08:15:00Z"),
+    confirmed: false,
+    provider: "email",
+    lastSignInAt: null,
+    onboarded: false,
+    photoReceipts: 0,
+    emailReceipts: 0,
+    ownAddresses: 0,
+  };
+
+  it("encodes addresses so they can't add mailto parameters", () => {
+    const { html } = signupDigestEmail({ signups: [signup], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    expect(html).not.toContain("mailto:hi?bcc");
+    expect(html).toContain("mailto:hi%3Fbcc%3Dx%2540evil.com%26subject%3Dy%40evil.com");
+  });
+
+  it("offers no pre-filled message for an unconfirmed address", () => {
+    const { html, text } = signupDigestEmail({ signups: [signup], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    expect(html).not.toContain("Write to them");
+    expect(text).toContain("Not confirmed yet");
+    const ok = signupDigestEmail({ signups: [{ ...signup, email: "a@b.se", confirmed: true }], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    expect(ok.html).toContain("Write to them");
   });
 });
