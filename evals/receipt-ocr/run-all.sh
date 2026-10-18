@@ -2,12 +2,17 @@
 # Runs every candidate model over the receipt set, then writes the comparison
 # (comparison.md) and the per-case report (report.html).
 #
-#   ANTHROPIC_API_KEY=... evals/receipt-ocr/run-all.sh            # 2 reps each
+#   evals/receipt-ocr/run-all.sh                                   # 2 reps each
 #   REPS=1 CASES=real evals/receipt-ocr/run-all.sh                 # real photos only
 #
 # Re-running resumes: finished (case, rep) pairs are skipped.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+
+# The key lives under its own name in the cloud environment: an
+# ANTHROPIC_API_KEY there could also be picked up by Claude Code itself.
+if [[ -n ${UNRECEIPT_EVAL_ANTHROPIC_KEY:-} ]]; then export ANTHROPIC_API_KEY=$UNRECEIPT_EVAL_ANTHROPIC_KEY; fi
+if [[ -z ${ANTHROPIC_API_KEY:-} ]]; then echo "Set UNRECEIPT_EVAL_ANTHROPIC_KEY (see evals/receipt-ocr/README.md)" >&2; exit 2; fi
 
 FLOW=.claude/hillclimb/receipt-ocr
 REPS=${REPS:-2}

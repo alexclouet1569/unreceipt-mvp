@@ -30,7 +30,7 @@ A cut-off or non-JSON answer scores 0 on every field: that's what the customer w
 
 ## Running it
 
-Needs `ANTHROPIC_API_KEY` in the environment.
+Needs an Anthropic API key in `UNRECEIPT_EVAL_ANTHROPIC_KEY` (in a Claude Code cloud environment: environment → Edit → Environment variables). It has its own name because an `ANTHROPIC_API_KEY` in that environment could also be picked up by Claude Code itself. `run-all.sh` hands it to the SDK as `ANTHROPIC_API_KEY` for the eval only; when calling `run-eval.mjs` directly, prefix the command with `ANTHROPIC_API_KEY=$UNRECEIPT_EVAL_ANTHROPIC_KEY`.
 
 ```bash
 evals/receipt-ocr/run-all.sh          # every model, 2 reps each
