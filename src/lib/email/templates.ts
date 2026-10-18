@@ -410,7 +410,7 @@ export function signupOutreach(s: DigestSignup): { subject: string; body: string
     "Could I ask you three quick questions (by reply, or a 10-minute call this week if that's easier)?",
     "1. How do you handle receipts today: an app, paper in a folder, or your accountant?",
     "2. Roughly how many receipts a month, and how many people in the company pay for things?",
-    "3. Which accounting tool does the company use (Fortnox, Visma, something else)?",
+    "3. Which accounting tool does the company use (Fortnox, Visma, Pennylane, something else)?",
     "",
     "Thank you!",
     "Alexandre",
@@ -428,7 +428,7 @@ const INTERVIEW_QUESTIONS = [
   "What made you sign up today? What were you trying to fix?",
   "How do receipts get from your pocket or inbox to the accountant today, and who does it?",
   "How many receipts a month, and how many people in the company spend money?",
-  "Which accounting tool, and do you have an accountant (redovisningsbyrå)?",
+  "Which accounting tool, and do you work with an accountant?",
   "What would make you stop using UnReceipt? What would make you pay for it?",
 ];
 
