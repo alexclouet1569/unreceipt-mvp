@@ -367,7 +367,8 @@ function toReceiptItems(items: EditItem[]): ReceiptItem[] {
     if (!label && !it.total.trim()) continue;
     if (!label) throw new Error("Every line needs a description");
     const total = parseDecimal(it.total);
-    if (!it.total.trim() || !Number.isFinite(total) || total < 0) {
+    // Negative is fine: discount and deposit-return lines.
+    if (!it.total.trim() || !Number.isFinite(total)) {
       throw new Error(`Enter an amount for “${label}”`);
     }
     const totalChanged = it.total.trim() !== it.originalTotal;
@@ -786,7 +787,6 @@ function ReceiptEditForm({
                 aria-label={`Line ${idx + 1} amount`}
                 type="number"
                 step="0.01"
-                min="0"
                 inputMode="decimal"
                 className="h-11 w-28 shrink-0 font-mono tabular-nums"
                 value={it.total}

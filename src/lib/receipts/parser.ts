@@ -23,6 +23,7 @@ import { EMAIL_TEMPLATES, SMS_TEMPLATES } from "./templates";
 import type { PartialFields } from "./templates/types";
 import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { usableItems } from "./receipt-fields";
 import type {
   CanonicalReceiptFields,
   EmailRaw,
@@ -57,13 +58,6 @@ const UNTRUSTED_LLM_CONFIDENCE_CAP = 0.7;
 // Zod for the LLM output. Mirrors LlmExtractResult but stricter so a
 // hallucinated invalid currency lands as pending_review rather than
 // breaking the row insert.
-const ItemSchema = z.object({
-  label: z.string().min(1).max(200),
-  qty: z.number().positive().max(10_000).nullable().optional(),
-  unit_amount: z.number().nonnegative().max(1_000_000).nullable().optional(),
-  total_amount: z.number().nonnegative().max(1_000_000),
-});
-
 const LlmResultSchema = z
   .object({
     merchant: z.string().min(1).max(200).optional(),
@@ -77,9 +71,10 @@ const LlmResultSchema = z
     payment_method: z.string().max(50).optional(),
     card_last_four: z.string().regex(/^\d{4}$/).optional(),
     notes: z.string().max(500).optional(),
-    // Cap at 200 items — a single receipt with more than 200 lines is
-    // almost certainly an LLM hallucinating from noise.
-    items: z.array(ItemSchema).max(200).optional(),
+    // Checked line by line (and cut at 200) in usableItems: one odd line
+    // mustn't throw away the merchant, total and VAT read from the same
+    // email.
+    items: z.unknown().optional(),
     confidence: z.number().min(0).max(1).optional(),
     not_a_receipt: z.boolean().optional(),
   })
@@ -266,8 +261,9 @@ function mergeAndFinalize(
   if (llm.receipt_date) {
     merged.purchased_at = `${llm.receipt_date}T${llm.receipt_time ?? "12:00"}:00.000Z`;
   }
-  if (llm.items && llm.items.length > 0) {
-    merged.items = llm.items.map((it) => ({
+  const llmItems = usableItems(llm.items);
+  if (llmItems) {
+    merged.items = llmItems.map((it) => ({
       label: it.label,
       qty: it.qty ?? null,
       unit_amount: it.unit_amount ?? null,
