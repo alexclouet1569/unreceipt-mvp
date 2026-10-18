@@ -146,3 +146,69 @@ describe("extractReceipt", () => {
     );
   });
 });
+
+describe("extractReceiptCall", () => {
+  beforeEach(() => {
+    mocks.create.mockReset();
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+  });
+
+  afterEach(async () => {
+    const ocr = await importOcr();
+    ocr._resetOcrClientForTests();
+    delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  it("passes eval options through and returns the served model and usage", async () => {
+    mocks.create.mockResolvedValue({
+      model: "claude-haiku-5-5",
+      stop_reason: "end_turn",
+      usage: { input_tokens: 1200, output_tokens: 90 },
+      content: [{ type: "text", text: '{"amount":49.5}' }],
+    });
+    const { extractReceiptCall } = await importOcr();
+    const call = await extractReceiptCall("x", "image/jpeg", {
+      model: "claude-haiku-5-5",
+      effort: "low",
+      maxTokens: 16000,
+    });
+
+    expect(call).toEqual({
+      result: { amount: 49.5 },
+      model: "claude-haiku-5-5",
+      stopReason: "end_turn",
+      usage: { input_tokens: 1200, output_tokens: 90 },
+    });
+    const req = mocks.create.mock.calls[0][0];
+    expect(req.model).toBe("claude-haiku-5-5");
+    expect(req.max_tokens).toBe(16000);
+    expect(req.output_config).toEqual({ effort: "low" });
+  });
+
+  it("sends no output_config when no effort is given", async () => {
+    mocks.create.mockResolvedValue({
+      content: [{ type: "text", text: "{}" }],
+    });
+    const { extractReceiptCall } = await importOcr();
+    await extractReceiptCall("x", "image/jpeg");
+    expect(mocks.create.mock.calls[0][0]).not.toHaveProperty("output_config");
+  });
+
+  it("keeps the billed usage on an unusable answer", async () => {
+    mocks.create.mockResolvedValue({
+      model: "claude-sonnet-4-6",
+      stop_reason: "max_tokens",
+      usage: { input_tokens: 1500, output_tokens: 4096 },
+      content: [{ type: "text", text: '{"items":[' }],
+    });
+    const { extractReceiptCall, OcrOutputError } = await importOcr();
+    const err = await extractReceiptCall("x", "image/jpeg").catch((e) => e);
+    expect(err).toBeInstanceOf(OcrOutputError);
+    expect(err.call).toEqual({
+      model: "claude-sonnet-4-6",
+      stopReason: "max_tokens",
+      usage: { input_tokens: 1500, output_tokens: 4096 },
+    });
+  });
+});
+

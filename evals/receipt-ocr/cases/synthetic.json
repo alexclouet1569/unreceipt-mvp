@@ -1,0 +1,796 @@
+[
+  {
+    "id": "se-ica-grocery",
+    "tags": [
+      "sv",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/se-ica-grocery.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "ica"
+      ],
+      "amount": 306.05,
+      "currency": "SEK",
+      "receipt_date": "2026-10-03",
+      "tax_amount": 32.79,
+      "tax_rate": 12,
+      "items_count": 7,
+      "category": "other"
+    }
+  },
+  {
+    "id": "se-coop-mixed-vat",
+    "tags": [
+      "sv",
+      "medium",
+      "scan",
+      "mixed-vat"
+    ],
+    "image": "cases/images/se-coop-mixed-vat.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "coop"
+      ],
+      "amount": 244.25,
+      "currency": "SEK",
+      "receipt_date": "2026-09-21",
+      "tax_amount": 36.74,
+      "tax_rate": null,
+      "items_count": 6,
+      "category": "other"
+    }
+  },
+  {
+    "id": "se-pressbyran-coffee",
+    "tags": [
+      "sv",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/se-pressbyran-coffee.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "pressbyran",
+        "pressbyrån"
+      ],
+      "amount": 71,
+      "currency": "SEK",
+      "receipt_date": "2026-10-14",
+      "tax_amount": 7.61,
+      "tax_rate": 12,
+      "items_count": 2,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "se-circlek-fuel",
+    "tags": [
+      "sv",
+      "medium",
+      "photo",
+      "fuel"
+    ],
+    "image": "cases/images/se-circlek-fuel.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "circle k",
+        "circlek"
+      ],
+      "amount": 616.23,
+      "currency": "SEK",
+      "receipt_date": "2026-10-09",
+      "tax_amount": 123.25,
+      "tax_rate": 25,
+      "items_count": 1,
+      "category": "transport"
+    }
+  },
+  {
+    "id": "se-restaurant-tip",
+    "tags": [
+      "sv",
+      "hard",
+      "scan",
+      "mixed-vat",
+      "tip"
+    ],
+    "image": "cases/images/se-restaurant-tip.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "tranan"
+      ],
+      "amount": 1155,
+      "currency": "SEK",
+      "receipt_date": "2026-10-10",
+      "tax_amount": 147.86,
+      "tax_rate": null,
+      "items_count": 4,
+      "category": "client_entertainment"
+    }
+  },
+  {
+    "id": "se-systembolaget",
+    "tags": [
+      "sv",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/se-systembolaget.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "systembolaget"
+      ],
+      "amount": 270.4,
+      "currency": "SEK",
+      "receipt_date": "2026-09-30",
+      "tax_amount": 54.08,
+      "tax_rate": 25,
+      "items_count": 2,
+      "category": "client_entertainment"
+    }
+  },
+  {
+    "id": "se-clasohlson-cash",
+    "tags": [
+      "sv",
+      "hard",
+      "scan",
+      "cash-change"
+    ],
+    "image": "cases/images/se-clasohlson-cash.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "clas ohlson",
+        "clasohlson"
+      ],
+      "amount": 249,
+      "currency": "SEK",
+      "receipt_date": "2026-10-01",
+      "tax_amount": 49.78,
+      "tax_rate": 25,
+      "items_count": 2,
+      "category": "office_supplies"
+    }
+  },
+  {
+    "id": "se-taxi",
+    "tags": [
+      "sv",
+      "medium",
+      "faded"
+    ],
+    "image": "cases/images/se-taxi.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "taxi stockholm"
+      ],
+      "amount": 675,
+      "currency": "SEK",
+      "receipt_date": "2026-10-12",
+      "tax_amount": 38.21,
+      "tax_rate": 6,
+      "items_count": 1,
+      "category": "transport"
+    }
+  },
+  {
+    "id": "se-sj-ticket",
+    "tags": [
+      "sv",
+      "easy",
+      "digital"
+    ],
+    "image": "cases/images/se-sj-ticket.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "sj"
+      ],
+      "amount": 638,
+      "currency": "SEK",
+      "receipt_date": "2026-10-06",
+      "tax_amount": 36.11,
+      "tax_rate": 6,
+      "items_count": 2,
+      "category": "travel"
+    }
+  },
+  {
+    "id": "se-apotek-zero-vat",
+    "tags": [
+      "sv",
+      "hard",
+      "photo",
+      "mixed-vat"
+    ],
+    "image": "cases/images/se-apotek-zero-vat.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "apotek hjartat",
+        "apotek hjärtat",
+        "hjärtat",
+        "hjartat"
+      ],
+      "amount": 283.9,
+      "currency": "SEK",
+      "receipt_date": "2026-09-18",
+      "tax_amount": 31.78,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "se-parking-slip",
+    "tags": [
+      "sv",
+      "easy",
+      "slip"
+    ],
+    "image": "cases/images/se-parking-slip.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "stockholm parkering",
+        "parkering"
+      ],
+      "amount": 60,
+      "currency": "SEK",
+      "receipt_date": "2026-10-15",
+      "tax_amount": 12,
+      "tax_rate": 25,
+      "items_count": 1,
+      "category": "transport"
+    }
+  },
+  {
+    "id": "se-hotel",
+    "tags": [
+      "sv",
+      "medium",
+      "digital",
+      "mixed-vat"
+    ],
+    "image": "cases/images/se-hotel.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "scandic"
+      ],
+      "amount": 2830,
+      "currency": "SEK",
+      "receipt_date": "2026-10-08",
+      "tax_amount": 326.43,
+      "tax_rate": null,
+      "items_count": 2,
+      "category": "accommodation"
+    }
+  },
+  {
+    "id": "se-max-faded",
+    "tags": [
+      "sv",
+      "medium",
+      "faded"
+    ],
+    "image": "cases/images/se-max-faded.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "max"
+      ],
+      "amount": 131,
+      "currency": "SEK",
+      "receipt_date": "2026-10-04",
+      "tax_amount": 14.04,
+      "tax_rate": 12,
+      "items_count": 2,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "se-willys-long",
+    "tags": [
+      "sv",
+      "hard",
+      "scan",
+      "long"
+    ],
+    "image": "cases/images/se-willys-long.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "willys"
+      ],
+      "amount": 956.32,
+      "currency": "SEK",
+      "receipt_date": "2026-10-11",
+      "tax_amount": 117.76,
+      "tax_rate": null,
+      "items_count": 25,
+      "category": "other"
+    }
+  },
+  {
+    "id": "se-member-discount",
+    "tags": [
+      "sv",
+      "hard",
+      "photo",
+      "discount"
+    ],
+    "image": "cases/images/se-member-discount.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "hemkop",
+        "hemköp"
+      ],
+      "amount": 146.7,
+      "currency": "SEK",
+      "receipt_date": "2026-10-13",
+      "tax_amount": 15.72,
+      "tax_rate": 12,
+      "items_count": 4,
+      "category": "other"
+    }
+  },
+  {
+    "id": "se-short-date",
+    "tags": [
+      "sv",
+      "medium",
+      "photo",
+      "date-format"
+    ],
+    "image": "cases/images/se-short-date.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "biltema"
+      ],
+      "amount": 189.7,
+      "currency": "SEK",
+      "receipt_date": "2026-09-27",
+      "tax_amount": 37.94,
+      "tax_rate": 25,
+      "items_count": 3,
+      "category": "transport"
+    }
+  },
+  {
+    "id": "se-card-slip-only",
+    "tags": [
+      "sv",
+      "medium",
+      "slip",
+      "no-items"
+    ],
+    "image": "cases/images/se-card-slip-only.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "espresso house"
+      ],
+      "amount": 129,
+      "currency": "SEK",
+      "receipt_date": "2026-10-16",
+      "tax_amount": 13.82,
+      "tax_rate": 12,
+      "items_count": 0,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "se-upside-down",
+    "tags": [
+      "sv",
+      "hard",
+      "upside-down"
+    ],
+    "image": "cases/images/se-upside-down.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "lidl"
+      ],
+      "amount": 62.7,
+      "currency": "SEK",
+      "receipt_date": "2026-10-05",
+      "tax_amount": 6.9,
+      "tax_rate": null,
+      "items_count": 4,
+      "category": "other"
+    }
+  },
+  {
+    "id": "se-crumpled",
+    "tags": [
+      "sv",
+      "hard",
+      "crumpled"
+    ],
+    "image": "cases/images/se-crumpled.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "jula"
+      ],
+      "amount": 209.7,
+      "currency": "SEK",
+      "receipt_date": "2026-09-25",
+      "tax_amount": 41.94,
+      "tax_rate": 25,
+      "items_count": 3,
+      "category": "office_supplies"
+    }
+  },
+  {
+    "id": "se-blurry",
+    "tags": [
+      "sv",
+      "hard",
+      "blurry"
+    ],
+    "image": "cases/images/se-blurry.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "7-eleven",
+        "7eleven",
+        "7 eleven"
+      ],
+      "amount": 150,
+      "currency": "SEK",
+      "receipt_date": "2026-10-02",
+      "tax_amount": 22.01,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "fr-carrefour",
+    "tags": [
+      "fr",
+      "medium",
+      "photo",
+      "mixed-vat"
+    ],
+    "image": "cases/images/fr-carrefour.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "carrefour"
+      ],
+      "amount": 17.57,
+      "currency": "EUR",
+      "receipt_date": "2026-10-07",
+      "tax_amount": 1.99,
+      "tax_rate": null,
+      "items_count": 6,
+      "category": "other"
+    }
+  },
+  {
+    "id": "fr-boulangerie",
+    "tags": [
+      "fr",
+      "medium",
+      "faded"
+    ],
+    "image": "cases/images/fr-boulangerie.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "paul"
+      ],
+      "amount": 5.65,
+      "currency": "EUR",
+      "receipt_date": "2026-10-11",
+      "tax_amount": 0.51,
+      "tax_rate": 10,
+      "items_count": 3,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "fr-restaurant",
+    "tags": [
+      "fr",
+      "hard",
+      "scan",
+      "mixed-vat"
+    ],
+    "image": "cases/images/fr-restaurant.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "petit bistrot"
+      ],
+      "amount": 64.5,
+      "currency": "EUR",
+      "receipt_date": "2026-10-09",
+      "tax_amount": 7.23,
+      "tax_rate": null,
+      "items_count": 4,
+      "category": "client_entertainment"
+    }
+  },
+  {
+    "id": "fr-monoprix-discount",
+    "tags": [
+      "fr",
+      "hard",
+      "photo",
+      "discount"
+    ],
+    "image": "cases/images/fr-monoprix-discount.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "monoprix"
+      ],
+      "amount": 12.22,
+      "currency": "EUR",
+      "receipt_date": "2026-10-12",
+      "tax_amount": 1.1,
+      "tax_rate": null,
+      "items_count": 4,
+      "category": "other"
+    }
+  },
+  {
+    "id": "fr-sncf",
+    "tags": [
+      "fr",
+      "easy",
+      "digital"
+    ],
+    "image": "cases/images/fr-sncf.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "sncf"
+      ],
+      "amount": 79,
+      "currency": "EUR",
+      "receipt_date": "2026-09-29",
+      "tax_amount": 7.18,
+      "tax_rate": 10,
+      "items_count": 1,
+      "category": "travel"
+    }
+  },
+  {
+    "id": "fr-fuel",
+    "tags": [
+      "fr",
+      "medium",
+      "photo",
+      "fuel"
+    ],
+    "image": "cases/images/fr-fuel.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "totalenergies",
+        "total"
+      ],
+      "amount": 77.41,
+      "currency": "EUR",
+      "receipt_date": "2026-10-03",
+      "tax_amount": 12.9,
+      "tax_rate": 20,
+      "items_count": 1,
+      "category": "transport"
+    }
+  },
+  {
+    "id": "us-coffee-tax-tip",
+    "tags": [
+      "en",
+      "hard",
+      "photo",
+      "tip",
+      "tax-on-top"
+    ],
+    "image": "cases/images/us-coffee-tax-tip.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "blue bottle"
+      ],
+      "amount": 29,
+      "currency": "USD",
+      "receipt_date": "2026-09-24",
+      "tax_amount": 2,
+      "tax_rate": 8.875,
+      "items_count": 3,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "uk-pub",
+    "tags": [
+      "en",
+      "medium",
+      "scan"
+    ],
+    "image": "cases/images/uk-pub.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "crown"
+      ],
+      "amount": 39.05,
+      "currency": "GBP",
+      "receipt_date": "2026-10-02",
+      "tax_amount": 6.51,
+      "tax_rate": 20,
+      "items_count": 3,
+      "category": "client_entertainment"
+    }
+  },
+  {
+    "id": "en-uber-digital",
+    "tags": [
+      "en",
+      "easy",
+      "digital"
+    ],
+    "image": "cases/images/en-uber-digital.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "uber"
+      ],
+      "amount": 24,
+      "currency": "EUR",
+      "receipt_date": "2026-10-01",
+      "tax_amount": 1.98,
+      "tax_rate": 9,
+      "items_count": 2,
+      "category": "transport"
+    }
+  },
+  {
+    "id": "neg-menu",
+    "tags": [
+      "neg",
+      "hard",
+      "photo"
+    ],
+    "image": "cases/images/neg-menu.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": true
+    }
+  },
+  {
+    "id": "neg-business-card",
+    "tags": [
+      "neg",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/neg-business-card.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": true
+    }
+  },
+  {
+    "id": "neg-shopping-list",
+    "tags": [
+      "neg",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/neg-shopping-list.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": true
+    }
+  },
+  {
+    "id": "neg-flyer",
+    "tags": [
+      "neg",
+      "hard",
+      "scan"
+    ],
+    "image": "cases/images/neg-flyer.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": true
+    }
+  },
+  {
+    "id": "neg-empty-desk",
+    "tags": [
+      "neg",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/neg-empty-desk.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": true
+    }
+  }
+]

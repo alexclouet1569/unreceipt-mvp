@@ -89,18 +89,58 @@ Rules:
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.
 - Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when the receipt doesn't print them.`;
 
+// The production model. The receipt OCR eval (evals/receipt-ocr) compares
+// candidates against it before this changes.
+export const OCR_MODEL = "claude-sonnet-4-6";
+
+// Eval-only knobs; the routes call extractReceipt() without them. Never fill
+// these from a request: they decide what each call costs.
+export interface OcrOptions {
+  model?: string;
+  effort?: "low" | "medium" | "high";
+  maxTokens?: number;
+}
+
+export interface OcrCall {
+  result: OcrResult;
+  model: string;
+  usage: Anthropic.Usage;
+  stopReason: Anthropic.StopReason | null;
+}
+
+// The call was billed but its output couldn't be used. Carries the call's
+// model and usage so the eval still counts what it cost.
+export class OcrOutputError extends Error {
+  constructor(
+    message: string,
+    readonly call: Omit<OcrCall, "result">
+  ) {
+    super(message);
+    this.name = "OcrOutputError";
+  }
+}
+
 export async function extractReceipt(
   imageBase64: string,
   mediaType: OcrMediaType
 ): Promise<OcrResult> {
+  return (await extractReceiptCall(imageBase64, mediaType)).result;
+}
+
+export async function extractReceiptCall(
+  imageBase64: string,
+  mediaType: OcrMediaType,
+  options: OcrOptions = {}
+): Promise<OcrCall> {
   const c = getClient();
   const res = await c.messages.create({
-    model: "claude-sonnet-4-6",
+    model: options.model ?? OCR_MODEL,
     // Items are now part of the output — a long supermarket receipt
     // with ~30 lines can push the JSON past 1024 tokens, which
     // truncates the response and breaks JSON.parse. 4096 gives
     // headroom for ~100 items without breaking the bank.
-    max_tokens: 4096,
+    max_tokens: options.maxTokens ?? 4096,
+    ...(options.effort ? { output_config: { effort: options.effort } } : {}),
     system: [
       {
         type: "text",
@@ -137,19 +177,20 @@ export async function extractReceipt(
       },
     ],
   });
+  const call = { model: res.model, usage: res.usage, stopReason: res.stop_reason };
 
   const textBlock = res.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
-    throw new Error("OCR returned no text content");
+    throw new OcrOutputError("OCR returned no text content", call);
   }
   const raw = textBlock.text.trim();
   const cleaned = raw.replace(/^```(?:json)?\n?|\n?```$/g, "").trim();
   try {
-    return JSON.parse(cleaned) as OcrResult;
+    return { ...call, result: JSON.parse(cleaned) as OcrResult };
   } catch {
     // Don't echo the model's output: it's receipt content (merchant,
     // address, card digits, email text) and this message reaches logs and
     // Sentry.
-    throw new Error(`OCR returned non-JSON (${cleaned.length} chars)`);
+    throw new OcrOutputError(`OCR returned non-JSON (${cleaned.length} chars)`, call);
   }
 }

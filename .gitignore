@@ -44,3 +44,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+
+# receipt OCR eval: real photos hold card digits and addresses; run output is local
+/evals/receipt-ocr/real/*
+!/evals/receipt-ocr/real/labels.example.json
+/.claude/hillclimb/*/*
+!/.claude/hillclimb/*/_state.json
