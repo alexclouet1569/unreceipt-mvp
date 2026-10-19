@@ -8,6 +8,17 @@ import {
   waitlistEmail,
 } from "../templates";
 
+const activity = {
+  receiptsAdded: 0,
+  forwardedReceipts: 0,
+  receiptAdders: 0,
+  totalReceipts: 0,
+  reviewNeeded: 0,
+  signedIn: 0,
+  unconfirmedCharges: 0,
+  liveVersion: null,
+};
+
 const welcome = (overrides: Partial<Parameters<typeof pilotWelcomeEmail>[0]> = {}) =>
   pilotWelcomeEmail({
     firstName: "Alex",
@@ -121,9 +132,24 @@ describe("signup digest helpers", () => {
   });
 
   it("escapes names in the HTML", () => {
-    const email = signupDigestEmail({ signups: [base], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    const email = signupDigestEmail({ signups: [base], moreSignups: 0, waitlist: [], totalAccounts: 1, activity });
     expect(email.html).not.toContain("<b>Berg</b>");
     expect(email.html).toContain("&lt;b&gt;Berg&lt;/b&gt;");
+  });
+});
+
+describe("signupDigestEmail activity", () => {
+  it("escapes the live commit title and hides the Stripe row when nothing is stuck", () => {
+    const { html } = signupDigestEmail({
+      signups: [],
+      moreSignups: 0,
+      waitlist: [],
+      totalAccounts: 0,
+      activity: { ...activity, liveVersion: { title: "<img src=x> fix", sha: "abc1234" } },
+    });
+    expect(html).toContain("&lt;img src=x&gt; fix (abc1234)");
+    expect(html).not.toContain("<img src=x>");
+    expect(html).not.toContain("Needs a look");
   });
 });
 
@@ -143,16 +169,16 @@ describe("signupDigestEmail links", () => {
   };
 
   it("encodes addresses so they can't add mailto parameters", () => {
-    const { html } = signupDigestEmail({ signups: [signup], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    const { html } = signupDigestEmail({ signups: [signup], moreSignups: 0, waitlist: [], totalAccounts: 1, activity });
     expect(html).not.toContain("mailto:hi?bcc");
     expect(html).toContain("mailto:hi%3Fbcc%3Dx%2540evil.com%26subject%3Dy%40evil.com");
   });
 
   it("offers no pre-filled message for an unconfirmed address", () => {
-    const { html, text } = signupDigestEmail({ signups: [signup], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    const { html, text } = signupDigestEmail({ signups: [signup], moreSignups: 0, waitlist: [], totalAccounts: 1, activity });
     expect(html).not.toContain("Write to them");
     expect(text).toContain("Not confirmed yet");
-    const ok = signupDigestEmail({ signups: [{ ...signup, email: "a@b.se", confirmed: true }], moreSignups: 0, waitlist: [], totalAccounts: 1 });
+    const ok = signupDigestEmail({ signups: [{ ...signup, email: "a@b.se", confirmed: true }], moreSignups: 0, waitlist: [], totalAccounts: 1, activity });
     expect(ok.html).toContain("Write to them");
   });
 });

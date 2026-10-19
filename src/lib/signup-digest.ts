@@ -1,9 +1,11 @@
 // SERVER-ONLY (service role). Nightly founder email listing who signed up
 // for the pilot (new accounts and waitlist entries) in the last 24 hours,
 // with how far each new account got, so the founder can reach out while
-// they still remember signing up. Run by /api/cron/signup-digest.
+// they still remember signing up, plus what happened in the app over the
+// same 24 hours. Run by /api/cron/signup-digest.
 //
-// - Nothing is sent on a day without signups.
+// - Sent every night, also without signups: a missing email then means the
+//   job is broken, not that nobody came.
 // - The window ends at the start of the current UTC hour. Vercel Hobby fires
 //   a daily cron anywhere inside its scheduled hour, so consecutive runs
 //   cover back-to-back windows: nobody is listed twice or skipped.
@@ -14,7 +16,12 @@
 import { getSupabaseAdmin } from "./supabase-admin";
 import { isAdminEmail } from "./auth-admin";
 import { founderReplyTo, sendEmail } from "./email/send";
-import { signupDigestEmail, type DigestSignup, type DigestWaitlistEntry } from "./email/templates";
+import {
+  signupDigestEmail,
+  type DigestActivity,
+  type DigestSignup,
+  type DigestWaitlistEntry,
+} from "./email/templates";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -42,23 +49,31 @@ type AuthUser = {
   user_metadata?: { full_name?: unknown; company_name?: unknown };
 };
 
-async function newAccounts(w: { start: Date; end: Date }): Promise<{ users: AuthUser[]; total: number }> {
+type Accounts = { users: AuthUser[]; total: number; signedIn: number; adminIds: string[] };
+
+async function newAccounts(w: { start: Date; end: Date }): Promise<Accounts> {
   const db = getSupabaseAdmin();
   const found: AuthUser[] = [];
+  const adminIds: string[] = [];
   let total = 0;
+  let signedIn = 0;
   for (let page = 1; ; page++) {
     const { data, error } = await db.auth.admin.listUsers({ page, perPage: PAGE });
     if (error) throw new Error(`listUsers failed (${error.status ?? "unknown"})`);
     const users = (data?.users ?? []) as AuthUser[];
     for (const u of users) {
-      if (isAdminEmail(u.email)) continue;
+      if (isAdminEmail(u.email)) {
+        adminIds.push(u.id);
+        continue;
+      }
       total++;
       if (inWindow(u.created_at, w)) found.push(u);
+      if (inWindow(u.last_sign_in_at, w)) signedIn++;
     }
     if (users.length < PAGE) break;
   }
   found.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-  return { users: found, total };
+  return { users: found, total, signedIn, adminIds };
 }
 
 function text(value: unknown): string | null {
@@ -125,26 +140,76 @@ async function newWaitlist(w: { start: Date; end: Date }): Promise<DigestWaitlis
   }));
 }
 
+// The founder's own test receipts would make the numbers meaningless.
+// (Q is left unconstrained: spelling out the builder type makes tsc recurse.)
+function notAdmin<Q>(query: Q, adminIds: string[]): Q {
+  if (adminIds.length === 0) return query;
+  const q = query as unknown as { not: (column: string, op: string, value: string) => Q };
+  return q.not("user_id", "in", `(${adminIds.join(",")})`);
+}
+
+async function appActivity(w: { start: Date; end: Date }, accounts: Accounts): Promise<DigestActivity> {
+  const db = getSupabaseAdmin();
+  const { adminIds } = accounts;
+  const [added, allReceipts, pending, unconfirmed] = await Promise.all([
+    notAdmin(
+      db.from("receipts").select("user_id, source").gte("created_at", w.start.toISOString()).lt("created_at", w.end.toISOString()),
+      adminIds,
+    ),
+    notAdmin(db.from("receipts").select("id", { count: "exact", head: true }), adminIds),
+    notAdmin(db.from("receipts").select("id", { count: "exact", head: true }).eq("status", "pending_review"), adminIds),
+    // A Stripe meter call that was tried but never confirmed (see usage.ts).
+    notAdmin(
+      db
+        .from("receipt_usage")
+        .select("receipt_id", { count: "exact", head: true })
+        .not("overage_attempted_at", "is", null)
+        .is("overage_billed_at", null),
+      adminIds,
+    ),
+  ]);
+  if (added.error) throw new Error(`receipts read failed (${added.error.code})`);
+  if (allReceipts.error) throw new Error(`receipts count failed (${allReceipts.error.code})`);
+  if (pending.error) throw new Error(`review count failed (${pending.error.code})`);
+  if (unconfirmed.error) throw new Error(`usage count failed (${unconfirmed.error.code})`);
+
+  const rows = added.data ?? [];
+  const forwarded = rows.filter((r) => r.source === "email").length;
+  const commit = process.env.VERCEL_GIT_COMMIT_MESSAGE?.split("\n")[0]?.trim();
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7);
+  return {
+    receiptsAdded: rows.length,
+    forwardedReceipts: forwarded,
+    receiptAdders: new Set(rows.map((r) => r.user_id as string)).size,
+    totalReceipts: allReceipts.count ?? 0,
+    reviewNeeded: pending.count ?? 0,
+    signedIn: accounts.signedIn,
+    unconfirmedCharges: unconfirmed.count ?? 0,
+    liveVersion: commit ? { title: commit, sha: sha ?? null } : null,
+  };
+}
+
 export type SignupDigestResult =
-  | { sent: false; reason: "no_signups" | "no_recipient" | "send_failed"; accounts: number; waitlist: number }
+  | { sent: false; reason: "no_recipient" | "send_failed"; accounts: number; waitlist: number }
   | { sent: true; accounts: number; waitlist: number };
 
 export async function runSignupDigest(now: Date = new Date()): Promise<SignupDigestResult> {
   const w = digestWindow(now);
-  const { users, total } = await newAccounts(w);
+  const accounts = await newAccounts(w);
+  const { users, total } = accounts;
   const waitlist = await newWaitlist(w);
   const counts = { accounts: users.length, waitlist: waitlist.length };
-  if (users.length === 0 && waitlist.length === 0) return { sent: false, reason: "no_signups", ...counts };
 
   const to = founderReplyTo();
   if (!to) return { sent: false, reason: "no_recipient", ...counts };
 
-  const signups = await describe(users.slice(0, MAX_LISTED));
+  const [signups, activity] = await Promise.all([describe(users.slice(0, MAX_LISTED)), appActivity(w, accounts)]);
   const email = signupDigestEmail({
     signups,
     moreSignups: users.length - signups.length,
     waitlist,
     totalAccounts: total,
+    activity,
   });
   const result = await sendEmail({ to, ...email, tag: "signup_digest" });
   return result.ok ? { sent: true, ...counts } : { sent: false, reason: "send_failed", ...counts };

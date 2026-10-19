@@ -354,6 +354,18 @@ export type DigestSignup = {
 
 export type DigestWaitlistEntry = { email: string; source: string | null; signedUpAt: Date };
 
+/** What happened in the app over the same 24 hours, admin accounts excluded. */
+export type DigestActivity = {
+  receiptsAdded: number;
+  forwardedReceipts: number;
+  receiptAdders: number;
+  totalReceipts: number;
+  reviewNeeded: number;
+  signedIn: number;
+  unconfirmedCharges: number;
+  liveVersion: { title: string; sha: string | null } | null;
+};
+
 // Personal mailbox providers: their domain says nothing about the company.
 const FREEMAIL = new Set([
   "gmail.com", "googlemail.com", "hotmail.com", "hotmail.se", "outlook.com", "outlook.se",
@@ -432,20 +444,51 @@ const INTERVIEW_QUESTIONS = [
   "What would make you stop using UnReceipt? What would make you pay for it?",
 ];
 
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function activityRows(a: DigestActivity): [string, string][] {
+  const photo = a.receiptsAdded - a.forwardedReceipts;
+  const rows: [string, string][] = [
+    [
+      "Receipts added",
+      a.receiptsAdded === 0
+        ? "none"
+        : `${a.receiptsAdded} (${photo} photo/upload, ${a.forwardedReceipts} forwarded) by ${a.receiptAdders} ${a.receiptAdders === 1 ? "person" : "people"}`,
+    ],
+    ["Signed in", plural(a.signedIn, "account")],
+    ["Waiting in Review needed", `${a.reviewNeeded} (all accounts, all time)`],
+    ["Receipts in total", String(a.totalReceipts)],
+  ];
+  if (a.unconfirmedCharges > 0) {
+    rows.push([
+      "Needs a look",
+      `${plural(a.unconfirmedCharges, "extra-receipt charge")} sent to Stripe but never confirmed. Check Sentry and the Stripe meter.`,
+    ]);
+  }
+  if (a.liveVersion) {
+    rows.push(["Live version", `${a.liveVersion.title}${a.liveVersion.sha ? ` (${a.liveVersion.sha})` : ""}`]);
+  }
+  return rows;
+}
+
 export function signupDigestEmail(opts: {
   signups: DigestSignup[];
   moreSignups: number;
   waitlist: DigestWaitlistEntry[];
   totalAccounts: number;
+  activity: DigestActivity;
 }): EmailContent {
   const accounts = opts.signups.length + opts.moreSignups;
-  const counts = [
-    accounts > 0 ? `${accounts} new account${accounts === 1 ? "" : "s"}` : null,
-    opts.waitlist.length > 0
-      ? `${opts.waitlist.length} waitlist sign-up${opts.waitlist.length === 1 ? "" : "s"}`
-      : null,
-  ].filter(Boolean).join(" and ");
-  const subject = `UnReceipt: ${counts} in the last 24 hours`;
+  const counts =
+    [
+      accounts > 0 ? plural(accounts, "new account") : null,
+      opts.waitlist.length > 0 ? plural(opts.waitlist.length, "waitlist sign-up") : null,
+    ].filter(Boolean).join(" and ") || "No new sign-ups";
+  const added = opts.activity.receiptsAdded;
+  const subject = `UnReceipt: ${counts} in the last 24 hours · ${added === 0 ? "no receipts added" : `${plural(added, "receipt")} added`}`;
+  const rows = activityRows(opts.activity);
 
   const signupHtml = opts.signups.map((s) => {
     const name = [s.fullName, s.companyName].filter(Boolean).join(" · ") || s.email;
@@ -489,9 +532,27 @@ export function signupDigestEmail(opts: {
 
   const more = opts.moreSignups > 0 ? paragraph(esc(`…and ${opts.moreSignups} more, see /admin.`)) : "";
 
+  const activityHtml = `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${C.hairline};border-radius:12px;margin:0 0 20px;">
+  <tr><td style="padding:14px 18px 6px;">
+    <p style="margin:0 0 8px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};">In the app, last 24 hours</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows
+      .map(
+        ([label, value]) => `
+      <tr>
+        <td valign="top" width="42%" style="padding:0 12px 8px 0;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.inkFaint};">${esc(label)}</td>
+        <td valign="top" style="padding:0 0 8px;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.ink};">${esc(value)}</td>
+      </tr>`,
+      )
+      .join("")}
+    </table>
+  </td></tr>
+</table>`;
+
   const bodyHtml = [
     `<h1 style="margin:0 0 6px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(counts)}</h1>`,
     paragraph(esc(`${opts.totalAccounts} accounts in total (your admin accounts excluded).`)),
+    activityHtml,
     signupHtml,
     more,
     waitlistHtml,
@@ -501,6 +562,9 @@ export function signupDigestEmail(opts: {
   const text = [
     counts,
     `${opts.totalAccounts} accounts in total (your admin accounts excluded).`,
+    "",
+    "In the app, last 24 hours:",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
     "",
     ...opts.signups.flatMap((s) => {
       const site = companySiteFor(s.email);
@@ -523,9 +587,11 @@ export function signupDigestEmail(opts: {
   return {
     subject,
     html: layout({
-      preheader: "Reach out while they still remember signing up.",
+      preheader: opts.signups.length
+        ? "Reach out while they still remember signing up."
+        : "Your nightly UnReceipt update.",
       bodyHtml,
-      footerHtml: "Sent every night when someone signed up. Only you receive this.",
+      footerHtml: "Sent every night, also when nobody signed up. Only you receive this.",
     }),
     text,
   };
