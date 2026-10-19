@@ -73,7 +73,7 @@ function query(table: string) {
     },
     then: (resolve: (v: unknown) => void) => {
       const data = all().filter((r) => filters.every((f) => f(r)));
-      resolve(head ? { data: null, count: data.length, error: null } : { data, error: null });
+      resolve({ data: head ? null : data, count: data.length, error: null });
     },
   };
   return q;
@@ -147,9 +147,11 @@ describe("runSignupDigest", () => {
       { id: "r5", user_id: "admin", source: "paper", status: "pending_review", created_at: "2026-10-18T12:00:00Z" },
     ];
     state.usage = [
+      { receipt_id: "r0", user_id: "a", overage_attempted_at: "2026-10-17T20:00:00Z", overage_billed_at: null },
+      // Still inside the sweep's own retry window: not flagged yet.
       { receipt_id: "r1", user_id: "a", overage_attempted_at: "2026-10-18T09:05:01Z", overage_billed_at: null },
       { receipt_id: "r2", user_id: "a", overage_attempted_at: null, overage_billed_at: null },
-      { receipt_id: "r5", user_id: "admin", overage_attempted_at: "2026-10-18T12:00:01Z", overage_billed_at: null },
+      { receipt_id: "r5", user_id: "admin", overage_attempted_at: "2026-10-17T20:00:00Z", overage_billed_at: null },
     ];
 
     await runSignupDigest(NOW);

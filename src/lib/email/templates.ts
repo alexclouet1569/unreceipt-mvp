@@ -464,7 +464,7 @@ function activityRows(a: DigestActivity): [string, string][] {
   if (a.unconfirmedCharges > 0) {
     rows.push([
       "Needs a look",
-      `${plural(a.unconfirmedCharges, "extra-receipt charge")} sent to Stripe but never confirmed. Check Sentry and the Stripe meter.`,
+      `${plural(a.unconfirmedCharges, "extra-receipt charge")} sent to Stripe but never confirmed, past the automatic retry (all time). Check Sentry and the Stripe meter.`,
     ]);
   }
   if (a.liveVersion) {

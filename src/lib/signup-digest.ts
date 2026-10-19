@@ -16,6 +16,7 @@
 import { getSupabaseAdmin } from "./supabase-admin";
 import { isAdminEmail } from "./auth-admin";
 import { founderReplyTo, sendEmail } from "./email/send";
+import { SAFE_RETRY_WINDOW_MS } from "./usage";
 import {
   signupDigestEmail,
   type DigestActivity,
@@ -151,36 +152,42 @@ function notAdmin<Q>(query: Q, adminIds: string[]): Q {
 async function appActivity(w: { start: Date; end: Date }, accounts: Accounts): Promise<DigestActivity> {
   const db = getSupabaseAdmin();
   const { adminIds } = accounts;
-  const [added, allReceipts, pending, unconfirmed] = await Promise.all([
+  const inWindowReceipts = (columns: string, opts?: { count: "exact"; head?: boolean }) =>
     notAdmin(
-      db.from("receipts").select("user_id, source").gte("created_at", w.start.toISOString()).lt("created_at", w.end.toISOString()),
+      db.from("receipts").select(columns, opts).gte("created_at", w.start.toISOString()).lt("created_at", w.end.toISOString()),
       adminIds,
-    ),
+    );
+  const [added, forwarded, allReceipts, pending, unconfirmed] = await Promise.all([
+    // Counts come from Postgres: the rows themselves stop at PostgREST's
+    // 1,000-row cap, so the people count is a floor on a very busy day.
+    inWindowReceipts("user_id", { count: "exact" }),
+    inWindowReceipts("id", { count: "exact", head: true }).eq("source", "email"),
     notAdmin(db.from("receipts").select("id", { count: "exact", head: true }), adminIds),
     notAdmin(db.from("receipts").select("id", { count: "exact", head: true }).eq("status", "pending_review"), adminIds),
-    // A Stripe meter call that was tried but never confirmed (see usage.ts).
+    // A Stripe meter call never confirmed and past the window in which the
+    // overage sweep retries it by itself (see usage.ts).
     notAdmin(
       db
         .from("receipt_usage")
         .select("receipt_id", { count: "exact", head: true })
-        .not("overage_attempted_at", "is", null)
+        .lt("overage_attempted_at", new Date(w.end.getTime() - SAFE_RETRY_WINDOW_MS).toISOString())
         .is("overage_billed_at", null),
       adminIds,
     ),
   ]);
   if (added.error) throw new Error(`receipts read failed (${added.error.code})`);
+  if (forwarded.error) throw new Error(`forwarded count failed (${forwarded.error.code})`);
   if (allReceipts.error) throw new Error(`receipts count failed (${allReceipts.error.code})`);
   if (pending.error) throw new Error(`review count failed (${pending.error.code})`);
   if (unconfirmed.error) throw new Error(`usage count failed (${unconfirmed.error.code})`);
 
-  const rows = added.data ?? [];
-  const forwarded = rows.filter((r) => r.source === "email").length;
+  const rows = (added.data ?? []) as unknown as { user_id: string }[];
   const commit = process.env.VERCEL_GIT_COMMIT_MESSAGE?.split("\n")[0]?.trim();
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7);
   return {
-    receiptsAdded: rows.length,
-    forwardedReceipts: forwarded,
-    receiptAdders: new Set(rows.map((r) => r.user_id as string)).size,
+    receiptsAdded: added.count ?? rows.length,
+    forwardedReceipts: forwarded.count ?? 0,
+    receiptAdders: new Set(rows.map((r) => r.user_id)).size,
     totalReceipts: allReceipts.count ?? 0,
     reviewNeeded: pending.count ?? 0,
     signedIn: accounts.signedIn,
