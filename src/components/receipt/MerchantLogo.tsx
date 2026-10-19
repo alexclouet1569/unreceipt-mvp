@@ -11,6 +11,11 @@ type MerchantLogoProps = {
   size: number;
   /** Corner radius in px. */
   radius: number;
+  /**
+   * False: always the initials badge. For names that aren't shops (a client
+   * company), where a whole-word match on the logo list would be wrong.
+   */
+  logo?: boolean;
   className?: string;
 };
 
@@ -20,8 +25,8 @@ type MerchantLogoProps = {
  * stay if it never does, so there's no empty tile. Decorative: the
  * merchant name is always printed next to it.
  */
-export function MerchantLogo({ merchant, size, radius, className }: MerchantLogoProps) {
-  const slug = merchantLogoSlug(merchant);
+export function MerchantLogo({ merchant, size, radius, logo = true, className }: MerchantLogoProps) {
+  const slug = logo ? merchantLogoSlug(merchant) : null;
   const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
   const showLogo = slug != null && loadedSlug === slug;
 

@@ -20,7 +20,7 @@
 
 1. **The brand wordmark.** Brand-book primary mark: receipt-glyph isotype (rounded receipt with serrated bottom + circular arrow wrapping the top-left) paired with the bespoke wordmark `Un` in **Deep Space** + `Receipt` in **Green Mint**, set in **Manrope ExtraBold (800)**. Used in the app header on every screen. The shared component is `src/components/brand/Wordmark.tsx`; render `<Wordmark variant="horizontal" />` in headers, `variant="stacked"` for centered hero placements (e.g. /app/login), `variant="icon"` for the isotype-only PWA / favicon surfaces.
 2. **The perforated edge.** 8×8 dot-mask repeating along the top of receipt detail views. Reinforced by `1px dashed hairline` dividers between detail sections.
-3. **Mono amounts everywhere.** Every monetary value in the product renders in Geist Mono — list cards, detail totals, line items, VAT rows and the capture sheet's VAT panel. Never on dates, counts, ids or codes (use `tabular-nums` in Manrope for those). Vertically aligns amounts across the inbox. This is the typographic identity.
+3. **Mono amounts everywhere.** Every monetary value in the product renders in Geist Mono — list cards, detail totals, line items, VAT rows and the capture sheet's VAT panel. One exception: a preview of a plain-text email (the accountant view's reminder) shows the email exactly as it will be sent, in Manrope. Never on dates, counts, ids or codes (use `tabular-nums` in Manrope for those). Vertically aligns amounts across the inbox. This is the typographic identity.
 4. **Tighter density than Kivra.** 12px card radius, 12×14 padding, 8px between cards. Signals "finance pro tool," not "consumer doc storage."
 
 ## Typography (per brand book pp. 15–16)
@@ -137,7 +137,7 @@ xl   24px   Section gutters
 - Card padding: `12 14` (vertical horizontal).
 - Gap between cards: `8`.
 - Page horizontal padding: `16` mobile, `24` tablet+.
-- Max content width: `540px` (centered on tablet+).
+- Max content width: `540px` (centered on tablet+); `640px` for the accountant view (see Components).
 
 ## Layout
 
@@ -264,6 +264,16 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
   - `on="mint"` — cream receipt body, navy arrow, single-color navy wordmark (for the brand-tint hero / VAT panel)
 - Size via `style={{ fontSize: "Npx" }}` or a Tailwind `text-*` utility — the isotype scales relative to the wordmark cap-height.
 
+### Accountant view (`/demo/accountants`, pilot)
+
+The accounting-firm surface: a firm sees each client's bank statement matched against the receipts the client sent. Accountants work on laptops, so the column is wider than the customer app; everything else follows the system.
+
+- Strict single column, **max 640px** (the customer app stays at 540). Still no sidebar, no tables wider than the column.
+- Firm overview: micro label (firm · clients), month as `display-xl`, a three-tile row (Matched / To check / Missing; counts in Manrope `tabular-nums`, Missing in `--attention-deep` when above zero), then one card per client with a 4px `--ink-muted` progress bar. A client with missing receipts gets the honey left rule, like review-needed receipts.
+- Client view: statement lines in hairline cards grouped Missing → To check → Matched, then **No receipt needed** and **Money in** collapsed. Row: date (48px, `tabular-nums`) · bank text (14/600, one line) · amount (Geist Mono, `−` for money out). The second line says what we found: the matched receipt with an 18px `MerchantLogo`, a honey note for "check", or "No receipt yet" in `--attention-deep` on a honey-ruled row.
+- One green action per screen: **Ask {name} for N receipts**, then **Send reminder** under the email preview. Everything else is a white secondary button or an underlined text action.
+- The reminder preview is a hairline card: To / Reply-To / Subject, a dashed rule, the plain-text body in Manrope. Language switch (Svenska / English) is the segmented control from the inbox grouping.
+
 ## Decisions Log
 
 | Date | Decision | Rationale |
@@ -286,6 +296,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-16 | **Action green `--brand-action` #1A7F52** for primary buttons, the FAB and focus rings (`--primary`, `--ring` point at it); `--brand` #27BE7B stays for the wordmark and accents. **`--ink-muted` set to its spec value #5A5F7A** in globals.css (it had drifted to 65% Deep Space, 3.8:1). | White on #27BE7B is 2.4:1 and the old muted text 3.8:1 — both under WCAG AA (4.5:1). Same hue, so the brand still reads green; now 5.0:1 and 6.3:1. |
 | 2026-10-16 | **Capture becomes a photo-first bottom sheet** (choose → reading → check and save), with edit-in-place rows instead of stacked input boxes, VAT worked out from the rate, and the receipt's own currency. iOS date inputs drop their native chrome (`globals.css`) so they no longer spill into the next column. | The centred dialog put nine boxes before the photo, overlapped on iPhone, scrolled its close button away and used placeholders that looked like real data. Reading the photo is the product; the form is the fallback. |
 | 2026-10-16 | **Digital receipt redesign + "Receipt saved" step.** `ReceiptDetailCard` becomes a paper receipt (perforated top, torn bottom, dotted leaders, verified stamp) and is shown right after saving as well as in the detail view. VAT moves from the mint panel to leader lines under the total. Store logos for a hand-checked list of merchants, served through our own cached endpoint. Inbox gains By date / By category grouping and category chips. | The founder wanted a receipt that feels like the one on the landing page, visible the moment it's created. Logos only where we're sure of the match: a wrong logo on an accounting record is worse than initials. The footer no longer says "Awaiting verification" on receipts nobody else will verify. |
+| 2026-10-19 | **Accountant view added** (`/demo/accountants`): 640px single column, statement lines grouped by match status, honey rule for missing receipts, one green action per screen. | Accountants work on laptops and read bank texts that are long; 540px truncated them too hard. Same tokens, fonts and card rules, so it reads as the same product. |
 
 ---
 
