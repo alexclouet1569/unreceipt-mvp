@@ -15,6 +15,7 @@ import { SignOutButton } from "./SignOutButton";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { getI18n } from "@/lib/i18n/server";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -68,7 +69,8 @@ export default async function SettingsPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [profile, aliasHash, usage, firstReceiptDate] = await Promise.all([
+  const [{ t: messages }, profile, aliasHash, usage, firstReceiptDate] = await Promise.all([
+    getI18n(),
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
     loadUsage(user.id),
@@ -76,6 +78,7 @@ export default async function SettingsPage() {
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
+  const t = messages.settings.page;
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,7 +86,7 @@ export default async function SettingsPage() {
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
           <Link
             href="/app"
-            aria-label="Back to receipts"
+            aria-label={messages.common.backToReceipts}
             className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
             style={{ width: "44px", height: "44px", borderRadius: "10px" }}
           >
@@ -93,34 +96,33 @@ export default async function SettingsPage() {
             className="font-display font-bold text-[var(--ink)]"
             style={{ fontSize: "18px", letterSpacing: "-0.01em" }}
           >
-            Settings
+            {messages.common.settings}
           </h1>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-8">
         <section aria-labelledby="intake-heading">
-          <SectionLabel id="intake-heading">Send us receipts</SectionLabel>
+          <SectionLabel id="intake-heading">{t.sendReceipts}</SectionLabel>
           <div className="space-y-3">
             {forwardingEmail ? (
               <IntakeRow
-                callout="Forward email receipts to"
+                callout={t.forwardTo}
                 value={forwardingEmail}
                 mono
-                copyLabel="Copy forwarding address"
+                copyLabel={t.copyForwarding}
               />
             ) : (
               <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-                Your forwarding address isn&apos;t ready yet. Reload this page
-                in a moment.
+                {t.notReady}
               </p>
             )}
             {intakeSmsNumber ? (
               <IntakeRow
-                callout="Or text a photo to"
+                callout={t.textPhoto}
                 value={intakeSmsNumber}
                 mono
-                copyLabel="Copy SMS number"
+                copyLabel={t.copySms}
               />
             ) : null}
             <Link
@@ -130,11 +132,10 @@ export default async function SettingsPage() {
             >
               <span>
                 <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
-                  How it works and automatic forwarding
+                  {t.howItWorks}
                 </span>
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
-                  Every email sent to this address becomes a receipt. Set a
-                  rule once in Gmail or Outlook and receipts arrive by themselves.
+                  {t.howItWorksBody}
                 </span>
               </span>
               <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
@@ -144,7 +145,7 @@ export default async function SettingsPage() {
 
         {usage ? (
           <section aria-labelledby="usage-heading">
-            <SectionLabel id="usage-heading">Receipts this period</SectionLabel>
+            <SectionLabel id="usage-heading">{t.usage}</SectionLabel>
             <UsageMeter
               used={usage.used}
               plan={usage.plan}
@@ -157,33 +158,32 @@ export default async function SettingsPage() {
         ) : null}
 
         <section aria-labelledby="export-heading">
-          <SectionLabel id="export-heading">Export for your accountant</SectionLabel>
+          <SectionLabel id="export-heading">{t.export}</SectionLabel>
           <div
             className="bg-card space-y-3"
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
           >
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-              One ZIP with a spreadsheet of the period&apos;s receipts, every
-              receipt as a PDF and each original photo, PDF or email.
+              {t.exportBody}
             </p>
             <ExportPanel firstReceiptDate={firstReceiptDate} />
           </div>
         </section>
 
         <section aria-labelledby="language-heading">
-          <SectionLabel id="language-heading">Language</SectionLabel>
+          <SectionLabel id="language-heading">{messages.common.language}</SectionLabel>
           <LanguageSwitch />
         </section>
 
         <section aria-labelledby="account-heading">
-          <SectionLabel id="account-heading">Account</SectionLabel>
+          <SectionLabel id="account-heading">{t.account}</SectionLabel>
           <dl
             className="bg-card divide-y divide-[var(--hairline)]"
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px" }}
           >
-            <Row label="Email" value={user.email ?? "—"} />
-            <Row label="Name" value={profile?.full_name || "—"} />
-            <Row label="Company" value={profile?.company_name || "—"} />
+            <Row label={t.email} value={user.email ?? "—"} />
+            <Row label={t.name} value={profile?.full_name || "—"} />
+            <Row label={t.company} value={profile?.company_name || "—"} />
           </dl>
         </section>
 
@@ -192,7 +192,7 @@ export default async function SettingsPage() {
         </section>
 
         <section aria-labelledby="danger-heading">
-          <SectionLabel id="danger-heading">Delete account</SectionLabel>
+          <SectionLabel id="danger-heading">{t.deleteAccount}</SectionLabel>
           <DeleteAccountSection exportSlot={<ExportPanel fixedPeriod="all" />} />
         </section>
       </main>

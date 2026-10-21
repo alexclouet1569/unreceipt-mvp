@@ -1,6 +1,7 @@
 "use client";
 
 import { IntakeRow } from "@/components/IntakeRow";
+import { useI18n } from "@/lib/i18n/client";
 import { ForwardingWizard } from "./ForwardingWizard";
 
 /**
@@ -16,16 +17,18 @@ export function ForwardingGuide({
   // The "Your email addresses" manager, rendered by the server page.
   ownAddresses?: React.ReactNode;
 }) {
+  const { t: messages } = useI18n();
+  const t = messages.settings.forwarding;
   return (
     <div className="space-y-8">
       <section aria-labelledby="what-heading">
-        <SectionLabel id="what-heading">What this address does</SectionLabel>
+        <SectionLabel id="what-heading">{t.whatHeading}</SectionLabel>
         <div className="space-y-3">
           <IntakeRow
-            callout="Your private receipts address"
+            callout={t.privateAddress}
             value={forwardingEmail}
             mono
-            copyLabel="Copy forwarding address"
+            copyLabel={messages.settings.page.copyForwarding}
             quiet
           />
           <ul
@@ -33,55 +36,36 @@ export function ForwardingGuide({
             className="bg-card divide-y divide-[var(--hairline)]"
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px" }}
           >
-            <Fact title="Emails become receipts">
-              Anything sent to this address shows up in UnReceipt within a
-              minute. We read the shop, date, total and VAT, and keep the
-              original email as proof.
-            </Fact>
-            <Fact title="You choose what we see">
-              We only get the emails you forward. UnReceipt never signs in to
-              or reads your inbox.
-            </Fact>
-            <Fact title="Not a receipt? It waits for you">
-              Emails we can&apos;t read as a receipt wait under Review needed.
-              They only count toward your plan if you keep them.
-            </Fact>
-            <Fact title="Keep it private">
-              Anyone who has this address can send mail into your account.
-              Don&apos;t post it publicly.
-            </Fact>
+            <Fact title={t.facts.becomeTitle}>{t.facts.becomeBody}</Fact>
+            <Fact title={t.facts.chooseTitle}>{t.facts.chooseBody}</Fact>
+            <Fact title={t.facts.waitsTitle}>{t.facts.waitsBody}</Fact>
+            <Fact title={t.facts.privateTitle}>{t.facts.privateBody}</Fact>
           </ul>
         </div>
       </section>
 
       <section aria-labelledby="auto-heading">
-        <SectionLabel id="auto-heading">Make it automatic</SectionLabel>
+        <SectionLabel id="auto-heading">{t.autoHeading}</SectionLabel>
         <p
           className="text-[var(--ink-muted)]"
           style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "12px" }}
         >
-          Set a rule once and your email forwards receipts by itself. The rule
-          only forwards emails whose subject looks like a receipt, never your
-          other mail.
+          {t.autoBody}
         </p>
         <ForwardingWizard forwardingEmail={forwardingEmail} />
       </section>
 
       {ownAddresses ? (
         <section aria-labelledby="own-heading">
-          <SectionLabel id="own-heading">Your email addresses</SectionLabel>
+          <SectionLabel id="own-heading">{t.ownHeading}</SectionLabel>
           {ownAddresses}
         </section>
       ) : null}
 
       <section aria-labelledby="hand-heading">
-        <SectionLabel id="hand-heading">Forward by hand</SectionLabel>
+        <SectionLabel id="hand-heading">{t.handHeading}</SectionLabel>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Works from any email app, on any phone: open the receipt email, tap
-          Forward and send it to your address. Save the address as a contact
-          called &ldquo;UnReceipt&rdquo; so it&apos;s two taps next time.
-          Forwarded by hand, a receipt waits under Review needed for a quick
-          check.
+          {t.handBody}
         </p>
       </section>
     </div>

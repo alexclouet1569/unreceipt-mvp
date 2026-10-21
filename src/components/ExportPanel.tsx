@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/client";
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/locale";
 
 export type ExportPart = { filename: string; url: string; bytes: number };
 
@@ -39,19 +41,24 @@ export function exportPeriods(
   return { months, years };
 }
 
-function monthLabel(month: string): string {
+function monthLabel(month: string, locale: Locale): string {
   const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", {
+  const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(INTL_LOCALE[locale], {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+  // French and Swedish month names are lowercase; this starts an option.
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function sizeLabel(bytes: number): string {
+function sizeLabel(bytes: number, locale: Locale, units: { kb: string; mb: string }): string {
   return bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    ? `${Math.max(1, Math.round(bytes / 1024))} ${units.kb}`
+    : `${(bytes / 1024 / 1024).toLocaleString(INTL_LOCALE[locale], {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })} ${units.mb}`;
 }
 
 /**
@@ -70,6 +77,8 @@ export function ExportPanel({
   // Earliest purchase date on the account; widens the period list.
   firstReceiptDate?: string | null;
 }) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.settings.exportPanel;
   const [period, setPeriod] = useState<string>(
     () => fixedPeriod ?? recentMonths(new Date())[0],
   );
@@ -100,9 +109,7 @@ export function ExportPanel({
       };
       if (!res.ok) {
         setError(
-          res.status === 429
-            ? "You've made a lot of exports. Try again in an hour."
-            : (body.error ?? "Couldn't create the export. Please try again."),
+          res.status === 429 ? t.rateLimited : (body.error ?? t.failed),
         );
       } else {
         setResult({
@@ -112,7 +119,7 @@ export function ExportPanel({
         });
       }
     } catch {
-      setError("Network error. Check your connection and try again.");
+      setError(messages.common.networkError);
     }
     setBusy(false);
   };
@@ -126,7 +133,7 @@ export function ExportPanel({
             className="block uppercase text-[var(--ink-faint)]"
             style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
           >
-            Period
+            {t.period}
           </label>
           <select
             id="export-period"
@@ -137,21 +144,21 @@ export function ExportPanel({
               setResult(null);
             }}
           >
-            <optgroup label="Month">
+            <optgroup label={t.month}>
               {months.map((m) => (
                 <option key={m} value={m}>
-                  {monthLabel(m)}
+                  {monthLabel(m, locale)}
                 </option>
               ))}
             </optgroup>
-            <optgroup label="Whole year">
+            <optgroup label={t.wholeYear}>
               {years.map((y) => (
                 <option key={y} value={y}>
                   {y}
                 </option>
               ))}
             </optgroup>
-            <option value="all">All receipts</option>
+            <option value="all">{t.allReceipts}</option>
           </select>
         </div>
       )}
@@ -164,11 +171,7 @@ export function ExportPanel({
         disabled={busy}
       >
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        {busy
-          ? "Preparing your export…"
-          : fixedPeriod
-            ? "Download all receipts (ZIP)"
-            : "Create export"}
+        {busy ? t.preparing : fixedPeriod ? t.downloadAll : t.create}
       </Button>
 
       {error ? (
@@ -180,25 +183,19 @@ export function ExportPanel({
       {result ? (
         result.parts.length === 0 ? (
           <p role="status" className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-            No receipts in this period.
+            {t.none}
           </p>
         ) : (
           <div role="status" className="space-y-2">
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-              {result.receiptCount} receipt{result.receiptCount === 1 ? "" : "s"} ready.
-              {result.parts.length > 1
-                ? ` Download all ${result.parts.length} parts.`
-                : ""}{" "}
-              The link works for 15 minutes.
+              {t.ready(result.receiptCount, result.parts.length)}
             </p>
             {result.missing > 0 ? (
               <p
                 className="rounded-md px-3 py-2 bg-[var(--attention-tint)] text-[var(--attention-deep)]"
                 style={{ fontSize: "14px" }}
               >
-                {result.missing} file{result.missing === 1 ? "" : "s"} couldn&apos;t
-                be included (marked in receipts.csv). Try again, or write to
-                support@unreceipt.com before deleting anything.
+                {t.missing(result.missing)}
               </p>
             ) : null}
             <ul className="space-y-2">
@@ -218,7 +215,7 @@ export function ExportPanel({
                   >
                     <span className="truncate font-semibold">{p.filename}</span>
                     <span className="shrink-0 text-[var(--ink-faint)]" style={{ fontSize: "13px" }}>
-                      {sizeLabel(p.bytes)}
+                      {sizeLabel(p.bytes, locale, t)}
                     </span>
                   </a>
                 </li>

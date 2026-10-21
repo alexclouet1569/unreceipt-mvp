@@ -1,4 +1,8 @@
+"use client";
+
 import { OVERAGE_PRICE, type Plan } from "@/lib/plans";
+import { useI18n } from "@/lib/i18n/client";
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/locale";
 import type { PlanSuggestion } from "@/lib/usage-copy";
 import { Money } from "@/components/Money";
 
@@ -11,11 +15,24 @@ type Props = {
   suggestion: PlanSuggestion | null;
 };
 
-const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
+// "3 November" in English too: day-first reads well next to the counter.
+function resetDate(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : INTL_LOCALE[locale], {
+    day: "numeric",
+    month: "long",
+  }).format(new Date(iso));
+}
+
+/** Text after a mono amount: a space, unless it starts with punctuation. */
+function after(text: string): string {
+  return /^[.,;:]/.test(text) ? text : ` ${text}`;
+}
 
 /** Receipts used this billing period against the plan's allowance. */
 export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, suggestion }: Props) {
-  const resets = dateFormat.format(new Date(periodEnd));
+  const { locale, t: messages } = useI18n();
+  const t = messages.settings.usage;
+  const resets = resetDate(periodEnd, locale);
 
   if (!plan) {
     return (
@@ -24,10 +41,10 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
         style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
       >
         <p className="text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
-          {used} receipt{used === 1 ? "" : "s"} this month
+          {t.thisMonth(used)}
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", marginTop: "2px" }}>
-          No plan limit during the free pilot. Counter resets {resets}.
+          {t.pilot(resets)}
         </p>
       </div>
     );
@@ -43,10 +60,10 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
     >
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
-          {used} of {plan.receipts} receipts
+          {t.usedOf(used, plan.receipts)}
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", fontWeight: 500 }}>
-          {plan.name} plan
+          {t.plan(plan.name)}
         </p>
       </div>
       <div
@@ -56,7 +73,7 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
         aria-valuemin={0}
         aria-valuemax={plan.receipts}
         aria-valuenow={Math.min(used, plan.receipts)}
-        aria-label="Receipts used this period"
+        aria-label={t.progressLabel}
       >
         <div
           style={{
@@ -70,23 +87,25 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
         {over ? (
           overageBilled ? (
             <>
-              {extra} extra × <Money eur={OVERAGE_PRICE} /> ={" "}
-              <Money eur={extra * OVERAGE_PRICE} /> on your next invoice.
+              {t.extraTimes(extra)} <Money eur={OVERAGE_PRICE} /> ={" "}
+              <Money eur={extra * OVERAGE_PRICE} />
+              {after(t.onNextInvoice)}
             </>
           ) : (
-            `${extra} over your plan — everything is still saved.`
+            t.over(extra)
           )
         ) : (
           <>
-            Resets {resets}. Extra receipts are <Money eur={OVERAGE_PRICE} /> each.
+            {t.resets(resets)} {t.extraEachBefore} <Money eur={OVERAGE_PRICE} />
+            {after(t.extraEachAfter)}
           </>
         )}
       </p>
       {suggestion ? (
         <p className="text-[var(--ink)]" style={{ fontSize: "13px", marginTop: "8px", fontWeight: 500 }}>
-          At {suggestion.used} receipts, {suggestion.planName} would cost{" "}
-          <Money eur={suggestion.better} /> instead of <Money eur={suggestion.current} /> a
-          month. Write to us to switch.
+          {t.suggestBefore(suggestion.used, suggestion.planName)}{" "}
+          <Money eur={suggestion.better} /> {t.insteadOf} <Money eur={suggestion.current} />
+          {after(t.suggestAfter)}
         </p>
       ) : null}
     </div>

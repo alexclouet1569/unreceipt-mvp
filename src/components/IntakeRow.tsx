@@ -7,6 +7,7 @@
 import { useCallback, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/client";
 
 export function IntakeRow({
   callout,
@@ -27,6 +28,7 @@ export function IntakeRow({
   // green action is elsewhere (DESIGN.md: green once per screen).
   quiet?: boolean;
 }) {
+  const t = useI18n().t.settings.intake;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -87,15 +89,15 @@ export function IntakeRow({
             transition: "background 160ms ease-out",
           }}
           // Announce the result too: a fixed label would hide "Copied".
-          aria-label={copied ? "Copied" : copyLabel}
+          aria-label={copied ? t.copied : copyLabel}
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5" /> Copied
+              <Check className="w-3.5 h-3.5" /> {t.copied}
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5" /> Copy
+              <Copy className="w-3.5 h-3.5" /> {t.copy}
             </>
           )}
         </button>

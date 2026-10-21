@@ -7,6 +7,7 @@ import {
   getOrCreateAliasForUser,
 } from "@/lib/email-alias";
 import { listExtraAddresses } from "@/lib/owner-addresses";
+import { getI18n } from "@/lib/i18n/server";
 import { ForwardingGuide } from "./ForwardingGuide";
 import { OwnAddresses } from "./OwnAddresses";
 
@@ -21,7 +22,8 @@ export default async function ForwardingPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [aliasHash, extraAddresses] = await Promise.all([
+  const [{ t: messages }, aliasHash, extraAddresses] = await Promise.all([
+    getI18n(),
     getOrCreateAliasForUser(user.id),
     listExtraAddresses(user.id),
   ]);
@@ -35,7 +37,7 @@ export default async function ForwardingPage() {
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
           <Link
             href="/app/settings"
-            aria-label="Back to settings"
+            aria-label={messages.settings.forwarding.backToSettings}
             className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors"
             style={{ width: "44px", height: "44px", borderRadius: "10px" }}
           >
@@ -45,7 +47,7 @@ export default async function ForwardingPage() {
             className="font-display font-bold text-[var(--ink)]"
             style={{ fontSize: "18px", letterSpacing: "-0.01em" }}
           >
-            Your receipts address
+            {messages.settings.forwarding.title}
           </h1>
         </div>
       </header>
@@ -63,8 +65,7 @@ export default async function ForwardingPage() {
           />
         ) : (
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-            Your forwarding address isn&apos;t ready yet. Reload this page in a
-            moment.
+            {messages.settings.page.notReady}
           </p>
         )}
       </main>

@@ -5,13 +5,16 @@ import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { useI18n } from "@/lib/i18n/client";
 
+// What the server checks. The person types the word in their own language
+// (t.confirmWord); the request always carries this one.
 const CONFIRM_WORD = "DELETE";
 
 /**
  * Settings → Delete account (launch plan action 44, App Store 5.1.1(v)).
  * Two deliberate steps: confirm the receipts you must keep are downloaded,
- * then type DELETE. The server re-checks both and also wants a recent
+ * then type DELETE (SUPPRIMER, RADERA). The server re-checks both and also wants a recent
  * sign-in; when it asks for one we sign out and send the user to log in.
  */
 export function DeleteAccountSection({
@@ -20,6 +23,8 @@ export function DeleteAccountSection({
   // The "download your data" control, rendered in step 1.
   exportSlot?: React.ReactNode;
 }) {
+  const { t: messages } = useI18n();
+  const t = messages.settings.deleteAccount;
   const [open, setOpen] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [typed, setTyped] = useState("");
@@ -38,7 +43,7 @@ export function DeleteAccountSection({
     wasOpen.current = open;
   }, [open]);
 
-  const canDelete = downloaded && typed.trim() === CONFIRM_WORD && !busy;
+  const canDelete = downloaded && typed.trim().toUpperCase() === t.confirmWord && !busy;
 
   const reset = () => {
     setOpen(false);
@@ -69,16 +74,12 @@ export function DeleteAccountSection({
       if (res.status === 401 && body.error === "reauth_required") {
         setNeedsReauth(true);
       } else if (res.status === 429) {
-        setError("Too many attempts. Wait an hour and try again.");
+        setError(t.tooManyAttempts);
       } else {
-        setError(
-          body.error && body.error.length > 30
-            ? body.error
-            : "Couldn't delete your account. Please try again, or email support@unreceipt.com.",
-        );
+        setError(body.error && body.error.length > 30 ? body.error : t.failed);
       }
     } catch {
-      setError("Network error. Check your connection and try again.");
+      setError(messages.common.networkError);
     }
     setBusy(false);
   };
@@ -104,7 +105,7 @@ export function DeleteAccountSection({
         }}
       >
         <Trash2 className="w-4 h-4" />
-        Delete account
+        {t.open}
       </button>
     );
   }
@@ -124,12 +125,10 @@ export function DeleteAccountSection({
           className="font-display font-bold text-[var(--ink)] outline-none"
           style={{ fontSize: "16px" }}
         >
-          Delete your account
+          {t.heading}
         </h3>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          This permanently deletes your account, every receipt and every
-          original file we store. It can&apos;t be undone. Any subscription is
-          cancelled straight away.
+          {t.warning}
         </p>
       </div>
 
@@ -138,15 +137,10 @@ export function DeleteAccountSection({
           className="uppercase text-[var(--ink-faint)]"
           style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
         >
-          1 · Download your data first
+          {t.step1}
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Swedish bookkeeping law requires your company to keep its receipts
-          until the end of the seventh year after the financial year they
-          belong to. Download every part of the export and check it opens
-          before you delete: deleting also removes the download links, and
-          we can&apos;t send you a copy afterwards. Over 1,000 receipts?
-          Export year by year above.
+          {t.keepRule}
         </p>
         {exportSlot}
         <label className="flex items-start gap-3 cursor-pointer" style={{ minHeight: "44px" }}>
@@ -157,7 +151,7 @@ export function DeleteAccountSection({
             className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
           />
           <span className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-            I&apos;ve downloaded the receipts I need to keep.
+            {t.downloaded}
           </span>
         </label>
       </div>
@@ -168,7 +162,7 @@ export function DeleteAccountSection({
           className="block uppercase text-[var(--ink-faint)]"
           style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
         >
-          2 · Type {CONFIRM_WORD} to confirm
+          {t.step2(t.confirmWord)}
         </label>
         <Input
           id="delete-account-confirm"
@@ -188,11 +182,10 @@ export function DeleteAccountSection({
           style={{ background: "var(--attention-tint)" }}
         >
           <p className="text-[var(--attention-deep)]" style={{ fontSize: "14px" }}>
-            For your security, sign in again before deleting your account.
-            Then come back to Settings.
+            {t.reauth}
           </p>
           <Button type="button" variant="outline" className="h-11" onClick={signInAgain}>
-            Sign in again
+            {t.signInAgain}
           </Button>
         </div>
       ) : null}
@@ -214,7 +207,7 @@ export function DeleteAccountSection({
           onClick={reset}
           disabled={busy}
         >
-          Cancel
+          {messages.common.cancel}
         </Button>
         <Button
           type="button"
@@ -223,7 +216,7 @@ export function DeleteAccountSection({
           disabled={!canDelete}
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {busy ? "Deleting…" : "Delete account"}
+          {busy ? t.deleting : t.open}
         </Button>
       </div>
     </div>

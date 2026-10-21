@@ -5,6 +5,8 @@ import { ArrowLeft, Check, ChevronRight, ExternalLink, Loader2 } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
 import { RECEIPT_SUBJECT_WORDS, gmailFilterQuery, outlookSubjectWords } from "@/lib/forwarding-filters";
+import { useI18n } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/messages";
 
 /**
  * Step-by-step forwarding setup: pick your email provider, then one small
@@ -47,165 +49,154 @@ const STORAGE_KEY = "unreceipt.forwarding-wizard";
 // When the test step opened; only an email after that counts as the test.
 const nowMs = () => Date.now();
 
-const PROVIDERS: { id: Provider; label: string; hint: string }[] = [
-  { id: "gmail", label: "Gmail", hint: "Gmail or Google Workspace" },
-  { id: "outlook", label: "Outlook", hint: "Outlook.com, Hotmail or Microsoft 365" },
-  { id: "other", label: "Something else", hint: "iCloud, Yahoo, Proton and others" },
-];
+type WizardMessages = Messages["settings"]["wizard"];
 
-const STEPS: Record<Provider, Step[]> = {
-  gmail: [
-    {
-      title: "Open Gmail's forwarding settings",
-      path: ["Settings (gear)", "See all settings", "Forwarding and POP/IMAP"],
-      body: () => (
-        <>
-          <OpenLink href={GMAIL_FORWARDING_URL}>Open Gmail forwarding settings</OpenLink>
-          <Hint>
-            Opened the wrong Gmail account? Switch accounts at the top right of
-            Gmail, or follow the path above.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Add your UnReceipt address",
-      path: ["Add a forwarding address", "Paste your address", "Next", "Proceed", "OK"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <Hint>Gmail may ask you to sign in again. That&apos;s normal.</Hint>
-        </>
-      ),
-    },
-    {
-      title: "Type in the code Gmail sent us",
-      path: ["Confirmation code box", "Paste the code", "Verify"],
-      kind: "code",
-      body: ({ status }) => (
-        <>
-          <CodeBox status={status} />
-          <Hint>
-            Leave <Strong>Disable forwarding</Strong> selected afterwards: the
-            next step forwards receipts only, not all your mail.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Forward only receipts",
-      path: ["Filters and Blocked Addresses", "Create a new filter", "Has the words: paste", "Create filter", "Forward it to: your address", "Create filter"],
-      body: () => (
-        <>
-          <OpenLink href={GMAIL_FILTERS_URL}>Open Gmail filters</OpenLink>
-          <IntakeRow
-            callout="Paste into “Has the words”"
-            value={gmailFilterQuery()}
-            mono={false}
-            copyLabel="Copy Gmail filter"
-            breakWords
-            quiet
-          />
-          <Hint>Your address not in the “Forward it to” list? Go back one step and verify the code first.</Hint>
-        </>
-      ),
-    },
-    {
-      title: "Check that it works",
-      path: [],
-      kind: "test",
-      body: (ctx) => <TestBox {...ctx} />,
-    },
-  ],
-  outlook: [
-    {
-      title: "Open Outlook's rules",
-      path: ["Settings (gear, top right)", "Mail", "Rules", "+ Add new rule"],
-      body: () => (
-        <>
-          <div className="flex flex-wrap gap-2">
-            <OpenLink href={OUTLOOK_PERSONAL_RULES_URL}>Outlook.com (personal)</OpenLink>
-            <OpenLink href={OUTLOOK_WORK_RULES_URL}>Microsoft 365 (work)</OpenLink>
-          </div>
-          <Hint>The Outlook app can&apos;t make forwarding rules; use Outlook in a browser.</Hint>
-        </>
-      ),
-    },
-    {
-      title: "Choose which emails",
-      path: ["Name it “UnReceipt”", "Add a condition", "Subject includes"],
-      body: () => (
-        <>
-          <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            Add these words one at a time, pressing Enter after each. Tap a word
-            to copy it.
-          </p>
-          <WordChips words={outlookSubjectWords()} />
-        </>
-      ),
-    },
-    {
-      title: "Send them to UnReceipt",
-      path: ["Add an action", "Redirect to", "Paste your address", "Save"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <Hint>
-            Choose <Strong>Redirect to</Strong>, not “Forward to”: a redirect keeps
-            the original sender, so we can verify the receipt. Work accounts:
-            Microsoft 365 blocks forwarding outside the company by default. If you
-            get a bounce email, ask your IT admin to allow it.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Check that it works",
-      path: [],
-      kind: "test",
-      body: (ctx) => <TestBox {...ctx} />,
-    },
-  ],
-  other: [
-    {
-      title: "Find rules or filters",
-      path: ["Your email on the web", "Settings", "Rules or Filters", "New rule"],
-      body: () => <Hint>Most providers only offer rules in the browser version, not in the app.</Hint>,
-    },
-    {
-      title: "Make the rule",
-      path: ["When the subject contains…", "Forward or redirect to", "Your address"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Forward to" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            Subject words to match. If only one fits per rule, start with the
-            ones your receipts use most:
-          </p>
-          <WordChips words={[...RECEIPT_SUBJECT_WORDS]} />
-          <Hint>
-            If your provider sends a confirmation email to the address, it shows up
-            in UnReceipt under Review needed: open it and tap Original to read it.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Check that it works",
-      path: [],
-      kind: "test",
-      body: (ctx) => <TestBox {...ctx} />,
-    },
-  ],
-};
+function providers(t: WizardMessages): { id: Provider; label: string; hint: string }[] {
+  return [
+    { id: "gmail", label: "Gmail", hint: t.providers.gmailHint },
+    { id: "outlook", label: "Outlook", hint: t.providers.outlookHint },
+    { id: "other", label: t.providers.other, hint: t.providers.otherHint },
+  ];
+}
+
+// Gmail and Outlook menu names as their French and Swedish UIs show them.
+function buildSteps(t: WizardMessages): Record<Provider, Step[]> {
+  const check: Step = {
+    title: t.checkTitle,
+    path: [],
+    kind: "test",
+    body: (ctx) => <TestBox {...ctx} />,
+  };
+  return {
+    gmail: [
+      {
+        title: t.gmail.openTitle,
+        path: t.gmail.openPath,
+        body: () => (
+          <>
+            <OpenLink href={GMAIL_FORWARDING_URL}>{t.gmail.openLink}</OpenLink>
+            <Hint>{t.gmail.openHint}</Hint>
+          </>
+        ),
+      },
+      {
+        title: t.gmail.addTitle,
+        path: t.gmail.addPath,
+        body: ({ forwardingEmail }) => (
+          <>
+            <IntakeRow callout={t.yourAddress} value={forwardingEmail} mono copyLabel={t.copyAddress} quiet />
+            <Hint>{t.gmail.addHint}</Hint>
+          </>
+        ),
+      },
+      {
+        title: t.gmail.codeTitle,
+        path: t.gmail.codePath,
+        kind: "code",
+        body: ({ status }) => (
+          <>
+            <CodeBox status={status} />
+            <Hint>
+              {t.gmail.codeHintBefore} <Strong>{t.gmail.codeHintStrong}</Strong> {t.gmail.codeHintAfter}
+            </Hint>
+          </>
+        ),
+      },
+      {
+        title: t.gmail.filterTitle,
+        path: t.gmail.filterPath,
+        body: () => (
+          <>
+            <OpenLink href={GMAIL_FILTERS_URL}>{t.gmail.filterLink}</OpenLink>
+            <IntakeRow
+              callout={t.gmail.filterPaste}
+              value={gmailFilterQuery()}
+              mono={false}
+              copyLabel={t.gmail.copyFilter}
+              breakWords
+              quiet
+            />
+            <Hint>{t.gmail.filterHint}</Hint>
+          </>
+        ),
+      },
+      check,
+    ],
+    outlook: [
+      {
+        title: t.outlook.openTitle,
+        path: t.outlook.openPath,
+        body: () => (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <OpenLink href={OUTLOOK_PERSONAL_RULES_URL}>{t.outlook.personal}</OpenLink>
+              <OpenLink href={OUTLOOK_WORK_RULES_URL}>{t.outlook.work}</OpenLink>
+            </div>
+            <Hint>{t.outlook.openHint}</Hint>
+          </>
+        ),
+      },
+      {
+        title: t.outlook.whichTitle,
+        path: t.outlook.whichPath,
+        body: () => (
+          <>
+            <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+              {t.outlook.whichBody}
+            </p>
+            <WordChips words={outlookSubjectWords()} />
+          </>
+        ),
+      },
+      {
+        title: t.outlook.sendTitle,
+        path: t.outlook.sendPath,
+        body: ({ forwardingEmail }) => (
+          <>
+            <IntakeRow callout={t.yourAddress} value={forwardingEmail} mono copyLabel={t.copyAddress} quiet />
+            <Hint>
+              {t.outlook.sendHintBefore} <Strong>{t.outlook.sendHintStrong}</Strong>
+              {t.outlook.sendHintAfter}
+            </Hint>
+          </>
+        ),
+      },
+      check,
+    ],
+    other: [
+      {
+        title: t.other.findTitle,
+        path: t.other.findPath,
+        body: () => <Hint>{t.other.findHint}</Hint>,
+      },
+      {
+        title: t.other.ruleTitle,
+        path: t.other.rulePath,
+        body: ({ forwardingEmail }) => (
+          <>
+            <IntakeRow callout={t.forwardTo} value={forwardingEmail} mono copyLabel={t.copyAddress} quiet />
+            <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+              {t.other.ruleWords}
+            </p>
+            <WordChips words={[...RECEIPT_SUBJECT_WORDS]} />
+            <Hint>{t.other.ruleHint}</Hint>
+          </>
+        ),
+      },
+      check,
+    ],
+  };
+}
 
 type Saved = { provider: Provider | null; step: number; done: boolean };
+
+const PROVIDER_IDS: readonly Provider[] = ["gmail", "outlook", "other"];
 
 function loadSaved(): Saved {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
-    if (parsed && (parsed.provider === null || (parsed.provider && parsed.provider in STEPS))) {
+    if (parsed && (parsed.provider === null || (parsed.provider && PROVIDER_IDS.includes(parsed.provider)))) {
       return { provider: parsed.provider ?? null, step: Math.max(0, Number(parsed.step) || 0), done: Boolean(parsed.done) };
     }
   } catch {
@@ -231,6 +222,9 @@ function subscribeCoarse(cb: () => void) {
 const isCoarse = () => window.matchMedia("(pointer: coarse)").matches;
 
 export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string }) {
+  const t = useI18n().t.settings.wizard;
+  const STEPS = buildSteps(t);
+  const PROVIDERS = providers(t);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
@@ -321,10 +315,9 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
 
       {!provider ? (
         <>
-          <Title titleRef={titleRef}>Where do your receipts arrive?</Title>
+          <Title titleRef={titleRef}>{t.chooseTitle}</Title>
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "12px" }}>
-            Pick your email and we&apos;ll walk you through it, one small step at
-            a time. About 3 minutes.
+            {t.chooseBody}
           </p>
           <ul role="list" className="space-y-2">
             {PROVIDERS.map((p) => (
@@ -353,11 +346,10 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
         <>
           <div className="flex items-center gap-2" style={{ marginBottom: "8px" }}>
             <Check className="w-5 h-5 text-[var(--primary)]" aria-hidden="true" />
-            <Title titleRef={titleRef}>You&apos;re set</Title>
+            <Title titleRef={titleRef}>{t.setTitle}</Title>
           </div>
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "12px" }}>
-            New receipts in your {PROVIDERS.find((p) => p.id === provider)?.label} inbox now
-            arrive in UnReceipt by themselves. Older ones: forward them by hand.
+            {t.setBody(PROVIDERS.find((p) => p.id === provider)?.label ?? "")}
           </p>
           <button
             type="button"
@@ -365,14 +357,14 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
             className="text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
             style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
           >
-            Set up another inbox
+            {t.setupAnother}
           </button>
         </>
       ) : current ? (
         <>
           <div className="flex items-center justify-between gap-2" style={{ marginBottom: "8px" }}>
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              {PROVIDERS.find((p) => p.id === provider)?.label} · Step {index + 1} of {total}
+              {t.stepOf(PROVIDERS.find((p) => p.id === provider)?.label ?? "", index + 1, total)}
             </p>
             <Dots total={total} index={index} />
           </div>
@@ -390,7 +382,7 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
               style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-              {index === 0 ? "Change email" : "Back"}
+              {index === 0 ? t.changeEmail : t.back}
             </button>
             <Button
               type="button"
@@ -401,7 +393,7 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
                 requestAnimationFrame(() => titleRef.current?.focus());
               }}
             >
-              {index === total - 1 ? "Done" : current.kind === "code" && status?.confirmation?.code ? "I've verified it" : "Next"}
+              {index === total - 1 ? t.done : current.kind === "code" && status?.confirmation?.code ? t.verified : t.next}
             </Button>
           </div>
         </>
@@ -412,8 +404,9 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
 
 // "Settings (gear) › See all settings › Forwarding and POP/IMAP"
 function PathTrail({ path }: { path: string[] }) {
+  const t = useI18n().t.settings.wizard;
   return (
-    <ol role="list" aria-label="Where to click" className="flex flex-wrap items-center gap-1" style={{ marginTop: "8px" }}>
+    <ol role="list" aria-label={t.whereToClick} className="flex flex-wrap items-center gap-1" style={{ marginTop: "8px" }}>
       {path.map((p, i) => (
         <li key={`${p}-${i}`} className="inline-flex items-center gap-1">
           {/* Read-only labels, styled unlike the bordered buttons around them. */}
@@ -431,6 +424,7 @@ function PathTrail({ path }: { path: string[] }) {
 }
 
 function OpenLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const t = useI18n().t.settings.wizard;
   return (
     <a
       href={href}
@@ -441,12 +435,13 @@ function OpenLink({ href, children }: { href: string; children: React.ReactNode 
     >
       {children}
       <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-      <span className="sr-only">(opens in a new tab)</span>
+      <span className="sr-only">{t.opensNewTab}</span>
     </a>
   );
 }
 
 function CodeBox({ status }: { status: Status | null }) {
+  const t = useI18n().t.settings.wizard.code;
   const confirmation = status?.confirmation ?? null;
   return (
     <div role="status">
@@ -456,32 +451,32 @@ function CodeBox({ status }: { status: Status | null }) {
           style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
         >
           <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
-          Waiting for Gmail&apos;s email… The code appears here by itself.
+          {t.waiting}
         </p>
       ) : !confirmation.code ? (
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Gmail&apos;s email arrived, but we couldn&apos;t read the code in it.
-          Write to{" "}
+          {t.unreadableBefore}{" "}
           <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
             support@unreceipt.com
           </a>{" "}
-          and we&apos;ll send it to you.
+          {t.unreadableAfter}
         </p>
       ) : (
-        <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
+        <IntakeRow callout={t.callout} value={confirmation.code} mono={false} copyLabel={t.copy} quiet />
       )}
     </div>
   );
 }
 
 function TestBox({ status }: StepContext) {
+  const t = useI18n().t.settings.wizard.test;
   const [since] = useState(nowMs);
   const arrived = status?.lastEmailAt != null && Date.parse(status.lastEmailAt) >= since - 5_000;
   return (
     <>
       <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-        Ask a colleague, or use another email account, to send you an email
-        with the subject <Strong>Test receipt</Strong>.
+        {t.askBefore} <Strong>{t.subject}</Strong>
+        {t.askAfter}
       </p>
       <div role="status">
         {arrived ? (
@@ -490,8 +485,7 @@ function TestBox({ status }: StepContext) {
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px", fontWeight: 600 }}
           >
             <Check className="w-4 h-4 text-[var(--primary)] shrink-0" aria-hidden="true" />
-            It works: the test arrived in UnReceipt. You can delete it under
-            Review needed; it doesn&apos;t count toward your plan.
+            {t.worked}
           </p>
         ) : (
           <p
@@ -499,23 +493,23 @@ function TestBox({ status }: StepContext) {
             style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
           >
             <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
-            Waiting for the test email… Nothing after 5 minutes? Check your Spam
-            folder and the rule.
+            {t.waiting}
           </p>
         )}
       </div>
       <Hint>
-        Is this inbox different from your sign-in email? Add it under{" "}
+        {t.ownBefore}{" "}
         <a href="#own-heading" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
-          Your email addresses
+          {t.ownLink}
         </a>{" "}
-        so its receipts are verified automatically.
+        {t.ownAfter}
       </Hint>
     </>
   );
 }
 
 function WordChips({ words }: { words: readonly string[] }) {
+  const t = useI18n().t.settings.wizard.words;
   const [copied, setCopied] = useState<string | null>(null);
   const copy = async (w: string) => {
     try {
@@ -528,13 +522,13 @@ function WordChips({ words }: { words: readonly string[] }) {
   };
   return (
     <>
-      <ul role="list" aria-label="Subject words" className="flex flex-wrap gap-2">
+      <ul role="list" aria-label={t.label} className="flex flex-wrap gap-2">
         {words.map((w) => (
           <li key={w}>
             <button
               type="button"
               onClick={() => copy(w)}
-              aria-label={`Copy “${w}”`}
+              aria-label={t.copy(w)}
               className="inline-flex items-center gap-1 text-[var(--ink)] bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
               style={{ border: "1px solid var(--hairline)", borderRadius: "6px", padding: "0 10px", minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
             >
@@ -545,13 +539,14 @@ function WordChips({ words }: { words: readonly string[] }) {
         ))}
       </ul>
       <p className="sr-only" aria-live="polite">
-        {copied ? `Copied ${copied}` : ""}
+        {copied ? t.copied(copied) : ""}
       </p>
     </>
   );
 }
 
 function PhoneNotice() {
+  const t = useI18n().t.settings.wizard.phone;
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
   const send = async () => {
@@ -562,14 +557,14 @@ function PhoneNotice() {
       const body = (await res.json().catch(() => ({}))) as { sentTo?: string; error?: string };
       if (!res.ok) {
         setState("error");
-        setMessage(body.error ?? "Couldn't send the email. Try again in a moment.");
+        setMessage(body.error ?? t.failed);
         return;
       }
       setState("sent");
-      setMessage(`Sent to ${body.sentTo}. Open it on your computer.`);
+      setMessage(t.sentTo(body.sentTo ?? ""));
     } catch {
       setState("error");
-      setMessage("Couldn't send the email. Check your connection.");
+      setMessage(t.failedNetwork);
     }
   };
   return (
@@ -578,8 +573,7 @@ function PhoneNotice() {
       style={{ borderBottom: "1px solid var(--hairline)", paddingBottom: "16px", marginBottom: "16px" }}
     >
       <p className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-        <Strong>Best done on a computer.</Strong> Gmail and Outlook only let you
-        create forwarding rules in a browser, not in their phone apps.
+        <Strong>{t.best}</Strong> {t.bestBody}
       </p>
       {/* Stays mounted (disabled once sent) so focus isn't lost. */}
       <button
@@ -591,7 +585,7 @@ function PhoneNotice() {
       >
         {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
         {state === "sent" ? <Check className="w-4 h-4" aria-hidden="true" /> : null}
-        {state === "sent" ? "Sent" : "Email me this page"}
+        {state === "sent" ? t.sent : t.emailMe}
       </button>
       <p
         role="status"

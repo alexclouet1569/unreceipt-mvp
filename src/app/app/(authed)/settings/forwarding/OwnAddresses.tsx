@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "@/lib/i18n/client";
 
 const ERROR_ID = "own-address-error";
 
@@ -20,6 +21,7 @@ export function OwnAddresses({
   accountEmail: string | null;
   addresses: string[];
 }) {
+  const t = useI18n().t.settings.own;
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState("");
@@ -38,17 +40,17 @@ export function OwnAddresses({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(body.error ?? "Couldn't save. Try again.");
+        setError(body.error ?? t.saveFailed);
         return;
       }
       if (method === "POST") setDraft("");
-      setAnnouncement(method === "POST" ? `Added ${address}` : `Removed ${address}`);
+      setAnnouncement(method === "POST" ? t.added(address) : t.removed(address));
       router.refresh();
       // The button that was pressed goes away with the refresh; keep focus
       // somewhere sensible for keyboard and screen-reader users.
       inputRef.current?.focus();
     } catch {
-      setError("Couldn't save. Check your connection and try again.");
+      setError(t.saveFailedNetwork);
     } finally {
       setBusy(null);
     }
@@ -59,10 +61,7 @@ export function OwnAddresses({
   return (
     <div className="space-y-3">
       <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-        Uber and Stripe receipts are verified automatically only when they were
-        sent to one of your own addresses. Anything else, like someone
-        else&apos;s receipt forwarded to you, waits under Review needed. Add
-        every inbox of yours that forwards receipts here, and only your own.
+        {t.intro}
       </p>
 
       {hasRows ? (
@@ -77,7 +76,7 @@ export function OwnAddresses({
                 {accountEmail}
               </span>
               <span className="shrink-0 text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-                Sign-in email
+                {t.signInEmail}
               </span>
             </li>
           ) : null}
@@ -90,7 +89,7 @@ export function OwnAddresses({
                 type="button"
                 onClick={() => send("DELETE", address)}
                 disabled={busy !== null}
-                aria-label={`Remove ${address}`}
+                aria-label={t.remove(address)}
                 className="shrink-0 inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors duration-100 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-[-2px]"
                 style={{ width: "44px", height: "44px", borderRadius: "10px" }}
               >
@@ -109,7 +108,7 @@ export function OwnAddresses({
         }}
       >
         <label htmlFor="own-address" className="sr-only">
-          Add an email address
+          {t.addLabel}
         </label>
         <Input
           ref={inputRef}
@@ -117,7 +116,7 @@ export function OwnAddresses({
           type="email"
           inputMode="email"
           autoComplete="email"
-          placeholder="Another email address"
+          placeholder={t.placeholder}
           className="h-11 flex-1"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -126,7 +125,7 @@ export function OwnAddresses({
         />
         <Button type="submit" variant="outline" className="h-11" disabled={busy !== null || !draft.trim()}>
           {busy === draft.trim() ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Add
+          {t.add}
         </Button>
       </form>
 

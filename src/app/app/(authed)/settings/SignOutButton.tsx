@@ -4,10 +4,12 @@ import { useState } from "react";
 import { LogOut } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { withTimeout } from "@/lib/with-timeout";
+import { useI18n } from "@/lib/i18n/client";
 
 const SIGN_OUT_TIMEOUT_MS = 5_000;
 
 export function SignOutButton() {
+  const t = useI18n().t.settings.signOut;
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -55,7 +57,7 @@ export function SignOutButton() {
         }}
       >
         <LogOut className="w-4 h-4" />
-        {busy ? "Signing out…" : "Sign out"}
+        {busy ? t.signingOut : t.signOut}
       </button>
       {failed ? (
         <p
@@ -66,7 +68,7 @@ export function SignOutButton() {
             color: "var(--attention-deep)",
           }}
         >
-          Couldn&apos;t sign you out. Check your connection and try again.
+          {t.failed}
         </p>
       ) : null}
     </>
