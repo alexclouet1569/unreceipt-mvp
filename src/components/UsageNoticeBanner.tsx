@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronRight, Info } from "lucide-react";
 import type { UsageNotice } from "@/lib/usage-copy";
 import { Money } from "@/components/Money";
+import { useI18n } from "@/lib/i18n/client";
 
 /**
  * Thin notice above the receipts list when a company nears or passes its
@@ -10,6 +13,7 @@ import { Money } from "@/components/Money";
  * row links to Settings so the tap target is full width.
  */
 export function UsageNoticeBanner({ notice }: { notice: UsageNotice }) {
+  const t = useI18n().t.dashboard.usage;
   return (
     <div
       role="status"
@@ -29,33 +33,32 @@ export function UsageNoticeBanner({ notice }: { notice: UsageNotice }) {
           <NoticeText notice={notice} />
         </span>
         <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
-        <span className="sr-only">See usage in settings</span>
+        <span className="sr-only">{t.seeUsage}</span>
       </Link>
     </div>
   );
 }
 
 function NoticeText({ notice }: { notice: UsageNotice }) {
+  const t = useI18n().t.dashboard.usage;
   if (notice.level === "warn") {
     return (
       <>
-        You&apos;ve used {notice.used} of the {notice.allowance} receipts in your{" "}
-        {notice.planName} plan this period. Extra receipts are{" "}
-        <Money eur={notice.overagePrice} /> each.
+        {t.warn(notice.used, notice.allowance, notice.planName)}
+        <Money eur={notice.overagePrice} />
+        {t.each}
       </>
     );
   }
-  const receipts = `${notice.extra} receipt${notice.extra === 1 ? "" : "s"}`;
   return notice.extraCost !== null ? (
     <>
-      You&apos;re {receipts} over your {notice.planName} plan ({notice.allowance} a
-      month). Extra receipts are <Money eur={notice.overagePrice} /> each —{" "}
-      <Money eur={notice.extraCost} /> so far, on your next invoice.
+      {t.over(notice.extra, notice.planName, notice.allowance)}
+      <Money eur={notice.overagePrice} />
+      {t.eachSoFar}
+      <Money eur={notice.extraCost} />
+      {t.soFar}
     </>
   ) : (
-    <>
-      You&apos;re {receipts} over your {notice.planName} plan ({notice.allowance} a
-      month). Everything is still saved.
-    </>
+    <>{t.overUnbilled(notice.extra, notice.planName, notice.allowance)}</>
   );
 }

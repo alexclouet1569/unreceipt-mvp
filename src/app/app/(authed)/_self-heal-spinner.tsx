@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/client";
 
 /**
  * Critical-gap fix #1: when the self-heal Stripe lookup fails (or its
@@ -16,6 +17,7 @@ import { Loader2 } from "lucide-react";
  */
 export function SelfHealSpinner() {
   const router = useRouter();
+  const t = useI18n().t.dashboard.selfHeal;
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -28,10 +30,8 @@ export function SelfHealSpinner() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="text-center max-w-sm">
         <Loader2 className="w-8 h-8 text-primary mx-auto mb-3 animate-spin" />
-        <h2 className="font-semibold text-lg mb-1">Setting up your account…</h2>
-        <p className="text-sm text-muted-foreground">
-          Just a moment while we finish your subscription.
-        </p>
+        <h2 className="font-semibold text-lg mb-1">{t.title}</h2>
+        <p className="text-sm text-muted-foreground">{t.body}</p>
       </div>
     </div>
   );

@@ -9,12 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import {
-  HEIC_UNSUPPORTED_MESSAGE,
-  UNSUPPORTED_FILE_MESSAGE,
-  isHeicLike,
-  prepareImageForUpload,
-} from "@/lib/image-resize";
+import { isHeicLike, prepareImageForUpload } from "@/lib/image-resize";
+import { useI18n } from "@/lib/i18n/client";
 import {
   MAX_UPLOAD_BYTES,
   isAllowedUploadType,
@@ -35,7 +31,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  CATEGORY_CONFIG,
   CATEGORY_KEYS,
   CURRENCY_OPTIONS,
   formatAmount,
@@ -46,10 +41,7 @@ import type { OcrItem, OcrResult } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { cn } from "@/lib/utils";
-import {
-  PAYMENT_METHOD_SUGGESTIONS,
-  vatFromGross,
-} from "@/lib/receipts/receipt-fields";
+import { vatFromGross } from "@/lib/receipts/receipt-fields";
 
 type CaptureDialogProps = {
   open: boolean;
@@ -131,11 +123,24 @@ const writeIncludeVat = (value: boolean) => {
   }
 };
 
-const UNREADABLE_MESSAGE =
-  "We couldn't read this photo. It's still attached, so just fill in the details below.";
+// Validation paths /api/capture reports, each with a message of its own.
+const FIELD_ERROR_PATHS = [
+  "merchant",
+  "amount",
+  "currency",
+  "receipt_date",
+  "category",
+  "tax_amount",
+  "tax_rate",
+  "payment_method",
+  "notes",
+] as const;
+type FieldErrorPath = (typeof FIELD_ERROR_PATHS)[number];
 
 export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProps) {
   const router = useRouter();
+  const { locale, t: messages } = useI18n();
+  const t = messages.capture;
   // Two hidden inputs: "Upload" opens the file/gallery picker and "Take
   // photo" opens the camera via `capture="environment"`. One input with
   // `capture` pushed iOS straight to the camera and buried the gallery.
@@ -271,23 +276,19 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           | { error?: string }
           | null;
         const reason = body?.error ?? `HTTP ${res.status}`;
-        setOcrError(
-          `We couldn't read this photo (${reason}). It's still attached, so just fill in the details below.`
-        );
+        setOcrError(t.errors.ocrFailed(reason));
         return;
       }
       const data = (await res.json()) as OcrResult;
       if (run !== ocrRunRef.current) return;
       if (data.not_a_receipt) {
-        setOcrError(
-          "This doesn't look like a receipt. Try a clearer photo, or fill in the details below."
-        );
+        setOcrError(t.errors.notAReceipt);
         return;
       }
       const readSomething =
         typeof data.merchant === "string" || isFiniteNumber(data.amount);
       if (!readSomething) {
-        setOcrError(UNREADABLE_MESSAGE);
+        setOcrError(t.errors.unreadable);
         return;
       }
 
@@ -358,7 +359,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     } catch (err) {
       if (run !== ocrRunRef.current) return;
       console.error("[capture] ocr failed:", err);
-      setOcrError(UNREADABLE_MESSAGE);
+      setOcrError(t.errors.unreadable);
     } finally {
       if (run === ocrRunRef.current) setStage("review");
     }
@@ -375,13 +376,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     // Refuse here, with a reason, anything the server would reject anyway
     // (typically an iPhone HEIC photo that this browser can't convert).
     if (!isAllowedUploadType(f.type)) {
-      setOcrError(isHeicLike(f) ? HEIC_UNSUPPORTED_MESSAGE : UNSUPPORTED_FILE_MESSAGE);
+      setOcrError(isHeicLike(f) ? t.errors.heic : t.errors.unsupported);
       return;
     }
     if (f.size > MAX_UPLOAD_BYTES) {
-      setOcrError(
-        "This file is larger than 4 MB. Try a photo instead, or forward the PDF to your receipts address."
-      );
+      setOcrError(t.errors.tooLarge);
       return;
     }
     setImageFile(f);
@@ -445,15 +444,24 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
-          issues?: Array<{ message?: string }>;
+          issues?: Array<{ path?: string; message?: string }>;
         };
         // Validation failures carry a readable reason per field ("VAT
         // can't be more than the total"); show it rather than the generic
-        // "validation failed".
-        throw new Error(
-          body.issues?.[0]?.message ??
-            body.error ??
-            `Save failed (HTTP ${res.status})`,
+        // "validation failed". The server writes English, so other
+        // languages get the field's own message, picked by its path.
+        const issue = body.issues?.[0];
+        if (issue && locale !== "en") {
+          const path = issue.path as FieldErrorPath | undefined;
+          throw new SaveError(
+            path && (FIELD_ERROR_PATHS as readonly string[]).includes(path)
+              ? t.errors.fields[path]
+              : t.errors.fields.other,
+          );
+        }
+        if (locale !== "en") throw new SaveError(t.errors.saveFailed);
+        throw new SaveError(
+          issue?.message ?? body.error ?? t.errors.saveFailedStatus(res.status),
         );
       }
 
@@ -472,21 +480,29 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       }
     } catch (err) {
       console.error("[/app] save failed:", err);
-      setSaveError(err instanceof Error ? err.message : "Save failed");
+      // A SaveError is already worded for the person; anything else is
+      // fetch failing (English keeps the browser's own reason).
+      setSaveError(
+        err instanceof SaveError
+          ? err.message
+          : locale === "en" && err instanceof Error
+            ? err.message
+            : messages.common.networkError,
+      );
       setSaving(false);
     }
   };
 
   const title =
     stage === "saved"
-      ? "Receipt saved"
+      ? t.titles.saved
       : stage !== "review"
-      ? "New receipt"
+      ? t.titles.new
       : ocrFilled
-        ? "Check and save"
+        ? t.titles.check
         : imageFile
-          ? "Fill in the details"
-          : "Enter manually";
+          ? t.titles.fillIn
+          : t.titles.manual;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -500,7 +516,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             <button
               type="button"
               onClick={() => setStage("choose")}
-              aria-label="Back"
+              aria-label={t.back}
               className={ICON_BUTTON_CLASS}
             >
               <ChevronLeft className="size-[18px]" aria-hidden="true" />
@@ -517,7 +533,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           <SheetTitle className="flex-1 text-[22px] font-bold tracking-[-0.02em] text-[var(--ink)]">
             {title}
           </SheetTitle>
-          <SheetClose aria-label="Close" className={ICON_BUTTON_CLASS}>
+          <SheetClose aria-label={t.close} className={ICON_BUTTON_CLASS}>
             <X className="size-[18px]" aria-hidden="true" />
           </SheetClose>
         </div>
@@ -564,7 +580,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <label htmlFor="cd-amount" className={MICRO_LABEL_CLASS}>
-                    Total paid
+                    {t.fields.totalPaid}
                   </label>
                   <div className="mt-0.5 flex items-center gap-2">
                     <input
@@ -575,7 +591,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                       inputMode="decimal"
                       value={form.amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
+                      placeholder={t.fields.amountPlaceholder}
                       required
                       className={cn(
                         "h-12 min-w-0 flex-1 appearance-none border-0 border-b border-dashed border-[var(--hairline)] bg-transparent p-0 font-mono leading-none font-medium tracking-[-0.02em] tabular-nums text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus:border-b-2 focus:border-solid focus:border-[var(--ring)] [&::-webkit-inner-spin-button]:appearance-none",
@@ -590,7 +606,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     <div className="relative shrink-0">
                       <select
                         id="cd-currency"
-                        aria-label="Currency"
+                        aria-label={t.fields.currency}
                         value={form.currency}
                         onChange={(e) => update("currency", e.target.value as CurrencyCode)}
                         className="h-11 appearance-none rounded-full border border-[var(--hairline)] bg-card pr-7 pl-3 text-[16px] font-bold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -613,18 +629,18 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               {includeVat ? <VatSummary form={form} /> : null}
 
               <div className="mt-4 overflow-hidden rounded-[12px] border border-[var(--hairline)]">
-                <Row label="Merchant" htmlFor="cd-merchant">
+                <Row label={t.fields.merchant} htmlFor="cd-merchant">
                   <input
                     id="cd-merchant"
                     value={form.merchant}
                     onChange={(e) => update("merchant", e.target.value)}
-                    placeholder="Shop or company"
+                    placeholder={t.fields.merchantPlaceholder}
                     maxLength={200}
                     required
                     className={ROW_CONTROL_CLASS}
                   />
                 </Row>
-                <Row label="Date" htmlFor="cd-date">
+                <Row label={t.fields.date} htmlFor="cd-date">
                   <input
                     id="cd-date"
                     type="date"
@@ -634,7 +650,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     className={ROW_CONTROL_CLASS}
                   />
                 </Row>
-                <Row label="Category" htmlFor="cd-category">
+                <Row label={t.fields.category} htmlFor="cd-category">
                   <SelectControl>
                     <select
                       id="cd-category"
@@ -644,7 +660,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     >
                       {CATEGORY_KEYS.map((k) => (
                         <option key={k} value={k}>
-                          {CATEGORY_CONFIG[k].label}
+                          {messages.common.categories[k]}
                         </option>
                       ))}
                     </select>
@@ -655,7 +671,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     id="cd-include-vat-label"
                     className="flex-1 text-[15px] font-semibold text-[var(--ink-muted)]"
                   >
-                    Include VAT
+                    {t.fields.includeVat}
                   </span>
                   <Switch
                     checked={includeVat}
@@ -664,16 +680,16 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                   />
                 </div>
                 {includeVat ? (
-                  <Row label="VAT" htmlFor="cd-tax-rate">
+                  <Row label={t.fields.vat} htmlFor="cd-tax-rate">
                     <SelectControl className="w-[92px] flex-none">
                       <select
                         id="cd-tax-rate"
-                        aria-label="VAT rate"
+                        aria-label={t.fields.vatRate}
                         value={form.taxRate}
                         onChange={(e) => setTaxRate(e.target.value)}
                         className={`${ROW_CONTROL_CLASS} appearance-none pr-6`}
                       >
-                        <option value="">Rate</option>
+                        <option value="">{t.fields.rate}</option>
                         {vatRateOptions(form.taxRate).map((r) => (
                           <option key={r} value={r}>
                             {r} %
@@ -683,14 +699,14 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     </SelectControl>
                     <input
                       id="cd-tax-amount"
-                      aria-label="VAT amount"
+                      aria-label={t.fields.vatAmount}
                       type="number"
                       step="0.01"
                       min="0"
                       inputMode="decimal"
                       value={form.taxAmount}
                       onChange={(e) => setTaxAmount(e.target.value)}
-                      placeholder="0.00"
+                      placeholder={t.fields.amountPlaceholder}
                       className={cn(
                         ROW_CONTROL_CLASS,
                         "text-right font-mono font-medium tabular-nums [&::-webkit-inner-spin-button]:appearance-none",
@@ -698,19 +714,19 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     />
                   </Row>
                 ) : null}
-                <Row label="Payment" htmlFor="cd-payment-method">
+                <Row label={t.fields.payment} htmlFor="cd-payment-method">
                   <input
                     id="cd-payment-method"
-                    aria-label="Payment method"
+                    aria-label={t.fields.paymentMethod}
                     list="cd-payment-method-options"
                     value={form.paymentMethod}
                     onChange={(e) => update("paymentMethod", e.target.value)}
-                    placeholder="Card, Swish, cash…"
+                    placeholder={t.fields.paymentPlaceholder}
                     maxLength={50}
                     className={ROW_CONTROL_CLASS}
                   />
                   <datalist id="cd-payment-method-options">
-                    {PAYMENT_METHOD_SUGGESTIONS.map((m) => (
+                    {Object.values(t.paymentSuggestions).map((m) => (
                       <option key={m} value={m} />
                     ))}
                   </datalist>
@@ -720,14 +736,14 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               {showNotes || form.notes ? (
                 <div className="mt-4">
                   <label htmlFor="cd-notes" className={MICRO_LABEL_CLASS}>
-                    Notes
+                    {t.fields.notes}
                   </label>
                   <textarea
                     id="cd-notes"
                     className="mt-2 min-h-[80px] w-full rounded-[10px] border border-[var(--hairline)] bg-transparent px-4 py-3 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                     value={form.notes}
                     onChange={(e) => update("notes", e.target.value)}
-                    placeholder="Who you met, what it was for…"
+                    placeholder={t.fields.notesPlaceholder}
                     maxLength={2000}
                   />
                 </div>
@@ -737,18 +753,18 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 {!showNotes && !form.notes ? (
                   <TextButton onClick={() => setShowNotes(true)}>
                     <Plus className="size-4" aria-hidden="true" />
-                    Add a note
+                    {t.addNote}
                   </TextButton>
                 ) : null}
                 {!imageFile ? (
                   <>
                     <TextButton onClick={() => cameraInputRef.current?.click()}>
                       <Camera className="size-4" aria-hidden="true" />
-                      Take photo
+                      {t.takePhoto}
                     </TextButton>
                     <TextButton onClick={() => uploadInputRef.current?.click()}>
                       <Upload className="size-4" aria-hidden="true" />
-                      Upload file
+                      {t.uploadFile}
                     </TextButton>
                   </>
                 ) : null}
@@ -765,7 +781,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 </p>
               ) : ocrFilled ? (
                 <p className="mb-2 text-center text-[13px] font-medium text-[var(--ink-muted)]">
-                  Read from your photo. Tap any value to change it.
+                  {t.readFromPhoto}
                 </p>
               ) : null}
               <button
@@ -774,7 +790,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 className={PRIMARY_BUTTON_CLASS}
               >
                 {saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {saving ? "Saving…" : saveError ? "Try again" : "Save receipt"}
+                {saving ? t.saving : saveError ? t.tryAgain : t.save}
               </button>
             </div>
           </form>
@@ -792,7 +808,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               <a
                 href={`/api/receipts/${savedReceipt.id}/pdf`}
                 download
-                aria-label="Download PDF"
+                aria-label={t.downloadPdf}
                 className={SECONDARY_BUTTON_CLASS}
               >
                 <Download className="size-[18px]" aria-hidden="true" />
@@ -804,7 +820,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 onClick={() => onOpenChange(false)}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                Done
+                {t.done}
               </button>
             </div>
           </div>
@@ -829,6 +845,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     </Sheet>
   );
 }
+
+// A save failure already worded for the person (vs. fetch itself failing).
+class SaveError extends Error {}
 
 const ICON_BUTTON_CLASS =
   "flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -861,6 +880,7 @@ function ChooseStage({
   onUpload: () => void;
   onManual: () => void;
 }) {
+  const t = useI18n().t.capture.choose;
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
       {notice ? (
@@ -871,27 +891,27 @@ function ChooseStage({
       <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center gap-5 rounded-[12px] border border-[var(--hairline)] bg-[var(--surface)] p-6 text-center">
         <Viewfinder />
         <div className="space-y-2">
-          <p className="text-[18px] font-bold tracking-[-0.01em]">Photograph your receipt</p>
+          <p className="text-[18px] font-bold tracking-[-0.01em]">{t.heading}</p>
           <p className="mx-auto max-w-[260px] text-[14px] leading-normal font-medium text-[var(--ink-muted)]">
-            We read the merchant, total, VAT and date. You check it, then save.
+            {t.body}
           </p>
         </div>
       </div>
       <div className="mt-5 flex flex-col gap-3">
         <button type="button" onClick={onTakePhoto} className={PRIMARY_BUTTON_CLASS}>
           <Camera className="size-5" aria-hidden="true" />
-          Take photo
+          {t.takePhoto}
         </button>
         <button type="button" onClick={onUpload} className={SECONDARY_BUTTON_CLASS}>
           <Upload className="size-5" aria-hidden="true" />
-          Upload photo or PDF
+          {t.upload}
         </button>
         <button
           type="button"
           onClick={onManual}
           className="flex h-11 items-center justify-center gap-1.5 rounded-[10px] text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          No receipt? Enter it manually
+          {t.manual}
           <ChevronRight className="size-4" aria-hidden="true" />
         </button>
       </div>
@@ -908,6 +928,7 @@ function ReadingStage({
   file: File | null;
   includeVat: boolean;
 }) {
+  const t = useI18n().t.capture;
   return (
     <div className="flex min-h-0 flex-1 flex-col px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-4">
@@ -925,10 +946,10 @@ function ReadingStage({
               className="inline-block size-2 animate-pulse rounded-full bg-primary"
               aria-hidden="true"
             />
-            Reading your receipt…
+            {t.reading.status}
           </p>
           <p className="text-[13px] font-medium text-[var(--ink-muted)]">
-            You can check everything before it&apos;s saved.
+            {t.reading.hint}
           </p>
         </div>
       </div>
@@ -945,11 +966,11 @@ function ReadingStage({
         aria-hidden="true"
       >
         {[
-          ["Merchant", "w-[110px]"],
-          ["Date", "w-[90px]"],
-          ["Category", "w-[120px]"],
-          ...(includeVat ? [["VAT", "w-[100px]"]] : []),
-          ["Payment", "w-[60px]"],
+          [t.fields.merchant, "w-[110px]"],
+          [t.fields.date, "w-[90px]"],
+          [t.fields.category, "w-[120px]"],
+          ...(includeVat ? [[t.fields.vat, "w-[100px]"]] : []),
+          [t.fields.payment, "w-[60px]"],
         ].map(([label, width]) => (
           <div
             key={label}
@@ -999,6 +1020,7 @@ function ThumbContent({
   imagePreview: string | null;
   file: File | null;
 }) {
+  const t = useI18n().t.capture;
   if (imagePreview === "__pdf__") {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-card text-[var(--ink-muted)]">
@@ -1012,7 +1034,7 @@ function ThumbContent({
       /* eslint-disable-next-line @next/next/no-img-element */
       <img
         src={imagePreview}
-        alt={file ? `Receipt photo ${file.name}` : "Receipt preview"}
+        alt={file ? t.photoAlt(file.name) : t.previewAlt}
         className="h-full w-full object-cover"
       />
     );
@@ -1029,6 +1051,7 @@ function PhotoThumb({
   file: File;
   onRemove: () => void;
 }) {
+  const t = useI18n().t.capture;
   return (
     <div className="relative shrink-0">
       <div className="h-[84px] w-16 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]">
@@ -1038,7 +1061,7 @@ function PhotoThumb({
       <button
         type="button"
         onClick={onRemove}
-        aria-label="Remove photo"
+        aria-label={t.removePhoto}
         className="absolute -top-3 -right-4 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span className="flex size-6 items-center justify-center rounded-full border border-[var(--hairline)] bg-card text-[var(--ink-muted)]">
@@ -1050,6 +1073,8 @@ function PhotoThumb({
 }
 
 function VatSummary({ form }: { form: FormState }) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.capture;
   const gross = toNumber(form.amount);
   const vat = toNumber(form.taxAmount);
   if (gross == null || gross <= 0 || vat == null || vat <= 0 || vat > gross) return null;
@@ -1058,16 +1083,16 @@ function VatSummary({ form }: { form: FormState }) {
     <div className="mt-4 space-y-1 rounded-[10px] border border-[color-mix(in_srgb,var(--brand)_20%,transparent)] bg-[var(--brand-tint)] px-4 py-3.5">
       <div className="flex items-baseline justify-between">
         <span className="text-[14px] font-semibold">
-          {rate != null ? `VAT ${form.taxRate} %` : "VAT"}
+          {rate != null ? t.vatWithRate(form.taxRate) : t.fields.vat}
         </span>
         <span className="font-mono text-[14px] font-normal tabular-nums">
-          {formatAmount(vat, form.currency)}
+          {formatAmount(vat, form.currency, locale)}
         </span>
       </div>
       <div className="flex items-baseline justify-between text-[var(--ink-muted)]">
-        <span className="text-[14px] font-semibold">Excl. VAT</span>
+        <span className="text-[14px] font-semibold">{t.exclVat}</span>
         <span className="font-mono text-[14px] font-normal tabular-nums">
-          {formatAmount(Math.round((gross - vat) * 100) / 100, form.currency)}
+          {formatAmount(Math.round((gross - vat) * 100) / 100, form.currency, locale)}
         </span>
       </div>
     </div>

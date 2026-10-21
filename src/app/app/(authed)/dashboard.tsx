@@ -9,13 +9,14 @@ import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { CaptureFab } from "@/components/CaptureFab";
 import { IntakeRow } from "@/components/IntakeRow";
 import {
-  CATEGORY_CONFIG,
   CATEGORY_KEYS,
   formatAmount,
   relativeDayGroup,
   type CategoryKey,
 } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
+import { useI18n } from "@/lib/i18n/client";
+import type { Locale } from "@/lib/i18n/locale";
 import { cn } from "@/lib/utils";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
@@ -47,6 +48,8 @@ export function Dashboard({
   intakeSmsNumber,
   showOnboarding = false,
 }: DashboardProps) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.dashboard;
   const [captureOpen, setCaptureOpen] = useState(false);
   // Once started, onboarding stays until finished — even after the first
   // receipt arrives mid-flow (step 2 → 3).
@@ -115,16 +118,17 @@ export function Dashboard({
         .map(({ key }) => {
           const items = groups.get(key)!;
           return {
-            label: CATEGORY_CONFIG[key].label,
+            label: messages.common.categories[key],
             items,
-            total: sumByCurrency(items),
+            total: sumByCurrency(items, locale),
           };
         });
     }
-    const order = ["Today", "Yesterday", "This week"];
+    const words = messages.common.dayGroups;
+    const order = [words.today, words.yesterday, words.thisWeek];
     const groups = new Map<string, typeof receipts>();
     for (const r of visibleReceipts) {
-      const label = relativeDayGroup(r.purchased_at ?? r.receipt_date);
+      const label = relativeDayGroup(r.purchased_at ?? r.receipt_date, new Date(), locale);
       if (!groups.has(label)) groups.set(label, []);
       groups.get(label)!.push(r);
     }
@@ -135,14 +139,14 @@ export function Dashboard({
       if (ai !== -1 && bi !== -1) return ai - bi;
       if (ai !== -1) return -1;
       if (bi !== -1) return 1;
-      return a.localeCompare(b);
+      return a.localeCompare(b, locale);
     });
     return keys.map((label) => ({
       label,
       items: groups.get(label)!,
       total: null as string | null,
     }));
-  }, [visibleReceipts, view, categoryCounts]);
+  }, [visibleReceipts, view, categoryCounts, messages, locale]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -152,7 +156,7 @@ export function Dashboard({
           <div className="flex items-center gap-1">
             <Link
               href="/app/claims"
-              aria-label="Expense claim"
+              aria-label={t.expenseClaim}
               className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors duration-100 outline-none focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
               style={{ width: "44px", height: "44px", borderRadius: "10px" }}
             >
@@ -160,7 +164,7 @@ export function Dashboard({
             </Link>
             <Link
               href="/app/settings"
-              aria-label="Settings"
+              aria-label={messages.common.settings}
               className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
               style={{ width: "44px", height: "44px", borderRadius: "10px" }}
             >
@@ -176,7 +180,7 @@ export function Dashboard({
             className="font-display font-bold text-[var(--ink)]"
             style={{ fontSize: "24px", letterSpacing: "-0.02em" }}
           >
-            Your receipts
+            {t.title}
           </h1>
           <p
             className="text-[var(--ink-muted)]"
@@ -205,11 +209,11 @@ export function Dashboard({
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 mb-6">
-              <StatCard label="Receipts" value={String(receipts.length)} />
-              <StatCard label="Verified" value={String(stats.verified)} />
+              <StatCard label={t.stats.receipts} value={String(receipts.length)} />
+              <StatCard label={t.stats.verified} value={String(stats.verified)} />
               <StatCard
-                label="This month"
-                value={formatAmount(stats.monthTotal, stats.baseCurrency)}
+                label={t.stats.thisMonth}
+                value={formatAmount(stats.monthTotal, stats.baseCurrency, locale)}
               />
             </div>
 
@@ -217,20 +221,20 @@ export function Dashboard({
 
             <div
               role="group"
-              aria-label="Filter receipts"
+              aria-label={t.filterReceipts}
               className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               <FilterChip
                 active={filter === "all"}
                 onClick={() => setFilter("all")}
-                label="All"
+                label={t.all}
                 count={receipts.length}
               />
               {reviewCount > 0 ? (
                 <FilterChip
                   active={filter === "review"}
                   onClick={() => setFilter("review")}
-                  label="Review needed"
+                  label={t.reviewNeeded}
                   count={reviewCount}
                   attention
                 />
@@ -245,7 +249,7 @@ export function Dashboard({
                           f === `category:${key}` ? "all" : `category:${key}`,
                         )
                       }
-                      label={CATEGORY_CONFIG[key].label}
+                      label={messages.common.categories[key]}
                       count={count}
                     />
                   ))
@@ -257,7 +261,7 @@ export function Dashboard({
                 className="text-[var(--ink-muted)] py-8 text-center"
                 style={{ fontSize: "13px" }}
               >
-                Nothing to review — every receipt has the fields it needs.
+                {t.nothingToReview}
               </p>
             ) : null}
 
@@ -331,6 +335,7 @@ function EmptyState({
   intakeSmsNumber: string | null;
   onCapture: () => void;
 }) {
+  const t = useI18n().t.dashboard.empty;
   return (
     <div className="flex flex-col items-center text-center py-10 px-2">
       <div
@@ -350,30 +355,28 @@ function EmptyState({
         className="font-display font-bold text-[var(--ink)]"
         style={{ fontSize: "22px", letterSpacing: "-0.02em", marginBottom: "8px" }}
       >
-        Your inbox is empty
+        {t.title}
       </h2>
       <p
         className="font-accent italic text-[var(--ink-muted)] max-w-[280px]"
         style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
       >
-        {intakeSmsNumber
-          ? "Forward email receipts or text us a photo. We'll have them VAT-ready in minutes."
-          : "Forward email receipts or snap a paper one. We'll have them VAT-ready in minutes."}
+        {intakeSmsNumber ? t.pitchSms : t.pitch}
       </p>
 
       <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "20px" }}>
         <IntakeRow
-          callout="Forward email receipts to"
+          callout={t.forwardTo}
           value={forwardingEmail}
           mono
-          copyLabel="Copy forwarding address"
+          copyLabel={t.copyForwarding}
         />
         {intakeSmsNumber ? (
           <IntakeRow
-            callout="Or text a photo to"
+            callout={t.textTo}
             value={intakeSmsNumber}
             mono
-            copyLabel="Copy concierge SMS number"
+            copyLabel={t.copySms}
           />
         ) : null}
         <GuideLink />
@@ -386,40 +389,41 @@ function EmptyState({
         style={{ fontSize: "13px", fontWeight: 500 }}
       >
         <Plus className="w-4 h-4" />
-        Or capture a paper receipt
+        {t.capturePaper}
       </button>
 
       <p
         className="font-accent italic text-[var(--ink-faint)]"
         style={{ fontSize: "12px", marginTop: "32px", letterSpacing: "0.02em" }}
       >
-        Paper is past.
+        {t.tagline}
       </p>
     </div>
   );
 }
 
 /** "1,245.00 kr" — or "€18.50 + 245.00 kr" when a group mixes currencies. */
-function sumByCurrency(items: Receipt[]): string {
+function sumByCurrency(items: Receipt[], locale: Locale): string {
   const sums = new Map<string, number>();
   for (const r of items) {
     if (r.total == null) continue;
     sums.set(r.currency, (sums.get(r.currency) ?? 0) + r.total);
   }
   return Array.from(sums, ([currency, sum]) =>
-    formatAmount(Math.round(sum * 100) / 100, currency),
+    formatAmount(Math.round(sum * 100) / 100, currency, locale),
   ).join(" + ");
 }
 
 function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  const t = useI18n().t.dashboard;
   const options: Array<{ value: View; label: string }> = [
-    { value: "date", label: "By date" },
-    { value: "category", label: "By category" },
+    { value: "date", label: t.byDate },
+    { value: "category", label: t.byCategory },
   ];
   return (
     <div
       role="group"
-      aria-label="Group receipts"
+      aria-label={t.groupReceipts}
       className="mb-3 grid grid-cols-2 rounded-[10px] border border-[var(--hairline)] bg-[var(--surface)] p-1"
     >
       {options.map((o) => {

@@ -1,11 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  CATEGORY_CONFIG,
-  relativeDayGroup,
-  splitFormattedAmount,
-} from "@/lib/receipt-format";
+import { relativeDayGroup, splitFormattedAmount } from "@/lib/receipt-format";
+import { useI18n } from "@/lib/i18n/client";
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/locale";
+import type { Messages } from "@/lib/i18n/messages";
 import { MerchantLogo } from "@/components/receipt/MerchantLogo";
 import type { Receipt } from "@/lib/types";
 
@@ -15,18 +14,22 @@ type ReceiptListItemProps = {
 };
 
 export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
-  const config = CATEGORY_CONFIG[receipt.category];
+  const { locale, t: messages } = useI18n();
+  const t = messages.dashboard.item;
+  const categoryLabel =
+    messages.common.categories[receipt.category] ?? messages.common.categories.other;
   const interactive = Boolean(onClick);
-  const merchant = receipt.merchant_name ?? "Unknown merchant";
+  const merchant = receipt.merchant_name ?? t.unknownMerchant;
   const { value, suffix } = splitFormattedAmount(
     receipt.total,
     receipt.currency,
+    locale,
   );
   const pending = receipt.status === "pending_review";
 
   return (
     <div
-      data-day-group={relativeDayGroup(receipt.receipt_date)}
+      data-day-group={relativeDayGroup(receipt.receipt_date, new Date(), locale)}
       data-status={receipt.status}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
@@ -86,11 +89,11 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
           className="text-[var(--ink-faint)] truncate"
           style={{ fontSize: "13px", fontWeight: 500, marginTop: "4px" }}
         >
-          {config.label}
+          {categoryLabel}
           <span style={{ margin: "0 6px" }} aria-hidden="true">
             ·
           </span>
-          {formatRelative(receipt.receipt_date)}
+          {formatRelative(receipt.receipt_date, locale, t)}
           {pending ? (
             <>
               <span style={{ margin: "0 6px" }} aria-hidden="true">
@@ -103,7 +106,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
                   fontWeight: 500,
                 }}
               >
-                needs review
+                {t.needsReview}
               </span>
             </>
           ) : null}
@@ -117,19 +120,23 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
  * Compact relative-time string for the card meta row. Different cadence
  * than the day-group bucket header — this is "2h ago", "3d ago", "May 4".
  */
-function formatRelative(dateStr: string | null | undefined): string {
+function formatRelative(
+  dateStr: string | null | undefined,
+  locale: Locale,
+  t: Messages["dashboard"]["item"],
+): string {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 60) return `${Math.max(0, minutes)}m ago`;
+  if (minutes < 60) return t.minutesAgo(Math.max(0, minutes));
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t.hoursAgo(hours);
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString("en-US", {
+  if (days < 7) return t.daysAgo(days);
+  return d.toLocaleDateString(INTL_LOCALE[locale], {
     month: "short",
     day: "numeric",
   });

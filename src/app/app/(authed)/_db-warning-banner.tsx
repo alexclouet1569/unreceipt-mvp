@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/client";
 
 /**
  * Critical-gap fix #2: shown when the subscriptions query fails
@@ -11,6 +12,7 @@ import { AlertTriangle, X } from "lucide-react";
  * informed support tickets.
  */
 export function DbWarningBanner() {
+  const t = useI18n().t.dashboard;
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
 
@@ -19,21 +21,20 @@ export function DbWarningBanner() {
       <div className="max-w-2xl mx-auto px-4 py-2 flex items-start gap-3">
         <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-900 flex-1">
-          We&apos;re having trouble verifying your account status right now.
-          You can keep using the dashboard — if you see anything off, email{" "}
+          {t.dbWarning.before}
           <a
             href="mailto:support@unreceipt.com"
             className="font-medium underline underline-offset-2"
           >
             support@unreceipt.com
           </a>
-          .
+          {t.dbWarning.after}
         </p>
         <button
           type="button"
           onClick={() => setDismissed(true)}
           className="text-amber-700 hover:text-amber-900 p-0.5 -m-0.5"
-          aria-label="Dismiss"
+          aria-label={t.dismiss}
         >
           <X className="w-4 h-4" />
         </button>

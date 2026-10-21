@@ -10,6 +10,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { useI18n } from "@/lib/i18n/client";
 
 export default function AppError({
   error,
@@ -18,6 +19,7 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useI18n().t.dashboard.error;
   useEffect(() => {
     // Surface the real error to the browser console / error tracking so the
     // readable UI below doesn't hide what actually broke.
@@ -33,18 +35,15 @@ export default function AppError({
           style={{ fontSize: "22px" }}
         />
         <h1 className="font-display text-lg font-semibold mb-2">
-          Something went wrong
+          {t.title}
         </h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          This page hit an unexpected error. Try again — if it keeps happening,
-          reload the page or come back in a moment.
-        </p>
+        <p className="text-sm text-muted-foreground mb-6">{t.body}</p>
         <Button onClick={reset} className="w-full h-11">
-          Try again
+          {t.tryAgain}
         </Button>
         {error.digest && (
           <p className="text-xs text-muted-foreground mt-4">
-            Reference: {error.digest}
+            {t.reference(error.digest)}
           </p>
         )}
       </div>

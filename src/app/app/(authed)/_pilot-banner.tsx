@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { Sparkles, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/client";
 
 const DISMISS_KEY = "unreceipt:pilot-banner-dismissed";
 
@@ -26,6 +27,7 @@ const noSubscribe = () => () => {};
  * recurring banner once a pilot user has acknowledged it.
  */
 export function PilotBanner() {
+  const t = useI18n().t.dashboard;
   // Server snapshot is "dismissed" so SSR renders nothing and the banner
   // only appears after hydration for users who haven't closed it.
   const dismissedEarlier = useSyncExternalStore(noSubscribe, readDismissed, () => true);
@@ -48,15 +50,13 @@ export function PilotBanner() {
       <div className="max-w-2xl mx-auto px-4 py-2 flex items-start gap-3">
         <Sparkles className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-900 flex-1">
-          You&apos;re using the UnReceipt free pilot. When we open paid access
-          in the coming weeks, we&apos;ll send you a heads-up. Until then,
-          every receipt you forward gets concierge processing within 24 hours.
+          {t.pilotBanner}
         </p>
         <button
           type="button"
           onClick={dismiss}
           className="text-amber-700 hover:text-amber-900 p-0.5 -m-0.5"
-          aria-label="Dismiss"
+          aria-label={t.dismiss}
         >
           <X className="w-4 h-4" />
         </button>

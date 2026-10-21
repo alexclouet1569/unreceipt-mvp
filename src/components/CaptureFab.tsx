@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useI18n } from "@/lib/i18n/client";
 
 type CaptureFabProps = {
   onClick: () => void;
@@ -12,11 +13,12 @@ type CaptureFabProps = {
  * animation: scale(0.92) then a gentle overshoot spring back to 1.0.
  */
 export function CaptureFab({ onClick }: CaptureFabProps) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Capture receipt"
+      aria-label={t.dashboard.captureReceipt}
       data-testid="capture-fab"
       className="fixed left-1/2 z-50 -translate-x-1/2 active:scale-[0.92] transition-transform duration-[240ms]"
       style={{

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Camera, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
+import { useI18n } from "@/lib/i18n/client";
 
 export type FirstRunStep = 1 | 2 | 3;
 
@@ -27,6 +28,8 @@ export function FirstRun({
   onCapture: () => void;
   onFinish: () => void;
 }) {
+  const t = useI18n().t.dashboard;
+  const f = t.firstRun;
   const Icon = step === 1 ? Mail : step === 2 ? Camera : Check;
   // Each step replaces the button that was just pressed; move focus to the
   // new step's title so keyboard and screen-reader users land on it.
@@ -50,7 +53,7 @@ export function FirstRun({
         className="text-[var(--ink-faint)]"
         style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}
       >
-        Step {step} of 3
+        {f.step(step)}
       </p>
       <div className="flex gap-1.5" style={{ margin: "10px 0 24px" }} aria-hidden="true">
         {[1, 2, 3].map((n) => (
@@ -84,58 +87,47 @@ export function FirstRun({
 
       {step === 1 ? (
         <>
-          <Title titleRef={titleRef}>Your private receipts address</Title>
-          <Subtitle>
-            Every email sent to this address becomes a receipt in UnReceipt:
-            we read the shop, date, total and VAT. Forward receipts by hand,
-            or set a rule once in your email so they arrive by themselves.
-          </Subtitle>
+          <Title titleRef={titleRef}>{f.addressTitle}</Title>
+          <Subtitle>{f.addressBody}</Subtitle>
           <div className="w-full max-w-[340px]" style={{ marginBottom: "24px" }}>
             <IntakeRow
-              callout="Forward email receipts to"
+              callout={t.empty.forwardTo}
               value={forwardingEmail}
               mono
-              copyLabel="Copy forwarding address"
+              copyLabel={t.empty.copyForwarding}
             />
             <GuideLink />
           </div>
           <Actions>
             <Button type="button" className="w-full h-12 text-[15px]" onClick={onNext}>
-              Next
+              {f.next}
             </Button>
-            <SkipButton onClick={onFinish}>Skip intro</SkipButton>
+            <SkipButton onClick={onFinish}>{f.skipIntro}</SkipButton>
           </Actions>
         </>
       ) : null}
 
       {step === 2 ? (
         <>
-          <Title titleRef={titleRef}>Snap your first receipt</Title>
-          <Subtitle>
-            Take a photo of a paper receipt or upload a PDF. We read the shop,
-            date, total and VAT for you — you check and save.
-          </Subtitle>
+          <Title titleRef={titleRef}>{f.snapTitle}</Title>
+          <Subtitle>{f.snapBody}</Subtitle>
           <Actions>
             <Button type="button" className="w-full h-12 gap-2 text-[15px]" onClick={onCapture}>
               <Camera className="w-4 h-4" />
-              Take a photo
+              {f.takePhoto}
             </Button>
-            <SkipButton onClick={onNext}>I&apos;ll do it later</SkipButton>
+            <SkipButton onClick={onNext}>{f.later}</SkipButton>
           </Actions>
         </>
       ) : null}
 
       {step === 3 ? (
         <>
-          <Title titleRef={titleRef}>You&apos;re all set</Title>
-          <Subtitle>
-            Every receipt you forward or snap shows up here. Open one to
-            download its PDF; Settings has a monthly export for your
-            accountant.
-          </Subtitle>
+          <Title titleRef={titleRef}>{f.doneTitle}</Title>
+          <Subtitle>{f.doneBody}</Subtitle>
           <Actions>
             <Button type="button" className="w-full h-12 text-[15px]" onClick={onFinish}>
-              Go to my receipts
+              {f.goToReceipts}
             </Button>
           </Actions>
         </>
@@ -197,13 +189,14 @@ function SkipButton({ onClick, children }: { onClick: () => void; children: Reac
 // Leads to the step-by-step forwarding guide. Leaving mid-onboarding is
 // fine: the intro shows again on return until it's finished or skipped.
 export function GuideLink() {
+  const { t } = useI18n();
   return (
     <Link
       href="/app/settings/forwarding"
       className="inline-flex items-center text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
       style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
     >
-      Make it automatic, step by step (3 min)
+      {t.dashboard.firstRun.guideLink}
     </Link>
   );
 }
