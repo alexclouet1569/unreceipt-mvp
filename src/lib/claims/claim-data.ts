@@ -148,6 +148,19 @@ async function loadImages(
   return images;
 }
 
+// Keep at most one claim PDF per user in storage, like the export: each one
+// copies a month of photos and storage is shared (Supabase Free: 1 GB for
+// everything). The user's ZIP exports are left alone.
+async function removePreviousClaims(userId: string): Promise<void> {
+  const storage = getSupabaseAdmin().storage.from(EXPORT_BUCKET);
+  const { data, error } = await storage.list(userId, { limit: 1000, search: "claim-" });
+  if (error || !data) return;
+  const paths = data
+    .filter((f) => f.id != null && f.name.startsWith("claim-"))
+    .map((f) => `${userId}/${f.name}`);
+  if (paths.length > 0) await storage.remove(paths);
+}
+
 export interface ClaimPdfResult {
   url: string;
   filename: string;
@@ -189,6 +202,7 @@ export async function buildClaimPdf(
   const filename = `expense-claim-${month}.pdf`;
   const path = `${userId}/claim-${month}-${crypto.randomUUID()}.pdf`;
   const admin = getSupabaseAdmin();
+  await removePreviousClaims(userId);
   const { error: uploadError } = await admin.storage
     .from(EXPORT_BUCKET)
     .upload(path, new Uint8Array(pdf), { contentType: "application/pdf", upsert: false });

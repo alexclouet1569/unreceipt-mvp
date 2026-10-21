@@ -1108,3 +1108,11 @@ BEGIN
       );
   END IF;
 END $$;
+
+-- The claim PDF (POST /api/claims/pdf) is stored in `exports` like the ZIP
+-- export, so the bucket must accept PDFs too. Placed after the 2026-10-15
+-- bucket block, whose ON CONFLICT resets the list, so a full re-run still
+-- ends with both types.
+UPDATE storage.buckets
+  SET allowed_mime_types = ARRAY['application/zip', 'application/pdf']
+  WHERE id = 'exports';
