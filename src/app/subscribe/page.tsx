@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Receipt, Check, ArrowRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import { isPilotMode } from "@/lib/pilot";
+import { PLANS, planPriceLabel } from "@/lib/plans";
+import { getI18n } from "@/lib/i18n/server";
 import { SubscribeButton } from "./SubscribeButton";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,8 @@ export default async function SubscribePage({
 
   const { canceled } = await searchParams;
   const pilot = isPilotMode();
+  const { locale, t: messages } = await getI18n();
+  const t = messages.auth.subscribe;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -32,19 +36,14 @@ export default async function SubscribePage({
           </div>
           <h1 className="text-xl font-bold">UnReceipt Concierge</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Forward any receipt — we make it VAT-ready
+            {t.tagline}
           </p>
         </div>
 
         <Card>
           <CardContent className="py-6 px-6 space-y-5">
             <ul className="space-y-2.5">
-              {[
-                "First week free on every plan",
-                "Forward receipts to your private address",
-                "VAT-ready records in your dashboard within 24h",
-                "Cancel anytime — no questions asked",
-              ].map((line) => (
+              {t.perks.map((line) => (
                 <li
                   key={line}
                   className="flex items-start gap-2 text-sm text-foreground"
@@ -57,22 +56,20 @@ export default async function SubscribePage({
 
             {canceled && !pilot ? (
               <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
-                Checkout canceled. Pick it back up anytime.
+                {t.canceled}
               </p>
             ) : null}
 
             {pilot ? (
               <div className="space-y-3">
                 <p className="text-sm text-foreground bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5">
-                  We&apos;re running a free pilot right now — no subscription
-                  needed. After the pilot, plans start at €5.99 per month (excl.
-                  VAT) for the whole company.
+                  {t.pilotNotice(planPriceLabel(PLANS[0], locale))}
                 </p>
                 <Link
                   href="/app"
                   className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90"
                 >
-                  Continue to dashboard
+                  {t.continueToDashboard}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -81,7 +78,7 @@ export default async function SubscribePage({
             )}
 
             <p className="text-[11px] text-muted-foreground text-center">
-              Signed in as{" "}
+              {t.signedInAs}{" "}
               <span className="font-medium text-foreground">{user.email}</span>
             </p>
           </CardContent>
@@ -92,7 +89,7 @@ export default async function SubscribePage({
             href="/app"
             className="text-sm text-muted-foreground hover:text-foreground"
           >
-            Back to dashboard
+            {t.backToDashboard}
           </Link>
           {/* Without a subscription /app sends you back here; Settings
               stays open so a cancelled customer can export their receipts
@@ -102,7 +99,7 @@ export default async function SubscribePage({
               href="/app/settings"
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              Download your receipts or delete your account
+              {t.exportOrDelete}
             </Link>
           </div>
         </div>

@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
+import { getI18n } from "@/lib/i18n/server";
 import { AuthCard, type AuthMode } from "./_auth-card";
 
-export const metadata: Metadata = {
-  // The root layout appends " | UnReceipt".
-  title: "Sign in",
-  // A login form has nothing for search engines; the marketing pages do.
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    // The root layout appends " | UnReceipt".
+    title: t.auth.pageTitle,
+    // A login form has nothing for search engines; the marketing pages do.
+    robots: { index: false, follow: true },
+  };
+}
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -23,12 +27,13 @@ type LoginPageProps = {
 // "Join the pilot" links land here with ?mode=signup.
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
+  const { t } = await getI18n();
   const initialMode: AuthMode = params.mode === "signup" ? "signup" : "signin";
   const notice =
     params.account === "deleted"
-      ? "Your account and receipts have been deleted."
+      ? t.auth.accountDeleted
       : params.reauth === "1"
-        ? "Sign in again to continue — then open Settings to finish."
+        ? t.auth.reauth
         : null;
 
   return (

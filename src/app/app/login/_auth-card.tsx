@@ -6,18 +6,16 @@ import { ArrowLeft, Lock } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/client";
 import {
   CODE_LENGTH,
+  authSchemas,
   callAuth,
   callbackUrl,
-  emailSchema,
   finishSignIn,
   isRateLimited,
   isUnreachable,
   shake,
-  signInSchema,
-  signUpSchema,
-  UNREACHABLE,
   type AuthMode,
 } from "./_auth-lib";
 import {
@@ -51,6 +49,8 @@ type EntryFocus = "first" | "email" | null;
 type SignUpDetails = { fullName: string; companyName: string; password: string };
 
 export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProps) {
+  const { t: messages } = useI18n();
+  const t = messages.auth;
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showLinkError, setShowLinkError] = useState(linkError);
   // Where focus goes when a form appears: its first field on page load, the
@@ -77,12 +77,10 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
 
   const heading =
     mode === "signin"
-      ? { title: "Welcome back", sub: "Sign in to see your receipts." }
+      ? { title: t.welcomeBack, sub: t.signInSub }
       : {
-          title: pilot ? "Join the pilot" : "Create your account",
-          sub: pilot
-            ? "Free during the pilot. No card needed."
-            : "One private receipt address for your whole company.",
+          title: pilot ? t.joinPilot : t.createAccountTitle,
+          sub: pilot ? t.pilotSub : t.signUpSub,
         };
 
   const resendFor = (p: PendingCode) => () =>
@@ -110,8 +108,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
 
         {showLinkError ? (
           <Notice tone="attention" className="mb-4">
-            That link didn&apos;t work — links work once and expire after an
-            hour. If you just confirmed your email, sign in below.
+            {t.linkError}
           </Notice>
         ) : notice ? (
           <Notice tone="neutral" className="mb-4">
@@ -182,7 +179,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
 
         <p className="flex items-center justify-center gap-2 text-[13px] text-[var(--ink-muted)] mt-6">
           <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-          Encrypted, and stored in the EU.
+          {t.secure}
         </p>
 
         <div className="flex flex-col items-center mt-3">
@@ -195,7 +192,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
             )}
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            Back to unreceipt.com
+            {t.backToSite}
           </Link>
         </div>
       </div>
@@ -206,9 +203,10 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
 // ─── Mode switch (WAI-ARIA tabs, sliding indicator) ─────────────────────────
 
 function ModeSwitch({ mode, onChange }: { mode: AuthMode; onChange: (m: AuthMode) => void }) {
+  const { t: messages } = useI18n();
   const tabs: { id: AuthMode; label: string }[] = [
-    { id: "signin", label: "Sign in" },
-    { id: "signup", label: "Create account" },
+    { id: "signin", label: messages.auth.signIn },
+    { id: "signup", label: messages.auth.createAccount },
   ];
   const refs = useRef<Record<AuthMode, HTMLButtonElement | null>>({ signin: null, signup: null });
 
@@ -232,7 +230,7 @@ function ModeSwitch({ mode, onChange }: { mode: AuthMode; onChange: (m: AuthMode
   return (
     <div
       role="tablist"
-      aria-label="Sign in or create an account"
+      aria-label={messages.auth.tablist}
       onKeyDown={onKeyDown}
       className="relative grid grid-cols-2 p-1 mt-6 mb-6 rounded-[10px] bg-[var(--surface)] border border-[var(--hairline)]"
     >
@@ -245,28 +243,28 @@ function ModeSwitch({ mode, onChange }: { mode: AuthMode; onChange: (m: AuthMode
           transitionTimingFunction: ENTER,
         }}
       />
-      {tabs.map((t) => {
-        const active = mode === t.id;
+      {tabs.map((tab) => {
+        const active = mode === tab.id;
         return (
           <button
-            key={t.id}
+            key={tab.id}
             ref={(el) => {
-              refs.current[t.id] = el;
+              refs.current[tab.id] = el;
             }}
-            id={`auth-tab-${t.id}`}
+            id={`auth-tab-${tab.id}`}
             type="button"
             role="tab"
             aria-selected={active}
             aria-controls="auth-panel"
             tabIndex={active ? 0 : -1}
-            onClick={() => onChange(t.id)}
+            onClick={() => onChange(tab.id)}
             className={cn(
               "relative z-10 h-11 rounded-[6px] text-[15px] font-semibold transition-colors duration-100",
               FOCUS_RING,
               active ? "text-[var(--ink)]" : "text-[var(--ink-muted)] hover:text-[var(--ink)]"
             )}
           >
-            {t.label}
+            {tab.label}
           </button>
         );
       })}
@@ -333,6 +331,9 @@ function SignInPanel({
   entryFocus: EntryFocus;
   onCodeSent: (email: string) => void;
 }) {
+  const { t: messages } = useI18n();
+  const t = messages.auth;
+  const { emailSchema, signInSchema } = authSchemas(t.validation);
   const ids = useId();
   const [view, setView] = useState<"password" | "code">("password");
   // The password form autofocuses its email on entry and when coming back
@@ -349,7 +350,7 @@ function SignInPanel({
     const parsed = signInSchema.safeParse({ email, password });
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
-      errors.failField(String(issue?.path[0] ?? "email"), issue?.message ?? "Check your details");
+      errors.failField(String(issue?.path[0] ?? "email"), issue?.message ?? t.checkDetails);
       return;
     }
 
@@ -359,13 +360,10 @@ function SignInPanel({
     );
     if (error) {
       setSubmit("idle");
-      if (isUnreachable(error)) errors.failForm(UNREACHABLE, "password");
-      else if (error.code === "email_not_confirmed")
-        errors.failForm("Confirm your email first — use the code or link we sent you.", "email");
-      else if (isRateLimited(error))
-        errors.failForm("Too many attempts. Wait a minute, then try again.", "password");
-      else
-        errors.failForm("Email or password is wrong. Try again, or sign in with an email code.", "password");
+      if (isUnreachable(error)) errors.failForm(t.unreachable, "password");
+      else if (error.code === "email_not_confirmed") errors.failForm(t.emailNotConfirmed, "email");
+      else if (isRateLimited(error)) errors.failForm(t.tooManyAttempts, "password");
+      else errors.failForm(t.wrongPassword, "password");
       return;
     }
 
@@ -380,7 +378,7 @@ function SignInPanel({
     errors.clear();
     const parsed = emailSchema.safeParse(email);
     if (!parsed.success) {
-      errors.failField("code-email", parsed.error.issues[0]?.message ?? "Enter a valid email address");
+      errors.failField("code-email", parsed.error.issues[0]?.message ?? t.validation.invalidEmail);
       return;
     }
 
@@ -394,11 +392,7 @@ function SignInPanel({
     setSubmit("idle");
     if (error) {
       errors.failForm(
-        isUnreachable(error)
-          ? UNREACHABLE
-          : isRateLimited(error)
-            ? "We just sent you a code. Wait a minute before asking for another."
-            : "We couldn't send the code. Check the address and try again.",
+        isUnreachable(error) ? t.unreachable : isRateLimited(error) ? t.codeJustSent : t.codeSendFailed,
         "code-email"
       );
       return;
@@ -411,17 +405,17 @@ function SignInPanel({
       <Step stepKey="signin-code">
         <form ref={formRef} onSubmit={handleCode} className="space-y-5" noValidate>
           <p className="text-[15px] leading-[1.5] text-[var(--ink-muted)]">
-            We&apos;ll email you a {CODE_LENGTH}-digit code. No password needed.
+            {t.codeIntro(CODE_LENGTH)}
           </p>
           <Field
-            label="Email address"
+            label={t.emailLabel}
             htmlFor={`${ids}-code-email`}
             error={errors.fieldError("code-email")}
             errorId={`${ids}-code-email-error`}
           >
             <EmailInput
               id={`${ids}-code-email`}
-              placeholder="you@company.com"
+              placeholder={t.emailPlaceholder}
               value={email}
               onValueChange={(v) => {
                 setEmail(v);
@@ -433,8 +427,8 @@ function SignInPanel({
             />
           </Field>
           {errors.formError ? <Notice tone="attention">{errors.formError}</Notice> : null}
-          <SubmitButton state={submit} loadingLabel="Sending…" doneLabel="Sent">
-            Email me a code
+          <SubmitButton state={submit} loadingLabel={t.sending} doneLabel={t.sent}>
+            {t.emailMeCode}
           </SubmitButton>
           <div className="flex justify-center -mt-1">
             <TextLink
@@ -444,7 +438,7 @@ function SignInPanel({
                 errors.clear();
               }}
             >
-              Use my password instead
+              {t.usePassword}
             </TextLink>
           </div>
         </form>
@@ -456,14 +450,14 @@ function SignInPanel({
     <Step stepKey="signin-password">
       <form ref={formRef} onSubmit={handlePassword} className="space-y-5" noValidate>
         <Field
-          label="Email address"
+          label={t.emailLabel}
           htmlFor={`${ids}-email`}
           error={errors.fieldError("email")}
           errorId={`${ids}-email-error`}
         >
           <EmailInput
             id={`${ids}-email`}
-            placeholder="you@company.com"
+            placeholder={t.emailPlaceholder}
             value={email}
             onValueChange={(v) => {
               setEmail(v);
@@ -475,7 +469,7 @@ function SignInPanel({
           />
         </Field>
         <Field
-          label="Password"
+          label={t.passwordLabel}
           htmlFor={`${ids}-password`}
           error={errors.fieldError("password")}
           errorId={`${ids}-password-error`}
@@ -493,8 +487,8 @@ function SignInPanel({
           />
         </Field>
         {errors.formError ? <Notice tone="attention">{errors.formError}</Notice> : null}
-        <SubmitButton state={submit} loadingLabel="Signing in…" doneLabel="Signed in">
-          Sign in
+        <SubmitButton state={submit} loadingLabel={t.signingIn} doneLabel={t.signedIn}>
+          {t.signIn}
         </SubmitButton>
         <div className="flex justify-center -mt-1">
           <TextLink
@@ -503,7 +497,7 @@ function SignInPanel({
               errors.clear();
             }}
           >
-            Forgot password? Sign in with an email code
+            {t.forgotPassword}
           </TextLink>
         </div>
       </form>
@@ -538,6 +532,9 @@ function SignUpPanel({
   onCodeSent: (email: string) => void;
   onSignIn: () => void;
 }) {
+  const { t: messages } = useI18n();
+  const t = messages.auth;
+  const { signUpSchema } = authSchemas(t.validation);
   const ids = useId();
   const { fullName, companyName, password } = details;
   const setField = (key: keyof SignUpDetails) => (value: string) =>
@@ -561,7 +558,7 @@ function SignUpPanel({
       const issue = parsed.error.issues[0];
       errors.failField(
         SIGNUP_FIELD[String(issue?.path[0])] ?? "email",
-        issue?.message ?? "Check your details"
+        issue?.message ?? t.checkDetails
       );
       return;
     }
@@ -589,13 +586,11 @@ function SignUpPanel({
     if (error) {
       setSubmit("idle");
       const msg = (error.message ?? "").toLowerCase();
-      if (isUnreachable(error)) errors.failForm(UNREACHABLE, "email");
+      if (isUnreachable(error)) errors.failForm(t.unreachable, "email");
       else if (msg.includes("already") || msg.includes("registered")) setAlreadyRegistered(true);
-      else if (isRateLimited(error))
-        errors.failForm("Too many sign-ups from here just now. Wait a minute, then try again.", "email");
-      else if (msg.includes("password"))
-        errors.failField("password", "Choose a stronger password — at least 8 characters.");
-      else errors.failForm("We couldn't create your account. Try again in a moment.", "email");
+      else if (isRateLimited(error)) errors.failForm(t.tooManySignups, "email");
+      else if (msg.includes("password")) errors.failField("password", t.weakPassword);
+      else errors.failForm(t.signUpFailed, "email");
       return;
     }
 
@@ -613,7 +608,7 @@ function SignUpPanel({
     <Step stepKey="signup">
       <form ref={formRef} onSubmit={handleSignUp} className="space-y-5" noValidate>
         <Field
-          label="Full name"
+          label={t.fullName}
           htmlFor={`${ids}-name`}
           error={errors.fieldError("name")}
           errorId={`${ids}-name-error`}
@@ -623,7 +618,7 @@ function SignUpPanel({
             type="text"
             autoComplete="name"
             autoCapitalize="words"
-            placeholder="Alex Andersson"
+            placeholder={t.namePlaceholder}
             value={fullName}
             onChange={(e) => {
               setField("fullName")(e.target.value);
@@ -635,8 +630,8 @@ function SignUpPanel({
           />
         </Field>
         <Field
-          label="Company"
-          hint="Optional"
+          label={t.company}
+          hint={t.optional}
           htmlFor={`${ids}-company`}
           error={errors.fieldError("company")}
           errorId={`${ids}-company-error`}
@@ -645,7 +640,7 @@ function SignUpPanel({
             id={`${ids}-company`}
             type="text"
             autoComplete="organization"
-            placeholder="Acme AB"
+            placeholder={t.companyPlaceholder}
             value={companyName}
             onChange={(e) => {
               setField("companyName")(e.target.value);
@@ -655,14 +650,14 @@ function SignUpPanel({
           />
         </Field>
         <Field
-          label="Work email"
+          label={t.workEmail}
           htmlFor={`${ids}-email`}
           error={errors.fieldError("email")}
           errorId={`${ids}-email-error`}
         >
           <EmailInput
             id={`${ids}-email`}
-            placeholder="you@company.com"
+            placeholder={t.emailPlaceholder}
             value={email}
             onValueChange={(v) => {
               setEmail(v);
@@ -674,7 +669,7 @@ function SignUpPanel({
           />
         </Field>
         <Field
-          label="Password"
+          label={t.passwordLabel}
           htmlFor={`${ids}-password`}
           error={errors.fieldError("password")}
           errorId={`${ids}-password-error`}
@@ -694,25 +689,24 @@ function SignUpPanel({
         </Field>
         {alreadyRegistered ? (
           <div>
-            <Notice tone="attention">That email already has an account.</Notice>
+            <Notice tone="attention">{t.alreadyRegistered}</Notice>
             <div className="flex justify-center">
-              <TextLink onClick={onSignIn}>Sign in instead</TextLink>
+              <TextLink onClick={onSignIn}>{t.signInInstead}</TextLink>
             </div>
           </div>
         ) : errors.formError ? (
           <Notice tone="attention">{errors.formError}</Notice>
         ) : null}
-        <SubmitButton state={submit} loadingLabel="Creating your account…" doneLabel="Account created">
-          Create account
+        <SubmitButton state={submit} loadingLabel={t.creatingAccount} doneLabel={t.accountCreated}>
+          {t.createAccount}
         </SubmitButton>
         <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] text-center">
-          We&apos;ll email you a code to confirm it&apos;s you. How we handle
-          your data:{" "}
+          {t.confirmNote}{" "}
           <a
             href="/privacy"
             className={cn("underline underline-offset-2 hover:text-[var(--ink)] rounded-[4px]", FOCUS_RING)}
           >
-            privacy notice
+            {t.privacyNotice}
           </a>
           .
         </p>
@@ -725,6 +719,7 @@ function SignUpPanel({
 // rotated JWT secret). Quiet on purpose — the people who need it are already
 // looking for a way out.
 function ResetSessionLink() {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   return (
     <button
@@ -740,7 +735,7 @@ function ResetSessionLink() {
         FOCUS_RING
       )}
     >
-      {busy ? "Resetting…" : "Trouble signing in? Reset your session"}
+      {busy ? t.auth.resetting : t.auth.resetSession}
     </button>
   );
 }

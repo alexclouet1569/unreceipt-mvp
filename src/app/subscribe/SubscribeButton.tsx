@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { OVERAGE_PRICE, PLANS, formatPrice, type PlanId } from "@/lib/plans";
+import { PLANS, overagePriceLabel, planPriceLabel, type PlanId } from "@/lib/plans";
+import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,6 +12,8 @@ import { cn } from "@/lib/utils";
  * whole company; /api/checkout bills the chosen plan.
  */
 export function SubscribeButton() {
+  const { locale, t: messages } = useI18n();
+  const t = messages.auth.subscribe;
   const [plan, setPlan] = useState<PlanId>("light");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,19 +31,20 @@ export function SubscribeButton() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(body.error ?? "Couldn't start checkout. Try again.");
+        // The route's own errors are English; other languages get ours.
+        setError((locale === "en" ? body.error : undefined) ?? t.checkoutFailed);
         setLoading(false);
         return;
       }
       const { url } = (await res.json()) as { url?: string };
       if (!url) {
-        setError("Checkout URL missing from response.");
+        setError(t.checkoutUrlMissing);
         setLoading(false);
         return;
       }
       window.location.href = url;
     } catch {
-      setError("Network error. Try again.");
+      setError(t.networkError);
       setLoading(false);
     }
   };
@@ -48,7 +52,7 @@ export function SubscribeButton() {
   return (
     <div className="space-y-4">
       <fieldset className="space-y-2">
-        <legend className="text-sm font-semibold mb-2">Choose your plan</legend>
+        <legend className="text-sm font-semibold mb-2">{t.choosePlan}</legend>
         {PLANS.map((p) => (
           <label
             key={p.id}
@@ -68,29 +72,27 @@ export function SubscribeButton() {
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-semibold">{p.name}</span>
               <span className="block text-xs text-muted-foreground">
-                Up to {p.receipts} receipts / month
+                {t.upTo(p.receipts)}
               </span>
             </span>
             <span className="font-mono tabular-nums text-sm font-medium whitespace-nowrap">
-              {formatPrice(p.price)}
-              <span className="font-sans text-xs text-muted-foreground"> /month excl. VAT</span>
+              {planPriceLabel(p, locale)}
+              <span className="font-sans text-xs text-muted-foreground">{t.perMonth}</span>
             </span>
           </label>
         ))}
         <p className="text-xs text-muted-foreground pt-1">
-          One price for the whole company — no per-user fees. Extra receipts
-          above your plan are {formatPrice(OVERAGE_PRICE)} each, billed with
-          the next invoice. Prices excl. VAT.
+          {t.planNote(overagePriceLabel(locale))}
         </p>
       </fieldset>
 
       <div className="space-y-2">
         <Button className="w-full gap-2" onClick={handleClick} disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {loading ? "Starting checkout..." : "Start your free week"}
+          {loading ? t.startingCheckout : t.startFreeWeek}
         </Button>
         <p className="text-[11px] text-muted-foreground text-center" data-testid="subscribe-total">
-          Free for 7 days, then {formatPrice(selected.price)}/month excl. VAT. Cancel anytime.
+          {t.freeThen(planPriceLabel(selected, locale))}
         </p>
         {error ? (
           <p className="text-xs text-destructive text-center">{error}</p>

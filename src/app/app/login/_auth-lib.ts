@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { withTimeout } from "@/lib/with-timeout";
+import { getMessages, type Messages } from "@/lib/i18n/messages";
 
 export type AuthMode = "signin" | "signup";
 
@@ -12,33 +13,33 @@ export const CODE_LENGTH = 6;
 // Supabase sends at most one email per address per 60 s by default.
 export const RESEND_COOLDOWN_S = 60;
 
-export const emailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .email("Enter a valid email address");
+type ValidationMessages = Messages["auth"]["validation"];
 
-export const signUpSchema = z.object({
-  full_name: z.string().trim().min(1, "Full name is required").max(100),
-  company_name: z.string().trim().max(100).optional().or(z.literal("")),
-  email: emailSchema,
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(72, "Password is too long"),
-});
+/** The sign-in and sign-up schemas, with messages in the given language. */
+export function authSchemas(m: ValidationMessages = getMessages("en").auth.validation) {
+  const emailSchema = z.string().trim().toLowerCase().email(m.invalidEmail);
+  return {
+    emailSchema,
+    signUpSchema: z.object({
+      full_name: z.string().trim().min(1, m.nameRequired).max(100),
+      company_name: z.string().trim().max(100).optional().or(z.literal("")),
+      email: emailSchema,
+      password: z.string().min(8, m.passwordMin).max(72, m.passwordMax),
+    }),
+    signInSchema: z.object({
+      email: emailSchema,
+      password: z.string().min(1, m.enterPassword),
+    }),
+  };
+}
 
-export const signInSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, "Enter your password"),
-});
+export const { emailSchema, signUpSchema, signInSchema } = authSchemas();
 
 // Safety net, not the normal path: supabase-js calls answer in well under a
 // second. If one doesn't, say so instead of spinning forever.
 const AUTH_TIMEOUT_MS = 12_000;
 
-export const UNREACHABLE =
-  "We couldn't reach the sign-in service. Check your connection and try again.";
+export const UNREACHABLE = getMessages("en").auth.unreachable;
 
 export type AuthError = { message?: string; code?: string; status?: number };
 export type AuthResult = { error: AuthError | null };
@@ -131,20 +132,25 @@ export function suggestEmail(raw: string): string | null {
   return fix ? `${email.slice(0, at)}@${fix}` : null;
 }
 
-/** A web inbox to open for well-known providers, so nobody hunts for it. */
-export function inboxFor(email: string): { label: string; url: string } | null {
+export type InboxProvider = keyof Messages["auth"]["inbox"];
+
+/**
+ * A web inbox to open for well-known providers, so nobody hunts for it.
+ * The button label comes from `t.auth.inbox[provider]`.
+ */
+export function inboxFor(email: string): { provider: InboxProvider; url: string } | null {
   const domain = email.trim().toLowerCase().split("@")[1] ?? "";
   if (domain === "gmail.com" || domain === "googlemail.com") {
-    return { label: "Open Gmail", url: "https://mail.google.com/mail/u/0/#search/from%3Aunreceipt" };
+    return { provider: "gmail", url: "https://mail.google.com/mail/u/0/#search/from%3Aunreceipt" };
   }
   if (["outlook.com", "hotmail.com", "live.com", "msn.com"].includes(domain)) {
-    return { label: "Open Outlook", url: "https://outlook.live.com/mail/" };
+    return { provider: "outlook", url: "https://outlook.live.com/mail/" };
   }
   if (["icloud.com", "me.com", "mac.com"].includes(domain)) {
-    return { label: "Open iCloud Mail", url: "https://www.icloud.com/mail" };
+    return { provider: "icloud", url: "https://www.icloud.com/mail" };
   }
   if (domain.startsWith("yahoo.")) {
-    return { label: "Open Yahoo Mail", url: "https://mail.yahoo.com" };
+    return { provider: "yahoo", url: "https://mail.yahoo.com" };
   }
   return null;
 }

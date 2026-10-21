@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/client";
 import { suggestEmail } from "./_auth-lib";
 
 export const FOCUS_RING =
@@ -91,6 +92,7 @@ export function EmailInput({
   value: string;
   onValueChange: (v: string) => void;
 }) {
+  const { t } = useI18n();
   const [checked, setChecked] = useState(false);
   const suggestion = checked ? suggestEmail(value) : null;
 
@@ -129,11 +131,11 @@ export function EmailInput({
           style={{ animationDuration: "200ms", animationTimingFunction: ENTER }}
         >
           <span>
-            Did you mean{" "}
+            {t.auth.didYouMean}{" "}
             <span className="font-semibold text-[var(--ink)] underline underline-offset-2">
               {suggestion}
             </span>
-            ?
+            {t.auth.didYouMeanEnd}
           </span>
         </button>
       ) : null}
@@ -146,6 +148,7 @@ export function PasswordInput({
   showRule = false,
   ...props
 }: Omit<React.ComponentProps<"input">, "type"> & { showRule?: boolean }) {
+  const { t } = useI18n();
   const [show, setShow] = useState(false);
   const ruleId = props.id ? `${props.id}-rule` : undefined;
   const describedBy =
@@ -178,7 +181,7 @@ export function PasswordInput({
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          aria-label={show ? "Hide password" : "Show password"}
+          aria-label={show ? t.auth.hidePassword : t.auth.showPassword}
           aria-pressed={show}
           className={cn(
             "absolute right-0.5 top-0.5 h-11 w-11 inline-flex items-center justify-center rounded-[8px]",
@@ -191,7 +194,7 @@ export function PasswordInput({
       </div>
       {capsLock ? (
         <p className="mt-2 text-[13px] font-medium text-[var(--attention-deep)]" role="status">
-          Caps Lock is on
+          {t.auth.capsLock}
         </p>
       ) : showRule ? (
         <p
@@ -212,7 +215,7 @@ export function PasswordInput({
           >
             {ruleMet ? <Check className="w-3 h-3" strokeWidth={3} /> : null}
           </span>
-          At least 8 characters
+          {t.auth.passwordRule}
         </p>
       ) : null}
     </>
@@ -280,6 +283,7 @@ export function SecondaryButton({
   href?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const className = cn(
     "w-full h-12 rounded-[10px] border border-[var(--hairline)] bg-card text-[15px] font-semibold text-[var(--ink)]",
     "inline-flex items-center justify-center gap-2 transition-colors duration-100",
@@ -289,7 +293,7 @@ export function SecondaryButton({
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
       {children}
-      <span className="sr-only">(opens in a new tab)</span>
+      <span className="sr-only">{t.auth.opensNewTab}</span>
     </a>
   ) : (
     <button type="button" onClick={onClick} className={className}>

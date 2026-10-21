@@ -13,9 +13,9 @@ import {
   isRateLimited,
   isUnreachable,
   shake,
-  UNREACHABLE,
   type AuthResult,
 } from "./_auth-lib";
+import { useI18n } from "@/lib/i18n/client";
 import { ENTER, Notice, SecondaryButton, TextLink, useCountdown } from "./_auth-ui";
 
 // How often to look for a session created by the email's link in another
@@ -32,6 +32,8 @@ type CodeStepProps = {
 };
 
 export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstead }: CodeStepProps) {
+  const { t: messages } = useI18n();
+  const t = messages.auth;
   const [code, setCode] = useState("");
   const [focused, setFocused] = useState(true);
   const [status, setStatus] = useState<"idle" | "checking" | "done">("idle");
@@ -68,10 +70,10 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
     setRefocus((n) => n + 1);
     setError(
       isUnreachable(authError)
-        ? UNREACHABLE
+        ? t.unreachable
         : msg.includes("expired") || authError.code === "otp_expired"
-          ? "That code has expired or was already used. Use the newest email, or ask for a new code below."
-          : "That code isn't right. Check the latest email and try again."
+          ? t.code.expired
+          : t.code.wrong
     );
     shake(cellsRef.current);
   };
@@ -106,16 +108,16 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
     if (resendError) {
       setResendNote(
         isRateLimited(resendError)
-          ? "Please wait a minute before asking for another code."
+          ? t.code.resendRateLimited
           : isUnreachable(resendError)
-            ? UNREACHABLE
-            : "We couldn't send a new code. Try again in a moment."
+            ? t.unreachable
+            : t.code.resendFailed
       );
       return;
     }
     setCode("");
     setSendCount((n) => n + 1);
-    setResendNote("New code sent. Use the latest email.");
+    setResendNote(t.code.newCodeSent);
     inputRef.current?.focus();
   };
 
@@ -130,16 +132,16 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
         id="auth-title"
         className="font-display text-[24px] leading-[1.15] tracking-[-0.02em] font-bold text-[var(--ink)]"
       >
-        {purpose === "signup" ? "Confirm your email" : "Check your inbox"}
+        {purpose === "signup" ? t.code.confirmEmail : t.code.checkInbox}
       </h1>
       <p id="auth-code-hint" className="text-[15px] leading-[1.5] text-[var(--ink-muted)] mt-2">
-        Enter the {CODE_LENGTH}-digit code we sent to
+        {t.code.enterCode(CODE_LENGTH)}
         <span className="block font-semibold text-[var(--ink)] [overflow-wrap:anywhere]">{email}</span>
       </p>
 
       <div className="relative mt-6" ref={cellsRef}>
         <label htmlFor="auth-code" className="sr-only">
-          {CODE_LENGTH}-digit code
+          {t.code.codeLabel(CODE_LENGTH)}
         </label>
         <input
           ref={inputRef}
@@ -205,13 +207,13 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
 
       {/* Always mounted so screen readers hear the change. */}
       <p className="sr-only" aria-live="polite">
-        {status === "checking" ? "Checking the code" : status === "done" ? "Signed in. Opening your receipts." : ""}
+        {status === "checking" ? t.code.srChecking : status === "done" ? t.code.srDone : ""}
       </p>
       {status === "checking" ? (
-        <p className="text-[13px] text-[var(--ink-muted)] mt-3" aria-hidden="true">Checking…</p>
+        <p className="text-[13px] text-[var(--ink-muted)] mt-3" aria-hidden="true">{t.code.checking}</p>
       ) : status === "done" ? (
         <p className="text-[13px] font-semibold text-[var(--ink)] mt-3" aria-hidden="true">
-          You&apos;re in — opening your receipts…
+          {t.code.done}
         </p>
       ) : error ? (
         <Notice tone="attention" id="auth-code-error" className="mt-4">
@@ -222,22 +224,21 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
       {inbox ? (
         <div className="mt-4">
           <SecondaryButton href={inbox.url}>
-            {inbox.label}
+            {t.inbox[inbox.provider]}
             <ExternalLink className="w-4 h-4 text-[var(--ink-muted)]" aria-hidden="true" />
           </SecondaryButton>
         </div>
       ) : null}
 
       <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] mt-5">
-        The email also has a button — tapping it works too, even on another
-        device. Not there after a minute? Check your spam folder.
+        {t.code.emailHasButton}
       </p>
 
       <div className="flex flex-wrap items-center justify-between gap-x-2 mt-3 -mx-2">
         <TextLink onClick={handleResend} disabled={secondsLeft > 0 || status !== "idle"}>
-          {secondsLeft > 0 ? `Send a new code in ${minutes}:${seconds}` : "Send a new code"}
+          {secondsLeft > 0 ? t.code.resendIn(`${minutes}:${seconds}`) : t.code.resend}
         </TextLink>
-        <TextLink onClick={onChangeEmail}>Change email</TextLink>
+        <TextLink onClick={onChangeEmail}>{t.code.changeEmail}</TextLink>
       </div>
       {resendNote ? (
         <p className="text-[13px] text-[var(--ink-muted)]" role="status">
@@ -247,8 +248,8 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
 
       {purpose === "signup" && onSignInInstead ? (
         <div className="flex items-center gap-1 text-[13px] text-[var(--ink-muted)] mt-4 pt-2 border-t border-[var(--hairline)]">
-          <span>Already have an account?</span>
-          <TextLink onClick={onSignInInstead}>Sign in</TextLink>
+          <span>{t.code.alreadyAccount}</span>
+          <TextLink onClick={onSignInInstead}>{t.signIn}</TextLink>
         </div>
       ) : null}
     </div>
