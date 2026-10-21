@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ReceiptOriginalKind } from "@/lib/types";
+import { useI18n } from "@/lib/i18n/client";
 
 // Tailwind utility helper kept inline — the project's Button primitive
 // doesn't support `asChild`, so download/open-in-new-tab actions are
@@ -46,6 +47,8 @@ export function OriginalSourceViewer({
   receiptId,
   smsFromHint,
 }: OriginalSourceViewerProps) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.receipt.original;
   const [state, setState] = useState<FetchState>({ kind: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -65,14 +68,14 @@ export function OriginalSourceViewer({
             setState({ kind: "missing" });
             return;
           }
-          setState({ kind: "error", message: "Receipt not found." });
+          setState({ kind: "error", message: t.notFound });
           return;
         }
 
         if (!res.ok) {
           setState({
             kind: "error",
-            message: `Couldn't load the original (${res.status}).`,
+            message: t.loadFailedStatus(res.status),
           });
           return;
         }
@@ -83,10 +86,8 @@ export function OriginalSourceViewer({
         if (cancelled) return;
         setState({
           kind: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Couldn't load the original.",
+          // The browser's own error text is English; only English shows it.
+          message: err instanceof Error && locale === "en" ? err.message : t.loadFailed,
         });
       }
     })();
@@ -94,7 +95,7 @@ export function OriginalSourceViewer({
     return () => {
       cancelled = true;
     };
-  }, [receiptId, reloadKey]);
+  }, [receiptId, reloadKey, locale, t]);
 
   if (state.kind === "loading") {
     return (
@@ -103,7 +104,7 @@ export function OriginalSourceViewer({
         data-testid="original-loading"
       >
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span className="text-sm">Loading original…</span>
+        <span className="text-sm">{t.loading}</span>
       </div>
     );
   }
@@ -114,7 +115,7 @@ export function OriginalSourceViewer({
         className="px-4 py-10 text-center text-sm text-[var(--ink-muted)]"
         data-testid="original-missing"
       >
-        We didn&rsquo;t store an original for this receipt.
+        {t.missing}
       </div>
     );
   }
@@ -134,7 +135,7 @@ export function OriginalSourceViewer({
           }}
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          Retry
+          {t.retry}
         </Button>
       </div>
     );
@@ -166,12 +167,14 @@ function ArtifactBody({
   preview: EmlPreview | TxtPreview | undefined;
   smsFromHint?: string | null;
 }) {
+  const { t: messages } = useI18n();
+  const t = messages.receipt.original;
   if (kind === "image/jpeg" || kind === "image/png" || kind === "image/webp") {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
-        alt="Original receipt"
+        alt={t.imageAlt}
         className="w-full max-h-[60vh] object-contain rounded-md bg-[var(--background)]"
       />
     );
@@ -182,7 +185,7 @@ function ArtifactBody({
       <div className="rounded-md overflow-hidden border border-[var(--hairline)] bg-[var(--background)]">
         <iframe
           src={url}
-          title="Original receipt PDF"
+          title={t.pdfTitle}
           className="w-full h-[60vh] bg-white"
         />
       </div>
@@ -195,30 +198,30 @@ function ArtifactBody({
       <div className="rounded-md border border-[var(--hairline)] bg-card overflow-hidden">
         <dl className="px-3 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-[var(--hairline)] text-[12px]">
           <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
-            From
+            {t.from}
           </dt>
           <dd className="text-[var(--ink)] break-words">
             {eml?.from ?? "—"}
           </dd>
           <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
-            To
+            {t.to}
           </dt>
           <dd className="text-[var(--ink)] break-words">{eml?.to ?? "—"}</dd>
           <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
-            Subject
+            {t.subject}
           </dt>
           <dd className="text-[var(--ink)] break-words">
             {eml?.subject ?? "—"}
           </dd>
           <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
-            Date
+            {t.date}
           </dt>
           <dd className="text-[var(--ink)] break-words">
             {eml?.date ?? "—"}
           </dd>
         </dl>
         <pre className="px-3 py-3 text-[12px] leading-relaxed whitespace-pre-wrap break-words text-[var(--ink)] max-h-[50vh] overflow-y-auto">
-          {eml?.text ?? "(no preview available — download to view)"}
+          {eml?.text ?? t.noPreview}
         </pre>
       </div>
     );
@@ -230,7 +233,7 @@ function ArtifactBody({
       <div className="space-y-2">
         {smsFromHint ? (
           <p className="text-[11px] uppercase tracking-[0.06em] font-semibold text-[var(--ink-faint)]">
-            From {smsFromHint}
+            {t.smsFrom(smsFromHint)}
           </p>
         ) : null}
         <div
@@ -243,7 +246,7 @@ function ArtifactBody({
             wordBreak: "break-word",
           }}
         >
-          {txt || "(no preview available — download to view)"}
+          {txt || t.noPreview}
         </div>
       </div>
     );
@@ -252,23 +255,24 @@ function ArtifactBody({
   // Defensive fallback — unknown kind.
   return (
     <div className="text-sm text-[var(--ink-muted)] text-center py-8">
-      This original is in a format we can&rsquo;t preview here. Download it to view.
+      {t.unknownFormat}
     </div>
   );
 }
 
 function DownloadRow({ url, filename }: { url: string; filename: string }) {
+  const { t } = useI18n();
   const linkClass =
     "flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors";
   return (
     <div className="flex gap-2">
       <a href={url} download={filename} className={linkClass}>
         <Download className="w-3.5 h-3.5" />
-        Download original
+        {t.receipt.original.download}
       </a>
       <a href={url} target="_blank" rel="noreferrer" className={linkClass}>
         <ExternalLink className="w-3.5 h-3.5" />
-        Open in new tab
+        {t.receipt.original.openInNewTab}
       </a>
     </div>
   );

@@ -5,6 +5,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { ReceiptPdf, pdfFilenameFor } from "@/components/receipt/ReceiptPdf";
 import { missingRequiredFields } from "@/lib/receipts/status";
+import { LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/locale";
 import type { Receipt } from "@/lib/types";
 
 // react-pdf uses fontkit + Node streams; the route MUST run on Node, not
@@ -17,7 +18,7 @@ export const maxDuration = 30;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const user = await getServerUser();
@@ -73,7 +74,14 @@ export async function GET(
 
   let nodeStream: Readable;
   try {
-    nodeStream = (await renderToStream(<ReceiptPdf receipt={receipt} />)) as Readable;
+    // Same choice as getLocale(), read off the request itself.
+    const locale = resolveLocale(
+      request.cookies.get(LOCALE_COOKIE)?.value,
+      request.headers.get("accept-language"),
+    );
+    nodeStream = (await renderToStream(
+      <ReceiptPdf receipt={receipt} locale={locale} />,
+    )) as Readable;
   } catch (err) {
     console.error("[api/receipts/:id/pdf] render failed", err);
     return NextResponse.json({ error: "render failed" }, { status: 500 });

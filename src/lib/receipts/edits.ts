@@ -12,6 +12,8 @@
  */
 
 import { formatAmount, formatDate } from "@/lib/receipt-format";
+import { getMessages } from "@/lib/i18n/messages";
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/locale";
 import type { EditChange, EditHistoryEntry, Receipt, ReceiptItem } from "@/lib/types";
 
 export const TRACKED_EDIT_FIELDS = [
@@ -26,16 +28,8 @@ export const TRACKED_EDIT_FIELDS = [
 ] as const;
 export type TrackedEditField = (typeof TRACKED_EDIT_FIELDS)[number];
 
-export const EDIT_FIELD_LABELS: Record<TrackedEditField, string> = {
-  merchant_name: "Merchant",
-  total: "Total",
-  currency: "Currency",
-  receipt_date: "Date",
-  tax_amount: "VAT amount",
-  tax_rate: "VAT rate",
-  payment_method: "Payment method",
-  items: "Line items",
-};
+// English labels; other languages come from the `receipt` messages.
+export const EDIT_FIELD_LABELS: Record<TrackedEditField, string> = getMessages("en").receipt.fields;
 
 // Enough for any realistic correction trail; keeps the row small.
 export const MAX_EDIT_HISTORY = 50;
@@ -126,11 +120,14 @@ function capHistory(history: EditHistoryEntry[]): EditHistoryEntry[] {
  * "Oct 15, 2026" — the date shown in "Edited by you on …", in Swedish time
  * so a late-evening edit doesn't show as the next day (servers run in UTC).
  */
-export function editedOnLabel(receipt: Pick<Receipt, "edited_at">): string | null {
+export function editedOnLabel(
+  receipt: Pick<Receipt, "edited_at">,
+  locale: Locale = "en",
+): string | null {
   if (!receipt.edited_at) return null;
   const d = new Date(receipt.edited_at);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(INTL_LOCALE[locale], {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -139,11 +136,13 @@ export function editedOnLabel(receipt: Pick<Receipt, "edited_at">): string | nul
 }
 
 /** Human labels of the fields the customer changed, in a stable order. */
-export function editedFieldLabels(receipt: Pick<Receipt, "edited_fields">): string[] {
+export function editedFieldLabels(
+  receipt: Pick<Receipt, "edited_fields">,
+  locale: Locale = "en",
+): string[] {
   const fields = receipt.edited_fields ?? [];
-  return TRACKED_EDIT_FIELDS.filter((f) => fields.includes(f)).map(
-    (f) => EDIT_FIELD_LABELS[f],
-  );
+  const labels = getMessages(locale).receipt.fields;
+  return TRACKED_EDIT_FIELDS.filter((f) => fields.includes(f)).map((f) => labels[f]);
 }
 
 /**
@@ -154,7 +153,9 @@ export function editedFieldLabels(receipt: Pick<Receipt, "edited_fields">): stri
  */
 export function originalValues(
   receipt: Pick<Receipt, "edit_history" | "currency">,
+  locale: Locale = "en",
 ): Array<{ label: string; was: string }> {
+  const labels = getMessages(locale).receipt.fields;
   const history = Array.isArray(receipt.edit_history) ? receipt.edit_history : [];
   const firstChange = new Map<TrackedEditField, { from: unknown; currency: string }>();
   for (const entry of history) {
@@ -169,23 +170,29 @@ export function originalValues(
   }
   return TRACKED_EDIT_FIELDS.filter((f) => firstChange.has(f)).map((field) => {
     const { from, currency } = firstChange.get(field)!;
-    return { label: EDIT_FIELD_LABELS[field], was: formatWas(field, from, currency) };
+    return { label: labels[field], was: formatWas(field, from, currency, locale) };
   });
 }
 
-function formatWas(field: TrackedEditField, value: unknown, currency: string): string {
-  if (value == null || value === "") return "empty";
+function formatWas(
+  field: TrackedEditField,
+  value: unknown,
+  currency: string,
+  locale: Locale,
+): string {
+  const t = getMessages(locale).receipt;
+  if (value == null || value === "") return t.empty;
   switch (field) {
     case "total":
     case "tax_amount":
-      return formatAmount(Number(value), currency);
+      return formatAmount(Number(value), currency, locale);
     case "tax_rate":
-      return `${Number(value)}%`;
+      return locale === "en" ? `${Number(value)}%` : `${Number(value)} %`;
     case "receipt_date":
-      return formatDate(String(value));
+      return formatDate(String(value), locale);
     case "items": {
       const n = Array.isArray(value) ? value.length : 0;
-      return n === 0 ? "empty" : `${n} line${n === 1 ? "" : "s"}`;
+      return n === 0 ? t.empty : t.lineCount(n);
     }
     default:
       return String(value);

@@ -17,11 +17,13 @@ import {
   View,
 } from "@react-pdf/renderer";
 import {
-  CATEGORY_CONFIG,
+  categoryLabel as localizedCategoryLabel,
   formatAmount,
   formatDate,
   formatQty,
 } from "@/lib/receipt-format";
+import { getMessages } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { editedOnLabel, originalValues } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
@@ -298,24 +300,29 @@ function shortId(id: string): string {
 
 export type ReceiptPdfProps = {
   receipt: Receipt;
+  /** Language of the PDF; the accountant export leaves it English. */
+  locale?: Locale;
 };
 
-export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
+export function ReceiptPdf({ receipt, locale = "en" }: ReceiptPdfProps) {
   ensureFonts();
+  const messages = getMessages(locale).receipt;
+  const t = messages.pdf;
+  const money = (amount: number | null | undefined) =>
+    formatAmount(amount, receipt.currency, locale);
 
-  const merchant = receipt.merchant_name ?? "Unknown merchant";
-  const categoryLabel = CATEGORY_CONFIG[receipt.category]?.label ?? "Other";
-  const dateLabel = formatDate(receipt.purchased_at ?? receipt.receipt_date);
+  const merchant = receipt.merchant_name ?? messages.unknownMerchant;
+  const categoryLabel = localizedCategoryLabel(receipt.category, locale);
+  const dateLabel = formatDate(receipt.purchased_at ?? receipt.receipt_date, locale);
   const showSubtotal = receipt.subtotal != null;
   const showTax = receipt.tax_amount != null && receipt.tax_amount > 0;
   const showTip = receipt.tip_amount != null && receipt.tip_amount > 0;
-  const taxLabel =
-    receipt.tax_rate != null ? `VAT (${receipt.tax_rate}%)` : "VAT";
+  const taxLabel = receipt.tax_rate != null ? t.vatRate(String(receipt.tax_rate)) : t.vat;
 
-  const editedOn = editedOnLabel(receipt);
+  const editedOn = editedOnLabel(receipt, locale);
   // Only claim an original when one is stored: manual entries have none.
   const hasOriginal = Boolean(receipt.image_url || receipt.original_source_url);
-  const wasValues = editedOn ? originalValues(receipt) : [];
+  const wasValues = editedOn ? originalValues(receipt, locale) : [];
 
   const sourceRef =
     receipt.intake_ref ||
@@ -329,14 +336,16 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
       author="UnReceipt"
       creator="UnReceipt"
       producer="UnReceipt"
-      subject="Digital receipt"
+      subject={t.subject}
+      // Left unset in English so the stored snapshot stays as it was.
+      language={locale === "en" ? undefined : locale}
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.card}>
           <View style={styles.headerRow}>
             <PdfWordmark />
             <View>
-              <Text style={styles.receiptIdLabel}>Receipt</Text>
+              <Text style={styles.receiptIdLabel}>{t.receipt}</Text>
               <Text style={styles.receiptIdValue}>
                 #{receipt.receipt_number ?? shortId(receipt.id)}
               </Text>
@@ -344,21 +353,16 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
           </View>
 
           <View style={styles.body}>
-            <BodyRow label="Merchant" value={merchant} />
+            <BodyRow label={t.merchant} value={merchant} />
             {receipt.merchant_address ? (
-              <BodyRow label="Address" value={receipt.merchant_address} />
+              <BodyRow label={t.address} value={receipt.merchant_address} />
             ) : null}
-            <BodyRow label="Date" value={dateLabel} />
-            <BodyRow label="Category" value={categoryLabel} />
-            {editedOn ? (
-              <BodyRow
-                label="Edited"
-                value={`By you on ${editedOn} — see below`}
-              />
-            ) : null}
+            <BodyRow label={t.date} value={dateLabel} />
+            <BodyRow label={t.category} value={categoryLabel} />
+            {editedOn ? <BodyRow label={t.edited} value={t.editedBy(editedOn)} /> : null}
             {receipt.merchant_vat_number ? (
               <BodyRow
-                label="Merchant VAT"
+                label={t.merchantVat}
                 value={receipt.merchant_vat_number}
               />
             ) : null}
@@ -366,19 +370,19 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
 
           {receipt.items && receipt.items.length > 0 ? (
             <View style={styles.itemsBlock}>
-              <Text style={styles.itemsHeader}>Items</Text>
+              <Text style={styles.itemsHeader}>{t.items}</Text>
               {receipt.items.map((item, idx) => (
                 <View key={idx} style={styles.itemLine}>
                   <Text style={styles.itemLabel}>
                     {item.label}
                     {item.qty != null && item.qty !== 1 ? (
                       <Text style={styles.itemSubLabel}>
-                        {`  × ${formatQty(item.qty)}${item.unit_amount != null ? ` @ ${formatAmount(item.unit_amount, receipt.currency)}` : ""}`}
+                        {`  × ${formatQty(item.qty)}${item.unit_amount != null ? ` @ ${money(item.unit_amount)}` : ""}`}
                       </Text>
                     ) : null}
                   </Text>
                   <Text style={styles.itemAmount}>
-                    {formatAmount(item.total_amount, receipt.currency)}
+                    {money(item.total_amount)}
                   </Text>
                 </View>
               ))}
@@ -388,9 +392,9 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
           <View style={styles.totals}>
             {showSubtotal ? (
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Subtotal</Text>
+                <Text style={styles.totalsLabel}>{t.subtotal}</Text>
                 <Text style={styles.totalsValue}>
-                  {formatAmount(receipt.subtotal, receipt.currency)}
+                  {money(receipt.subtotal)}
                 </Text>
               </View>
             ) : null}
@@ -398,23 +402,23 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsLabel}>{taxLabel}</Text>
                 <Text style={styles.totalsValue}>
-                  {formatAmount(receipt.tax_amount, receipt.currency)}
+                  {money(receipt.tax_amount)}
                 </Text>
               </View>
             ) : null}
             {showTip ? (
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Tip</Text>
+                <Text style={styles.totalsLabel}>{t.tip}</Text>
                 <Text style={styles.totalsValue}>
-                  {formatAmount(receipt.tip_amount, receipt.currency)}
+                  {money(receipt.tip_amount)}
                 </Text>
               </View>
             ) : null}
             <View style={styles.totalDivider}>
               <View style={styles.totalLineRow}>
-                <Text style={styles.totalLineLabel}>Total</Text>
+                <Text style={styles.totalLineLabel}>{t.total}</Text>
                 <Text style={styles.totalLineValue}>
-                  {formatAmount(receipt.total, receipt.currency)}
+                  {money(receipt.total)}
                 </Text>
               </View>
             </View>
@@ -427,24 +431,22 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
             <View style={styles.footer}>
               {receipt.payment_method ? (
                 <>
-                  <Text style={styles.footerLabel}>Payment</Text>
+                  <Text style={styles.footerLabel}>{t.payment}</Text>
                   <Text style={styles.footerValue}>
                     {receipt.payment_method}
-                    {receipt.card_last_four
-                      ? ` · Card ending ${receipt.card_last_four}`
-                      : ""}
+                    {receipt.card_last_four ? t.cardEnding(receipt.card_last_four) : ""}
                   </Text>
                 </>
               ) : null}
               {sourceRef ? (
                 <>
-                  <Text style={styles.footerLabel}>Source of record</Text>
+                  <Text style={styles.footerLabel}>{t.sourceOfRecord}</Text>
                   <Text style={styles.footerValue}>{sourceRef}</Text>
                 </>
               ) : null}
               {receipt.notes ? (
                 <>
-                  <Text style={styles.footerLabel}>Notes</Text>
+                  <Text style={styles.footerLabel}>{t.notes}</Text>
                   <Text style={styles.footerValue}>{receipt.notes}</Text>
                 </>
               ) : null}
@@ -454,23 +456,21 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
           {editedOn ? (
             <View style={styles.editedBox}>
               <Text style={styles.editedTitle}>
-                {`Edited by you on ${editedOn}`}
+                {t.editedTitle(editedOn)}
               </Text>
               <Text style={styles.editedLine}>
-                {hasOriginal
-                  ? "These fields were changed by the account holder after the receipt was captured. The original file is unchanged."
-                  : "These fields were changed by the account holder after the receipt was entered."}
+                {hasOriginal ? t.editedCaptured : t.editedEntered}
               </Text>
               {wasValues.map(({ label, was }) => (
                 <Text key={label} style={styles.editedLine}>
-                  {`${label} — originally: ${was}`}
+                  {t.originally(label, was)}
                 </Text>
               ))}
             </View>
           ) : null}
 
           <Text style={styles.disclaimer}>
-            {disclaimerText(hasOriginal, Boolean(editedOn))}
+            {disclaimerText(hasOriginal, Boolean(editedOn), locale)}
           </Text>
         </View>
       </Page>
@@ -484,11 +484,14 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
  * read from the original (by OCR or a parser), so it isn't called a
  * "faithful copy"; the original file is the evidence.
  */
-export function disclaimerText(hasOriginal: boolean, edited: boolean): string {
-  const edits = edited ? ", with the edits listed above" : "";
-  return hasOriginal
-    ? `UnReceipt · unreceipt.com — Data read from the original receipt${edits}. The original file is the evidence: it is stored in UnReceipt while the account is active and included in exports.`
-    : `UnReceipt · unreceipt.com — Entered by hand${edits}. There is no original file for this receipt.`;
+export function disclaimerText(
+  hasOriginal: boolean,
+  edited: boolean,
+  locale: Locale = "en",
+): string {
+  const t = getMessages(locale).receipt.pdf;
+  const edits = edited ? t.withEdits : "";
+  return hasOriginal ? t.disclaimerOriginal(edits) : t.disclaimerManual(edits);
 }
 
 function BodyRow({ label, value }: { label: string; value: string }) {

@@ -15,7 +15,6 @@ import { Download, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-rea
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import {
-  CATEGORY_CONFIG,
   CATEGORY_KEYS,
   CURRENCY_OPTIONS,
   formatAmount,
@@ -27,6 +26,11 @@ import {
   PAYMENT_METHOD_SUGGESTIONS,
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt, ReceiptItem } from "@/lib/types";
+import { useI18n } from "@/lib/i18n/client";
+import { getMessages, type Messages } from "@/lib/i18n/messages";
+
+type FormErrors = Messages["receipt"]["form"]["errors"];
+const EN_ERRORS: FormErrors = getMessages("en").receipt.form.errors;
 
 type ReceiptDetailDialogProps = {
   receipt: Receipt | null;
@@ -38,6 +42,8 @@ export function ReceiptDetailDialog({
   onOpenChange,
 }: ReceiptDetailDialogProps) {
   const router = useRouter();
+  const { locale, t: messages } = useI18n();
+  const t = messages.receipt.dialog;
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -107,10 +113,9 @@ export function ReceiptDetailDialog({
       router.refresh();
     } catch (err) {
       console.error("[/app] reprocess failed", err);
+      // The route's error texts are English; other languages get ours.
       setReprocessError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't re-run extraction. Try again in a moment."
+        err instanceof Error && locale === "en" ? err.message : t.rerunFailed
       );
     } finally {
       setReprocessing(false);
@@ -136,7 +141,7 @@ export function ReceiptDetailDialog({
       router.refresh();
     } catch (err) {
       console.error("[/app] delete failed", err);
-      setDeleteError("Could not delete receipt. Try again in a moment.");
+      setDeleteError(t.deleteFailed);
       setDeleting(false);
     }
   };
@@ -163,7 +168,7 @@ export function ReceiptDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0">
         <DialogHeader className="sr-only">
-          <DialogTitle>Receipt</DialogTitle>
+          <DialogTitle>{t.title}</DialogTitle>
         </DialogHeader>
 
         {receipt ? (
@@ -172,8 +177,8 @@ export function ReceiptDetailDialog({
               <Tabs defaultValue="digital" className="gap-0">
                 <div className="px-4 pt-3 pb-2 border-b border-[var(--hairline)]">
                   <TabsList className="w-full" variant="line">
-                    <TabsTrigger value="digital">Digital</TabsTrigger>
-                    <TabsTrigger value="original">Original</TabsTrigger>
+                    <TabsTrigger value="digital">{t.tabDigital}</TabsTrigger>
+                    <TabsTrigger value="original">{t.tabOriginal}</TabsTrigger>
                   </TabsList>
                 </div>
                 <TabsContent value="digital">
@@ -212,7 +217,7 @@ export function ReceiptDetailDialog({
                     ) : (
                       <Sparkles className="w-4 h-4" />
                     )}
-                    {reprocessing ? "Reading receipt…" : "Re-run extraction"}
+                    {reprocessing ? t.reading : t.rerun}
                   </Button>
                   {reprocessError ? (
                     <p
@@ -230,7 +235,7 @@ export function ReceiptDetailDialog({
                   className="text-[var(--attention-deep)] font-accent italic text-center"
                   style={{ fontSize: "13px" }}
                 >
-                  Complete this receipt to download
+                  {t.completeToDownload}
                 </p>
               ) : (
                 <>
@@ -244,7 +249,7 @@ export function ReceiptDetailDialog({
                     className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-action-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     <Download className="w-4 h-4" />
-                    Download PDF
+                    {t.downloadPdf}
                   </a>
                   <Button
                     ref={editButtonRef}
@@ -254,7 +259,7 @@ export function ReceiptDetailDialog({
                     onClick={() => setEditing(true)}
                   >
                     <Pencil className="w-4 h-4" />
-                    Edit receipt
+                    {t.edit}
                   </Button>
                 </>
               )}
@@ -280,7 +285,7 @@ export function ReceiptDetailDialog({
                     }}
                     disabled={deleting}
                   >
-                    Cancel
+                    {messages.common.cancel}
                   </Button>
                   <Button
                     type="button"
@@ -290,10 +295,10 @@ export function ReceiptDetailDialog({
                   >
                     {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     {deleting
-                      ? "Deleting…"
+                      ? t.deleting
                       : deleteError
-                        ? "Try again"
-                        : "Confirm delete"}
+                        ? messages.common.tryAgain
+                        : t.confirmDelete}
                   </Button>
                 </div>
               ) : (
@@ -304,7 +309,7 @@ export function ReceiptDetailDialog({
                   onClick={() => setConfirming(true)}
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete receipt
+                  {t.delete}
                 </Button>
               )}
             </div>
@@ -360,16 +365,16 @@ function parseDecimal(value: string): number {
 }
 
 /** Rows → stored items. Blank rows are dropped; invalid ones throw. */
-function toReceiptItems(items: EditItem[]): ReceiptItem[] {
+function toReceiptItems(items: EditItem[], errors: FormErrors = EN_ERRORS): ReceiptItem[] {
   const out: ReceiptItem[] = [];
   for (const it of items) {
     const label = it.label.trim();
     if (!label && !it.total.trim()) continue;
-    if (!label) throw new Error("Every line needs a description");
+    if (!label) throw new Error(errors.lineNeedsDescription);
     const total = parseDecimal(it.total);
     // Negative is fine: discount and deposit-return lines.
     if (!it.total.trim() || !Number.isFinite(total)) {
-      throw new Error(`Enter an amount for “${label}”`);
+      throw new Error(errors.lineNeedsAmount(label));
     }
     const totalChanged = it.total.trim() !== it.originalTotal;
     out.push({
@@ -423,23 +428,26 @@ function deriveFormState(receipt: Receipt): EditFormState {
 export function buildPatchBody(
   initial: EditFormState,
   form: EditFormState,
-  { includeItems = true }: { includeItems?: boolean } = {},
+  {
+    includeItems = true,
+    errors = EN_ERRORS,
+  }: { includeItems?: boolean; errors?: FormErrors } = {},
 ): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (form.merchant.trim() !== initial.merchant.trim()) {
-    if (!form.merchant.trim()) throw new Error("Merchant is required");
+    if (!form.merchant.trim()) throw new Error(errors.merchantRequired);
     body.merchant = form.merchant.trim();
   }
   if (form.amount !== initial.amount) {
     const amount = Number(form.amount.replace(",", "."));
     if (!Number.isFinite(amount) || amount <= 0) {
-      throw new Error("Enter a valid amount greater than 0");
+      throw new Error(errors.amountInvalid);
     }
     body.amount = amount;
   }
   if (form.currency !== initial.currency) body.currency = form.currency;
   if (form.date !== initial.date) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) throw new Error("Date is required");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) throw new Error(errors.dateRequired);
     body.receipt_date = form.date;
   }
   if (form.category !== initial.category) body.category = form.category;
@@ -449,21 +457,21 @@ export function buildPatchBody(
   if (form.taxAmount.trim() !== initial.taxAmount.trim()) {
     body.tax_amount = optionalDecimal(form.taxAmount, {
       max: 1_000_000,
-      message: "Enter a valid VAT amount",
+      message: errors.vatAmountInvalid,
     });
   }
   if (form.taxRate.trim() !== initial.taxRate.trim()) {
     body.tax_rate = optionalDecimal(form.taxRate, {
       max: 100,
-      message: "VAT rate must be between 0 and 100",
+      message: errors.vatRateInvalid,
     });
   }
   if (form.paymentMethod.trim() !== initial.paymentMethod.trim()) {
     body.payment_method = form.paymentMethod.trim() || null;
   }
   if (includeItems) {
-    const items = toReceiptItems(form.items);
-    if (!sameItems(items, toReceiptItems(initial.items))) {
+    const items = toReceiptItems(form.items, errors);
+    if (!sameItems(items, toReceiptItems(initial.items, errors))) {
       body.items = items.length > 0 ? items : null;
     }
   }
@@ -473,6 +481,42 @@ export function buildPatchBody(
 const LABEL_CLASS =
   "block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]";
 const SELECT_CLASS = "h-11 w-full rounded-md border bg-card px-3 text-base md:text-sm";
+
+/**
+ * PATCH validation errors arrive in English. English shows them as sent;
+ * other languages get the matching message for the field.
+ */
+function serverIssueMessage(
+  issue: { path?: string; message?: string } | undefined,
+  errors: FormErrors,
+  english: boolean,
+): string | undefined {
+  if (!issue) return undefined;
+  if (english) return issue.message;
+  const field = (issue.path ?? "").split(".")[0];
+  switch (field) {
+    case "merchant":
+      return errors.merchantRequired;
+    case "amount":
+      return errors.amountInvalid;
+    case "receipt_date":
+      return errors.dateRequired;
+    case "tax_amount":
+      return /more than the total/i.test(issue.message ?? "")
+        ? errors.vatExceedsTotal
+        : errors.vatAmountInvalid;
+    case "tax_rate":
+      return errors.vatRateInvalid;
+    case "payment_method":
+      return errors.paymentInvalid;
+    case "notes":
+      return errors.notesTooLong;
+    case "items":
+      return errors.lineNeedsDescription;
+    default:
+      return errors.checkFields;
+  }
+}
 
 function ReceiptEditForm({
   mode,
@@ -485,6 +529,9 @@ function ReceiptEditForm({
   onSaved: () => void;
   onCancel?: () => void;
 }) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.receipt.form;
+  const errors = t.errors;
   const [initial, setInitial] = useState<EditFormState>(() =>
     deriveFormState(receipt),
   );
@@ -514,19 +561,19 @@ function ReceiptEditForm({
     try {
       if (mode === "complete") {
         // Completing needs every required field, changed or not.
-        if (!form.merchant.trim()) throw new Error("Merchant is required");
+        if (!form.merchant.trim()) throw new Error(errors.merchantRequired);
         const amount = Number(form.amount.replace(",", "."));
         if (!Number.isFinite(amount) || amount <= 0) {
-          throw new Error("Enter a valid amount greater than 0");
+          throw new Error(errors.amountInvalid);
         }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date)) {
-          throw new Error("Date is required");
+          throw new Error(errors.dateRequired);
         }
       }
       // Line items are only editable (and shown) in edit mode.
-      body = buildPatchBody(initial, form, { includeItems: mode === "edit" });
+      body = buildPatchBody(initial, form, { includeItems: mode === "edit", errors });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Check the fields");
+      setError(err instanceof Error ? err.message : errors.checkFields);
       return;
     }
 
@@ -546,18 +593,19 @@ function ReceiptEditForm({
       if (!res.ok) {
         const resBody = (await res.json().catch(() => ({}))) as {
           error?: string;
-          issues?: Array<{ message?: string }>;
+          issues?: Array<{ path?: string; message?: string }>;
         };
+        const english = locale === "en";
         throw new Error(
-          resBody.issues?.[0]?.message ??
-            resBody.error ??
-            `Save failed (HTTP ${res.status})`,
+          serverIssueMessage(resBody.issues?.[0], errors, english) ??
+            (english ? resBody.error : undefined) ??
+            errors.saveFailedStatus(res.status),
         );
       }
 
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(err instanceof Error ? err.message : errors.saveFailed);
       setSaving(false);
     }
   };
@@ -609,26 +657,24 @@ function ReceiptEditForm({
       onSubmit={handleSubmit}
       className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]"
       style={isEdit ? undefined : { background: "var(--attention-tint)" }}
-      aria-label={isEdit ? "Edit receipt" : "Complete receipt"}
+      aria-label={isEdit ? t.editTitle : t.completeLabel}
     >
       <p
         className={isEdit ? "text-[var(--ink)]" : "text-[var(--attention-deep)]"}
         style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}
       >
-        {isEdit ? "Edit receipt" : "Review needed"}
+        {isEdit ? t.editTitle : t.reviewNeeded}
       </p>
       <p
         className="text-[var(--ink-muted)]"
         style={{ fontSize: "13px", lineHeight: 1.5 }}
       >
-        {isEdit
-          ? "Correct anything that was read wrong. The original file stays as it is, and the PDF will show which fields you changed."
-          : "Fill the missing fields below so this receipt becomes downloadable."}
+        {isEdit ? t.editIntro : t.completeIntro}
       </p>
 
       <div className="space-y-2">
         <label htmlFor={id("merchant")} className={LABEL_CLASS}>
-          Merchant
+          {t.merchant}
         </label>
         <Input
           id={id("merchant")}
@@ -646,7 +692,7 @@ function ReceiptEditForm({
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-2">
           <label htmlFor={id("amount")} className={LABEL_CLASS}>
-            Amount
+            {t.amount}
           </label>
           <Input
             id={id("amount")}
@@ -662,7 +708,7 @@ function ReceiptEditForm({
         </div>
         <div className="space-y-2">
           <label htmlFor={id("date")} className={LABEL_CLASS}>
-            Date
+            {t.date}
           </label>
           <Input
             id={id("date")}
@@ -678,7 +724,7 @@ function ReceiptEditForm({
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-2">
           <label htmlFor={id("currency")} className={LABEL_CLASS}>
-            Currency
+            {t.currency}
           </label>
           <select
             id={id("currency")}
@@ -695,7 +741,7 @@ function ReceiptEditForm({
         </div>
         <div className="space-y-2">
           <label htmlFor={id("category")} className={LABEL_CLASS}>
-            Category
+            {t.category}
           </label>
           <select
             id={id("category")}
@@ -705,7 +751,7 @@ function ReceiptEditForm({
           >
             {CATEGORY_KEYS.map((k) => (
               <option key={k} value={k}>
-                {CATEGORY_CONFIG[k].label}
+                {messages.common.categories[k]}
               </option>
             ))}
           </select>
@@ -715,7 +761,7 @@ function ReceiptEditForm({
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-2">
           <label htmlFor={id("tax-amount")} className={LABEL_CLASS}>
-            VAT amount
+            {t.vatAmount}
           </label>
           <Input
             id={id("tax-amount")}
@@ -730,7 +776,7 @@ function ReceiptEditForm({
         </div>
         <div className="space-y-2">
           <label htmlFor={id("tax-rate")} className={LABEL_CLASS}>
-            VAT rate %
+            {t.vatRate}
           </label>
           <Input
             id={id("tax-rate")}
@@ -748,7 +794,7 @@ function ReceiptEditForm({
 
       <div className="space-y-2">
         <label htmlFor={id("payment-method")} className={LABEL_CLASS}>
-          Payment method
+          {t.paymentMethod}
         </label>
         <Input
           id={id("payment-method")}
@@ -756,7 +802,7 @@ function ReceiptEditForm({
           className="h-11"
           value={form.paymentMethod}
           onChange={(e) => update("paymentMethod", e.target.value)}
-          placeholder="Card"
+          placeholder={t.paymentPlaceholder}
           maxLength={50}
         />
         <datalist id={id("payment-method-options")}>
@@ -768,23 +814,23 @@ function ReceiptEditForm({
 
       {isEdit ? (
         <fieldset className="space-y-2">
-          <legend className={LABEL_CLASS}>Line items</legend>
+          <legend className={LABEL_CLASS}>{t.lineItems}</legend>
           {form.items.length === 0 ? (
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-              No line items.
+              {t.noLineItems}
             </p>
           ) : null}
           {form.items.map((it, idx) => (
             <div key={it.key} className="flex items-center gap-2">
               <Input
-                aria-label={`Line ${idx + 1} description`}
+                aria-label={t.lineDescription(idx + 1)}
                 className="h-11 flex-1 min-w-0"
                 value={it.label}
                 onChange={(e) => updateItem(it.key, { label: e.target.value })}
                 maxLength={200}
               />
               <Input
-                aria-label={`Line ${idx + 1} amount`}
+                aria-label={t.lineAmount(idx + 1)}
                 type="number"
                 step="0.01"
                 inputMode="decimal"
@@ -795,7 +841,7 @@ function ReceiptEditForm({
               <button
                 type="button"
                 onClick={() => removeItem(it.key)}
-                aria-label={`Remove line ${idx + 1}`}
+                aria-label={t.removeLine(idx + 1)}
                 className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:bg-[var(--hairline)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <X className="w-4 h-4" />
@@ -810,7 +856,7 @@ function ReceiptEditForm({
               onClick={addItem}
             >
               <Plus className="w-4 h-4" />
-              Add line
+              {t.addLine}
             </Button>
           ) : null}
           {itemsMismatch ? (
@@ -819,15 +865,15 @@ function ReceiptEditForm({
               style={{ fontSize: "13px" }}
               data-testid="items-mismatch-hint"
             >
-              Lines add up to{" "}
+              {t.mismatchBefore}{" "}
               <span className="font-mono tabular-nums">
-                {formatAmount(itemsSum, form.currency)}
+                {formatAmount(itemsSum, form.currency, locale)}
               </span>
-              ; the total is{" "}
+              {t.mismatchMiddle}{" "}
               <span className="font-mono tabular-nums">
-                {formatAmount(totalNumber, form.currency)}
+                {formatAmount(totalNumber, form.currency, locale)}
               </span>
-              .
+              {t.mismatchAfter}
             </p>
           ) : null}
         </fieldset>
@@ -836,7 +882,7 @@ function ReceiptEditForm({
       {isEdit ? (
         <div className="space-y-2">
           <label htmlFor={id("notes")} className={LABEL_CLASS}>
-            Notes
+            {t.notes}
           </label>
           <textarea
             id={id("notes")}
@@ -866,17 +912,17 @@ function ReceiptEditForm({
             onClick={onCancel}
             disabled={saving}
           >
-            Cancel
+            {messages.common.cancel}
           </Button>
           <Button type="submit" className="flex-1 h-11 gap-1.5" disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? messages.common.saving : t.saveChanges}
           </Button>
         </div>
       ) : (
         <Button type="submit" className="w-full h-11 gap-1.5" disabled={saving}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {saving ? "Saving…" : "Complete receipt"}
+          {saving ? messages.common.saving : t.completeLabel}
         </Button>
       )}
     </form>
