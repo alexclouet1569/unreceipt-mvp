@@ -14,6 +14,7 @@ import { planSuggestion } from "@/lib/usage-copy";
 import { SignOutButton } from "./SignOutButton";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -167,6 +168,11 @@ export default async function SettingsPage() {
             </p>
             <ExportPanel firstReceiptDate={firstReceiptDate} />
           </div>
+        </section>
+
+        <section aria-labelledby="language-heading">
+          <SectionLabel id="language-heading">Language</SectionLabel>
+          <LanguageSwitch />
         </section>
 
         <section aria-labelledby="account-heading">

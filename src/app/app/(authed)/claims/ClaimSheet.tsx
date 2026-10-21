@@ -10,8 +10,9 @@ import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatAmount, splitFormattedAmount } from "@/lib/receipt-format";
+import { useI18n } from "@/lib/i18n/client";
 import {
-  CLAIM_TYPES,
+  CLAIM_TYPE_KEYS,
   MAX_CLAIM_PLACE,
   MAX_CLAIM_PURPOSE,
   buildClaimLines,
@@ -35,7 +36,7 @@ export type ClaimSheetProps = {
   nextMonth: string;
   receipts: ClaimReceipt[];
   history: PurposeHistoryEntry[];
-  loadError: string | null;
+  loadError: "load" | "too_many" | null;
 };
 
 export function ClaimSheet({
@@ -46,6 +47,8 @@ export function ClaimSheet({
   history,
   loadError,
 }: ClaimSheetProps) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.claims;
   const [receipts, setReceipts] = useState(initialReceipts);
   const [drafts, setDrafts] = useState<Drafts>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -67,17 +70,11 @@ export function ClaimSheet({
         body: JSON.stringify(patch),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          issues?: Array<{ message: string }>;
-        };
-        setErrors((e) => ({
-          ...e,
-          [id]: body.issues?.[0]?.message ?? "Couldn't save. Try again.",
-        }));
+        setErrors((e) => ({ ...e, [id]: t.saveFailed }));
         return false;
       }
     } catch {
-      setErrors((e) => ({ ...e, [id]: "Network error. Check your connection and try again." }));
+      setErrors((e) => ({ ...e, [id]: messages.common.networkError }));
       return false;
     }
     setErrors((e) => without(e, id));
@@ -124,48 +121,44 @@ export function ClaimSheet({
       });
       const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !body.url) {
-        setPdfError(
-          res.status === 429
-            ? "You've made a lot of claim PDFs. Try again in an hour."
-            : (body.error ?? "Couldn't create the claim PDF. Please try again."),
-        );
+        // The route's own message is in the request's language too.
+        setPdfError(res.status === 429 ? t.pdfRateLimited : (body.error ?? t.pdfFailed));
       } else {
         window.location.assign(body.url);
       }
     } catch {
-      setPdfError("Network error. Check your connection and try again.");
+      setPdfError(messages.common.networkError);
     }
     setPdfBusy(false);
   };
 
   return (
     <div className="space-y-6">
-      <nav aria-label="Month" className="flex items-center justify-between gap-2">
-        <MonthLink href={`/app/claims?month=${prevMonth}`} label={`Previous month, ${claimMonthLabel(prevMonth)}`}>
+      <nav aria-label={t.monthNav} className="flex items-center justify-between gap-2">
+        <MonthLink href={`/app/claims?month=${prevMonth}`} label={t.previousMonth(claimMonthLabel(prevMonth, locale))}>
           <ChevronLeft className="w-5 h-5" />
         </MonthLink>
         <h2
           className="font-display font-bold text-[var(--ink)]"
           style={{ fontSize: "24px", letterSpacing: "-0.02em" }}
         >
-          {claimMonthLabel(month)}
+          {claimMonthLabel(month, locale)}
         </h2>
-        <MonthLink href={`/app/claims?month=${nextMonth}`} label={`Next month, ${claimMonthLabel(nextMonth)}`}>
+        <MonthLink href={`/app/claims?month=${nextMonth}`} label={t.nextMonth(claimMonthLabel(nextMonth, locale))}>
           <ChevronRight className="w-5 h-5" />
         </MonthLink>
       </nav>
 
       {loadError ? (
-        <Notice>{loadError}</Notice>
+        <Notice>{loadError === "too_many" ? t.tooMany : t.loadFailed}</Notice>
       ) : lines.length === 0 ? (
         <p className="text-center text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
-          No receipts in {claimMonthLabel(month)}.
+          {t.empty(claimMonthLabel(month, locale))}
         </p>
       ) : (
         <>
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            Check each line, then copy it into your employer&apos;s expense form.
-            Print the PDF and staple each original receipt next to its number.
+            {t.intro}
           </p>
 
           {toConfirm.length > 0 ? (
@@ -176,21 +169,16 @@ export function ClaimSheet({
               disabled={confirming}
             >
               {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {confirming
-                ? "Saving…"
-                : `Confirm ${toConfirm.length} suggested line${toConfirm.length === 1 ? "" : "s"}`}
+              {confirming ? messages.common.saving : t.confirm(toConfirm.length)}
             </Button>
           ) : null}
 
           {pendingCount > 0 ? (
             <Notice>
-              {pendingCount} receipt{pendingCount === 1 ? " needs" : "s need"} review
-              before {pendingCount === 1 ? "it goes" : "they go"} on the claim.
-              Open {pendingCount === 1 ? "it" : "them"} from{" "}
+              {t.pending(pendingCount)}{" "}
               <Link href="/app" className="underline outline-none focus-visible:outline-2 focus-visible:outline-[var(--ring)]">
-                your receipts
+                {t.openReceipts}
               </Link>
-              .
             </Notice>
           ) : null}
 
@@ -225,26 +213,26 @@ export function ClaimSheet({
                 className="uppercase text-[var(--ink-faint)]"
                 style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", marginBottom: "8px" }}
               >
-                Totals
+                {t.totals}
               </h3>
               <dl className="divide-y divide-[var(--hairline)]">
-                {totals.byType.map((t) => (
-                  <div key={`${t.type}:${t.currency}`} className="flex justify-between gap-4 py-2" style={{ fontSize: "14px" }}>
+                {totals.byType.map((total) => (
+                  <div key={`${total.type}:${total.currency}`} className="flex justify-between gap-4 py-2" style={{ fontSize: "14px" }}>
                     <dt className="text-[var(--ink-muted)]">
-                      {claimTypeLabel(t.type)} × {t.count}
+                      {claimTypeLabel(total.type, locale)} × {total.count}
                     </dt>
                     <dd className="font-mono tabular-nums text-[var(--ink)]">
-                      {formatAmount(t.amount, t.currency)}
+                      {formatAmount(total.amount, total.currency, locale)}
                     </dd>
                   </div>
                 ))}
                 {totals.byCurrency.map((c) => (
                   <div key={c.currency} className="flex justify-between gap-4 py-2">
                     <dt className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "15px" }}>
-                      Total
+                      {t.total}
                     </dt>
                     <dd className="font-mono tabular-nums font-semibold text-[var(--ink)]" style={{ fontSize: "18px" }}>
-                      {formatAmount(c.amount, c.currency)}
+                      {formatAmount(c.amount, c.currency, locale)}
                     </dd>
                   </div>
                 ))}
@@ -261,12 +249,11 @@ export function ClaimSheet({
               disabled={pdfBusy || readyLines.length === 0}
             >
               {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {pdfBusy ? "Preparing the PDF…" : "Download claim PDF"}
+              {pdfBusy ? t.preparingPdf : t.downloadPdf}
             </Button>
             {pdfError ? <Notice>{pdfError}</Notice> : null}
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
-              A summary page, then a copy of every receipt with its number.
-              Keep the paper originals: your employer may still ask for them.
+              {t.pdfHint}
             </p>
           </div>
         </>
@@ -305,14 +292,16 @@ function LineCard({
   onDraft: (key: "place" | "purpose", value: string) => void;
   onCommit: (key: "place" | "purpose") => void;
 }) {
+  const { locale, t: messages } = useI18n();
+  const t = messages.claims;
   const r = line.receipt;
   const id = r.id;
   const total = r.total == null ? null : Number(r.total);
-  const amount = splitFormattedAmount(total, r.currency);
+  const amount = splitFormattedAmount(total, r.currency, locale);
   const errorId = `claim-error-${id}`;
   return (
     <article
-      aria-label={`Line ${line.number}, ${r.merchant_name ?? "receipt"}`}
+      aria-label={t.line(line.number, r.merchant_name ?? t.receipt)}
       className="bg-card"
       style={{
         border: "1px solid var(--hairline)",
@@ -332,10 +321,10 @@ function LineCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display font-bold text-[var(--ink)] truncate" style={{ fontSize: "15px", letterSpacing: "-0.01em" }}>
-            {r.merchant_name ?? "Receipt"}
+            {r.merchant_name ?? t.receipt}
           </p>
           <p className="text-[var(--ink-faint)] tabular-nums" style={{ fontSize: "13px", fontWeight: 500 }}>
-            {claimDayLabel(line.date)}
+            {claimDayLabel(line.date, locale)}
             {line.time ? ` · ${line.time}` : ""}
             {line.ready ? null : (
               <>
@@ -343,7 +332,7 @@ function LineCard({
                   ·
                 </span>
                 <span className="font-accent italic" style={{ color: "var(--attention-mint)", fontWeight: 500 }}>
-                  needs review
+                  {t.needsReview}
                 </span>
               </>
             )}
@@ -360,7 +349,7 @@ function LineCard({
       </div>
 
       <div className="mt-3 divide-y divide-[var(--hairline)]" style={{ borderTop: "1px solid var(--hairline)" }}>
-        <FieldRow label="Type" htmlFor={`type-${id}`} suggested={line.suggested.type}>
+        <FieldRow label={t.type} htmlFor={`type-${id}`} suggested={line.suggested.type}>
           <div className="relative">
             <select
               id={`type-${id}`}
@@ -369,9 +358,9 @@ function LineCard({
               onChange={(e) => onType(e.target.value as ClaimType)}
               aria-describedby={describedBy(line.suggested.type, `type-${id}`, error ? errorId : null)}
             >
-              {CLAIM_TYPES.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
+              {CLAIM_TYPE_KEYS.map((key) => (
+                <option key={key} value={key}>
+                  {claimTypeLabel(key, locale)}
                 </option>
               ))}
             </select>
@@ -381,11 +370,11 @@ function LineCard({
             />
           </div>
         </FieldRow>
-        <FieldRow label="Place" htmlFor={`place-${id}`} suggested={line.suggested.place && drafts.place === undefined}>
+        <FieldRow label={t.place} htmlFor={`place-${id}`} suggested={line.suggested.place && drafts.place === undefined}>
           <input
             id={`place-${id}`}
             className="h-11 w-full bg-transparent text-base md:text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
-            placeholder="Town of the trip"
+            placeholder={t.placePlaceholder}
             maxLength={MAX_CLAIM_PLACE}
             value={drafts.place ?? line.place}
             aria-invalid={error ? true : undefined}
@@ -398,11 +387,11 @@ function LineCard({
             onBlur={() => onCommit("place")}
           />
         </FieldRow>
-        <FieldRow label="Purpose" htmlFor={`purpose-${id}`} suggested={line.suggested.purpose && drafts.purpose === undefined}>
+        <FieldRow label={t.purpose} htmlFor={`purpose-${id}`} suggested={line.suggested.purpose && drafts.purpose === undefined}>
           <input
             id={`purpose-${id}`}
             className="h-11 w-full bg-transparent text-base md:text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
-            placeholder="Meeting, visit, training…"
+            placeholder={t.purposePlaceholder}
             maxLength={MAX_CLAIM_PURPOSE}
             value={drafts.purpose ?? line.purpose}
             aria-invalid={error ? true : undefined}
@@ -437,6 +426,7 @@ function FieldRow({
   suggested: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-2 focus-within:outline-2 focus-within:outline-[var(--ring)] rounded-sm" style={{ minHeight: "44px" }}>
       <label htmlFor={htmlFor} className="shrink-0 text-[var(--ink-muted)]" style={{ width: "72px", fontSize: "14px", fontWeight: 600 }}>
@@ -449,7 +439,7 @@ function FieldRow({
           className="shrink-0 uppercase text-[var(--ink-faint)]"
           style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
         >
-          Suggested
+          {t.claims.suggested}
         </span>
       ) : null}
     </div>

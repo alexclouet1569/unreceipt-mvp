@@ -9,6 +9,8 @@
  */
 
 import type { ReceiptCategory } from "./types";
+import { getMessages } from "./i18n/messages";
+import { INTL_LOCALE, type Locale } from "./i18n/locale";
 
 export type CategoryKey = ReceiptCategory;
 
@@ -89,20 +91,25 @@ export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
 /**
  * Format a money amount with the currency symbol that the founder's
  * Swedish customers will recognise. Falls back to the ISO code if the
- * currency isn't one we've curated.
+ * currency isn't one we've curated. English: "€21.50", "245.00 kr";
+ * French and Swedish write the symbol after a decimal comma: "21,50 €".
  */
 export function formatAmount(
   amount: number | null | undefined,
-  currency: string
+  currency: string,
+  locale: Locale = "en"
 ): string {
   if (amount == null || Number.isNaN(amount)) return "—";
   const symbol = CURRENCY_SYMBOLS[currency as CurrencyCode] ?? currency;
-  const formatted = amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const formatted = amount
+    .toLocaleString(INTL_LOCALE[locale], {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    // fr-FR groups thousands with a narrow no-break space; keep one kind.
+    .replace(/\u202f/g, "\u00a0");
   // Plain-letter symbols (kr) read better as suffix; glyphs as prefix.
-  if (symbol.length > 1) return `${formatted} ${symbol}`;
+  if (locale !== "en" || symbol.length > 1) return `${formatted} ${symbol}`;
   return `${symbol}${formatted}`;
 }
 
@@ -120,19 +127,23 @@ export function formatQty(qty: number): string {
  * Format an ISO date string as `MMM D, YYYY`. Forwarded receipts only
  * carry a day-level granularity, so the time component is dropped.
  */
-export function formatDate(dateStr: string | null | undefined): string {
+export function formatDate(
+  dateStr: string | null | undefined,
+  locale: Locale = "en"
+): string {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(INTL_LOCALE[locale], {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 }
 
-export function categoryLabel(key: string): string {
-  return CATEGORY_CONFIG[key as CategoryKey]?.label ?? "Other";
+export function categoryLabel(key: string, locale: Locale = "en"): string {
+  const labels = getMessages(locale).common.categories;
+  return labels[key as CategoryKey] ?? labels.other;
 }
 
 /**
@@ -142,11 +153,13 @@ export function categoryLabel(key: string): string {
  */
 export function relativeDayGroup(
   dateStr: string | null | undefined,
-  now: Date = new Date()
+  now: Date = new Date(),
+  locale: Locale = "en"
 ): string {
-  if (!dateStr) return "Earlier";
+  const words = getMessages(locale).common.dayGroups;
+  if (!dateStr) return words.earlier;
   const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "Earlier";
+  if (Number.isNaN(d.getTime())) return words.earlier;
 
   const startOfDay = (dt: Date) => {
     const x = new Date(dt);
@@ -158,14 +171,12 @@ export function relativeDayGroup(
   const dayMs = 24 * 60 * 60 * 1000;
   const diffDays = Math.round((today.getTime() - target.getTime()) / dayMs);
 
-  if (diffDays <= 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return "This week";
+  if (diffDays <= 0) return words.today;
+  if (diffDays === 1) return words.yesterday;
+  if (diffDays < 7) return words.thisWeek;
   const sameYear = target.getFullYear() === now.getFullYear();
-  const monthLabel = target.toLocaleDateString("en-US", { month: "long" });
-  return sameYear
-    ? `Earlier in ${monthLabel}`
-    : `Earlier in ${monthLabel} ${target.getFullYear()}`;
+  const monthLabel = target.toLocaleDateString(INTL_LOCALE[locale], { month: "long" });
+  return words.earlierIn(sameYear ? monthLabel : `${monthLabel} ${target.getFullYear()}`);
 }
 
 /**
@@ -174,12 +185,13 @@ export function relativeDayGroup(
  */
 export function splitFormattedAmount(
   amount: number | null | undefined,
-  currency: string
+  currency: string,
+  locale: Locale = "en"
 ): { value: string; suffix: string } {
-  const full = formatAmount(amount, currency);
+  const full = formatAmount(amount, currency, locale);
   if (full === "—") return { value: full, suffix: "" };
   const symbol = CURRENCY_SYMBOLS[currency as CurrencyCode] ?? currency;
-  if (symbol.length > 1) {
+  if (locale !== "en" || symbol.length > 1) {
     // suffix-style: "12.34 kr"
     return { value: full.slice(0, full.length - symbol.length - 1), suffix: symbol };
   }

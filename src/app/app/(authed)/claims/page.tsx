@@ -6,6 +6,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { hasProductAccess } from "@/lib/subscription-gate";
 import { parseClaimMonth, shiftMonth } from "@/lib/claims/claim";
 import { ClaimTooLargeError, loadClaim, type ClaimData } from "@/lib/claims/claim-data";
+import { getI18n } from "@/lib/i18n/server";
 import { ClaimSheet } from "./ClaimSheet";
 
 // Reads the session and the month's receipts on every request.
@@ -24,20 +25,21 @@ export default async function ClaimsPage({ searchParams }: ClaimsPageProps) {
   if (!user) redirect("/app/login");
   if (!(await hasProductAccess(user.id))) redirect("/subscribe");
 
+  const { t } = await getI18n();
   const { month: monthParam } = await searchParams;
   const month = parseClaimMonth(monthParam) ?? currentMonth();
 
   let data: ClaimData | null = null;
-  let loadError: string | null = null;
+  let loadError: "load" | "too_many" | null = null;
   try {
     data = await loadClaim(user.id, month);
   } catch (err) {
     if (err instanceof ClaimTooLargeError) {
-      loadError = "This month has too many receipts to show as one claim.";
+      loadError = "too_many";
     } else {
       Sentry.captureException(err, { tags: { area: "/app/claims load" } });
       console.error("[/app/claims] load failed", err instanceof Error ? err.message : "unknown");
-      loadError = "Couldn't load this month's receipts. Reload the page to try again.";
+      loadError = "load";
     }
   }
 
@@ -47,7 +49,7 @@ export default async function ClaimsPage({ searchParams }: ClaimsPageProps) {
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
           <Link
             href="/app"
-            aria-label="Back to receipts"
+            aria-label={t.common.backToReceipts}
             className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors duration-100 outline-none focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
             style={{ width: "44px", height: "44px", borderRadius: "10px" }}
           >
@@ -57,7 +59,7 @@ export default async function ClaimsPage({ searchParams }: ClaimsPageProps) {
             className="font-display font-bold text-[var(--ink)]"
             style={{ fontSize: "18px", letterSpacing: "-0.01em" }}
           >
-            Expense claim
+            {t.claims.title}
           </h1>
         </div>
       </header>

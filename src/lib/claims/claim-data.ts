@@ -17,7 +17,10 @@ import {
   monthRange,
 } from "@/lib/export/build-export";
 import { ClaimPdf, type ClaimPdfImage } from "@/components/receipt/ClaimPdf";
+import { pdfFilenameSlug } from "@/components/receipt/ReceiptPdf";
+import { getMessages } from "@/lib/i18n/messages";
 import type { Receipt } from "@/lib/types";
+import type { Locale } from "@/lib/i18n/locale";
 import {
   buildClaimLines,
   claimTotals,
@@ -116,14 +119,14 @@ async function loadImages(
         kind: "none",
         reason:
           row?.original_source_kind === "eml" || row?.original_source_kind === "application/pdf"
-            ? "This receipt arrived by email. The original is kept in UnReceipt; print it from there if it must be attached."
-            : "No photo of this receipt.",
+            ? "emailOriginal"
+            : "noPhoto",
       };
       continue;
     }
     const { data, error } = await storage.download(path);
     if (error || !data) {
-      images[line.receipt.id] = { kind: "none", reason: "The photo couldn't be loaded." };
+      images[line.receipt.id] = { kind: "none", reason: "photoFailed" };
       continue;
     }
     const bytes = new Uint8Array(await data.arrayBuffer());
@@ -131,14 +134,14 @@ async function loadImages(
     if (!format) {
       images[line.receipt.id] = {
         kind: "none",
-        reason: "This receipt is a PDF or WebP file, which can't be placed here. It is kept in UnReceipt.",
+        reason: "notEmbeddable",
       };
       continue;
     }
     if (bytes.byteLength > budget) {
       images[line.receipt.id] = {
         kind: "none",
-        reason: "Too many photos for one file. This one is kept in UnReceipt.",
+        reason: "tooManyPhotos",
       };
       continue;
     }
@@ -176,6 +179,7 @@ export async function buildClaimPdf(
   userId: string,
   month: string,
   person: string,
+  locale: Locale = "en",
   now: Date = new Date(),
 ): Promise<ClaimPdfResult> {
   const { lines: allLines, rows } = await loadClaim(userId, month);
@@ -189,6 +193,7 @@ export async function buildClaimPdf(
 
   const pdf = await renderToBuffer(
     createElement(ClaimPdf, {
+      locale,
       month,
       person,
       lines,
@@ -199,7 +204,7 @@ export async function buildClaimPdf(
     }) as never,
   );
 
-  const filename = `expense-claim-${month}.pdf`;
+  const filename = `${pdfFilenameSlug(getMessages(locale).claims.pdf.label)}-${month}.pdf`;
   const path = `${userId}/claim-${month}-${crypto.randomUUID()}.pdf`;
   const admin = getSupabaseAdmin();
   await removePreviousClaims(userId);

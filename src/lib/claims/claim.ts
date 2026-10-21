@@ -19,29 +19,28 @@
  */
 
 import type { ClaimType, Receipt } from "@/lib/types";
+import { getMessages } from "@/lib/i18n/messages";
+import { INTL_LOCALE, type Locale } from "@/lib/i18n/locale";
 
-export const CLAIM_TYPES: ReadonlyArray<{ key: ClaimType; label: string }> = [
-  { key: "lunch", label: "Lunch" },
-  { key: "dinner", label: "Dinner" },
-  { key: "overnight", label: "Overnight stay" },
-  { key: "train", label: "Train" },
-  { key: "parking", label: "Parking" },
-  { key: "toll", label: "Tolls" },
-  { key: "fuel", label: "Fuel" },
-  { key: "taxi", label: "Taxi" },
-  { key: "other", label: "Other" },
-];
-
-export const CLAIM_TYPE_KEYS = CLAIM_TYPES.map((t) => t.key) as [
-  ClaimType,
-  ...ClaimType[],
+/** Every claim type, in the order the form and the totals show them. */
+export const CLAIM_TYPE_KEYS: [ClaimType, ...ClaimType[]] = [
+  "lunch",
+  "dinner",
+  "overnight",
+  "train",
+  "parking",
+  "toll",
+  "fuel",
+  "taxi",
+  "other",
 ];
 
 export const MAX_CLAIM_PLACE = 100;
 export const MAX_CLAIM_PURPOSE = 200;
 
-export function claimTypeLabel(key: ClaimType): string {
-  return CLAIM_TYPES.find((t) => t.key === key)?.label ?? "Other";
+export function claimTypeLabel(key: ClaimType, locale: Locale = "en"): string {
+  const types = getMessages(locale).claims.types;
+  return types[key] ?? types.other;
 }
 
 export type ClaimReceipt = Pick<
@@ -256,7 +255,7 @@ export interface ClaimTotal {
 
 /**
  * Count and amount per expense type and currency, over the lines that are
- * ready, in CLAIM_TYPES order. Amounts in different currencies are never
+ * ready, in CLAIM_TYPE_KEYS order. Amounts in different currencies are never
  * added together.
  */
 export function claimTotals(lines: readonly ClaimLine[]): {
@@ -311,21 +310,23 @@ export function shiftMonth(month: string, delta: number): string {
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }
 
-/** "2026-05" → "May 2026". */
-export function claimMonthLabel(month: string): string {
+/** "2026-05" → "May 2026" / "Mai 2026" / "Maj 2026". */
+export function claimMonthLabel(month: string, locale: Locale = "en"): string {
   const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-US", {
+  const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(INTL_LOCALE[locale], {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+  // French and Swedish month names are lowercase; this is a title.
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-/** "2026-05-06" → "Wed, May 6". */
-export function claimDayLabel(date: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "No date";
+/** "2026-05-06" → "Wed, May 6" / "mer. 6 mai" / "ons 6 maj". */
+export function claimDayLabel(date: string, locale: Locale = "en"): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return getMessages(locale).common.noDate;
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(INTL_LOCALE[locale], {
     weekday: "short",
     month: "short",
     day: "numeric",

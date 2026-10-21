@@ -1,6 +1,7 @@
 /**
- * Marketing-site languages. English lives at `/`, Swedish at `/sv`,
- * French at `/fr`. The product (app.unreceipt.com) is English only for now.
+ * Languages. Marketing site: English at `/`, Swedish at `/sv`, French at
+ * `/fr`. The product (app.unreceipt.com) speaks the same three, chosen per
+ * device (src/lib/i18n).
  *
  * Pure data, safe to import from client components.
  */

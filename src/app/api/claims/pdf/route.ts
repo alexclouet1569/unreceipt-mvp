@@ -18,6 +18,7 @@ import {
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
 import { parseClaimMonth } from "@/lib/claims/claim";
+import { getI18n } from "@/lib/i18n/server";
 import {
   ClaimTooLargeError,
   MAX_CLAIM_RECEIPTS,
@@ -62,20 +63,21 @@ export async function POST(request: NextRequest) {
   const limited = await rateLimit("claimPdf", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
+  const { locale, t } = await getI18n();
   try {
-    const result = await buildClaimPdf(user.id, month, await personName(user.id, user.email));
+    const result = await buildClaimPdf(user.id, month, await personName(user.id, user.email), locale);
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof ClaimTooLargeError) {
       return NextResponse.json(
-        { error: `This month has more than ${MAX_CLAIM_RECEIPTS} receipts, too many for one claim.` },
+        { error: t.claims.pdf.tooManyReceipts(MAX_CLAIM_RECEIPTS) },
         { status: 413 },
       );
     }
     console.error("[/api/claims/pdf] failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "claim-pdf" } });
     return NextResponse.json(
-      { error: "Couldn't create the claim PDF. Please try again." },
+      { error: t.claims.pdfFailed },
       { status: 500 },
     );
   }

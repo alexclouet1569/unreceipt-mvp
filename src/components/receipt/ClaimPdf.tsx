@@ -23,6 +23,8 @@ import {
   type ClaimLine,
   type ClaimTotal,
 } from "@/lib/claims/claim";
+import { getMessages } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import { PdfWordmark, ensureFonts } from "./ReceiptPdf";
 
 const COLOR = {
@@ -137,9 +139,13 @@ const styles = StyleSheet.create({
 
 export type ClaimPdfImage =
   | { kind: "image"; data: Buffer; format: "jpg" | "png" }
-  | { kind: "none"; reason: string };
+  | {
+      kind: "none";
+      reason: "noPhoto" | "emailOriginal" | "notEmbeddable" | "photoFailed" | "tooManyPhotos";
+    };
 
 export type ClaimPdfProps = {
+  locale?: Locale;
   month: string;
   person: string;
   lines: ClaimLine[];
@@ -151,6 +157,7 @@ export type ClaimPdfProps = {
 };
 
 export function ClaimPdf({
+  locale = "en",
   month,
   person,
   lines,
@@ -160,79 +167,77 @@ export function ClaimPdf({
   generatedOn,
 }: ClaimPdfProps) {
   ensureFonts();
+  const t = getMessages(locale).claims;
+  const monthLabel = claimMonthLabel(month, locale);
   const pairs: ClaimLine[][] = [];
   for (let i = 0; i < lines.length; i += 2) pairs.push(lines.slice(i, i + 2));
-  const footer = `Expense claim · ${claimMonthLabel(month)} · ${person}`;
+  const footer = `${t.pdf.label} · ${monthLabel} · ${person}`;
 
   return (
-    <Document title={`Expense claim ${month}`} author="UnReceipt">
+    <Document title={`${t.pdf.label} ${month}`} author="UnReceipt" language={locale}>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
           <PdfWordmark />
-          <Text style={styles.micro}>Expense claim</Text>
+          <Text style={styles.micro}>{t.pdf.label}</Text>
         </View>
-        <Text style={styles.title}>{claimMonthLabel(month)}</Text>
+        <Text style={styles.title}>{monthLabel}</Text>
         <Text style={styles.subtitle}>{person}</Text>
 
         <View style={styles.table}>
           <View style={styles.headRow} fixed>
-            <Text style={[styles.head, styles.cNo]}>No.</Text>
-            <Text style={[styles.head, styles.cDate]}>Date</Text>
-            <Text style={[styles.head, styles.cTime]}>Time</Text>
-            <Text style={[styles.head, styles.cPlace]}>Place</Text>
-            <Text style={[styles.head, styles.cPurpose]}>Purpose</Text>
-            <Text style={[styles.head, styles.cType]}>Type</Text>
-            <Text style={[styles.head, styles.cAmount]}>Amount</Text>
+            <Text style={[styles.head, styles.cNo]}>{t.pdf.no}</Text>
+            <Text style={[styles.head, styles.cDate]}>{t.pdf.date}</Text>
+            <Text style={[styles.head, styles.cTime]}>{t.pdf.time}</Text>
+            <Text style={[styles.head, styles.cPlace]}>{t.pdf.place}</Text>
+            <Text style={[styles.head, styles.cPurpose]}>{t.pdf.purpose}</Text>
+            <Text style={[styles.head, styles.cType]}>{t.pdf.type}</Text>
+            <Text style={[styles.head, styles.cAmount]}>{t.pdf.amount}</Text>
           </View>
           {lines.map((line) => (
             <View key={line.receipt.id} style={styles.row} wrap={false}>
               <Text style={[styles.cNo, styles.amount]}>{line.number}</Text>
-              <Text style={styles.cDate}>{claimDayLabel(line.date)}</Text>
+              <Text style={styles.cDate}>{claimDayLabel(line.date, locale)}</Text>
               <Text style={styles.cTime}>{line.time ?? "—"}</Text>
               <Text style={styles.cPlace}>{line.place || "—"}</Text>
               <Text style={styles.cPurpose}>
                 {line.purpose || "—"}
                 {line.receipt.merchant_name ? `\n${line.receipt.merchant_name}` : ""}
               </Text>
-              <Text style={styles.cType}>{claimTypeLabel(line.type)}</Text>
+              <Text style={styles.cType}>{claimTypeLabel(line.type, locale)}</Text>
               <Text style={[styles.cAmount, styles.amount]}>
-                {formatAmount(numberOrNull(line.receipt.total), line.receipt.currency)}
+                {formatAmount(numberOrNull(line.receipt.total), line.receipt.currency, locale)}
               </Text>
             </View>
           ))}
         </View>
 
         <View style={styles.totals} wrap={false}>
-          {totals.byType.map((t) => (
-            <View key={`${t.type}:${t.currency}`} style={styles.totalRow}>
+          {totals.byType.map((total) => (
+            <View key={`${total.type}:${total.currency}`} style={styles.totalRow}>
               <Text>
-                {claimTypeLabel(t.type)} × {t.count}
+                {claimTypeLabel(total.type, locale)} × {total.count}
               </Text>
-              <Text style={styles.amount}>{formatAmount(t.amount, t.currency)}</Text>
+              <Text style={styles.amount}>{formatAmount(total.amount, total.currency, locale)}</Text>
             </View>
           ))}
           {totals.byCurrency.map((c) => (
             <View key={c.currency} style={styles.grandRow}>
-              <Text style={styles.grand}>Total</Text>
-              <Text style={styles.grand}>{formatAmount(c.amount, c.currency)}</Text>
+              <Text style={styles.grand}>{t.pdf.total}</Text>
+              <Text style={styles.grand}>{formatAmount(c.amount, c.currency, locale)}</Text>
             </View>
           ))}
         </View>
 
         <Text style={styles.note}>
-          {lines.length > 0
-            ? `The ${lines.length} original receipt${lines.length === 1 ? " is" : "s are"} attached, numbered 1 to ${lines.length} as on this page. Copies follow on the next pages.`
-            : "No receipts this month."}
+          {lines.length > 0 ? t.pdf.attached(lines.length) : t.pdf.none}
           {pendingCount > 0 ? (
-            <Text style={styles.attention}>
-              {`\n${pendingCount} receipt${pendingCount === 1 ? " is" : "s are"} still waiting for review in UnReceipt and ${pendingCount === 1 ? "is" : "are"} not on this claim.`}
-            </Text>
+            <Text style={styles.attention}>{`\n${t.pdf.pending(pendingCount)}`}</Text>
           ) : null}
         </Text>
 
         <View style={styles.footer} fixed>
           <Text>{footer}</Text>
-          <Text>{`Made with UnReceipt on ${generatedOn}`}</Text>
+          <Text>{t.pdf.made(generatedOn)}</Text>
         </View>
       </Page>
 
@@ -240,7 +245,7 @@ export function ClaimPdf({
         <Page key={pair[0].receipt.id} size="A4" style={styles.page}>
           <View style={styles.sheetGrid}>
             {pair.map((line) => (
-              <ReceiptCell key={line.receipt.id} line={line} image={images[line.receipt.id]} />
+              <ReceiptCell key={line.receipt.id} line={line} image={images[line.receipt.id]} locale={locale} />
             ))}
             {pair.length === 1 ? <View style={{ flex: 1 }} /> : null}
           </View>
@@ -254,7 +259,16 @@ export function ClaimPdf({
   );
 }
 
-function ReceiptCell({ line, image }: { line: ClaimLine; image: ClaimPdfImage | undefined }) {
+function ReceiptCell({
+  line,
+  image,
+  locale,
+}: {
+  line: ClaimLine;
+  image: ClaimPdfImage | undefined;
+  locale: Locale;
+}) {
+  const t = getMessages(locale).claims;
   const r = line.receipt;
   return (
     <View style={styles.cell}>
@@ -263,9 +277,9 @@ function ReceiptCell({ line, image }: { line: ClaimLine; image: ClaimPdfImage | 
           <Text style={styles.badgeText}>{line.number}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cellTitle}>{r.merchant_name ?? "Receipt"}</Text>
+          <Text style={styles.cellTitle}>{r.merchant_name ?? t.receipt}</Text>
           <Text style={styles.cellMeta}>
-            {`${claimDayLabel(line.date)} · ${claimTypeLabel(line.type)} · ${formatAmount(numberOrNull(r.total), r.currency)}`}
+            {`${claimDayLabel(line.date, locale)} · ${claimTypeLabel(line.type, locale)} · ${formatAmount(numberOrNull(r.total), r.currency, locale)}`}
           </Text>
         </View>
       </View>
@@ -277,7 +291,7 @@ function ReceiptCell({ line, image }: { line: ClaimLine; image: ClaimPdfImage | 
       ) : (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderText}>
-            {image?.reason ?? "No photo of this receipt."}
+            {t.pdf[image?.kind === "none" ? image.reason : "noPhoto"]}
           </Text>
         </View>
       )}
