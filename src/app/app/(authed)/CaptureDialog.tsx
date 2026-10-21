@@ -171,6 +171,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // Line items extracted by OCR, forwarded to /api/capture so the digital
   // receipt renders the full line breakdown.
   const [items, setItems] = useState<OcrItem[] | null>(null);
+  // Time and merchant address read off the photo. Not shown in the form;
+  // saved with the receipt so the expense claim can tell lunch from dinner
+  // and name the town.
+  const [ocrExtras, setOcrExtras] = useState<{ time?: string; address?: string }>({});
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
 
   // Reset everything when the sheet closes so the next open is fresh.
@@ -193,6 +197,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       setTaxAuto(false);
       setShowNotes(false);
       setItems(null);
+      setOcrExtras({});
       setSavedReceipt(null);
     }
   }
@@ -249,6 +254,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
 
   const runOcr = async (file: File) => {
     const run = ++ocrRunRef.current;
+    setOcrExtras({});
     setStage("reading");
     setOcrError(null);
     setOcrFilled(false);
@@ -339,6 +345,16 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (Array.isArray(data.items) && data.items.length > 0) {
         setItems(data.items);
       }
+      setOcrExtras({
+        time:
+          typeof data.receipt_time === "string" && /^([01]?\d|2[0-3]):[0-5]\d$/.test(data.receipt_time.trim())
+            ? data.receipt_time.trim()
+            : undefined,
+        address:
+          typeof data.merchant_address === "string" && data.merchant_address.trim()
+            ? data.merchant_address.trim().slice(0, 300)
+            : undefined,
+      });
     } catch (err) {
       if (run !== ocrRunRef.current) return;
       console.error("[capture] ocr failed:", err);
@@ -389,6 +405,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     setOcrError(null);
     setOcrFilled(false);
     setItems(null);
+    setOcrExtras({});
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -417,6 +434,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (items && items.length > 0) {
         fd.append("items", JSON.stringify(items));
       }
+      if (ocrExtras.time) fd.append("receipt_time", ocrExtras.time);
+      if (ocrExtras.address) fd.append("merchant_address", ocrExtras.address);
 
       const res = await fetch("/api/capture", {
         method: "POST",

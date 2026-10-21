@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
+import { ClipboardList, Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { CaptureFab } from "@/components/CaptureFab";
@@ -149,14 +149,24 @@ export function Dashboard({
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <Wordmark />
-          <Link
-            href="/app/settings"
-            aria-label="Settings"
-            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
-            style={{ width: "44px", height: "44px", borderRadius: "10px" }}
-          >
-            <Settings className="w-5 h-5" />
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/app/claims"
+              aria-label="Expense claim"
+              className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+              style={{ width: "44px", height: "44px", borderRadius: "10px" }}
+            >
+              <ClipboardList className="w-5 h-5" />
+            </Link>
+            <Link
+              href="/app/settings"
+              aria-label="Settings"
+              className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+              style={{ width: "44px", height: "44px", borderRadius: "10px" }}
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
       </header>
 

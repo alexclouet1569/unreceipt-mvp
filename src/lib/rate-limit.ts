@@ -44,6 +44,11 @@ export const RATE_LIMITS = {
     { limit: 10, windowSeconds: 60 * 60 },
     { limit: 30, windowSeconds: 24 * 60 * 60 },
   ],
+  // Each claim PDF downloads the month's photos and writes to storage.
+  claimPdf: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
   // Emails the user their own setup link: a few retries is plenty.
   forwardingLink: [
     { limit: 3, windowSeconds: 60 * 60 },

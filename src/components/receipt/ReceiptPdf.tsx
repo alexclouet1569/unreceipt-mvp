@@ -30,7 +30,7 @@ import type { Receipt } from "@/lib/types";
 // is harmless.
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
 let fontsRegistered = false;
-function ensureFonts() {
+export function ensureFonts() {
   if (fontsRegistered) return;
   Font.register({
     family: "Manrope",
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
 // Wordmark isotype, ported from src/components/brand/Wordmark.tsx so the
 // PDF doesn't depend on rasterising an external SVG. Same path data, same
 // brand-book "light" colour set (green body, navy arrow).
-function PdfWordmark() {
+export function PdfWordmark() {
   return (
     <View style={styles.wordmarkRow}>
       <Svg viewBox="0 0 64 64" width={26} height={26}>

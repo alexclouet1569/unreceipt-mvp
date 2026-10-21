@@ -1074,3 +1074,37 @@ REVOKE INSERT, UPDATE, DELETE ON public.user_email_addresses FROM anon, authenti
 DROP POLICY IF EXISTS "Users can view own email addresses" ON public.user_email_addresses;
 CREATE POLICY "Users can view own email addresses"
   ON public.user_email_addresses FOR SELECT USING ((select auth.uid()) = user_id);
+
+-- =============================================================================
+-- 2026-10-21 — expense claims (notes de frais)
+--
+-- An employee who is reimbursed by their employer copies each receipt into
+-- the employer's own expense system: date, place, purpose and expense type
+-- (lunch, dinner, overnight, train…). /app/claims works these out from the
+-- receipt (time of day, category, merchant address) and the person only
+-- checks them. What they confirm or correct is stored here, per receipt.
+-- NULL means "not set yet": the screen shows its own suggestion instead.
+-- Written only by PATCH /api/receipts/[id]/claim (service role), like every
+-- other receipt column. Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS claim_place TEXT;
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS claim_purpose TEXT;
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS claim_type TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'receipts_claim_fields_check'
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_claim_fields_check CHECK (
+        (claim_place IS NULL OR char_length(claim_place) <= 100)
+        AND (claim_purpose IS NULL OR char_length(claim_purpose) <= 200)
+        AND (claim_type IS NULL OR claim_type IN (
+          'lunch', 'dinner', 'overnight', 'train', 'parking',
+          'toll', 'fuel', 'taxi', 'other'
+        ))
+      );
+  END IF;
+END $$;

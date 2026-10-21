@@ -51,6 +51,12 @@ const CaptureSchema = z
     tax_amount: TaxAmountSchema.optional(),
     tax_rate: TaxRateSchema.optional(),
     payment_method: PaymentMethodSchema.optional(),
+    // Read off the photo by OCR, for expense claims (town).
+    merchant_address: z
+      .string()
+      .trim()
+      .max(300, "The address can be at most 300 characters")
+      .optional(),
   })
   .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
     message: "VAT can't be more than the total",
@@ -105,6 +111,7 @@ export async function POST(request: NextRequest) {
     tax_amount: optionalNumber(form.get("tax_amount")),
     tax_rate: optionalNumber(form.get("tax_rate")),
     payment_method: optionalString(form.get("payment_method")),
+    merchant_address: optionalString(form.get("merchant_address")),
   });
 
   if (!parsed.success) {
@@ -121,6 +128,11 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
+  // Purchase time read by OCR (expense claims tell lunch from dinner by
+  // it). Like OCR line items, an unusable value is dropped, never a reason
+  // to refuse the save.
+  const timeRaw = optionalString(form.get("receipt_time"));
+  const receiptTime = timeRaw && /^([01]?\d|2[0-3]):[0-5]\d$/.test(timeRaw) ? timeRaw : null;
   // Line items extracted by OCR on the client. Optional — manual entries
   // skip this, supermarket scans include the full list. Lines that don't
   // validate are dropped instead of failing the save.
@@ -199,6 +211,8 @@ export async function POST(request: NextRequest) {
       tax_amount: data.tax_amount ?? null,
       tax_rate: data.tax_rate ?? null,
       payment_method: data.payment_method ?? null,
+      receipt_time: receiptTime,
+      merchant_address: data.merchant_address || null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
       items: items ?? null,

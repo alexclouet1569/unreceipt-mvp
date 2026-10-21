@@ -110,9 +110,28 @@ export interface Receipt {
   edited_fields: string[] | null;
   edit_history: EditHistoryEntry[] | null;
 
+  // Expense-claim fields (2026-10-21), set on /app/claims. NULL = not
+  // confirmed yet; the claim screen shows its own suggestion instead.
+  claim_place: string | null;
+  claim_purpose: string | null;
+  claim_type: ClaimType | null;
+
   created_at: string;
   updated_at: string;
 }
+
+// How a receipt is filed on an employer's expense claim (note de frais).
+// Keep in lockstep with receipts_claim_fields_check in supabase/schema.sql.
+export type ClaimType =
+  | "lunch"
+  | "dinner"
+  | "overnight"
+  | "train"
+  | "parking"
+  | "toll"
+  | "fuel"
+  | "taxi"
+  | "other";
 
 export interface EditChange {
   from: unknown;

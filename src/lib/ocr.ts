@@ -21,6 +21,10 @@ export interface OcrResult {
   amount?: number;
   currency?: string;
   receipt_date?: string;
+  // HH:MM as printed, e.g. a restaurant's 12:41 (lunch) or 20:05 (dinner).
+  receipt_time?: string;
+  // The merchant's postal address as printed; the town feeds expense claims.
+  merchant_address?: string;
   category?: string;
   notes?: string;
   tax_amount?: number;
@@ -65,6 +69,8 @@ Extract fields from the user's receipt image and return ONLY valid JSON matching
   "amount": <total paid, NUMBER not string, e.g. 49.50>,
   "currency": "<one of: ${CURRENCY_OPTIONS.join(", ")}>",
   "receipt_date": "YYYY-MM-DD",
+  "receipt_time": "HH:MM",
+  "merchant_address": "<merchant postal address as printed, one line, with postcode and town; omit if not visible>",
   "category": "<one of: ${CATEGORY_KEYS.join(", ")}>",
   "tax_amount": <VAT/MOMS as a number, or omit if not visible>,
   "tax_rate": <VAT percentage as a number 0-100, or omit>,
@@ -84,6 +90,7 @@ Rules:
 - If you cannot determine a field, OMIT it (do not guess and do not put null).
 - If the image is not a receipt, return only: {"not_a_receipt": true}
 - amount is the FINAL TOTAL paid, not subtotal.
+- receipt_time: the purchase time as printed, in 24-hour HH:MM (8:05 PM → 20:05). Omit when the receipt prints no time.
 - currency: infer from currency symbol (€=EUR, kr=SEK, $=USD), or default to SEK for Swedish-looking receipts.
 - category: pick the closest match from the allowed list, default to "other" if unclear.
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.
