@@ -153,7 +153,7 @@ export function Dashboard({
             <Link
               href="/app/claims"
               aria-label="Expense claim"
-              className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+              className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors duration-100 outline-none focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
               style={{ width: "44px", height: "44px", borderRadius: "10px" }}
             >
               <ClipboardList className="w-5 h-5" />
