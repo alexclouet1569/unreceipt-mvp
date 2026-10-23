@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UnReceipt Explainer</title>
+<!--
+  The UnReceipt explainer video, as one deterministic HTML animation.
+  Open it in a browser to preview (space = play/pause, arrows = step).
+  render.mjs seeks it frame by frame and pipes the frames into ffmpeg.
+
+  URL params: ?format=landscape|portrait  &lang=en  &t=12.5 (still frame)
+  Colours, fonts and UI follow DESIGN.md; every claim matches the
+  landing copy (src/app/_landing-copy.ts) — change both together.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@1,400;1,500;1,600&family=Geist+Mono:wght@500;600&family=Manrope:wght@500;600;700;800&display=block">
+<style>
+  /* Layout concept: one stage, two frames. Landscape 1920×1080 (website)
+     puts copy left and the product right; portrait 1080×1350 (LinkedIn)
+     stacks copy over product. Same scenes, same timeline. */
+  :root {
+    --brand: #27BE7B;
+    --brand-deep: #1F9D63;
+    --brand-action: #1A7F52;
+    --brand-tint: #ECF7E7;
+    --surface: #FAFAF7;
+    --card: #FFFFFF;
+    --ink: #303568;
+    --ink-muted: #5A5F7A;
+    --ink-faint: #9CA0B8;
+    --hairline: #E8E5DD;
+    --night: #252850;
+    --slot: #1C1F45;
+    --negative: #C73E4E;
+    --font-sans: "Manrope", system-ui, sans-serif;
+    --font-accent: "Figtree", system-ui, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", monospace;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #12142a; }
+  body { font-family: var(--font-sans); color: var(--ink); -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+  .fmt-landscape { --W: 1920px; --H: 1080px; }
+  .fmt-portrait { --W: 1080px; --H: 1350px; }
+
+  #frame { position: relative; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: var(--W); height: var(--H); overflow: hidden; background: var(--surface); transform-origin: 0 0; }
+  .layer { position: absolute; inset: 0; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .anim { will-change: transform, opacity; }
+  svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+  /* Paper: perforated top (PerfEdge) and torn bottom (.receipt-torn). */
+  .paper { position: relative; background: var(--card); }
+  .perf { height: 12px; background-image: radial-gradient(circle 6px at 12px 6px, var(--holes, var(--surface)) 6px, transparent 6.5px); background-size: 24px 12px; background-repeat: repeat-x; }
+  .torn {
+    -webkit-mask: linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 12px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 22px 12px repeat-x;
+    mask: linear-gradient(#000 0 0) 0 0 / 100% calc(100% - 12px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 22px 12px repeat-x;
+  }
+  .rule { border-top: 2px dashed var(--hairline); margin: 18px 0; }
+  .lead { display: flex; align-items: baseline; gap: 10px; }
+  .lead .l { flex-shrink: 0; font-weight: 600; color: var(--ink-muted); }
+  .lead .dots { flex: 1; min-width: 16px; border-bottom: 2px dotted var(--hairline); transform: translateY(-6px); }
+  .lead .v { flex-shrink: 0; color: var(--ink); }
+
+  /* Wordmark (src/components/brand/Wordmark.tsx). */
+  .wm { display: inline-flex; align-items: center; gap: 0.18em; line-height: 1; }
+  .wm svg { width: 1.25em; height: 1.25em; flex-shrink: 0; overflow: visible; }
+  .wm-text { font-weight: 800; letter-spacing: -0.02em; line-height: 1; white-space: nowrap; display: inline-flex; align-items: baseline; }
+
+  /* Merchant initials badge (src/lib/merchant-display.ts). */
+  .badge { display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; flex-shrink: 0; letter-spacing: 0.01em; }
+
+  /* ── Scene 1: the hook ── */
+  #s1 .hook { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  #s1 h1 { margin: 0; font-weight: 800; letter-spacing: -0.04em; line-height: 0.98; color: var(--ink); }
+  #s1 h1 span { display: block; }
+  #s1 .sub { margin: 0; font-weight: 600; color: var(--ink-muted); line-height: 1.35; text-wrap: balance; }
+  .fmt-landscape #s1 h1 { font-size: 132px; }
+  .fmt-landscape #s1 .sub { font-size: 40px; margin-top: 40px; }
+  .fmt-portrait #s1 h1 { font-size: 112px; }
+  .fmt-portrait #s1 .sub { font-size: 36px; margin-top: 36px; max-width: 800px; }
+  .chaos { position: absolute; left: 0; top: 0; }
+  .mini { width: 150px; padding: 18px 16px 30px; border: 1.5px solid var(--hairline); border-bottom: 0; }
+  .mini b { display: block; height: 10px; border-radius: 5px; background: var(--hairline); margin-top: 10px; }
+  .mini b.s { width: 60%; margin: 0 auto 16px; background: #C9CBDA; }
+  .mini b.t { background: #C9CBDA; width: 70%; margin-left: auto; margin-top: 16px; }
+  .mailchip { display: flex; align-items: center; gap: 16px; padding: 16px 24px 16px 16px; background: var(--card); border: 1.5px solid var(--hairline); border-radius: 18px; white-space: nowrap; }
+  .mailchip .ic { width: 52px; height: 52px; border-radius: 14px; background: var(--brand-tint); color: var(--brand-action); display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  .mailchip .t { font-size: 24px; font-weight: 700; color: var(--ink); }
+  .mailchip .s { font-size: 18px; font-weight: 600; color: var(--ink-faint); margin-top: 4px; }
+  .sheetchip { background: var(--card); border: 1.5px solid var(--hairline); border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: 96px 128px 92px; font-size: 18px; }
+  .sheetchip span { padding: 8px 12px; border-right: 1.5px solid var(--hairline); border-bottom: 1.5px solid var(--hairline); color: var(--ink-muted); font-weight: 600; white-space: nowrap; }
+  .sheetchip span:nth-child(3n) { border-right: 0; }
+  .sheetchip span.h { background: var(--surface); color: var(--ink); font-weight: 700; }
+  .sheetchip span.err { color: var(--negative); font-family: var(--font-mono); font-weight: 600; }
+  .sheetchip span.m { font-family: var(--font-mono); text-align: right; }
+
+  /* ── Brand panels (zigzag edges, like the landing hero) ── */
+  .panel { position: absolute; left: 0; width: 100%; top: -24px; height: calc(var(--H) + 48px);
+    -webkit-mask: conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) 0 0 / 48px 24px repeat-x, linear-gradient(#000 0 0) 0 24px / 100% calc(100% - 48px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 48px 24px repeat-x;
+    mask: conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) 0 0 / 48px 24px repeat-x, linear-gradient(#000 0 0) 0 24px / 100% calc(100% - 48px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / 48px 24px repeat-x; }
+  #green { background: var(--brand); }
+  #navy { background: var(--ink); }
+  .panel .inner { position: absolute; left: 0; right: 0; top: 24px; height: var(--H); }
+  .floaty { position: absolute; color: #fff; opacity: 0.1; }
+  .floaty svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+  #lockup { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .pill { display: inline-flex; align-items: center; gap: 12px; border-radius: 999px; background: rgba(255,255,255,0.16); color: #fff; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+  .fmt-landscape #lockup .pill { font-size: 22px; padding: 12px 26px; margin-bottom: 56px; }
+  .fmt-portrait #lockup .pill { font-size: 20px; padding: 11px 22px; margin-bottom: 48px; }
+  .fmt-landscape #lockup .wm { font-size: 156px; }
+  .fmt-portrait #lockup .wm { font-size: 112px; }
+  #lockup .tagline { margin: 0; color: #fff; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+  .fmt-landscape #lockup .tagline { font-size: 64px; margin-top: 60px; }
+  .fmt-portrait #lockup .tagline { font-size: 54px; margin-top: 52px; max-width: 860px; text-wrap: balance; }
+
+  /* ── Top bar: wordmark + the three steps ── */
+  #topbar .mark { position: absolute; }
+  .fmt-landscape #topbar .mark { left: 120px; top: 58px; font-size: 34px; }
+  .fmt-portrait #topbar .mark { left: 72px; top: 66px; font-size: 32px; }
+  #topbar .steps { position: absolute; display: flex; align-items: center; gap: 16px; margin: 0; padding: 0; list-style: none; white-space: nowrap; }
+  .fmt-landscape #topbar .steps { right: 120px; top: 58px; }
+  .fmt-portrait #topbar .steps { right: 72px; top: 64px; }
+  .steps .st { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; }
+  .steps .n { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; position: relative; }
+  .steps .n i, .steps .l i { position: absolute; inset: 0; font-style: normal; display: flex; align-items: center; }
+  .steps .n i { justify-content: center; border-radius: 50%; }
+  .steps .n .off { border: 2px solid var(--hairline); color: var(--ink-faint); }
+  .steps .n .on { background: var(--brand-action); color: #fff; }
+  .steps .l { position: relative; display: block; }
+  .steps .l i.ghost { position: static; visibility: hidden; }
+  .steps .l .off { color: var(--ink-faint); }
+  .steps .l .on { color: var(--ink); }
+  .steps .bar { width: 44px; height: 2px; background: var(--hairline); }
+  .fmt-portrait .steps .st { font-size: 22px; gap: 10px; }
+  .fmt-portrait .steps .bar { width: 26px; }
+  .fmt-portrait .steps .n { width: 38px; height: 38px; font-size: 18px; }
+
+  /* ── Step copy ── */
+  .copy { position: absolute; display: flex; flex-direction: column; }
+  .fmt-landscape .copy { left: 120px; width: 740px; top: 150px; bottom: 60px; justify-content: center; }
+  .fmt-portrait .copy { left: 72px; right: 72px; top: 170px; height: 300px; justify-content: flex-start; }
+  .copy .eyebrow { margin: 0; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--brand-action); }
+  .copy h2 { margin: 0; font-weight: 800; letter-spacing: -0.035em; line-height: 1.02; color: var(--ink); text-wrap: balance; }
+  .copy .sub { margin: 0; font-weight: 600; line-height: 1.38; color: var(--ink-muted); text-wrap: pretty; }
+  .fmt-landscape .copy .eyebrow { font-size: 24px; margin-bottom: 26px; }
+  .fmt-landscape .copy h2 { font-size: 92px; }
+  .fmt-landscape .copy .sub { font-size: 36px; margin-top: 32px; max-width: 690px; }
+  .fmt-portrait .copy .eyebrow { font-size: 22px; margin-bottom: 20px; }
+  .fmt-portrait .copy h2 { font-size: 70px; }
+  .fmt-portrait .copy .sub { font-size: 32px; margin-top: 22px; }
+
+  /* ── Product visuals ── */
+  .vis { position: absolute; display: flex; align-items: center; justify-content: center; }
+  .fmt-landscape .vis { left: 900px; width: 900px; top: 120px; height: 920px; --vs: 1; }
+  .fmt-portrait .vis { left: 0; width: 1080px; top: 480px; height: 850px; --vs: 0.92; }
+  .fmt-portrait #s3 .vis { --vs: 1.12; }
+  .fmt-portrait #s5 .vis { --vs: 0.96; }
+  .fit { position: relative; transform: scale(var(--vs)); flex-shrink: 0; }
+
+  /* Scene 3: email → forward → inbox card */
+  #s3 .fit { width: 700px; height: 640px; }
+  .mail { position: absolute; left: 0; top: 0; width: 700px; background: var(--card); border: 1.5px solid var(--hairline); border-radius: 26px; overflow: hidden; }
+  .mail-head { display: flex; gap: 20px; align-items: center; padding: 30px 34px 24px; }
+  .mail-head .av { width: 68px; height: 68px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; flex-shrink: 0; }
+  .mail-head .who { flex: 1; min-width: 0; }
+  .mail-head .from { display: flex; justify-content: space-between; align-items: baseline; font-size: 30px; font-weight: 800; color: var(--ink); }
+  .mail-head .time { font-size: 22px; font-weight: 600; color: var(--ink-faint); }
+  .mail-head .subj { font-size: 25px; font-weight: 600; color: var(--ink-muted); margin-top: 6px; }
+  .mail-body { border-top: 1.5px solid var(--hairline); padding: 30px 34px 34px; height: 300px; position: relative; }
+  .mail-body .lbl { font-size: 22px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.1em; }
+  .mail-body .amt { font-size: 72px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); margin-top: 6px; }
+  .mail-body b { display: block; height: 14px; border-radius: 7px; background: var(--hairline); margin-top: 18px; }
+  .mail-actions { display: flex; gap: 16px; padding: 0 34px 32px; }
+  .btn-o { display: inline-flex; align-items: center; gap: 12px; height: 64px; padding: 0 28px; border: 1.5px solid var(--hairline); border-radius: 14px; font-size: 24px; font-weight: 700; color: var(--ink); background: var(--card); }
+  .btn-o svg { font-size: 26px; }
+  .btn-o.fwd { position: relative; }
+  .compose { position: absolute; left: 0; right: 0; bottom: 0; height: 330px; background: var(--card); border-top: 1.5px solid var(--hairline); padding: 22px 34px 30px; }
+  .compose .row { display: flex; align-items: center; gap: 18px; height: 70px; border-bottom: 1.5px solid var(--hairline); font-size: 24px; }
+  .compose .row .k { width: 52px; font-weight: 700; color: var(--ink-faint); }
+  .compose .addr { font-family: var(--font-mono); font-weight: 500; font-size: 25px; color: var(--ink); white-space: nowrap; }
+  .compose .caret { display: inline-block; width: 3px; height: 30px; background: var(--brand-action); vertical-align: -6px; margin-left: 2px; }
+  .compose .fsub { font-weight: 600; color: var(--ink-muted); }
+  .compose .send { position: absolute; right: 34px; bottom: 30px; display: inline-flex; align-items: center; gap: 12px; height: 66px; padding: 0 32px; border-radius: 14px; background: var(--brand-action); color: #fff; font-size: 25px; font-weight: 800; }
+  .inbox { position: absolute; left: 0; top: 230px; width: 700px; }
+  .inbox .lab { font-size: 20px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 16px 6px; }
+
+  /* Receipt list card (src/components/receipt/ReceiptListItem.tsx), video scale. */
+  .rcard { display: flex; align-items: center; gap: 18px; background: var(--card); border: 1.5px solid var(--hairline); border-radius: 18px; padding: 20px 22px; }
+  .rcard .badge { width: 62px; height: 62px; border-radius: 15px; font-size: 22px; }
+  .rcard .mid { flex: 1; min-width: 0; }
+  .rcard .top { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; }
+  .rcard .name { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rcard .amt { font-size: 30px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; }
+  .rcard .amt small { font-size: 18px; color: var(--ink-faint); margin-left: 4px; font-weight: 500; }
+  .rcard .meta { font-size: 20px; font-weight: 500; color: var(--ink-faint); margin-top: 6px; white-space: nowrap; }
+  .rcard .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--brand-tint); color: var(--brand-action); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; vertical-align: 2px; margin-left: 10px; }
+
+  /* Phone */
+  .phone { position: absolute; width: 450px; height: 920px; border-radius: 70px; background: var(--ink); padding: 15px; }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 56px; overflow: hidden; background: var(--surface); }
+  .island { position: absolute; left: 50%; top: 30px; width: 124px; height: 36px; margin-left: -62px; border-radius: 18px; background: var(--ink); z-index: 20; }
+
+  /* Scene 4: camera → reading → check and save */
+  #s4 .fit { width: 450px; height: 920px; }
+  .cam { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 45%, #3a3d58 0%, #22243c 70%, #1a1c31 100%); }
+  .cam .bracket { position: absolute; width: 54px; height: 54px; border: 4px solid rgba(255,255,255,0.85); }
+  .cam .b1 { left: 34px; top: 120px; border-right: 0; border-bottom: 0; border-radius: 14px 0 0 0; }
+  .cam .b2 { right: 34px; top: 120px; border-left: 0; border-bottom: 0; border-radius: 0 14px 0 0; }
+  .cam .b3 { left: 34px; bottom: 170px; border-right: 0; border-top: 0; border-radius: 0 0 0 14px; }
+  .cam .b4 { right: 34px; bottom: 170px; border-left: 0; border-top: 0; border-radius: 0 0 14px 0; }
+  .cam .shutter { position: absolute; left: 50%; bottom: 50px; width: 92px; height: 92px; margin-left: -46px; border-radius: 50%; border: 5px solid #fff; display: flex; align-items: center; justify-content: center; }
+  .cam .shutter i { width: 70px; height: 70px; border-radius: 50%; background: #fff; display: block; }
+  .cam .hint { position: absolute; left: 0; right: 0; top: 76px; text-align: center; color: rgba(255,255,255,0.85); font-size: 20px; font-weight: 700; }
+  .slip { position: absolute; width: 300px; padding: 26px 22px 34px; font-family: var(--font-mono); color: #2b2d3a; font-size: 15px; line-height: 1.5; background: #fff; box-shadow: 0 30px 50px -20px rgba(0,0,0,0.55); }
+  .slip .c { text-align: center; }
+  .slip .store { font-weight: 600; font-size: 21px; letter-spacing: 0.08em; }
+  .slip .r { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
+  .slip .hr { border-top: 2px dashed #b9bac4; margin: 10px 0; }
+  .slip .tot { font-weight: 600; font-size: 18px; }
+  .slip .bars { height: 34px; margin: 14px 18px 0; background: repeating-linear-gradient(90deg, #2b2d3a 0 2px, transparent 2px 5px, #2b2d3a 5px 6px, transparent 6px 9px, #2b2d3a 9px 12px, transparent 12px 14px); }
+  .sheet { position: absolute; inset: 0; background: var(--card); padding: 84px 26px 26px; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; height: 48px; }
+  .sheet-head .tt { position: relative; flex: 1; height: 48px; }
+  .sheet-head .tt span { position: absolute; left: 0; top: 0; line-height: 48px; font-size: 25px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+  .sheet-head .x { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ink-muted); font-size: 26px; }
+  .reading, .review { position: absolute; left: 26px; right: 26px; top: 152px; }
+  .reading .rhead { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+  .reading .thumb { width: 210px; height: 300px; border-radius: 16px; }
+  .reading .thumb .slip { transform: scale(0.66); left: 3px; top: 3px; }
+  .thumb { position: relative; width: 104px; height: 140px; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--hairline); background: #fff; flex-shrink: 0; }
+  .thumb .slip { transform: scale(0.34); transform-origin: 0 0; left: 2px; top: 2px; box-shadow: none; }
+  .thumb .scan { position: absolute; left: 0; right: 0; height: 4px; background: var(--brand); box-shadow: 0 0 16px 4px rgba(39,190,123,0.55); }
+  .status { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700; color: var(--ink); }
+  .status .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--brand); }
+  .sk { height: 22px; border-radius: 8px; background: #EFEDE7; margin-top: 18px; }
+  .review .hero { display: flex; gap: 16px; align-items: flex-start; }
+  .review .hero .thumb { width: 74px; height: 98px; }
+  .review .hero .thumb .slip { transform: scale(0.24); }
+  .review .tp { font-size: 16px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+  .review .tv { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .review .tv .mono { font-size: 42px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); line-height: 1; }
+  .review .cur { height: 40px; padding: 0 12px; border: 1.5px solid var(--hairline); border-radius: 999px; display: flex; align-items: center; font-size: 18px; font-weight: 800; color: var(--ink); }
+  .vatp { margin-top: 20px; background: var(--brand-tint); border-radius: 16px; padding: 16px 18px; display: grid; gap: 10px; font-size: 20px; }
+  .vatp .lead .l { color: var(--ink); }
+  .vatp .lead .dots { border-color: rgba(48,53,104,0.18); }
+  .rows { margin-top: 18px; border: 1.5px solid var(--hairline); border-radius: 16px; overflow: hidden; }
+  .rows .rw { display: flex; align-items: center; height: 60px; padding: 0 18px; border-top: 1.5px solid var(--hairline); font-size: 20px; }
+  .rows .rw:first-child { border-top: 0; }
+  .rows .rw .k { width: 112px; font-weight: 600; color: var(--ink-muted); flex-shrink: 0; }
+  .rows .rw .v { font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .review .note { margin-top: 18px; font-size: 17px; font-weight: 600; color: var(--ink-muted); }
+  .savebtn { margin-top: 14px; height: 64px; border-radius: 14px; background: var(--brand-action); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 10; }
+
+  /* Scene 5: the digital receipt (src/components/receipt/ReceiptDetailCard.tsx) */
+  #s5 .fit { width: 580px; height: 730px; }
+  .dr { position: absolute; left: 0; top: 0; width: 580px; border-left: 1.5px solid var(--hairline); border-right: 1.5px solid var(--hairline); }
+  .dr-body { padding: 16px 34px 40px; }
+  .dr-head { text-align: center; }
+  .dr-head .wm-text { font-size: 32px; }
+  .micro { margin: 10px 0 0; font-size: 17px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+  .dr-m { display: flex; align-items: center; gap: 18px; margin-top: 26px; }
+  .dr-m .badge { width: 66px; height: 66px; border-radius: 16px; font-size: 24px; }
+  .dr-m .nm { font-size: 31px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+  .dr-m .cat { font-size: 20px; font-weight: 600; color: var(--ink-muted); margin-top: 2px; }
+  .dr-when { margin: 16px 0 0; font-size: 18px; font-weight: 600; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .dr-items { display: grid; gap: 10px; font-size: 21px; }
+  .dr-items .q { font-weight: 500; }
+  .dr-total { display: flex; align-items: baseline; gap: 12px; }
+  .dr-total .t { font-size: 22px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+  .dr-total .sp { flex: 1; }
+  .dr-total .mono { font-size: 44px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); }
+  .dr-total small { font-size: 22px; font-weight: 500; color: var(--ink-muted); margin-left: 6px; }
+  .dr-vat { display: grid; gap: 8px; margin-top: 12px; font-size: 21px; }
+  .dr-foot { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .stamp { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px; border: 3px solid var(--brand); border-radius: 9px; color: var(--brand-action); font-size: 25px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+  .stamp svg { stroke-width: 3.2; }
+  .attach { display: inline-flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 700; color: var(--ink-muted); }
+
+  /* Scene 6: inbox + export */
+  #s6 .fit { width: 450px; height: 920px; }
+  .app { padding: 88px 22px 0; }
+  .app-head { display: flex; align-items: center; justify-content: space-between; height: 52px; }
+  .app-head .wm { font-size: 27px; }
+  .iconbtn { width: 46px; height: 46px; border-radius: 12px; border: 1.5px solid var(--hairline); display: flex; align-items: center; justify-content: center; color: var(--ink-muted); font-size: 22px; background: var(--card); }
+  .seg { display: flex; margin-top: 18px; padding: 4px; border-radius: 14px; background: #F1EFE9; }
+  .seg span { flex: 1; height: 46px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: var(--ink-muted); }
+  .seg span.on { background: var(--card); color: var(--ink); border: 1.5px solid var(--hairline); }
+  .grp { margin: 22px 0 10px 4px; font-size: 15px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+  .app .rcard { padding: 14px 16px; gap: 14px; border-radius: 15px; margin-top: 10px; }
+  .app .rcard .badge { width: 50px; height: 50px; border-radius: 12px; font-size: 18px; }
+  .app .rcard .name { font-size: 20px; }
+  .app .rcard .amt { font-size: 22px; }
+  .app .rcard .amt small { font-size: 14px; }
+  .app .rcard .meta { font-size: 16px; margin-top: 4px; }
+  .fab { position: absolute; left: 50%; bottom: 40px; width: 78px; height: 78px; margin-left: -39px; border-radius: 50%; background: var(--brand-action); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 10px 28px -8px rgba(31,157,99,0.5), 0 2px 6px -2px rgba(23,26,46,0.1); }
+  .fab svg { stroke-width: 2.6; }
+  .scrim { position: absolute; inset: 0; background: rgba(48,53,104,0.32); opacity: 0; }
+  .xsheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--card); border-radius: 30px 30px 0 0; padding: 30px 26px 40px; }
+  .xsheet .tt { font-size: 25px; font-weight: 800; color: var(--ink); }
+  .xsheet .st { font-size: 18px; font-weight: 600; color: var(--ink-muted); margin-top: 6px; }
+  .xsheet .seg { margin-top: 20px; }
+  .xsheet .seg span { font-size: 16px; height: 42px; }
+  .files { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+  .files li { display: flex; align-items: center; gap: 14px; height: 48px; font-size: 19px; font-weight: 700; color: var(--ink); }
+  .files li .fi { width: 40px; height: 40px; border-radius: 11px; background: var(--brand-tint); color: var(--brand-action); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .files li .ck { margin-left: auto; color: var(--brand-action); font-size: 22px; }
+  .files li .ck svg { stroke-width: 3; }
+  .dlbtn { margin-top: 18px; height: 64px; border-radius: 14px; background: var(--brand-action); color: #fff; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 21px; font-weight: 800; }
+
+  /* Scene 7: the summary receipt + end card */
+  #s7 { position: absolute; inset: 0; }
+  .s7-copy { position: absolute; display: flex; flex-direction: column; }
+  .fmt-landscape .s7-copy { left: 1000px; width: 800px; top: 0; bottom: 0; justify-content: center; }
+  .fmt-portrait .s7-copy { left: 60px; right: 60px; top: 96px; bottom: 52px; align-items: center; text-align: center; }
+  .s7-copy h2 { margin: 0; color: #fff; font-weight: 800; letter-spacing: -0.035em; line-height: 1.0; }
+  .fmt-landscape .s7-copy h2 { font-size: 108px; }
+  .fmt-portrait .s7-copy h2 { font-size: 74px; }
+  .s7-copy .sub { margin: 0; color: rgba(255,255,255,0.78); font-weight: 600; }
+  .fmt-landscape .s7-copy .sub { font-size: 40px; margin-top: 36px; }
+  .fmt-portrait .s7-copy .sub { font-size: 32px; margin-top: 18px; }
+  .cta { display: flex; align-items: center; gap: 32px; }
+  .fmt-landscape .cta { margin-top: 56px; }
+  .fmt-portrait .cta { position: absolute; left: 0; right: 0; bottom: 0; justify-content: center; }
+  .cta .go { display: inline-flex; align-items: center; gap: 14px; border-radius: 999px; background: var(--brand); color: var(--ink); font-weight: 800; }
+  .fmt-landscape .cta .go { height: 92px; padding: 0 44px; font-size: 36px; }
+  .fmt-portrait .cta .go { height: 80px; padding: 0 36px; font-size: 31px; }
+  .cta .go svg { stroke-width: 2.8; }
+  .cta .url { color: #fff; font-weight: 800; letter-spacing: -0.01em; }
+  .fmt-landscape .cta .url { font-size: 40px; }
+  .fmt-portrait .cta .url { font-size: 34px; }
+  .s7-wrap { position: absolute; }
+  .fmt-landscape .s7-wrap { left: 220px; top: 958px; width: 620px; --rs: 1; }
+  .fmt-portrait .s7-wrap { left: 230px; top: 1124px; width: 620px; --rs: 0.96; }
+  .slot { position: absolute; left: 50%; top: -6px; width: 700px; height: 22px; margin-left: -350px; border-radius: 11px; background: var(--slot); box-shadow: inset 0 3px 0 rgba(0,0,0,0.25), 0 2px 0 rgba(255,255,255,0.06); transform: scale(var(--rs)); }
+  .sum-clip { position: absolute; left: 0; bottom: 0; width: 620px; transform-origin: 50% 100%; }
+  .sum { width: 620px; --holes: var(--ink); }
+  .sum-body { padding: 18px 40px 46px; }
+  .sum .hd { text-align: center; }
+  .sum .hd .wm-text { font-size: 38px; }
+  .sum .rule { margin: 20px 0; }
+  .sum .ln { display: flex; align-items: baseline; gap: 12px; font-size: 26px; height: 46px; }
+  .sum .ln .l { font-weight: 600; color: var(--ink-muted); white-space: nowrap; }
+  .sum .ln .dots { flex: 1; border-bottom: 2px dotted var(--hairline); transform: translateY(-7px); }
+  .sum .ln .ok { color: var(--brand-action); font-size: 28px; display: flex; align-self: center; }
+  .sum .ln .ok svg { stroke-width: 3.2; }
+  .sum .ln .z { font-size: 28px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .sum .ln.total { height: 58px; }
+  .sum .ln.total .l { font-size: 25px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+  .sum .ln.total .z { font-size: 46px; }
+  .sum .ln.total .sp { flex: 1; }
+  .sum .foot { text-align: center; font-family: var(--font-accent); font-style: italic; font-weight: 500; font-size: 26px; color: var(--ink-muted); margin: 0; }
+
+  /* Preview chrome (not rendered into the video). */
+  #controls { position: fixed; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 max(16px, env(safe-area-inset-left, 0px)); background: #0c0e1d; color: #e9e6dc; font: 600 14px/1 system-ui, sans-serif; }
+  #controls button, #controls select { font: inherit; color: inherit; background: #23264a; border: 1px solid #34386a; border-radius: 8px; height: 36px; padding: 0 14px; cursor: pointer; }
+  #controls button:focus-visible, #controls select:focus-visible, #controls input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  #controls input[type=range] { flex: 1; min-width: 0; accent-color: var(--brand); }
+  #controls .time { font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+  .render #controls { display: none; }
+</style>
+</head>
+<body>
+<div id="frame">
+<div id="stage">
+
+  <!-- 1 · Hook -->
+  <section id="s1" class="layer">
+    <div class="chaos anim" data-c="p1"><div class="paper torn mini"><b class="s"></b><b></b><b style="width:80%"></b><b></b><b style="width:55%"></b><b class="t"></b></div></div>
+    <div class="chaos anim" data-c="p2"><div class="paper torn mini"><b class="s"></b><b style="width:70%"></b><b></b><b style="width:85%"></b><b class="t"></b></div></div>
+    <div class="chaos anim" data-c="p3"><div class="paper torn mini"><b class="s"></b><b></b><b style="width:60%"></b><b class="t"></b></div></div>
+    <div class="chaos anim" data-c="p4"><div class="paper torn mini"><b class="s"></b><b style="width:75%"></b><b></b><b style="width:50%"></b><b></b><b class="t"></b></div></div>
+    <div class="chaos anim" data-c="e1"><div class="mailchip"><span class="ic" data-icon="mail"></span><div><div class="t" data-copy="s1.mails.0.t"></div><div class="s" data-copy="s1.mails.0.s"></div></div></div></div>
+    <div class="chaos anim" data-c="e2"><div class="mailchip"><span class="ic" data-icon="mail"></span><div><div class="t" data-copy="s1.mails.1.t"></div><div class="s" data-copy="s1.mails.1.s"></div></div></div></div>
+    <div class="chaos anim" data-c="e3"><div class="mailchip"><span class="ic" data-icon="mail"></span><div><div class="t" data-copy="s1.mails.2.t"></div><div class="s" data-copy="s1.mails.2.s"></div></div></div></div>
+    <div class="chaos anim" data-c="x1"><div class="sheetchip" id="sheetchip"></div></div>
+    <div class="hook">
+      <h1><span class="anim" id="h1a" data-copy="s1.h1"></span><span class="anim" id="h1b" data-copy="s1.h2"></span></h1>
+      <p class="sub anim" id="s1sub" data-copy="s1.sub"></p>
+    </div>
+  </section>
+
+  <!-- 3 · Forward email -->
+  <section id="s3" class="layer">
+    <div class="copy"><p class="eyebrow anim" data-copy="s3.eyebrow"></p><h2 class="anim" data-copy="s3.h"></h2><p class="sub anim" data-copy="s3.sub"></p></div>
+    <div class="vis"><div class="fit">
+      <div class="mail anim">
+        <div class="mail-head">
+          <div class="av">U</div>
+          <div class="who">
+            <div class="from"><span data-copy="s3.from"></span><span class="time" data-copy="s3.time"></span></div>
+            <div class="subj" data-copy="s3.subject"></div>
+          </div>
+        </div>
+        <div class="mail-body">
+          <div class="lbl" data-copy="s3.totalLabel"></div>
+          <div class="amt mono" data-copy="s3.total"></div>
+          <b style="width:86%;margin-top:30px"></b><b style="width:64%"></b><b style="width:74%"></b>
+        </div>
+        <div class="mail-actions">
+          <span class="btn-o"><span data-icon="reply"></span><span data-copy="s3.reply"></span></span>
+          <span class="btn-o fwd anim"><span data-icon="forward"></span><span data-copy="s3.forward"></span></span>
+        </div>
+        <div class="compose anim">
+          <div class="row"><span class="k" data-copy="s3.to"></span><span class="addr"><span id="addr"></span><span class="caret anim"></span></span></div>
+          <div class="row"><span class="k"></span><span class="fsub" data-copy="s3.fwdSubject"></span></div>
+          <span class="send anim"><span data-copy="s3.send"></span><span data-icon="send"></span></span>
+        </div>
+      </div>
+      <div class="inbox anim">
+        <p class="lab" data-copy="s3.inbox"></p>
+        <div class="rcard" data-merchant="Uber"><span class="badge"></span><div class="mid"><div class="top"><span class="name">Uber</span><span class="amt mono"><span data-copy="s3.cardAmount"></span><small>kr</small></span></div><div class="meta"><span data-copy="s3.cardMeta"></span><span class="chip" data-copy="s3.chip"></span></div></div></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- 4 · Snap paper -->
+  <section id="s4" class="layer">
+    <div class="copy"><p class="eyebrow anim" data-copy="s4.eyebrow"></p><h2 class="anim" data-copy="s4.h"></h2><p class="sub anim" data-copy="s4.sub"></p></div>
+    <div class="vis"><div class="fit">
+      <div class="phone anim"><div class="screen">
+        <div class="cam">
+          <div class="hint" data-copy="s4.camHint"></div>
+          <div class="slip anim" id="bigslip" style="left:75px;top:150px"></div>
+          <span class="bracket b1"></span><span class="bracket b2"></span><span class="bracket b3"></span><span class="bracket b4"></span>
+          <div class="shutter"><i class="anim"></i></div>
+        </div>
+        <div class="sheet anim">
+          <div class="sheet-head"><div class="tt"><span class="anim" data-copy="s4.titleReading"></span><span class="anim" data-copy="s4.titleReview"></span></div><span class="x" data-icon="x"></span></div>
+          <div class="reading anim">
+            <div class="rhead">
+              <div class="thumb"><div class="slip slipmini"></div><div class="scan anim"></div></div>
+              <div class="status"><span class="dot anim"></span><span data-copy="s4.reading"></span></div>
+            </div>
+            <div class="sk" style="width:62%;height:44px;margin-top:34px"></div>
+            <div class="sk" style="height:76px;border-radius:16px"></div>
+            <div class="sk" style="width:86%"></div><div class="sk" style="width:72%"></div>
+          </div>
+          <div class="review anim">
+            <div class="hero">
+              <div class="thumb"><div class="slip slipmini"></div></div>
+              <div><div class="tp" data-copy="s4.totalPaid"></div><div class="tv"><span class="mono">1,450.00</span><span class="cur">SEK</span></div></div>
+            </div>
+            <div class="vatp">
+              <div class="lead"><span class="l" data-copy="s4.vat"></span><span class="dots"></span><span class="v mono">290.00 kr</span></div>
+              <div class="lead"><span class="l" data-copy="s4.excl"></span><span class="dots"></span><span class="v mono">1,160.00 kr</span></div>
+            </div>
+            <div class="rows" id="rows"></div>
+            <p class="note" data-copy="s4.note"></p>
+            <div class="savebtn anim" data-copy="s4.save"></div>
+          </div>
+        </div>
+        <div class="flash anim"></div>
+        <div class="island"></div>
+      </div></div>
+    </div></div>
+  </section>
+
+  <!-- 5 · We check -->
+  <section id="s5" class="layer">
+    <div class="copy"><p class="eyebrow anim" data-copy="s5.eyebrow"></p><h2 class="anim" data-copy="s5.h"></h2><p class="sub anim" data-copy="s5.sub"></p></div>
+    <div class="vis"><div class="fit">
+      <article class="dr paper torn anim">
+        <div class="perf"></div>
+        <div class="dr-body">
+          <header class="dr-head"><span class="wm-text"><span style="color:var(--ink)">Un</span><span style="color:var(--brand)">Receipt</span></span><p class="micro" data-copy="s5.digital"></p></header>
+          <div class="dr-m" data-merchant="Clas Ohlson"><span class="badge"></span><div><div class="nm">Clas Ohlson</div><div class="cat" data-copy="s5.category"></div></div></div>
+          <p class="dr-when" data-copy="s5.when"></p>
+          <div class="rule"></div>
+          <div class="dr-items">
+            <div class="lead"><span class="l">Kontorslampa LED</span><span class="dots"></span><span class="v mono">799.00</span></div>
+            <div class="lead"><span class="l">Förlängningskabel 5 m</span><span class="dots"></span><span class="v mono">249.00</span></div>
+            <div class="lead"><span class="l">Whiteboardpennor <span class="q">× 2 @ <span class="mono">89.00 kr</span></span></span><span class="dots"></span><span class="v mono">178.00</span></div>
+            <div class="lead"><span class="l">Batterier AA 24-p</span><span class="dots"></span><span class="v mono">224.00</span></div>
+          </div>
+          <div class="rule"></div>
+          <div class="dr-total"><span class="t" data-copy="s5.total"></span><span class="sp"></span><span class="mono">1,450.00<small>kr</small></span></div>
+          <div class="dr-vat">
+            <div class="lead"><span class="l" data-copy="s5.vat"></span><span class="dots"></span><span class="v mono">290.00 kr</span></div>
+            <div class="lead"><span class="l" data-copy="s5.excl"></span><span class="dots"></span><span class="v mono">1,160.00 kr</span></div>
+          </div>
+          <div class="rule"></div>
+          <footer class="dr-foot"><span class="stamp anim"><span data-icon="check"></span><span data-copy="s5.verified"></span></span><span class="attach"><span data-icon="clip"></span><span data-copy="s5.original"></span></span></footer>
+        </div>
+      </article>
+    </div></div>
+  </section>
+
+  <!-- 6 · Ready for your accountant -->
+  <section id="s6" class="layer">
+    <div class="copy"><p class="eyebrow anim" data-copy="s6.eyebrow"></p><h2 class="anim" data-copy="s6.h"></h2><p class="sub anim" data-copy="s6.sub"></p></div>
+    <div class="vis"><div class="fit">
+      <div class="phone anim"><div class="screen app">
+        <div class="app-head"><span class="wm" data-wordmark="light"></span><span class="iconbtn" data-icon="search"></span></div>
+        <div class="seg"><span class="on" data-copy="s6.byDate"></span><span data-copy="s6.byCategory"></span></div>
+        <div id="inboxlist"></div>
+        <div class="fab" data-icon="plus"></div>
+        <div class="scrim anim"></div>
+        <div class="xsheet anim">
+          <div class="tt" data-copy="s6.exportTitle"></div>
+          <div class="st" data-copy="s6.exportSub"></div>
+          <div class="seg"><span class="on" data-copy="s6.month"></span><span data-copy="s6.year"></span><span data-copy="s6.all"></span></div>
+          <ul class="files">
+            <li><span class="fi" data-icon="sheet"></span><span data-copy="s6.files.0"></span><span class="ck" data-icon="check"></span></li>
+            <li><span class="fi" data-icon="file"></span><span data-copy="s6.files.1"></span><span class="ck" data-icon="check"></span></li>
+            <li><span class="fi" data-icon="image"></span><span data-copy="s6.files.2"></span><span class="ck" data-icon="check"></span></li>
+          </ul>
+          <div class="dlbtn anim"><span data-icon="download"></span><span data-copy="s6.download"></span></div>
+        </div>
+        <div class="island"></div>
+      </div></div>
+    </div></div>
+  </section>
+
+  <!-- Top bar (scenes 3–6) -->
+  <div id="topbar" class="layer">
+    <span class="mark wm anim" data-wordmark="light"></span>
+    <ol class="steps anim" id="steps"></ol>
+  </div>
+
+  <!-- 2 · Brand -->
+  <div id="green" class="panel anim"><div class="inner">
+    <div class="floaty anim" data-f="0" style="left:6%;top:12%;width:96px;height:124px"></div>
+    <div class="floaty anim" data-f="1" style="left:12%;top:66%;width:72px;height:94px"></div>
+    <div class="floaty anim" data-f="2" style="right:8%;top:18%;width:86px;height:112px"></div>
+    <div class="floaty anim" data-f="3" style="right:13%;top:70%;width:62px;height:82px"></div>
+    <div class="floaty anim" data-f="4" style="left:42%;top:84%;width:58px;height:76px"></div>
+    <div id="lockup">
+      <span class="pill anim" data-copy="s2.badge"></span>
+      <span class="wm anim" id="bigmark" data-wordmark="mint"></span>
+      <p class="tagline anim" data-copy="s2.tagline"></p>
+    </div>
+  </div></div>
+
+  <!-- 7 · Summary receipt + end card -->
+  <div id="navy" class="panel anim"><div class="inner">
+    <div id="s7">
+      <div class="s7-copy">
+        <h2 class="anim" data-copy="s7.h"></h2>
+        <p class="sub anim" data-copy="s7.sub"></p>
+        <div class="cta anim"><span class="go"><span data-copy="s7.cta"></span><span data-icon="arrow"></span></span><span class="url" data-copy="s7.url"></span></div>
+      </div>
+      <div class="s7-wrap">
+        <div class="sum-clip anim" style="transform: scale(var(--rs))">
+          <article class="sum paper torn anim" id="sum">
+            <div class="perf"></div>
+            <div class="sum-body">
+              <header class="hd pl"><span class="wm-text"><span style="color:var(--ink)">Un</span><span style="color:var(--brand)">Receipt</span></span><p class="micro" data-copy="s7.title"></p></header>
+              <div class="rule pl"></div>
+              <div id="sumlines"></div>
+              <div class="rule pl"></div>
+              <div class="ln total pl"><span class="l" data-copy="s7.total"></span><span class="sp"></span><span class="z">0</span></div>
+              <div class="rule pl"></div>
+              <p class="foot pl" data-copy="s7.foot"></p>
+            </div>
+          </article>
+        </div>
+        <div class="slot anim"></div>
+      </div>
+    </div>
+  </div></div>
+
+</div>
+</div>
+
+<div id="controls">
+  <button type="button" id="play" aria-label="Play or pause">Pause</button>
+  <input type="range" id="scrub" min="0" max="40" step="0.01" value="0" aria-label="Time">
+  <span class="time" id="clock">0.00 s</span>
+  <select id="fmt" aria-label="Format"><option value="landscape">16:9</option><option value="portrait">4:5</option></select>
+</div>
+
+<script>
+"use strict";
+
+/* ── Words ─────────────────────────────────────────────────────────────
+   Every visible string, per language. Claims mirror the landing copy. */
+const COPY = {
+  en: {
+    s1: {
+      h1: "Still chasing",
+      h2: "receipts?",
+      sub: "Paper in wallets. Emails across inboxes. VAT in spreadsheets.",
+      mails: [
+        { t: "Your receipt from SJ", s: "PDF attached · 3 weeks ago" },
+        { t: "Kvitto från Clas Ohlson", s: "Unread · 5 days ago" },
+        { t: "Your Uber receipt", s: "Filed under Promotions" },
+      ],
+      sheet: ["Date", "Shop", "VAT", "10-03", "SJ", "?", "10-09", "Uber", "#REF!"],
+    },
+    s2: { badge: "Paper is Past", tagline: "One inbox for every receipt." },
+    steps: ["Send", "We check", "Ready"],
+    s3: {
+      eyebrow: "Step 1 · Email",
+      h: "Forward your email receipts",
+      sub: "Your company gets a private UnReceipt address. Forward any receipt to it.",
+      from: "Uber", time: "14:22", subject: "Your Thursday trip with Uber",
+      totalLabel: "Total", total: "189,00 kr",
+      reply: "Reply", forward: "Forward", to: "To", send: "Send",
+      fwdSubject: "Fwd: Your Thursday trip with Uber",
+      address: "receipts+k7m2x9qfha@in.unreceipt.com",
+      inbox: "Your UnReceipt inbox", cardAmount: "189.00", cardMeta: "Transport · just now", chip: "Forwarded",
+    },
+    s4: {
+      eyebrow: "Step 1 · Paper",
+      h: "Or snap a paper receipt",
+      sub: "Take a photo. The fields fill themselves.",
+      camHint: "Fit the whole receipt in the frame",
+      titleReading: "Photograph your receipt", reading: "Reading your receipt…", titleReview: "Check and save",
+      totalPaid: "Total paid", vat: "VAT 25 %", excl: "Excl. VAT",
+      rows: [["Merchant", "Clas Ohlson"], ["Date", "Oct 21, 2026"], ["Category", "Office supplies"], ["Payment", "Card"]],
+      note: "Read from your photo. Tap any value to change it.",
+      save: "Save receipt",
+    },
+    s5: {
+      eyebrow: "Step 2",
+      h: "We check every receipt",
+      sub: "Read, sorted and VAT split out, then checked by our concierge within 24 hours.",
+      digital: "Digital receipt · No. 0412", category: "Office supplies",
+      when: "Oct 21, 2026 · 14:08 · Card •••• 4421",
+      total: "Total", vat: "VAT 25 %", excl: "Excl. VAT", verified: "Verified", original: "Original attached",
+    },
+    s6: {
+      eyebrow: "Step 3",
+      h: "Ready for your accountant",
+      sub: "Every receipt in one place. A PDF of each, or the whole month as a ZIP.",
+      byDate: "By date", byCategory: "By category",
+      groups: { today: "Today", yesterday: "Yesterday", earlier: "Earlier in October" },
+      exportTitle: "Export for your accountant", exportSub: "October 2026 · 5 receipts",
+      month: "Month", year: "Whole year", all: "All receipts",
+      files: ["receipts.csv", "A PDF of every receipt", "Original photos and emails"],
+      download: "Download all receipts (ZIP)",
+    },
+    s7: {
+      h: "Stop chasing receipts.",
+      sub: "Free during the pilot.",
+      cta: "Join the pilot", url: "unreceipt.com",
+      title: "What you get · No. 0001",
+      lines: ["Private receipt address", "Photo capture with auto-fill", "VAT split out", "Checked within 24 hours", "PDF for every receipt", "Stored in the EU"],
+      zero: ["Bank connections needed", "Per-user fees"],
+      total: "Receipts to chase",
+      foot: "Paper is Past.",
+    },
+  },
+};
+
+// Example receipts in the inbox (scene 6). Categories use the app's labels.
+const INBOX = [
+  { g: "today", m: "Clas Ohlson", c: "Office supplies", w: "2h ago", a: "1,450.00" },
+  { g: "today", m: "Uber", c: "Transport", w: "3h ago", a: "189.00" },
+  { g: "yesterday", m: "SJ", c: "Travel", w: "1d ago", a: "895.00" },
+  { g: "yesterday", m: "Spotify", c: "Software & SaaS", w: "1d ago", a: "129.00" },
+  { g: "earlier", m: "Scandic Hotel", c: "Accommodation", w: "Oct 14", a: "1,250.00" },
+];
+
+// The paper receipt in the photo: a Swedish till receipt, 25 % moms.
+const SLIP = `
+  <div class="c store">CLAS OHLSON</div>
+  <div class="c">Stockholm City</div>
+  <div class="c">2026-10-21&nbsp;&nbsp;14:08</div>
+  <div class="hr"></div>
+  <div class="r"><span>Kontorslampa LED</span><span>799,00</span></div>
+  <div class="r"><span>Förlängningskabel</span><span>249,00</span></div>
+  <div class="r"><span>Whiteboardp. 2x89</span><span>178,00</span></div>
+  <div class="r"><span>Batterier AA 24p</span><span>224,00</span></div>
+  <div class="hr"></div>
+  <div class="r tot"><span>TOTALT</span><span>1 450,00</span></div>
+  <div class="r"><span>Moms 25%</span><span>290,00</span></div>
+  <div class="r"><span>Netto</span><span>1 160,00</span></div>
+  <div class="r"><span>Kort **** 4421</span><span>SEK</span></div>
+  <div class="hr"></div>
+  <div class="c">Tack för ditt köp!</div>
+  <div class="bars"></div>`;
+
+/* ── Icons (Lucide shapes, MIT) ── */
+const ICONS = {
+  mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  reply: '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
+  forward: '<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  clip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+  sheet: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
+  receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/>',
+};
+const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+
+/* ── Wordmark (brand book colour sets, see Wordmark.tsx) ── */
+const BRAND = "#27BE7B", INK = "#303568", CREAM = "#FAFAF7";
+const SETS = {
+  light: { fill: BRAND, line: CREAM, arrow: INK, un: INK, re: BRAND },
+  dark: { fill: CREAM, line: BRAND, arrow: BRAND, un: CREAM, re: CREAM },
+  mint: { fill: CREAM, line: BRAND, arrow: INK, un: INK, re: INK },
+};
+function wordmarkHTML(on) {
+  const c = SETS[on];
+  return `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <path class="iso-body" d="M30 14 H56 A2 2 0 0 1 58 16 V49 L55.5 52 L52.5 49 L49.5 52 L46.5 49 L43.5 52 L40.5 49 L37.5 52 L34.5 49 L31.5 52 L30 49 Z" fill="${c.fill}"/>
+    <g class="iso-lines" fill="${c.line}"><rect x="36" y="22" width="14" height="2.6" rx="1.3"/><rect x="33" y="29" width="20" height="2.6" rx="1.3"/><rect x="33" y="36" width="17" height="2.6" rx="1.3"/><rect x="33" y="43" width="14" height="2.6" rx="1.3"/></g>
+    <path class="iso-arc" d="M30 26 A12 12 0 1 1 23 11" stroke="${c.arrow}" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <path class="iso-head" d="M19.5 11 L25.5 7.5 L25.5 14.5 Z" fill="${c.arrow}"/>
+  </svg><span class="wm-text"><span style="color:${c.un}">Un</span><span style="color:${c.re}">Receipt</span></span>`;
+}
+
+/* ── Merchant badge colour, same hash as src/lib/merchant-display.ts ── */
+const PALETTE = ["#1A7F52", "#303568", "#3B5B8C", "#6B4E8C", "#8C4A3B", "#2F6B7A", "#8C6320", "#A0405A", "#5A5F7A"];
+function hash(str) { let h = 0; for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; } return Math.abs(h); }
+function initials(name) {
+  const words = name.trim().split(/\s+/).filter((w) => /\w/.test(w)).slice(0, 2);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+const merchantColor = (name) => PALETTE[hash(name.trim().toLowerCase()) % PALETTE.length];
+
+/* ── Setup ── */
+const params = new URLSearchParams(location.search);
+const FORMAT = params.get("format") === "portrait" ? "portrait" : "landscape";
+const LANG = COPY[params.get("lang")] ? params.get("lang") : "en";
+const RENDER = params.has("render");
+const T = COPY[LANG];
+const DURATION = 40;
+document.body.classList.add(`fmt-${FORMAT}`);
+if (RENDER) document.body.classList.add("render");
+document.documentElement.lang = LANG;
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const get = (path) => path.split(".").reduce((o, k) => (o == null ? o : o[k]), T);
+
+$$("[data-copy]").forEach((el) => { el.textContent = get(el.dataset.copy) ?? ""; });
+$$("[data-icon]").forEach((el) => { el.insertAdjacentHTML("afterbegin", icon(el.dataset.icon)); });
+$$("[data-wordmark]").forEach((el) => { el.innerHTML = wordmarkHTML(el.dataset.wordmark); });
+$$(".slip:not(.slipmini), .slipmini").forEach((el) => { el.innerHTML = SLIP; });
+$$(".floaty").forEach((el) => { el.innerHTML = `<svg viewBox="0 0 24 24">${ICONS.receipt}</svg>`; });
+
+$("#sheetchip").innerHTML = T.s1.sheet.map((v, i) => {
+  const cls = i < 3 ? "h" : v === "#REF!" ? "err" : i % 3 === 2 ? "m" : "";
+  return `<span class="${cls}">${v}</span>`;
+}).join("");
+
+$("#rows").innerHTML = T.s4.rows.map(([k, v]) => `<div class="rw"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+
+$("#steps").innerHTML = T.steps.map((label, i) => `${i ? '<li class="bar"></li>' : ""}<li class="st" data-step="${i}">
+  <span class="n"><i class="off">${i + 1}</i><i class="on">${i + 1}</i></span>
+  <span class="l"><i class="ghost">${label}</i><i class="off">${label}</i><i class="on">${label}</i></span></li>`).join("");
+
+$("#inboxlist").innerHTML = ["today", "yesterday", "earlier"].map((g) =>
+  `<p class="grp">${T.s6.groups[g]}</p>` + INBOX.filter((r) => r.g === g).map((r) =>
+    `<div class="rcard" data-merchant="${r.m}"><span class="badge"></span><div class="mid"><div class="top"><span class="name">${r.m}</span><span class="amt mono">${r.a}<small>kr</small></span></div><div class="meta">${INBOX_META(r)}</div></div></div>`
+  ).join("")
+).join("");
+function INBOX_META(r) { return `${r.c}<span style="margin:0 7px">·</span>${r.w}`; }
+
+$$("[data-merchant]").forEach((el) => {
+  const b = $(".badge", el);
+  b.textContent = initials(el.dataset.merchant);
+  b.style.background = merchantColor(el.dataset.merchant);
+});
+
+$("#sumlines").innerHTML =
+  T.s7.lines.map((l) => `<div class="ln pl"><span class="l">${l}</span><span class="dots"></span><span class="ok">${icon("check")}</span></div>`).join("") +
+  '<div class="rule pl"></div>' +
+  T.s7.zero.map((l) => `<div class="ln pl"><span class="l">${l}</span><span class="dots"></span><span class="z">0</span></div>`).join("");
+
+/* ── Timeline helpers ── */
+function bezier(x1, y1, x2, y2) {
+  // Newton-Raphson solve of a CSS cubic-bezier, good to ~1e-6.
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const sx = (t) => ((ax * t + bx) * t + cx) * t;
+  const sy = (t) => ((ay * t + by) * t + cy) * t;
+  const dx = (t) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const err = sx(t) - x;
+      if (Math.abs(err) < 1e-6) break;
+      const d = dx(t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= err / d;
+    }
+    let lo = 0, hi = 1;
+    if (Math.abs(sx(t) - x) > 1e-5) {
+      t = x;
+      for (let i = 0; i < 30; i++) { const v = sx(t); if (v < x) lo = t; else hi = t; t = (lo + hi) / 2; }
+    }
+    return sy(t);
+  };
+}
+// DESIGN.md motion: entrance spring-out, ease-in exit, gentle overshoot.
+const E = { out: bezier(0.32, 0.72, 0, 1), in: bezier(0.4, 0, 1, 1), pop: bezier(0.34, 1.56, 0.64, 1), io: bezier(0.65, 0, 0.35, 1), lin: (x) => x };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+function put(el, o = 1, x = 0, y = 0, s = 1, r = 0) {
+  if (!el) return;
+  el.style.opacity = o.toFixed(4);
+  el.style.visibility = o < 0.002 ? "hidden" : "visible";
+  el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${s.toFixed(4)}) rotate(${r.toFixed(3)}deg)`;
+}
+// Fade-up in at a, fade-up out at b.
+function inout(t, a, b, rise = 34, dIn = 0.62, dOut = 0.34) {
+  const ki = E.out(prog(t, a, a + dIn));
+  const ko = E.in(prog(t, b, b + dOut));
+  return { o: ki * (1 - ko), y: lerp(rise, 0, ki) - 26 * ko };
+}
+function press(t, at, depth = 0.06, dur = 0.26) {
+  const k = prog(t, at, at + dur);
+  return k <= 0 || k >= 1 ? 1 : 1 - depth * Math.sin(Math.PI * k);
+}
+const P = FORMAT === "portrait";
+
+/* ── Scenes ── */
+const s1 = $("#s1"), s3 = $("#s3"), s4 = $("#s4"), s5 = $("#s5"), s6 = $("#s6");
+const show = (el, on) => { el.style.display = on ? "" : "none"; };
+
+const CHAOS = P
+  ? { p1: [40, 110, -12], p2: [880, 150, 9], p3: [60, 1000, 7], p4: [880, 1010, -8], e1: [150, 300, -2.5], e2: [280, 1190, 2], e3: [250, 860, -3], x1: [560, 104, 3] }
+  : { p1: [150, 120, -12], p2: [1650, 92, 9], p3: [118, 700, 7], p4: [1636, 680, -8], e1: [520, 96, -2.5], e2: [1080, 900, 2], e3: [300, 890, -3], x1: [1180, 150, 3] };
+
+function copyBlock(sec, t, a, b) {
+  const [eb, h, sub] = $$(".copy > *", sec);
+  let k = inout(t, a, b); put(eb, k.o, 0, k.y);
+  k = inout(t, a + 0.1, b); put(h, k.o, 0, k.y);
+  k = inout(t, a + 0.24, b); put(sub, k.o, 0, k.y);
+}
+
+function scene1(t) {
+  show(s1, t < 4.3);
+  if (t >= 4.3) return;
+  const W = P ? 1080 : 1920, H = P ? 1350 : 1080;
+  $$(".chaos", s1).forEach((el, i) => {
+    const [x, y, r] = CHAOS[el.dataset.c];
+    const ph = i * 1.7;
+    const dx = Math.sin(t * 0.9 + ph) * 10, dy = Math.cos(t * 0.7 + ph) * 12, dr = Math.sin(t * 0.6 + ph) * 1.6;
+    // Collected at the end: pulled down into the rising brand panel.
+    const k = E.in(prog(t, 3.05 + (i % 4) * 0.05, 3.75 + (i % 4) * 0.05));
+    const tx = lerp(0, W / 2 - x - 120, k), ty = lerp(0, H + 120 - y, k);
+    put(el, 1 - k * 0.2, x + dx + tx, y + dy + ty, 1 - 0.4 * k, r + dr + k * (i % 2 ? 24 : -24));
+  });
+  const ko = E.in(prog(t, 3.15, 3.5));
+  const ki = E.out(prog(t, 0, 0.9));
+  put($("#h1a"), 1 - ko, 0, -30 * ko, lerp(1.035, 1, ki));
+  put($("#h1b"), 1 - ko, 0, -30 * ko, lerp(1.035, 1, ki));
+  const ks = E.out(prog(t, 0.75, 1.35));
+  put($("#s1sub"), ks * (1 - ko), 0, lerp(26, 0, ks) - 30 * ko);
+}
+
+function brand(t) {
+  const H = P ? 1350 : 1080;
+  const g = $("#green");
+  // Rises from below, covers, then leaves through the top.
+  const kin = E.io(prog(t, 3.4, 4.12)), kout = E.io(prog(t, 6.72, 7.42));
+  const y = lerp(H + 30, 0, kin) - (H + 60) * kout;
+  g.style.transform = `translateY(${y.toFixed(2)}px)`;
+  show(g, t > 3.38 && t < 7.45);
+  if (t <= 3.38 || t >= 7.45) return;
+  $$(".floaty", g).forEach((el, i) => put(el, 1, Math.sin(t * 0.8 + i) * 14, Math.cos(t * 0.6 + i * 2) * 18, 1, Math.sin(t * 0.5 + i) * 8));
+  const mark = $("#bigmark");
+  const kp = E.pop(prog(t, 3.95, 4.5));
+  const svg = $("svg", mark), text = $(".wm-text", mark);
+  svg.style.transformOrigin = "60% 60%";
+  put(svg, prog(t, 3.95, 4.15), 0, 0, lerp(0.4, 1, kp), lerp(-20, 0, kp));
+  const arc = $(".iso-arc", mark);
+  arc.style.strokeDasharray = "58";
+  arc.style.strokeDashoffset = (58 * (1 - E.out(prog(t, 4.1, 4.75)))).toFixed(2);
+  $(".iso-head", mark).style.opacity = prog(t, 4.6, 4.72).toFixed(3);
+  const kt = E.out(prog(t, 4.3, 4.95));
+  text.style.clipPath = `inset(-10% ${(100 - 100 * kt).toFixed(2)}% -20% 0)`;
+  put(text, 1, lerp(-24, 0, kt), 0);
+  put(mark, 1);
+  const kb = E.out(prog(t, 4.75, 5.3));
+  put($("#lockup .pill"), kb, 0, lerp(18, 0, kb));
+  const kg = E.out(prog(t, 4.95, 5.55));
+  put($("#lockup .tagline"), kg, 0, lerp(26, 0, kg));
+}
+
+function topbar(t) {
+  const tb = $("#topbar");
+  show(tb, t > 7.1 && t < 30.6);
+  if (t <= 7.1 || t >= 30.6) return;
+  const k = inout(t, 7.2, 29.95, 0, 0.6, 0.3);
+  put($(".mark", tb), k.o);
+  put($("#steps"), k.o);
+  $$("#steps .st").forEach((st, i) => {
+    // Each step is lit from its scene's start; changes cross-fade over 0.3 s.
+    const at = [7.2, 18.7, 24.3][i], until = [18.7, 24.3, 99][i];
+    const on = prog(t, at, at + 0.3) * (1 - prog(t, until, until + 0.3));
+    $$(".on", st).forEach((el) => { el.style.opacity = on.toFixed(3); });
+    $$(".off", st).forEach((el) => { el.style.opacity = (1 - on).toFixed(3); });
+  });
+}
+
+function scene3(t) {
+  show(s3, t > 7.0 && t < 13.0);
+  if (t <= 7.0 || t >= 13.0) return;
+  copyBlock(s3, t, 7.3, 12.45);
+  const mail = $(".mail", s3), inbox = $(".inbox", s3);
+  // Email in, Forward tapped, address typed, sent, lands in the inbox.
+  const km = E.out(prog(t, 7.2, 7.85));
+  const kfly = E.in(prog(t, 10.45, 10.85));
+  put(mail, km * (1 - kfly), 0, lerp(46, 0, km) + 60 * kfly, 1 - 0.3 * kfly);
+  put($(".fwd", s3), 1, 0, 0, press(t, 8.3));
+  $(".fwd", s3).style.background = t > 8.3 && t < 8.75 ? "var(--brand-tint)" : "";
+  const kc = E.out(prog(t, 8.5, 8.95));
+  put($(".compose", s3), kc, 0, lerp(330, 0, kc));
+  const addr = T.s3.address;
+  const n = Math.round(addr.length * prog(t, 8.95, 10.05));
+  $("#addr").textContent = addr.slice(0, n);
+  const typing = t > 8.95 && t < 10.05;
+  put($(".caret", s3), typing || Math.floor(t * 2) % 2 === 0 ? 1 : 0);
+  put($(".send", s3), 1, 0, 0, press(t, 10.25));
+  $(".send", s3).style.background = t > 10.25 && t < 10.6 ? "#176E47" : "";
+  const ki = E.out(prog(t, 10.82, 11.42));
+  const kout = E.in(prog(t, 12.45, 12.8));
+  put(inbox, ki * (1 - kout), -40 * kout, lerp(-30, 0, ki), lerp(0.94, 1, ki));
+}
+
+function scene4(t) {
+  show(s4, t > 12.6 && t < 18.9);
+  if (t <= 12.6 || t >= 18.9) return;
+  copyBlock(s4, t, 12.85, 18.5);
+  const ph = $(".phone", s4);
+  const ki = E.out(prog(t, 12.7, 13.35)), ko = E.in(prog(t, 18.42, 18.78));
+  put(ph, ki * (1 - ko), 0, lerp(70, 0, ki) + 30 * ko, 1 - 0.04 * ko);
+  // Camera: hand-held drift, shutter at 13.75, flash.
+  put($("#bigslip"), 1, Math.sin(t * 2.1) * 3, Math.cos(t * 1.7) * 4, 1, -3 + Math.sin(t * 1.3) * 0.6);
+  put($(".shutter i", s4), 1, 0, 0, press(t, 13.7, 0.16, 0.3));
+  const fl = t < 13.86 ? prog(t, 13.8, 13.86) : 1 - prog(t, 13.86, 14.25);
+  put($(".flash", s4), fl * 0.92);
+  put($(".sheet", s4), t >= 13.86 ? 1 : 0);
+  // Reading → review: every field fades in together over 480 ms.
+  const kr = prog(t, 15.45, 15.93);
+  put($(".reading", s4), 1 - kr);
+  put($(".review", s4), E.out(kr));
+  const [titleA, titleB] = $$(".sheet-head .tt span", s4);
+  put(titleA, 1 - kr);
+  put(titleB, kr);
+  const scanY = ((t - 13.9) % 1.3) / 1.3;
+  put($(".scan", s4), 1, 0, lerp(-4, 300, E.io(clamp(scanY))));
+  put($(".dot", s4), 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 6)));
+  $$(".sk", s4).forEach((el, i) => { el.style.opacity = (0.65 + 0.35 * Math.sin(t * 4 - i * 0.5)).toFixed(3); });
+  put($(".savebtn", s4), 1, 0, 0, press(t, 18.05, 0.05));
+  $(".savebtn", s4).style.background = t > 18.05 && t < 18.4 ? "#176E47" : "";
+}
+
+function scene5(t) {
+  show(s5, t > 18.6 && t < 24.8);
+  if (t <= 18.6 || t >= 24.8) return;
+  copyBlock(s5, t, 18.85, 24.08);
+  const dr = $(".dr", s5);
+  const kp = E.out(prog(t, 18.75, 20.0));
+  const ko = E.in(prog(t, 24.08, 24.42));
+  // Prints top to bottom, then the VERIFIED stamp lands.
+  dr.style.clipPath = `inset(0 0 ${(100 - 100 * kp).toFixed(2)}% 0)`;
+  const bump = t > 21.3 ? Math.sin(Math.PI * prog(t, 21.3, 21.5)) * 5 : 0;
+  put(dr, prog(t, 18.75, 18.95) * (1 - ko), 0, lerp(30, 0, kp) + bump - 30 * ko);
+  const st = $(".stamp", s5);
+  const ks = E.pop(prog(t, 21.1, 21.55));
+  st.style.transformOrigin = "50% 50%";
+  put(st, prog(t, 21.1, 21.2), 0, 0, lerp(2.1, 1, ks), lerp(-16, -6, ks));
+}
+
+function scene6(t) {
+  show(s6, t > 24.2 && t < 30.7);
+  if (t <= 24.2 || t >= 30.7) return;
+  copyBlock(s6, t, 24.5, 99);
+  const ph = $(".phone", s6);
+  const ki = E.out(prog(t, 24.48, 25.1));
+  put(ph, ki, 0, lerp(70, 0, ki));
+  const kx = E.out(prog(t, 26.55, 27.15));
+  put($(".scrim", s6), kx);
+  put($(".xsheet", s6), 1, 0, lerp(560, 0, kx));
+  put($(".dlbtn", s6), 1, 0, 0, press(t, 28.25, 0.05));
+  $(".dlbtn", s6).style.background = t > 28.25 && t < 28.6 ? "#176E47" : "";
+}
+
+let printed = null; // measured line bottoms of the summary receipt
+function measureSummary() {
+  const sum = $("#sum");
+  const top = sum.getBoundingClientRect().top;
+  const scale = sum.getBoundingClientRect().height / sum.offsetHeight;
+  const lines = $$(".pl", sum).map((el) => (el.getBoundingClientRect().bottom - top) / scale);
+  printed = { lines, full: sum.offsetHeight };
+}
+
+function scene7(t) {
+  const H = P ? 1350 : 1080;
+  const nv = $("#navy");
+  const kin = E.io(prog(t, 29.85, 30.55));
+  nv.style.transform = `translateY(${lerp(H + 30, 0, kin).toFixed(2)}px)`;
+  show(nv, t > 29.83);
+  if (t <= 29.83) return;
+  if (!printed) measureSummary();
+  const [h, sub, cta] = $$(".s7-copy > *");
+  let k = E.out(prog(t, 30.45, 31.1));
+  put(h, k, 0, lerp(34, 0, k));
+  k = E.out(prog(t, 35.9, 36.5));
+  put(sub, k, 0, lerp(26, 0, k));
+  k = E.out(prog(t, 36.15, 36.8));
+  put(cta, k, 0, lerp(26, 0, k));
+  // The receipt prints out of the slot, line by line, then tears off.
+  const { lines, full } = printed;
+  const t0 = 30.9, dt = 0.28;
+  let shown = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const ki = E.out(prog(t, t0 + i * dt, t0 + i * dt + dt * 0.95));
+    const prev = i ? lines[i - 1] : 0;
+    if (ki > 0) shown = lerp(prev, lines[i], ki);
+  }
+  const tEnd = t0 + lines.length * dt;
+  shown = lerp(shown, full, E.out(prog(t, tEnd, tEnd + 0.3)));
+  const tear = E.pop(prog(t, tEnd + 0.35, tEnd + 0.8));
+  const sum = $("#sum");
+  sum.style.clipPath = `inset(0 0 ${(full - shown).toFixed(2)}px 0)`;
+  put(sum, 1, 0, full - shown - 26 * tear);
+  const kslot = E.in(prog(t, tEnd + 0.5, tEnd + 0.9));
+  put($(".slot"), prog(t, 30.4, 30.7) * (1 - kslot), 0, 14 * kslot);
+}
+
+function seek(t) {
+  scene1(t);
+  brand(t);
+  topbar(t);
+  scene3(t);
+  scene4(t);
+  scene5(t);
+  scene6(t);
+  scene7(t);
+}
+
+/* ── Boot ── */
+const stage = $("#stage"), frame = $("#frame");
+const W = P ? 1080 : 1920, Hh = P ? 1350 : 1080;
+function fit() {
+  if (RENDER) { frame.style.width = `${W}px`; frame.style.height = `${Hh}px`; return; }
+  const s = Math.min(innerWidth / W, (innerHeight - 56) / Hh);
+  stage.style.transform = `scale(${s})`;
+  frame.style.width = `${W * s}px`;
+  frame.style.height = `${Hh * s}px`;
+  frame.style.margin = "0 auto";
+}
+fit();
+addEventListener("resize", fit);
+
+window.DURATION = DURATION;
+window.seek = seek;
+const FONTS = ['500 20px "Manrope"', '600 20px "Manrope"', '700 20px "Manrope"', '800 20px "Manrope"', 'italic 500 20px "Figtree"', '500 20px "Geist Mono"', '600 20px "Geist Mono"'];
+window.ready = Promise.all(FONTS.map((f) => document.fonts.load(f).catch(() => null)))
+  .then(() => document.fonts.ready)
+  .then(() => { measureSummary(); seek(Number(params.get("t") || 0)); return true; });
+
+if (!RENDER) {
+  const play = $("#play"), scrub = $("#scrub"), clock = $("#clock"), fmt = $("#fmt");
+  scrub.max = DURATION;
+  fmt.value = FORMAT;
+  fmt.addEventListener("change", () => { params.set("format", fmt.value); location.search = params.toString(); });
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let playing = !reduced && !params.has("t");
+  let t = Number(params.get("t") || (reduced ? 39 : 0));
+  let last = null;
+  const draw = () => { seek(t); scrub.value = t; clock.textContent = `${t.toFixed(2)} s`; play.textContent = playing ? "Pause" : "Play"; };
+  const loop = (now) => {
+    if (playing && last != null) { t += (now - last) / 1000; if (t >= DURATION) t = 0; }
+    last = now;
+    draw();
+    requestAnimationFrame(loop);
+  };
+  window.ready.then(() => requestAnimationFrame(loop));
+  play.addEventListener("click", () => { playing = !playing; });
+  scrub.addEventListener("input", () => { t = Number(scrub.value); playing = false; });
+  addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("#controls") && e.key !== " ") return;
+    if (e.key === " ") { e.preventDefault(); playing = !playing; }
+    if (e.key === "ArrowRight") { t = Math.min(DURATION, t + 1 / 30); playing = false; }
+    if (e.key === "ArrowLeft") { t = Math.max(0, t - 1 / 30); playing = false; }
+  });
+}
+</script>
+</body>
+</html>
