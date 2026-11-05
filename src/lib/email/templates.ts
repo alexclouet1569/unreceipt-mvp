@@ -367,6 +367,60 @@ export function firmInviteEmail(opts: {
   };
 }
 
+/** A client company asks its accountant to take its receipts (2026-11-05). */
+export function clientRequestEmail(opts: { clientName: string; url: string }): EmailContent {
+  const client = opts.clientName.trim() || "A client";
+  const title = `${client} wants to share their receipts with you`;
+  const intro = `${client} uses UnReceipt for their receipts. Accept, and you'll see all of them, checked and ready for your bookkeeping.`;
+  const newHere = "New to UnReceipt? You'll set up your firm first. It's free for accounting firms.";
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    button("Accept", opts.url),
+    paragraph(esc(newHere)),
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout({
+      preheader: `Accept to see ${client}'s receipts.`,
+      bodyHtml,
+      footerHtml: `Sent because ${esc(client)} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
+    }),
+    text: [
+      title,
+      "",
+      intro,
+      "",
+      `Accept: ${opts.url}`,
+      "",
+      newHere,
+      "",
+      `Sent because ${client} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
+    ].join("\n"),
+  };
+}
+
+/** Sent to the client whenever a firm starts seeing their receipts. */
+export function linkConfirmationEmail(opts: { firmName: string; settingsUrl: string }): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const title = `${firm} now sees your receipts`;
+  const intro = `From now on, ${firm} sees all your receipts and does your bookkeeping. If you didn't agree to this, stop sharing in Settings.`;
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    button("Open Settings", opts.settingsUrl),
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout({
+      preheader: intro,
+      bodyHtml,
+      footerHtml: "You get this email whenever someone new can see your receipts.",
+    }),
+    text: [title, "", intro, "", `Settings: ${opts.settingsUrl}`].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {

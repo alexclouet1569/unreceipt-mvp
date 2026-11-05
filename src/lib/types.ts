@@ -130,6 +130,16 @@ export interface Receipt {
   booked_by: string | null;
   booked_ref: string | null;
 
+  // Amount in the organisation's home currency (2026-11-05). `total` stays
+  // the amount on the receipt. fx_source: 'same' (no conversion), 'ecb'
+  // (ECB reference rate of fx_date) or 'manual' (typed from the bank
+  // statement). All null until converted; see src/lib/fx.ts.
+  home_currency: string | null;
+  home_total: number | null;
+  fx_rate: number | null;
+  fx_date: string | null;
+  fx_source: "same" | "ecb" | "manual" | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -243,6 +253,8 @@ export interface Organization {
   name: string;
   // ISO 3166-1 alpha-2, e.g. "SE".
   country: string;
+  // ISO 4217 home currency: totals and exports are in it (2026-11-05).
+  currency: string;
   org_number: string | null;
   default_for_user_id: string | null;
   created_by: string | null;
@@ -287,12 +299,19 @@ export interface FirmMember {
 
 export type FirmClientStatus = "invited" | "active" | "revoked";
 
-// Firm ↔ client company link. organization_id is null until the client
-// accepts; one active firm per organisation during the pilot.
+// Who sent the invite: the firm (to a client's address) or the client
+// company (to its accountant's address). 2026-11-05.
+export type FirmClientDirection = "firm" | "client";
+
+// Firm ↔ client company link, one active firm per organisation.
+// direction 'firm': firm_id set, organization_id null until the client
+// accepts. direction 'client': organization_id set, firm_id null until the
+// accountant accepts. invited_email is always the address that must accept.
 export interface FirmClient {
   id: string;
-  firm_id: string;
+  firm_id: string | null;
   organization_id: string | null;
+  direction: FirmClientDirection;
   status: FirmClientStatus;
   client_name: string;
   client_org_number: string | null;

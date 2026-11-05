@@ -23,7 +23,9 @@ export type OutgoingEmail = {
     | "retention_reminder"
     | "forwarding_setup"
     | "signup_digest"
-    | "firm_invite";
+    | "firm_invite"
+    | "client_request"
+    | "link_confirmation";
 };
 
 export type SendResult =

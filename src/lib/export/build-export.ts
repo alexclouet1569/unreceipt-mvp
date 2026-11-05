@@ -20,6 +20,8 @@ import type { Receipt } from "@/lib/types";
 import { buildReceiptsCsv, receiptDate, type CsvRow } from "./csv";
 import { buildZip, zipSize, type ZipEntry } from "./zip";
 import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
+import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
+import { getDefaultOrganizationId } from "@/lib/organizations";
 
 export const EXPORT_BUCKET = "exports";
 export const PART_TARGET_BYTES = 40 * 1024 * 1024;
@@ -303,8 +305,17 @@ export async function buildExport(opts: ExportOptions): Promise<ExportResult> {
   const { scope, actorUserId, period } = opts;
   const now = opts.now ?? new Date();
   const forFirm = scope.kind === "organization";
-  const receipts = await loadReceipts(scope, period, opts.unexportedOnly === true);
-  if (receipts.length === 0) return { receiptCount: 0, missing: 0, parts: [] };
+  const loaded = await loadReceipts(scope, period, opts.unexportedOnly === true);
+  if (loaded.length === 0) return { receiptCount: 0, missing: 0, parts: [] };
+  // Home-currency amounts for foreign receipts (src/lib/fx.ts), best effort.
+  const receipts = await homeCurrencyOf(
+    scope.kind === "organization" ? scope.organizationId : await getDefaultOrganizationId(scope.userId)
+  )
+    .then((home) => ensureHomeAmounts(loaded, home))
+    .catch((err) => {
+      console.error("[export] currency conversion failed", err);
+      return loaded;
+    });
   // Keep at most one export per actor and scope in storage: each one copies
   // every file, and storage is shared (Supabase Free: 1 GB for everything).
   const key = scopeKey(scope);

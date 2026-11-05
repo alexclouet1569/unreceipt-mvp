@@ -26,6 +26,7 @@ export const TRACKED_EDIT_FIELDS = [
   "seller_org_number",
   "merchant_vat_number",
   "vat_lines",
+  "home_total",
 ] as const;
 export type TrackedEditField = (typeof TRACKED_EDIT_FIELDS)[number];
 
@@ -41,6 +42,7 @@ export const EDIT_FIELD_LABELS: Record<TrackedEditField, string> = {
   seller_org_number: "Seller org.nr",
   merchant_vat_number: "Seller VAT no.",
   vat_lines: "VAT per rate",
+  home_total: "Amount in home currency",
 };
 
 // Enough for any realistic correction trail; keeps the row small.

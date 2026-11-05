@@ -10,6 +10,9 @@ import { basAccountFor, VAT_INPUT_ACCOUNT } from "./bas-map";
 import { INPUT_VAT_CURRENCY } from "./rules";
 import { isSwedishRate, vatLinesFor } from "./vat-lines";
 
+// bookkeeping.csv is the Swedish (BAS) export: its home columns are SEK.
+const HOME = INPUT_VAT_CURRENCY;
+
 export const BOOKKEEPING_COLUMNS = [
   "Date",
   "Receipt ID",
@@ -18,10 +21,18 @@ export const BOOKKEEPING_COLUMNS = [
   "Seller VAT no.",
   "Currency",
   "Total",
+  // Real kronor only: the SEK receipt's own total, or the amount typed
+  // from the bank statement for a foreign one.
   "Total SEK",
+  // A foreign receipt converted at the ECB reference rate: an estimate for
+  // the accountant, never mixed into Total SEK (src/lib/bookkeeping/rules.ts).
+  "Total SEK (ECB estimate)",
+  "SEK rate",
+  // "ECB <date>" or "Entered manually (bank statement)". Empty for SEK.
+  "Rate source",
   "VAT rate %",
-  "Net",
-  "VAT",
+  "Net (receipt currency)",
+  "VAT (receipt currency)",
   "BAS account",
   "BAS account name",
   "VAT account",
@@ -65,9 +76,20 @@ export function buildBookkeepingCsv(rows: BookkeepingRow[]): string {
   const lines = [BOOKKEEPING_COLUMNS.map(csvCell).join(";")];
   for (const { receipt: r, pdfFile, originalFile } of rows) {
     const bas = basAccountFor(r);
-    // No FX in the pilot: a SEK total is the SEK total, anything else is
-    // left for the accountant to convert.
-    const totalSek = r.currency === "SEK" ? csvAmount(r.total) : "";
+    // A SEK receipt is its own SEK total. A foreign one has Total SEK only
+    // when the bank-statement amount was typed in; an ECB conversion goes
+    // in its own estimate column (src/lib/fx.ts).
+    const foreign = r.currency !== HOME && r.home_currency === HOME && r.home_total != null;
+    const manual = foreign && r.fx_source === "manual";
+    const ecb = foreign && r.fx_source === "ecb";
+    const totalSek = r.currency === HOME ? csvAmount(r.total) : manual ? csvAmount(r.home_total) : "";
+    const totalSekEcb = ecb ? csvAmount(r.home_total) : "";
+    const sekRate = (manual || ecb) && r.fx_rate != null ? csvRate(r.fx_rate) : "";
+    const rateSource = manual
+      ? "Entered manually (bank statement)"
+      : ecb
+        ? `ECB ${r.fx_date ?? ""}`.trim()
+        : "";
     for (const line of vatLinesFor(r)) {
       lines.push(
         [
@@ -79,6 +101,9 @@ export function buildBookkeepingCsv(rows: BookkeepingRow[]): string {
           csvCell(r.currency),
           csvAmount(r.total),
           totalSek,
+          totalSekEcb,
+          csvCell(sekRate),
+          csvCell(rateSource),
           csvRate(line.rate),
           csvAmount(line.net),
           csvAmount(line.vat),

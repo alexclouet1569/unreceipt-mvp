@@ -25,6 +25,11 @@ const receipt = (o: Partial<Receipt> = {}): Receipt =>
     bas_account: null,
     exported_at: null,
     booked_ref: null,
+    home_currency: null,
+    home_total: null,
+    fx_rate: null,
+    fx_date: null,
+    fx_source: null,
     created_at: "2026-10-03T13:05:00.000Z",
     ...o,
   }) as Receipt;
@@ -38,7 +43,7 @@ describe("buildBookkeepingCsv", () => {
     const lines = csv.slice(1).trimEnd().split("\r\n");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toBe(
-      "2026-10-03;22222222-2222-4222-8222-222222222222;ICA Maxi;556677-8899;SE556677889901;SEK;181,00;181,00;25;100,00;25,00;5830;Kost och logi;2640;Meals & dining;Card;Ready;;;pdf/a.pdf;originals/a.jpg"
+      "2026-10-03;22222222-2222-4222-8222-222222222222;ICA Maxi;556677-8899;SE556677889901;SEK;181,00;181,00;;;;25;100,00;25,00;5830;Kost och logi;2640;Meals & dining;Card;Ready;;;pdf/a.pdf;originals/a.jpg"
     );
     expect(lines[2]).toContain(";12;50,00;6,00;5830;Kost och logi;2640;");
   });
@@ -60,7 +65,7 @@ describe("buildBookkeepingCsv", () => {
       },
     ]);
     const line = csv.slice(1).trimEnd().split("\r\n")[1];
-    expect(line).toContain(";EUR;80,00;;0;80,00;0,00;5410;;;Meals & dining;");
+    expect(line).toContain(";EUR;80,00;;;;;0;80,00;0,00;5410;;;Meals & dining;");
     expect(line).toContain(";Ready;2026-11-05;V-12;;");
   });
 
@@ -71,8 +76,8 @@ describe("buildBookkeepingCsv", () => {
       { receipt: receipt({ vat_lines: [{ rate: 19, net: 100, vat: 19 }], tax_amount: 19, total: 119 }), pdfFile: null, originalFile: null },
     ]);
     const lines = csv.slice(1).trimEnd().split("\r\n");
-    expect(lines[1]).toContain(";EUR;119,00;;;100,00;19,00;5830;Kost och logi;;");
-    expect(lines[2]).toContain(";SEK;119,00;119,00;19;100,00;19,00;5830;Kost och logi;;");
+    expect(lines[1]).toContain(";EUR;119,00;;;;;;100,00;19,00;5830;Kost och logi;;");
+    expect(lines[2]).toContain(";SEK;119,00;119,00;;;;19;100,00;19,00;5830;Kost och logi;;");
   });
 
   it("books representation on 6072 with no VAT account", () => {
@@ -81,5 +86,44 @@ describe("buildBookkeepingCsv", () => {
     ]);
     const line = csv.slice(1).trimEnd().split("\r\n")[1];
     expect(line).toContain(";12;300,00;36,00;6072;Representation, ej avdragsgill;;Client entertainment;");
+  });
+
+  it("keeps ECB estimates out of Total SEK, and says where each amount came from", () => {
+    const ecb = buildBookkeepingCsv([
+      {
+        receipt: receipt({
+          currency: "EUR",
+          total: 23.4,
+          tax_amount: null,
+          tax_rate: null,
+          home_currency: "SEK",
+          home_total: 267.98,
+          fx_rate: 11.452,
+          fx_date: "2026-11-04",
+          fx_source: "ecb",
+        }),
+        pdfFile: "",
+        originalFile: "",
+      },
+    ]);
+    expect(ecb).toContain(";EUR;23,40;;267,98;11,452;ECB 2026-11-04;");
+    const bank = buildBookkeepingCsv([
+      {
+        receipt: receipt({
+          currency: "EUR",
+          total: 23.4,
+          tax_amount: null,
+          tax_rate: null,
+          home_currency: "SEK",
+          home_total: 270,
+          fx_rate: 11.53846154,
+          fx_date: null,
+          fx_source: "manual",
+        }),
+        pdfFile: "",
+        originalFile: "",
+      },
+    ]);
+    expect(bank).toContain(";EUR;23,40;270,00;;11,53846154;Entered manually (bank statement);");
   });
 });

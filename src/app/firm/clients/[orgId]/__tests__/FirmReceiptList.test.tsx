@@ -56,6 +56,11 @@ const base: Receipt = {
   booked_at: null,
   booked_by: null,
   booked_ref: null,
+  home_currency: null,
+  home_total: null,
+  fx_rate: null,
+  fx_date: null,
+  fx_source: null,
   created_at: "2026-11-02T12:00:00Z",
   updated_at: "2026-11-02T12:00:00Z",
 };

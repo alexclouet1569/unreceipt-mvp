@@ -1,5 +1,7 @@
-// DELETE /api/accountant/link — a client disconnects its accounting firm.
-// The link must be active and belong to one of the caller's organisations.
+// DELETE /api/accountant/link — a client stops sharing with its accounting
+// firm, or withdraws the invite it sent to an accountant. The link must
+// belong to one of the caller's organisations and be active, or be a
+// client-sent invite still waiting.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -45,8 +47,8 @@ export async function DELETE(request: NextRequest) {
     .from("firm_clients")
     .update({ status: "revoked", revoked_at: new Date().toISOString(), invite_token_hash: null })
     .eq("id", parsed.data.linkId)
-    .eq("status", "active")
     .in("organization_id", organizationIds)
+    .or("status.eq.active,and(status.eq.invited,direction.eq.client)")
     .select("id")
     .maybeSingle();
   if (error) {

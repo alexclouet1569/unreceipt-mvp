@@ -22,6 +22,12 @@ vi.mock("@react-pdf/renderer", async (importOriginal) => ({
   renderToBuffer: vi.fn(async () => Buffer.from("%PDF-fake")),
 }));
 
+// Currency conversion has its own tests (src/lib/__tests__/fx.test.ts).
+vi.mock("@/lib/fx", () => ({
+  ensureHomeAmounts: async (rows: unknown[]) => rows,
+  homeCurrencyOf: async () => "SEK",
+}));
+vi.mock("@/lib/organizations", () => ({ getDefaultOrganizationId: async () => "org-1" }));
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => {

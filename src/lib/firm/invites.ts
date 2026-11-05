@@ -28,6 +28,11 @@ export function inviteAcceptPath(token: string): string {
   return `/app/accountant/accept?token=${encodeURIComponent(token)}`;
 }
 
+/** The accountant's side of a client-sent invite (2026-11-05). */
+export function requestAcceptPath(token: string): string {
+  return `/app/firm-request?token=${encodeURIComponent(token)}`;
+}
+
 export function isInviteExpired(expiresAt: string | null, now = new Date()): boolean {
   if (!expiresAt) return true;
   const t = Date.parse(expiresAt);

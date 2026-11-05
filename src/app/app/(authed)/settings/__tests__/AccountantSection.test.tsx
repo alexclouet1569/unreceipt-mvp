@@ -22,7 +22,7 @@ describe("AccountantSection", () => {
 
   it("explains the empty state", () => {
     render(<AccountantSection links={[]} />);
-    expect(screen.getByText(/No accountant yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Invite your accountant/)).toBeInTheDocument();
   });
 
   it("accepts a pending invite through the respond route", async () => {

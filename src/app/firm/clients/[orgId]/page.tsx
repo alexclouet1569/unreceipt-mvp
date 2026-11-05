@@ -4,6 +4,7 @@ import { monthBounds, receiptMonth, resolveMonth } from "@/lib/firm/client-stats
 import type { Receipt } from "@/lib/types";
 import { ClientView } from "../../_views";
 import { notFound } from "next/navigation";
+import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,14 @@ export default async function FirmClientPage({
     throw err;
   }
 
-  const receipts = await loadMonthReceipts(access.organizationId, month);
+  const loaded = await loadMonthReceipts(access.organizationId, month);
+  // The client's own currency next to foreign amounts (src/lib/fx.ts).
+  const receipts = await ensureHomeAmounts(loaded, await homeCurrencyOf(access.organizationId)).catch(
+    (err) => {
+      console.error("[/firm/clients/[orgId]] currency conversion failed", err);
+      return loaded;
+    }
+  );
 
   return (
     <ClientView

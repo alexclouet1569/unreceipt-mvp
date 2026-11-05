@@ -9,6 +9,7 @@ import {
 } from "@/lib/firm/client-stats";
 import type { FirmClient } from "@/lib/types";
 import { ClientsView, type ActiveClient, type PendingInvite } from "../_views";
+import { FirmRequests, type FirmRequest } from "./FirmRequests";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ async function loadClients(firmId: string): Promise<{
   const { data, error } = await getSupabaseAdmin()
     .from("firm_clients")
     .select(
-      "id, organization_id, status, client_name, client_org_number, invited_email, invite_expires_at, created_at"
+      "id, organization_id, status, client_name, client_org_number, invited_email, invite_expires_at, created_at",
     )
     .eq("firm_id", firmId)
     .in("status", ["active", "invited"])
@@ -32,7 +33,7 @@ async function loadClients(firmId: string): Promise<{
   return {
     active: rows.filter(
       (r): r is FirmClient & { organization_id: string } =>
-        r.status === "active" && typeof r.organization_id === "string"
+        r.status === "active" && typeof r.organization_id === "string",
     ),
     pending: rows
       .filter((r) => r.status === "invited")
@@ -45,11 +46,33 @@ async function loadClients(firmId: string): Promise<{
   };
 }
 
+// Client companies that invited the signed-in accountant by this exact,
+// confirmed address (direction 'client'). Only that person may answer.
+async function loadRequests(email: string | null): Promise<FirmRequest[]> {
+  if (!email) return [];
+  const { data, error } = await getSupabaseAdmin()
+    .from("firm_clients")
+    .select("id, client_name")
+    .eq("direction", "client")
+    .eq("status", "invited")
+    .eq("invited_email", email)
+    .gt("invite_expires_at", new Date().toISOString())
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("[/firm/clients] requests load failed", error.code);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    clientName: r.client_name as string,
+  }));
+}
+
 // One query for every active client: receipts in the month (with slack)
 // plus anything created in the last 7 days, aggregated in memory.
 async function loadStats(
   organizationIds: string[],
-  month: string
+  month: string,
 ): Promise<Map<string, ClientStats>> {
   if (organizationIds.length === 0) return new Map();
   const { from, to } = monthBounds(month);
@@ -70,14 +93,20 @@ async function loadStats(
       .gte("created_at", weekAgo),
   ]);
   if (inMonth.error || recent.error) {
-    console.error("[/firm/clients] stats failed", inMonth.error ?? recent.error);
+    console.error(
+      "[/firm/clients] stats failed",
+      inMonth.error ?? recent.error,
+    );
     return new Map();
   }
   // Dedupe by created_at + org (rows have no id in this projection; a
   // receipt both in the month and recent is the same row twice).
   const seen = new Set<string>();
   const rows: StatRow[] = [];
-  for (const r of [...(inMonth.data ?? []), ...(recent.data ?? [])] as StatRow[]) {
+  for (const r of [
+    ...(inMonth.data ?? []),
+    ...(recent.data ?? []),
+  ] as StatRow[]) {
     const key = `${r.organization_id}|${r.created_at}|${r.purchased_at}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -95,22 +124,32 @@ export default async function FirmClientsPage({
   const { month: requested } = await searchParams;
   const month = resolveMonth(requested);
 
-  const { active, pending } = await loadClients(ctx.firmId);
+  const confirmedEmail =
+    typeof ctx.user.email === "string" && ctx.user.email_confirmed_at
+      ? ctx.user.email.trim().toLowerCase()
+      : null;
+  const [{ active, pending }, requests] = await Promise.all([
+    loadClients(ctx.firmId),
+    loadRequests(confirmedEmail),
+  ]);
   const stats = await loadStats(
     active.map((c) => c.organization_id),
-    month
+    month,
   );
 
   return (
-    <ClientsView
-      active={active}
-      pending={pending}
-      stats={stats}
-      month={month}
-      hrefs={{
-        month: (m) => `/firm/clients?month=${m}`,
-        client: (orgId, m) => `/firm/clients/${orgId}?month=${m}`,
-      }}
-    />
+    <>
+      <FirmRequests requests={requests} />
+      <ClientsView
+        active={active}
+        pending={pending}
+        stats={stats}
+        month={month}
+        hrefs={{
+          month: (m) => `/firm/clients?month=${m}`,
+          client: (orgId, m) => `/firm/clients/${orgId}?month=${m}`,
+        }}
+      />
+    </>
   );
 }

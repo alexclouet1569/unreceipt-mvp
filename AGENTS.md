@@ -47,7 +47,12 @@ Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_
 1. Every `/firm` page calls `requireFirmMemberPage()` and every `/api/firm` handler calls `requireFirmMember()` first. The layout check alone is not enough (layouts don't re-run on client navigations).
 2. Any read or write of client data goes through `requireFirmClientAccess(firmId, organizationId)` and is scoped with `.eq("organization_id", <its result>)`. The firm id comes from the session-bound `firm_members` row, never from the request. A client the firm isn't linked to answers 404, like one that doesn't exist.
 3. No subscription gate on `/firm`: firm staff have no plan. When they complete a client's receipt, usage is recorded for the **client**.
-4. Firm staff are created by email (`firm_members.user_id IS NULL`) and claim the row on their first confirmed sign-in; the pilot firm is bootstrapped by hand in the SQL editor (see the 2026-11-04 block in `supabase/schema.sql`).
+4. Firm staff are created by email (`firm_members.user_id IS NULL`) and claim the row on their first confirmed sign-in; the pilot firm was bootstrapped by hand in the SQL editor (see the 2026-11-04 block in `supabase/schema.sql`).
+5. Links go both ways (2026-11-05, `firm_clients.direction`): a firm invites a client (`/api/firm/clients`), or a client invites its accountant (`/api/accountant/invite`). Either side answers only when signed in with the invited, confirmed address — the link token alone is never enough (`/api/accountant/respond`, `/api/firm-request/respond`). An accountant without a firm creates one by accepting a client's invite; its name is checked by `isAcceptableDisplayName()` (`src/lib/firm/names.ts`) because it goes into emails we send. Every new link emails the client a confirmation (`src/lib/firm/link-emails.ts`).
+
+# Currency
+
+Each organisation has a home currency (`organizations.currency`, SEK by default, EUR for FR). A foreign receipt keeps its own `total` and gets `home_total` from the ECB reference rate of the purchase day (`src/lib/fx.ts`, rates cached in `fx_rates`), or the amount typed from the bank statement (`fx_source 'manual'`). Conversion happens on read (`ensureHomeAmounts` in `/app`, the firm's client page and exports); the `receipts_clear_stale_fx` trigger drops a conversion whenever amount, currency or date change, from any writer. bookkeeping.csv keeps real kronor (Total SEK) and ECB estimates (Total SEK (ECB estimate)) in separate columns. Rule values and sources: `src/lib/bookkeeping/rules.ts`.
 
 # Stripe local dev
 

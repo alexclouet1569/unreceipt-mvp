@@ -82,6 +82,11 @@ const sample = (over: Partial<Receipt>): Receipt => ({
   booked_at: null,
   booked_by: null,
   booked_ref: null,
+  home_currency: null,
+  home_total: null,
+  fx_rate: null,
+  fx_date: null,
+  fx_source: null,
   status: "verified",
   original_source_url: null,
   original_source_kind: null,
@@ -138,6 +143,13 @@ const initialReceipts = (): Receipt[] => [
     tax_rate: 10,
     receipt_date: daysAgo(4),
     source: "email",
+    // Sample conversion at an illustrative ECB rate (the real app reads the
+    // day's rate from the ECB, src/lib/fx.ts).
+    home_currency: "SEK",
+    home_total: 267.98,
+    fx_rate: 11.452,
+    fx_date: daysAgo(4),
+    fx_source: "ecb",
   }),
   sample({
     merchant_name: "Scandic Hotels",
@@ -156,6 +168,13 @@ const initialReceipts = (): Receipt[] => [
     tax_amount: 5.86,
     tax_rate: 10,
     receipt_date: daysAgo(11),
+    // Sample conversion at an illustrative ECB rate (the real app reads the
+    // day's rate from the ECB, src/lib/fx.ts).
+    home_currency: "SEK",
+    home_total: 738.65,
+    fx_rate: 11.452,
+    fx_date: daysAgo(11),
+    fx_source: "ecb",
   }),
 ];
 
