@@ -17,6 +17,12 @@
 //   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
 //   7. Run parser. Parser throw → fall back to pending_review (row still
 //      inserted with nullable canonical fields so the user can complete).
+//   7b. An attached PDF or photo (the usual case for a forwarded invoice
+//      or a photographed receipt) is read with Claude OCR instead of the
+//      email text, unless a trusted template already read the mail. The
+//      attachment is then stored as the original, byte for byte, in
+//      place of the .eml; its fields land in Review needed like any
+//      untrusted extraction.
 //   8. Insert row.
 //
 // Provider needs a 2xx to stop retrying. We return 200 even on logical
@@ -44,12 +50,30 @@ import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 import { buildForwardingAddress } from "@/lib/email-alias";
 import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
 import { loadOwnerAddresses } from "@/lib/owner-addresses";
+import { extractAttachments, pickReceiptAttachment, type EmailAttachment } from "@/lib/email/attachments";
+import { extractReceipt } from "@/lib/ocr";
+import { fieldsFromOcr } from "@/lib/receipts/ocr-fields";
+import { countPdfPages, MAX_PDF_PAGES } from "@/lib/receipts/pdf-pages";
+import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Parser can take a few seconds for the LLM extract path (step 5+). Give
-// it room before Resend's own retry kicks in.
-export const maxDuration = 30;
+// Parser can take a few seconds for the LLM extract path (step 5+), and
+// an attachment adds an OCR call. Give it room before Resend's own retry
+// kicks in.
+export const maxDuration = 60;
+
+// The attached PDF or photo the email carries, when one fits the upload
+// rules (type, 4 MB, PDF page cap). Null means "read the text".
+function receiptAttachmentOf(rawEml: Buffer | null): EmailAttachment | null {
+  if (!rawEml || rawEml.length === 0) return null;
+  const picked = pickReceiptAttachment(extractAttachments(rawEml));
+  if (!picked) return null;
+  if (picked.mediaType === "application/pdf" && countPdfPages(picked.bytes) > MAX_PDF_PAGES) {
+    return null;
+  }
+  return picked;
+}
 
 type AddressLike = string | { address?: unknown; name?: unknown };
 
@@ -326,43 +350,82 @@ export async function POST(request: NextRequest) {
     recipient = recipientOwnership(toHeaders, owner);
   }
 
-  // Parse (best-effort). Throw → pending_review.
-  let parseResult: Awaited<ReturnType<typeof parseReceipt>>;
-  try {
-    parseResult = await parseReceipt({
-      kind: "email",
-      raw: {
-        from: fromAddr,
-        to: toAddr,
-        subject,
-        text,
-        html,
-        authenticated: dmarc === "pass",
-        recipient,
-      },
-    });
-  } catch (err) {
-    console.error("[intake/email] parser threw", err);
-    Sentry.captureException(err, { tags: { area: "intake-parse" } });
-    parseResult = { status: "pending_review" };
+  // An attached PDF or photo is the receipt more often than the text is.
+  const attachment = receiptAttachmentOf(hasRaw ? rawEml : null);
+
+  // Parse (best-effort). Throw → pending_review. With an attachment the
+  // text parser runs its templates only; the LLM reads the attachment.
+  const parseText = async (templatesOnly: boolean) => {
+    try {
+      return await parseReceipt({
+        kind: "email",
+        raw: {
+          from: fromAddr,
+          to: toAddr,
+          subject,
+          text,
+          html,
+          authenticated: dmarc === "pass",
+          recipient,
+          templatesOnly,
+        },
+      });
+    } catch (err) {
+      console.error("[intake/email] parser threw", err);
+      Sentry.captureException(err, { tags: { area: "intake-parse" } });
+      return { status: "pending_review" as const };
+    }
+  };
+  let parseResult: Awaited<ReturnType<typeof parseReceipt>> = await parseText(attachment !== null);
+
+  // A trusted template hit (Uber, Stripe) beats the attachment: it is
+  // verified, the attachment never is. Otherwise OCR the attachment, and
+  // if that can't read it, let the LLM read the text after all.
+  const templateTrusted =
+    parseResult.status === "ok" && parseResult.fields.parse_confidence >= 0.75;
+  if (attachment && !templateTrusted) {
+    let fromAttachment: Awaited<ReturnType<typeof parseReceipt>> | null = null;
+    try {
+      const ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType);
+      const fields = fieldsFromOcr(ocr);
+      if (fields) fromAttachment = { status: "ok", fields };
+    } catch (err) {
+      console.error("[intake/email] attachment OCR failed", err instanceof Error ? err.message : "unknown");
+      Sentry.captureException(err, { tags: { area: "intake-attachment-ocr" } });
+    }
+    parseResult = fromAttachment ?? (await parseText(false));
   }
 
   // Generate the receipt id up front so the storage path and the row both
   // reference the same uuid. If the insert later loses an idempotency race
   // (23505 on intake_ref), we best-effort delete the storage object.
   const receiptId = crypto.randomUUID();
-  const storagePath = `${userId}/${receiptId}.eml`;
+  // The original stored for the receipt: the attachment itself when there
+  // is one (what the accountant needs, and what a re-run reads), else the
+  // whole message.
+  const original: { path: string; bytes: Buffer; contentType: string; kind: string } | null =
+    attachment
+      ? {
+          path: `${userId}/${receiptId}.${EXTENSION_BY_TYPE[attachment.mediaType]}`,
+          bytes: attachment.bytes,
+          contentType: attachment.mediaType,
+          kind: attachment.mediaType,
+        }
+      : hasRaw
+        ? { path: `${userId}/${receiptId}.eml`, bytes: rawEml, contentType: "message/rfc822", kind: "eml" }
+        : null;
+  const storagePath = original?.path ?? `${userId}/${receiptId}.eml`;
 
-  if (hasRaw) {
+  if (original) {
     const { error: uploadError } = await supabase.storage
       .from("receipt-originals")
-      .upload(storagePath, rawEml, {
+      .upload(original.path, original.bytes, {
         cacheControl: "3600",
         upsert: false,
-        contentType: "message/rfc822",
+        contentType: original.contentType,
       });
     if (uploadError) {
-      console.error("[intake/email] eml upload failed", uploadError);
+      console.error("[intake/email] original upload failed", uploadError);
       // Soft-fail — keep going, the row is the user-visible artifact.
       // We just won't have an "Original source" toggle for this one.
     }
@@ -374,8 +437,8 @@ export async function POST(request: NextRequest) {
     organization_id: await getOrCreateDefaultOrganization(userId),
     source: "email" as const,
     intake_ref: intakeRef,
-    original_source_url: hasRaw ? storagePath : null,
-    original_source_kind: hasRaw ? ("eml" as const) : null,
+    original_source_url: original ? original.path : null,
+    original_source_kind: original ? (original.kind as "eml" | EmailAttachment["mediaType"]) : null,
     // Capped: a 100 KB subject was stored whole.
     notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
   };
@@ -424,7 +487,7 @@ export async function POST(request: NextRequest) {
     // race. Best-effort delete the orphan blob and return the existing
     // row's id so the provider stops retrying.
     if (insertError && (insertError as { code?: string }).code === "23505") {
-      if (hasRaw) {
+      if (original) {
         await supabase.storage
           .from("receipt-originals")
           .remove([storagePath])
@@ -446,7 +509,7 @@ export async function POST(request: NextRequest) {
       tags: { area: "intake-insert" },
       extra: { code: (insertError as { code?: string } | null)?.code },
     });
-    if (hasRaw) {
+    if (original) {
       await supabase.storage
         .from("receipt-originals")
         .remove([storagePath])

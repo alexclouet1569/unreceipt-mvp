@@ -22,6 +22,9 @@ export type EmailRaw = {
   // one of the user's own inboxes ("personal"), sent straight to their
   // forwarding alias ("alias"), or neither. Absent → "none".
   recipient?: "personal" | "alias" | "none";
+  // Skip the LLM fallback: the caller has a better source (an attached PDF
+  // or photo goes through OCR instead). Templates still run.
+  templatesOnly?: boolean;
 };
 
 export type SmsRaw = {

@@ -324,6 +324,24 @@ describe("parseReceipt — sender trust", () => {
   });
 });
 
+describe("parseReceipt — templatesOnly", () => {
+  it("never calls the LLM when the caller will read an attachment instead", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "kvitto@ica.se",
+        to: "alex+abc@in.unreceipt.com",
+        subject: "Kvitto",
+        text: "Ditt kvitto bifogas som PDF.",
+        html: null,
+        templatesOnly: true,
+      },
+    });
+    expect(result.status).toBe("pending_review");
+    expect(mockLlmExtract).not.toHaveBeenCalled();
+  });
+});
+
 describe("parseReceipt — bookkeeping fields from the LLM", () => {
   it("keeps the seller's identifiers and the VAT split, dropping a malformed line", async () => {
     mockLlmExtract.mockResolvedValue({

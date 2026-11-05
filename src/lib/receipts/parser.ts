@@ -122,6 +122,7 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
     }
     // Partial template hit — feed what we have to the LLM as a hint so
     // the model fills the gaps without re-doing the merchant extraction.
+    if (raw.templatesOnly) return { status: "pending_review" };
     const llmResult = await tryLlm(
       "email",
       emailToText(raw),
@@ -133,7 +134,9 @@ async function parseEmail(raw: EmailRaw): Promise<ParseResult> {
     });
   }
 
-  // 2. No template matched — LLM-extract on the body.
+  // 2. No template matched — LLM-extract on the body, unless the caller
+  // has an attachment to read instead.
+  if (raw.templatesOnly) return { status: "pending_review" };
   const llmResult = await tryLlm("email", emailToText(raw));
   return mergeAndFinalize({}, llmResult, 0, { untrusted: true });
 }
