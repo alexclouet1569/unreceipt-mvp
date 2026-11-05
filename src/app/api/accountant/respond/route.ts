@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     // connected to this company.
     if (acceptError.code === "23505") {
       return NextResponse.json(
-        { error: "Your company is already connected to another accounting firm. Disconnect it in Settings first." },
+        { error: "Your company is already connected to another accounting firm. Stop sharing with it in Settings first." },
         { status: 409 }
       );
     }

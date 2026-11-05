@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
@@ -33,6 +34,8 @@ type DashboardProps = {
   intakeSmsNumber: string | null;
   // First run: no receipts yet and onboarding never finished or skipped.
   showOnboarding?: boolean;
+  // Accounting-firm invites waiting for this user's answer.
+  accountantInvites?: PendingAccountantInvite[];
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -46,6 +49,7 @@ export function Dashboard({
   forwardingEmail,
   intakeSmsNumber,
   showOnboarding = false,
+  accountantInvites = [],
 }: DashboardProps) {
   const [captureOpen, setCaptureOpen] = useState(false);
   // Once started, onboarding stays until finished — even after the first
@@ -175,6 +179,8 @@ export function Dashboard({
             {userEmail}
           </p>
         </div>
+
+        <AccountantInviteNotice invites={accountantInvites} />
 
         {onboardingStep != null ? (
           <FirstRun

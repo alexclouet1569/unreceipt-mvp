@@ -336,29 +336,33 @@ export function firmInviteEmail(opts: {
   url: string;
 }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
-  const intro = `${firm} asked to connect to ${opts.clientName.trim() || "your company"}'s UnReceipt account. Once connected they can see your receipts and originals, fill in the ones that need review, and download a monthly export for your bookkeeping. They can't change your plan or delete anything.`;
-  const newHere =
-    "New to UnReceipt? The same link lets you create your free pilot account first. Receipts you photograph or forward by email are read automatically and land with your accountant without any typing.";
+  const company = opts.clientName.trim() || "your company";
+  const title = `${firm} wants to see your receipts`;
+  const intro = `${firm} asked to see the receipts of ${company} in UnReceipt. Say yes, and they see all your receipts, old and new, and can fill in missing details for your bookkeeping. New receipts reach them automatically. No more sending them by hand.`;
+  const safety = "They can't delete anything, and you can stop sharing any time.";
+  const newHere = "New to UnReceipt? You'll create a free account first. It takes a minute.";
   const bodyHtml = [
-    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(firm)} wants to handle your receipts in UnReceipt</h1>`,
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
     paragraph(esc(intro)),
-    button(`Connect ${firm}`, opts.url),
+    button("Yes, share my receipts", opts.url),
+    paragraph(esc(safety)),
     paragraph(esc(newHere)),
   ].join("\n");
   return {
-    subject: `${firm} wants to handle your receipts in UnReceipt`,
+    subject: title,
     html: layout({
-      preheader: `Connect ${firm} to your receipts.`,
+      preheader: `Say yes and your receipts go to ${firm} automatically.`,
       bodyHtml,
       footerHtml: `Sent because ${esc(firm)} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
     }),
     text: [
-      `${firm} wants to handle your receipts in UnReceipt`,
+      title,
       "",
       intro,
       "",
-      `Connect ${firm}: ${opts.url}`,
+      `Yes, share my receipts: ${opts.url}`,
       "",
+      safety,
       newHere,
       "",
       `Sent because ${firm} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,

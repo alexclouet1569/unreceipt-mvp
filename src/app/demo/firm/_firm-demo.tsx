@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ClientsView, ClientView, FirmShell, SettingsView, type ActiveClient, type PendingInvite } from "@/app/firm/_views";
 import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
 import { AccountantSection, type AccountantLink } from "@/app/app/(authed)/settings/AccountantSection";
+import { AccountantInviteNotice } from "@/components/AccountantInviteNotice";
 import type { MemberView } from "@/app/firm/settings/MembersSection";
 import { computeClientStats, monthKey, receiptMonth, resolveMonth, type StatRow } from "@/lib/firm/client-stats";
 import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
@@ -393,9 +394,11 @@ export function FirmDemo({ params }: { params: DemoParams }) {
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [members, setMembers] = useState<MemberView[]>(initialMembers);
   const [notice, setNotice] = useState<string | null>(null);
-  // Answered on this visit: keep the card's own "Connected" message, like
-  // the real page does after Connect.
-  const [answered, setAnswered] = useState(false);
+  // Where the client answered on this visit, so that place keeps its own
+  // confirmation (like the real pages, which don't reload after answering).
+  const [answeredVia, setAnsweredVia] = useState<"page" | "notice" | "settings" | null>(null);
+  // Which panel the last click came from; read by the respond stub.
+  const clickedIn = useRef<"page" | "notice" | "settings">("settings");
 
   // Latest data for the fetch stub, which is installed once.
   const state = useRef({ receipts, clients });
@@ -556,7 +559,7 @@ export function FirmDemo({ params }: { params: DemoParams }) {
       if (path === "/api/accountant/respond" && method === "POST") {
         const next = body.action === "accept" ? "active" : "revoked";
         setClients((prev) => prev.map((c) => (c.id === body.inviteId ? { ...c, status: next } : c)));
-        setAnswered(true);
+        setAnsweredVia(clickedIn.current);
         return json({ ok: true, status: next });
       }
       if (path === "/api/accountant/link" && method === "DELETE") {
@@ -655,24 +658,36 @@ export function FirmDemo({ params }: { params: DemoParams }) {
             />
           </section>
           <div className="space-y-8">
-            <section className="space-y-3" aria-labelledby="demo-accept">
+            <section className="space-y-3" aria-labelledby="demo-accept" onClickCapture={() => (clickedIn.current = "page")}>
               <h2 id="demo-accept" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-                2 · The page the button opens
+                2 · The page the email button opens
               </h2>
               <InviteCard
-                invite={{ id: nd.id, firmName: FIRM, clientName: nd.client_name, state: nd.status === "invited" || answered ? "open" : "used" }}
+                invite={{ id: nd.id, firmName: FIRM, clientName: nd.client_name, state: nd.status === "invited" || answeredVia === "page" ? "open" : "used" }}
                 token="demo"
                 email={CLIENT_EMAIL}
               />
             </section>
-            <section className="space-y-3" aria-labelledby="demo-settings">
+            <section className="space-y-3" aria-labelledby="demo-notice" onClickCapture={() => (clickedIn.current = "notice")}>
+              <h2 id="demo-notice" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
+                3 · Or, when she opens UnReceipt
+              </h2>
+              {nd.status === "invited" || answeredVia === "notice" ? (
+                <AccountantInviteNotice invites={[{ id: nd.id, firmName: FIRM }]} />
+              ) : (
+                <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
+                  She answered above, so this card is gone.
+                </p>
+              )}
+            </section>
+            <section className="space-y-3" aria-labelledby="demo-settings" onClickCapture={() => (clickedIn.current = "settings")}>
               <h2 id="demo-settings" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-                3 · Settings → Your accountant, in the client&apos;s app
+                4 · Her Settings → Your accountant
               </h2>
               <AccountantSection links={links} />
               {nd.status === "active" ? (
                 <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-                  Connected.{" "}
+                  Shared.{" "}
                   <Link className="underline text-[var(--ink)]" href={href({ as: "firm", view: "client", org: ORG_ND })}>
                     See Nordljus Design in the firm portal →
                   </Link>

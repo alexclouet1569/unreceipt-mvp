@@ -57,9 +57,9 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
   return (
     <div className="space-y-3">
       <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-        A connected accounting firm sees your receipts and originals, fills in
-        the ones that need review and downloads a monthly export. It can&apos;t
-        change your plan or delete anything.
+        When you share your receipts with your accountant, they see all of
+        them, old and new, and can fill in missing details. New receipts
+        reach them automatically. They can&apos;t delete anything.
       </p>
 
       {links.length === 0 ? (
@@ -67,8 +67,8 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
           className="bg-card text-[var(--ink-muted)]"
           style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
         >
-          No accounting firm connected. When a firm invites you, it shows up
-          here and in your email.
+          No accountant yet. When your accountant invites you, you&apos;ll see
+          it here and on your receipts page.
         </p>
       ) : (
         <ul
@@ -83,7 +83,7 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                   {l.firmName}
                 </span>
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-                  Connected{l.since ? ` since ${l.since}` : ""}
+                  Gets your receipts{l.since ? ` since ${l.since}` : ""}
                 </span>
               </span>
               <Button
@@ -92,10 +92,10 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                 className="h-11"
                 onClick={() => call(l, "disconnect")}
                 disabled={busy !== null}
-                aria-label={`Disconnect ${l.firmName}`}
+                aria-label={`Stop sharing with ${l.firmName}`}
               >
                 {busy === `${l.id}:disconnect` ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Disconnect
+                Stop sharing
               </Button>
             </li>
           ))}
@@ -106,7 +106,7 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                   {l.firmName}
                 </span>
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-                  Wants to handle your receipts
+                  Wants to see your receipts
                 </span>
               </span>
               <span className="flex gap-2">
@@ -115,10 +115,10 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                   className="h-11"
                   onClick={() => call(l, "accept")}
                   disabled={busy !== null}
-                  aria-label={`Connect ${l.firmName}`}
+                  aria-label={`Share your receipts with ${l.firmName}`}
                 >
                   {busy === `${l.id}:accept` ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Connect
+                  Share
                 </Button>
                 <Button
                   type="button"
@@ -126,9 +126,9 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                   className="h-11"
                   onClick={() => call(l, "decline")}
                   disabled={busy !== null}
-                  aria-label={`Decline ${l.firmName}`}
+                  aria-label={`No thanks: ${l.firmName}`}
                 >
-                  Decline
+                  No thanks
                 </Button>
               </span>
             </li>

@@ -28,19 +28,17 @@ export function InviteCard({
     >
       {!invite || invite.state === "missing" ? (
         <Notice title="This link doesn't work">
-          The invite may have been withdrawn, or the link was copied
-          incorrectly. Ask your accounting firm to send it again, or check
-          Settings → Your accountant if an invite is waiting there.
+          Ask your accountant to send a new invite.
         </Notice>
       ) : invite.state === "expired" ? (
-        <Notice title="This link has expired">
+        <Notice title="This link is too old">
           Invite links work for 14 days. Ask {invite.firmName} to send a
           new one.
         </Notice>
       ) : invite.state === "used" ? (
-        <Notice title="Already answered">
-          This invite has already been accepted or declined. Your current
-          connection is under Settings → Your accountant.
+        <Notice title="Already done">
+          You already answered this invite. To change it, go to Settings →
+          Your accountant.
         </Notice>
       ) : (
         <>
@@ -48,15 +46,15 @@ export function InviteCard({
             className="font-display font-bold text-[var(--ink)]"
             style={{ fontSize: "22px", letterSpacing: "-0.01em" }}
           >
-            Connect {invite.firmName}?
+            Share your receipts with {invite.firmName}?
           </h1>
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.6 }}>
-            {invite.firmName} asked to handle the receipts of{" "}
+            Your accountant wants to see the receipts of{" "}
             <span className="text-[var(--ink)] font-medium">{invite.clientName}</span>.
-            Once connected they can see your receipts and originals, fill in
-            the ones that need review, and download a monthly export for your
-            bookkeeping. They can&apos;t change your plan or delete anything.
-            You can disconnect them any time in Settings.
+            Say yes, and they see all your receipts, old and new, and can
+            fill in missing details for your bookkeeping. New receipts reach
+            them automatically. They can&apos;t delete anything, and you can
+            stop any time.
           </p>
           <RespondButtons inviteId={invite.id} token={token} firmName={invite.firmName} />
         </>
