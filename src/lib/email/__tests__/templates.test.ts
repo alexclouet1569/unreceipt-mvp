@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   companySiteFor,
+  firmInviteEmail,
   firstNameFrom,
   pilotWelcomeEmail,
   signupDigestEmail,
@@ -154,5 +155,21 @@ describe("signupDigestEmail links", () => {
     expect(text).toContain("Not confirmed yet");
     const ok = signupDigestEmail({ signups: [{ ...signup, email: "a@b.se", confirmed: true }], moreSignups: 0, waitlist: [], totalAccounts: 1 });
     expect(ok.html).toContain("Write to them");
+  });
+});
+
+describe("firmInviteEmail", () => {
+  it("names the firm and the client, links the accept page and escapes HTML", () => {
+    const email = firmInviteEmail({
+      firmName: "Byrån <AB>",
+      clientName: "Acme AB",
+      url: "https://app.unreceipt.com/app/accountant/accept?token=abc",
+    });
+    expect(email.subject).toBe("Byrån <AB> wants to handle your receipts in UnReceipt");
+    expect(email.html).toContain("Byrån &lt;AB&gt;");
+    expect(email.html).not.toContain("Byrån <AB>");
+    expect(email.html).toContain('href="https://app.unreceipt.com/app/accountant/accept?token=abc"');
+    expect(email.text).toContain("Acme AB");
+    expect(email.text).toContain("can't change your plan or delete anything");
   });
 });

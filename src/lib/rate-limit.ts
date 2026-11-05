@@ -49,6 +49,12 @@ export const RATE_LIMITS = {
     { limit: 3, windowSeconds: 60 * 60 },
     { limit: 10, windowSeconds: 24 * 60 * 60 },
   ],
+  // A firm inviting its clients sends an email to a typed address: a few
+  // per hour is plenty for onboarding, and a loop can't spam from our domain.
+  firmInvite: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [
