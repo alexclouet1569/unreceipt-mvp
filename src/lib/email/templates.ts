@@ -338,20 +338,18 @@ export function firmInviteEmail(opts: {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const company = opts.clientName.trim() || "your company";
   const title = `${firm} wants to see your receipts`;
-  const intro = `${firm} asked to see the receipts of ${company} in UnReceipt. Say yes, and they see all your receipts, old and new, and can fill in missing details for your bookkeeping. New receipts reach them automatically. No more sending them by hand.`;
-  const safety = "They can't delete anything, and you can stop sharing any time.";
-  const newHere = "New to UnReceipt? You'll create a free account first. It takes a minute.";
+  const intro = `Share the receipts of ${company} with ${firm}. They'll see all your receipts and do your bookkeeping.`;
+  const newHere = "New to UnReceipt? You'll create a free account first.";
   const bodyHtml = [
     `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
     paragraph(esc(intro)),
-    button("Yes, share my receipts", opts.url),
-    paragraph(esc(safety)),
+    button("Yes, share", opts.url),
     paragraph(esc(newHere)),
   ].join("\n");
   return {
     subject: title,
     html: layout({
-      preheader: `Say yes and your receipts go to ${firm} automatically.`,
+      preheader: `Share your receipts with ${firm}.`,
       bodyHtml,
       footerHtml: `Sent because ${esc(firm)} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
     }),
@@ -360,9 +358,8 @@ export function firmInviteEmail(opts: {
       "",
       intro,
       "",
-      `Yes, share my receipts: ${opts.url}`,
+      `Yes, share: ${opts.url}`,
       "",
-      safety,
       newHere,
       "",
       `Sent because ${firm} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,

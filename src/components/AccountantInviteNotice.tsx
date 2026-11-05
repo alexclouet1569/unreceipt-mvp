@@ -5,8 +5,8 @@ import { RespondButtons } from "@/app/app/accountant/accept/RespondButtons";
 export type PendingAccountantInvite = { id: string; firmName: string };
 
 /**
- * On the receipts page: "<firm> wants to see your receipts" with Yes / Not
- * now, so a client can answer an accounting firm's invite without finding
+ * On the receipts page: "Share your receipts with <firm>?" with Yes, share /
+ * No thanks, so a client can answer an accounting firm's invite without finding
  * the email or Settings. Invites are matched to the signed-in, confirmed
  * address server-side (loadAccountantLinks); the answer goes through the
  * same POST /api/accountant/respond as the invite page.
@@ -30,12 +30,10 @@ export function AccountantInviteNotice({
         >
           <div className="space-y-1">
             <h2 className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "18px", lineHeight: 1.3 }}>
-              {inv.firmName} wants to see your receipts
+              Share your receipts with {inv.firmName}?
             </h2>
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-              Say yes, and they see all your receipts, old and new, and can
-              fill in missing details. New receipts reach them automatically.
-              They can&apos;t delete anything, and you can stop any time.
+              They&apos;ll see all your receipts and do your bookkeeping.
             </p>
           </div>
           <RespondButtons inviteId={inv.id} firmName={inv.firmName} showHomeLink={false} quietAccept onDone={onDone} />

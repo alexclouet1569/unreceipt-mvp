@@ -2,10 +2,35 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Dashboard } from "@/app/app/(authed)/dashboard";
+import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
+import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Receipt } from "@/lib/types";
+import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
 
-// Sample data and browser-side stand-ins for the two routes the capture
-// flow calls. See page.tsx: preview deployments only.
+// Public guided tour for a client company: the real receipts screen and
+// capture sheet with sample receipts, then the accountant's invite.
+// Nothing is saved: /api/ocr, /api/capture and /api/accountant/respond are
+// answered in the browser, every other /api call gets a 404.
+
+const STEPS: TourStep[] = [
+  {
+    title: "Your receipts",
+    text: "Forward receipt emails to your own UnReceipt address, or snap a photo. Each one is read for you.",
+  },
+  {
+    title: "Add a receipt",
+    text: (
+      <>
+        Tap the <b>+</b> button and pick any photo. Watch it fill in by itself.
+      </>
+    ),
+  },
+  {
+    title: "Your accountant asks",
+    text: "Your accountant invites you by email. One tap, and they get your receipts.",
+  },
+  { title: "That's it", text: "Your receipts are read for you, and your accountant gets every one." },
+];
 
 const daysAgo = (n: number) => {
   const d = new Date();
@@ -160,7 +185,8 @@ const json = (body: unknown) =>
 const num = (v: FormDataEntryValue | null) =>
   typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : null;
 
-export function DemoClient() {
+export function CompanyTour({ step }: { step: number }) {
+  const [notice, closeNotice] = useDemoLinkGuard();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
 
@@ -172,6 +198,11 @@ export function DemoClient() {
       if (path === "/api/ocr") {
         await new Promise((resolve) => setTimeout(resolve, 1800));
         return json(DEMO_OCR);
+      }
+      if (path === "/api/accountant/respond") {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+        return json({ ok: true, status: body.action === "accept" ? "active" : "revoked" });
       }
       if (path === "/api/capture") {
         const fd = init?.body instanceof FormData ? init.body : new FormData();
@@ -210,19 +241,33 @@ export function DemoClient() {
   }, []);
 
   return (
-    <>
-      <p
-        role="note"
-        className="bg-[var(--attention-tint)] px-4 py-2 text-center text-[13px] font-semibold text-[var(--attention-deep)]"
-      >
-        Preview demo · sample receipts · nothing is saved
-      </p>
-      <Dashboard
-        userEmail="demo@unreceipt.com"
-        receipts={receipts}
-        forwardingEmail="receipts+demo@in.unreceipt.com"
-        intakeSmsNumber={null}
-      />
-    </>
+    <div className="min-h-screen bg-background">
+      <TourBar steps={STEPS} step={step} hrefFor={(n) => `/demo/company?step=${n}`} />
+      <DemoNotice notice={notice} onClose={closeNotice} />
+      {step <= 2 ? (
+        <Dashboard
+          userEmail="maja@nordljusdesign.se"
+          receipts={receipts}
+          forwardingEmail="receipts+nordljus@in.unreceipt.com"
+          intakeSmsNumber={null}
+        />
+      ) : step === 3 ? (
+        <main className="max-w-[540px] mx-auto px-4 pt-16 pb-24">
+          <InviteCard
+            invite={{ id: "11111111-1111-4111-8111-0000000000aa", firmName: "Bergström Redovisning", clientName: "Nordljus Design AB", state: "open" }}
+            token="demo"
+            email="maja@nordljusdesign.se"
+          />
+        </main>
+      ) : (
+        <TourEnd
+          title="That's the company side"
+          text="Your receipts are read for you, and your accountant gets every one. No more chasing paper."
+          cta="Start free"
+          ctaHref={appUrl(SIGNUP_PATH)}
+          other={{ label: "See the accountant side", href: "/demo/accountant?step=1" }}
+        />
+      )}
+    </div>
   );
 }

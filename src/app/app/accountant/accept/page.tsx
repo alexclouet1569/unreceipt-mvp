@@ -50,7 +50,7 @@ export default async function AcceptInvitePage({
           </Link>
         </div>
       </header>
-      <main className="max-w-[540px] mx-auto px-4 py-10">
+      <main className="max-w-[540px] mx-auto px-4 pt-16 pb-10">
         <InviteCard invite={invite} token={token ?? ""} email={user.email ?? null} />
       </main>
     </div>

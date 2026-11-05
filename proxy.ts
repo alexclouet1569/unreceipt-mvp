@@ -37,6 +37,7 @@ const APP_ONLY_PREFIX = [
   "/admin",
   "/firm",
   "/api/firm",
+  "/demo",
   "/auth",
   "/subscribe",
   "/api/checkout",

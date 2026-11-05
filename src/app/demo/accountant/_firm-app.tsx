@@ -4,24 +4,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ClientsView, ClientView, FirmShell, SettingsView, type ActiveClient, type PendingInvite } from "@/app/firm/_views";
-import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
-import { AccountantSection, type AccountantLink } from "@/app/app/(authed)/settings/AccountantSection";
-import { AccountantInviteNotice } from "@/components/AccountantInviteNotice";
 import type { MemberView } from "@/app/firm/settings/MembersSection";
 import { computeClientStats, monthKey, receiptMonth, resolveMonth, type StatRow } from "@/lib/firm/client-stats";
 import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
 import { buildReceiptsCsv } from "@/lib/export/csv";
 import { editMarker } from "@/lib/receipts/edits";
 import { computeReceiptStatus } from "@/lib/receipts/status";
-import { firmInviteEmail } from "@/lib/email/templates";
 import { formatDate } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 
 // Sample data and browser-side stand-ins for every route the firm portal
-// and the client's invite flow call. See page.tsx: preview deployments only.
+// calls, for the public accountant tour (/demo/accountant). Nothing reaches
+// the database, Resend or Claude.
 
 export type DemoParams = {
-  as: "firm" | "client";
   view: "clients" | "client" | "settings";
   org: string | null;
   month: string | null;
@@ -32,7 +28,7 @@ const ME = { id: "m-anna", email: "anna@bergstrom-redovisning.se" };
 const STAFF_USER = "demo-staff-anna";
 const CLIENT_EMAIL = "maja@nordljusdesign.se";
 
-const ORG_HB = "11111111-1111-4111-8111-000000000001";
+export const ORG_HB = "11111111-1111-4111-8111-000000000001";
 const ORG_CS = "11111111-1111-4111-8111-000000000002";
 const ORG_ND = "11111111-1111-4111-8111-000000000003";
 
@@ -377,28 +373,26 @@ function makePdf(lines: string[]): string {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-const href = (p: Partial<DemoParams> & { as: DemoParams["as"] }) => {
-  const q = new URLSearchParams();
-  q.set("as", p.as);
-  if (p.view) q.set("view", p.view);
-  if (p.org) q.set("org", p.org);
-  if (p.month) q.set("month", p.month);
-  return `/demo/firm?${q.toString()}`;
-};
+export type HrefFor = (p: Partial<DemoParams>) => string;
 
 // ---- component ---------------------------------------------------------------
 
-export function FirmDemo({ params }: { params: DemoParams }) {
+export function FirmApp({
+  params,
+  hrefFor,
+  screenKey = "",
+}: {
+  params: DemoParams;
+  hrefFor: HrefFor;
+  // Changes per tour step, so each step opens the screen fresh (filters,
+  // open dialogs) while the sample data keeps what was done before.
+  screenKey?: string;
+}) {
   const pathname = usePathname();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [members, setMembers] = useState<MemberView[]>(initialMembers);
   const [notice, setNotice] = useState<string | null>(null);
-  // Where the client answered on this visit, so that place keeps its own
-  // confirmation (like the real pages, which don't reload after answering).
-  const [answeredVia, setAnsweredVia] = useState<"page" | "notice" | "settings" | null>(null);
-  // Which panel the last click came from; read by the respond stub.
-  const clickedIn = useRef<"page" | "notice" | "settings">("settings");
 
   // Latest data for the fetch stub, which is installed once.
   const state = useRef({ receipts, clients });
@@ -555,18 +549,6 @@ export function FirmDemo({ params }: { params: DemoParams }) {
         return json({ ok: true });
       }
 
-      // The client answers the invite, or disconnects the firm.
-      if (path === "/api/accountant/respond" && method === "POST") {
-        const next = body.action === "accept" ? "active" : "revoked";
-        setClients((prev) => prev.map((c) => (c.id === body.inviteId ? { ...c, status: next } : c)));
-        setAnsweredVia(clickedIn.current);
-        return json({ ok: true, status: next });
-      }
-      if (path === "/api/accountant/link" && method === "DELETE") {
-        setClients((prev) => prev.map((c) => (c.id === body.linkId ? { ...c, status: "revoked" } : c)));
-        return json({ ok: true });
-      }
-
       if (path.startsWith("/api/") && !path.startsWith("/api/merchant-logo/")) {
         return json({ error: "not in the demo" }, 404);
       }
@@ -600,112 +582,23 @@ export function FirmDemo({ params }: { params: DemoParams }) {
     [receipts, month]
   );
 
-  const banner = (
-    <div className="bg-[var(--attention-tint)] text-[var(--attention-deep)]">
-      <div className="max-w-[1040px] mx-auto px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-2" style={{ fontSize: "13px" }}>
-        <span className="font-semibold">Preview demo · sample data · nothing is saved or sent</span>
-        <span className="ml-auto flex flex-wrap items-center gap-2">
-          <span>See it as:</span>
-          <Link
-            href={href({ as: "firm" })}
-            aria-current={params.as === "firm" ? "page" : undefined}
-            className={"inline-flex min-h-9 items-center rounded-full border px-3 font-semibold " + (params.as === "firm" ? "border-[var(--attention-deep)] bg-card" : "border-transparent underline")}
-          >
-            The accounting firm
-          </Link>
-          <Link
-            href={href({ as: "client" })}
-            aria-current={params.as === "client" ? "page" : undefined}
-            className={"inline-flex min-h-9 items-center rounded-full border px-3 font-semibold " + (params.as === "client" ? "border-[var(--attention-deep)] bg-card" : "border-transparent underline")}
-          >
-            The client company
-          </Link>
-          <Link href="/demo" className="inline-flex min-h-9 items-center px-2 underline">
-            The client&apos;s receipt app ↗
-          </Link>
-        </span>
+  const banner = notice ? (
+    <div className="bg-[var(--attention-tint)] text-[var(--attention-deep)]" role="status">
+      <div className="max-w-[1040px] mx-auto px-4 py-2" style={{ fontSize: "13px" }}>
+        {notice}{" "}
+        <button type="button" className="underline min-h-11 px-2" onClick={() => setNotice(null)}>
+          OK
+        </button>
       </div>
-      {notice ? (
-        <div className="max-w-[1040px] mx-auto px-4 pb-2" role="status" style={{ fontSize: "13px" }}>
-          {notice}{" "}
-          <button type="button" className="underline" onClick={() => setNotice(null)}>
-            OK
-          </button>
-        </div>
-      ) : null}
     </div>
-  );
-
-  if (params.as === "client") {
-    const nd = clients.find((c) => c.id === "fc-nd")!;
-    const links: AccountantLink[] =
-      nd.status === "revoked" ? [] : [{ id: nd.id, firmName: FIRM, status: nd.status === "active" ? "active" : "invited", since: nd.status === "active" ? formatDate(new Date().toISOString()) : null }];
-    const email = firmInviteEmail({ firmName: FIRM, clientName: nd.client_name, url: "https://app.unreceipt.com/app/accountant/accept?token=…" });
-    return (
-      <div className="min-h-screen bg-background">
-        {banner}
-        <main className="max-w-[1040px] mx-auto px-4 py-6 grid gap-8 lg:grid-cols-2">
-          <section className="space-y-3" aria-labelledby="demo-email">
-            <h2 id="demo-email" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-              1 · The email Maja at Nordljus Design gets
-            </h2>
-            <iframe
-              title="Invite email"
-              srcDoc={email.html}
-              sandbox=""
-              className="w-full rounded-[12px] border border-[var(--hairline)] bg-card"
-              style={{ height: "560px", pointerEvents: "none" }}
-            />
-          </section>
-          <div className="space-y-8">
-            <section className="space-y-3" aria-labelledby="demo-accept" onClickCapture={() => (clickedIn.current = "page")}>
-              <h2 id="demo-accept" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-                2 · The page the email button opens
-              </h2>
-              <InviteCard
-                invite={{ id: nd.id, firmName: FIRM, clientName: nd.client_name, state: nd.status === "invited" || answeredVia === "page" ? "open" : "used" }}
-                token="demo"
-                email={CLIENT_EMAIL}
-              />
-            </section>
-            <section className="space-y-3" aria-labelledby="demo-notice" onClickCapture={() => (clickedIn.current = "notice")}>
-              <h2 id="demo-notice" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-                3 · Or, when she opens UnReceipt
-              </h2>
-              {nd.status === "invited" || answeredVia === "notice" ? (
-                <AccountantInviteNotice invites={[{ id: nd.id, firmName: FIRM }]} />
-              ) : (
-                <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
-                  She answered above, so this card is gone.
-                </p>
-              )}
-            </section>
-            <section className="space-y-3" aria-labelledby="demo-settings" onClickCapture={() => (clickedIn.current = "settings")}>
-              <h2 id="demo-settings" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-                4 · Her Settings → Your accountant
-              </h2>
-              <AccountantSection links={links} />
-              {nd.status === "active" ? (
-                <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-                  Shared.{" "}
-                  <Link className="underline text-[var(--ink)]" href={href({ as: "firm", view: "client", org: ORG_ND })}>
-                    See Nordljus Design in the firm portal →
-                  </Link>
-                </p>
-              ) : null}
-            </section>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  ) : null;
 
   const navLink = (label: string, view: DemoParams["view"]) => {
     const isActive = params.view === view || (view === "clients" && params.view === "client");
     return (
       <Link
         key={view}
-        href={href({ as: "firm", view })}
+        href={hrefFor({ view })}
         aria-current={isActive ? "page" : undefined}
         className={
           "inline-flex items-center px-3 rounded-[10px] border-b-2 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 " +
@@ -725,6 +618,7 @@ export function FirmDemo({ params }: { params: DemoParams }) {
   } else if (openClient) {
     content = (
       <ClientView
+        key={`${screenKey}:${openClient.organization_id}`}
         clientName={openClient.client_name}
         organizationId={openClient.organization_id}
         month={month}
@@ -732,8 +626,8 @@ export function FirmDemo({ params }: { params: DemoParams }) {
           .filter((r) => r.organization_id === openClient.organization_id && receiptMonth(r) === month)
           .sort((a, b) => (b.purchased_at ?? b.created_at).localeCompare(a.purchased_at ?? a.created_at))}
         hrefs={{
-          back: href({ as: "firm", month }),
-          month: (mm) => href({ as: "firm", view: "client", org: openClient.organization_id, month: mm }),
+          back: hrefFor({ month }),
+          month: (mm) => hrefFor({ view: "client", org: openClient.organization_id, month: mm }),
         }}
       />
     );
@@ -745,8 +639,8 @@ export function FirmDemo({ params }: { params: DemoParams }) {
         stats={stats}
         month={month}
         hrefs={{
-          month: (mm) => href({ as: "firm", month: mm }),
-          client: (orgId, mm) => href({ as: "firm", view: "client", org: orgId, month: mm }),
+          month: (mm) => hrefFor({ month: mm }),
+          client: (orgId, mm) => hrefFor({ view: "client", org: orgId, month: mm }),
         }}
       />
     );
@@ -757,7 +651,7 @@ export function FirmDemo({ params }: { params: DemoParams }) {
       {banner}
       <FirmShell
         firmName={FIRM}
-        homeHref={href({ as: "firm" })}
+        homeHref={hrefFor({})}
         nav={<nav className="ml-auto flex items-center gap-1" aria-label="Firm" data-path={pathname}>{navLink("Clients", "clients")}{navLink("Settings", "settings")}</nav>}
       >
         {content}

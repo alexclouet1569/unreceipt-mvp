@@ -40,7 +40,7 @@ describe("AccountantSection", () => {
   it("disconnects an active firm through the link route", async () => {
     const user = userEvent.setup();
     render(<AccountantSection links={[{ id: "link-1", firmName: "Byrån AB", status: "active", since: "3 Nov 2026" }]} />);
-    expect(screen.getByText(/Gets your receipts since 3 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Sees your receipts since 3 Nov 2026/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Stop sharing with Byrån AB" }));
     expect(fetchMock).toHaveBeenCalledWith("/api/accountant/link", {
       method: "DELETE",

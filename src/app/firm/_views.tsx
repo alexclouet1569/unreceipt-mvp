@@ -1,5 +1,5 @@
 // Presentational views of the firm portal, shared by the real pages (which
-// load the data and check access) and the preview demo at /demo/firm (which
+// load the data and check access) and the public demo tour at /demo/accountant (which
 // passes sample data). No data loading and no access checks here: callers
 // own both. Every link target comes from `hrefs`, so the demo can keep
 // navigation inside itself.

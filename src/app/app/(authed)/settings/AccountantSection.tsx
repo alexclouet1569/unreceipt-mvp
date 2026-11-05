@@ -56,19 +56,16 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-        When you share your receipts with your accountant, they see all of
-        them, old and new, and can fill in missing details. New receipts
-        reach them automatically. They can&apos;t delete anything.
+      <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.4 }}>
+        Your accountant sees all your receipts and does your bookkeeping.
       </p>
 
       {links.length === 0 ? (
         <p
           className="bg-card text-[var(--ink-muted)]"
-          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
+          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "15px" }}
         >
-          No accountant yet. When your accountant invites you, you&apos;ll see
-          it here and on your receipts page.
+          No accountant yet.
         </p>
       ) : (
         <ul
@@ -83,7 +80,7 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                   {l.firmName}
                 </span>
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-                  Gets your receipts{l.since ? ` since ${l.since}` : ""}
+                  Sees your receipts{l.since ? ` since ${l.since}` : ""}
                 </span>
               </span>
               <Button
@@ -118,7 +115,7 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                   aria-label={`Share your receipts with ${l.firmName}`}
                 >
                   {busy === `${l.id}:accept` ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Share
+                  Yes, share
                 </Button>
                 <Button
                   type="button"

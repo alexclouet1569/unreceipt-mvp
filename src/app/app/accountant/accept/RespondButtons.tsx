@@ -15,7 +15,7 @@ function errorText(code: string | undefined): string {
 }
 
 /**
- * "Yes, share my receipts" / "No thanks" for one accounting-firm invite. Used
+ * "Yes, share" / "No thanks" for one accounting-firm invite. Used
  * on the invite page (with the link token) and on the dashboard and in
  * Settings (no token: the invite is matched by the signed-in address).
  */
@@ -71,8 +71,8 @@ export function RespondButtons({
       <div className="space-y-1">
         <p role="status" className="text-[var(--ink)] font-semibold" style={{ fontSize: "15px" }}>
           {done === "active"
-            ? `Done. ${firmName} now gets your receipts automatically.`
-            : `OK. Nothing is shared with ${firmName}. They can invite you again later.`}
+            ? `Done. ${firmName} now gets your receipts.`
+            : "OK, nothing is shared. They can invite you again later."}
         </p>
         {showHomeLink ? (
           <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
@@ -93,7 +93,7 @@ export function RespondButtons({
           disabled={busy !== null}
         >
           {busy === "accept" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Yes, share my receipts
+          Yes, share
         </Button>
         <Button
           type="button"

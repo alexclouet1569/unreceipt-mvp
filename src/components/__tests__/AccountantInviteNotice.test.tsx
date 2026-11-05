@@ -24,14 +24,14 @@ describe("AccountantInviteNotice", () => {
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ok: true, status: "active" }) });
     const user = userEvent.setup();
     render(<AccountantInviteNotice invites={[{ id: "inv-1", firmName: "Byrån AB" }]} />);
-    expect(screen.getByRole("heading", { name: "Byrån AB wants to see your receipts" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Yes, share my receipts" }));
+    expect(screen.getByRole("heading", { name: "Share your receipts with Byrån AB?" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, share" }));
     expect(fetchMock).toHaveBeenCalledWith("/api/accountant/respond", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ inviteId: "inv-1", action: "accept" }),
     });
-    expect(screen.getByRole("status")).toHaveTextContent("Done. Byrån AB now gets your receipts automatically.");
+    expect(screen.getByRole("status")).toHaveTextContent("Done. Byrån AB now gets your receipts.");
     // On the receipts page there is no "Go to your receipts" link.
     expect(screen.queryByRole("link", { name: "Go to your receipts" })).not.toBeInTheDocument();
   });
