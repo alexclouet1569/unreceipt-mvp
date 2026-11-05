@@ -41,7 +41,9 @@ export function ExportMonthPanel({
               ? `${unexportedCount} ready receipt${unexportedCount === 1 ? "" : "s"} not exported yet.`
               : "Every receipt of the month, exported ones included; stamps are left as they are."}
             {reviewCount > 0
-              ? ` ${reviewCount} still need${reviewCount === 1 ? "s" : ""} review and get no PDF until completed.`
+              ? reviewCount === 1
+                ? " 1 still needs review and gets no PDF until it is completed."
+                : ` ${reviewCount} still need review and get no PDF until they are completed.`
               : ""}
           </p>
         </div>

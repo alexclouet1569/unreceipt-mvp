@@ -48,7 +48,7 @@ vi.mock("@/lib/app-url", () => ({ appUrl: (p: string) => `https://app.unreceipt.
 
 import { FirmAuthError } from "@/lib/require-firm";
 import { POST } from "@/app/api/firm/clients/route";
-import { DELETE } from "@/app/api/firm/clients/[id]/route";
+import { DELETE } from "@/app/api/firm/links/[id]/route";
 
 const CTX = {
   user: { id: "11111111-1111-4111-8111-111111111111", email: "eva@byran.se" },
@@ -70,7 +70,7 @@ const post = (body: unknown, headers: Record<string, string> = {}) =>
 
 const del = (id: string) =>
   DELETE(
-    new NextRequest(`https://app.unreceipt.com/api/firm/clients/${id}`, {
+    new NextRequest(`https://app.unreceipt.com/api/firm/links/${id}`, {
       method: "DELETE",
       headers: { host: "app.unreceipt.com" },
     }),
@@ -147,7 +147,7 @@ describe("POST /api/firm/clients", () => {
   });
 });
 
-describe("DELETE /api/firm/clients/[id]", () => {
+describe("DELETE /api/firm/links/[id]", () => {
   it("revokes a row of the session firm only", async () => {
     const res = await del(INVITE_ID);
     expect(res.status).toBe(200);

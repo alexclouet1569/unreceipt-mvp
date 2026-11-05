@@ -227,7 +227,9 @@ export function ReceiptDetailCard({ receipt, viewer = "owner" }: ReceiptDetailCa
             ) : (
               <span className="text-[12px] font-semibold text-[var(--ink-muted)]">
                 {receipt.source === "paper" || receipt.source === "manual"
-                  ? "Checked by you"
+                  ? viewer === "firm"
+                    ? "Checked by the client"
+                    : "Checked by you"
                   : "Read automatically"}
               </span>
             )}

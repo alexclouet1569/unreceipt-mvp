@@ -1,33 +1,16 @@
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireFirmMemberPage } from "@/lib/require-firm";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
-  adjacentMonths,
   computeClientStats,
-  EMPTY_STATS,
   monthBounds,
-  monthLabel,
   resolveMonth,
   type ClientStats,
   type StatRow,
 } from "@/lib/firm/client-stats";
-import { formatDate } from "@/lib/receipt-format";
 import type { FirmClient } from "@/lib/types";
-import { AddClientDialog } from "./AddClientDialog";
-import { RevokeInviteButton } from "./RevokeInviteButton";
+import { ClientsView, type ActiveClient, type PendingInvite } from "../_views";
 
 export const dynamic = "force-dynamic";
-
-type ActiveClient = Pick<
-  FirmClient,
-  "id" | "organization_id" | "client_name" | "client_org_number"
-> & { organization_id: string };
-
-type PendingInvite = Pick<
-  FirmClient,
-  "id" | "client_name" | "invited_email" | "invite_expires_at" | "created_at"
-> & { expired: boolean };
 
 async function loadClients(firmId: string): Promise<{
   active: ActiveClient[];
@@ -111,7 +94,6 @@ export default async function FirmClientsPage({
   const ctx = await requireFirmMemberPage();
   const { month: requested } = await searchParams;
   const month = resolveMonth(requested);
-  const { prev, next } = adjacentMonths(month);
 
   const { active, pending } = await loadClients(ctx.firmId);
   const stats = await loadStats(
@@ -120,142 +102,15 @@ export default async function FirmClientsPage({
   );
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1
-            className="font-display font-bold text-[var(--ink)]"
-            style={{ fontSize: "22px", letterSpacing: "-0.01em" }}
-          >
-            Clients
-          </h1>
-          <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-            {active.length === 0
-              ? "No client connected yet."
-              : `${active.length} connected client${active.length === 1 ? "" : "s"}.`}
-          </p>
-        </div>
-        <MonthSwitch month={month} prev={prev} next={next} />
-      </div>
-
-      <AddClientDialog />
-
-      {active.length === 0 ? (
-        <div className="rounded-[12px] border border-[var(--hairline)] bg-[var(--brand-tint)] px-5 py-8 text-center">
-          <p className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-            Connect your first client
-          </p>
-          <p className="mt-1 text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-            Invite a client company by email. Once they accept, their receipts
-            appear here, month by month.
-          </p>
-        </div>
-      ) : (
-        <ClientTable active={active} stats={stats} month={month} />
-      )}
-
-      {pending.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
-            Waiting for the client
-          </h2>
-          <ul className="divide-y divide-[var(--hairline)] rounded-[12px] border border-[var(--hairline)] bg-card">
-            {pending.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
-                <span className="font-medium text-[var(--ink)]" style={{ fontSize: "14px" }}>
-                  {p.client_name}
-                </span>
-                <span className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-                  {p.invited_email} · invited {formatDate(p.created_at)}
-                  {p.expired ? " · link expired" : ""}
-                </span>
-                <span className="ml-auto">
-                  <RevokeInviteButton id={p.id} clientName={p.client_name} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-function MonthSwitch({ month, prev, next }: { month: string; prev: string; next: string }) {
-  const link =
-    "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-card transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
-  return (
-    <div className="flex items-center gap-1">
-      <Link href={`/firm/clients?month=${prev}`} aria-label="Previous month" className={link} style={{ width: "44px", height: "44px" }}>
-        <ChevronLeft className="w-5 h-5" />
-      </Link>
-      <span className="font-display font-bold text-[var(--ink)] min-w-[9rem] text-center" style={{ fontSize: "15px" }}>
-        {monthLabel(month)}
-      </span>
-      <Link href={`/firm/clients?month=${next}`} aria-label="Next month" className={link} style={{ width: "44px", height: "44px" }}>
-        <ChevronRight className="w-5 h-5" />
-      </Link>
-    </div>
-  );
-}
-
-function ClientTable({
-  active,
-  stats,
-  month,
-}: {
-  active: ActiveClient[];
-  stats: Map<string, ClientStats>;
-  month: string;
-}) {
-  const head = "px-4 py-2 text-left font-semibold text-[var(--ink-muted)]";
-  const cell = "px-4 py-3";
-  const num = "px-4 py-3 text-right tabular-nums";
-  return (
-    <div className="overflow-x-auto rounded-[12px] border border-[var(--hairline)] bg-card">
-      <table className="w-full" style={{ fontSize: "14px" }}>
-        <thead className="border-b border-[var(--hairline)]" style={{ fontSize: "12px" }}>
-          <tr>
-            <th className={head}>Client</th>
-            <th className={head + " text-right"}>New</th>
-            <th className={head + " text-right"}>Review needed</th>
-            <th className={head + " text-right"}>Ready</th>
-            <th className={head + " text-right"}>Exported</th>
-            <th className={head}>Last receipt</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--hairline)]">
-          {active.map((c) => {
-            const s = stats.get(c.organization_id) ?? EMPTY_STATS;
-            return (
-              <tr key={c.id} className="hover:bg-card transition-colors">
-                <td className={cell}>
-                  <Link
-                    href={`/firm/clients/${c.organization_id}?month=${month}`}
-                    className="inline-flex min-h-11 items-center font-medium text-[var(--ink)] hover:underline rounded-[6px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    {c.client_name}
-                  </Link>
-                  {c.client_org_number ? (
-                    <span className="ml-2 text-[var(--ink-muted)]" style={{ fontSize: "12px" }}>
-                      {c.client_org_number}
-                    </span>
-                  ) : null}
-                </td>
-                <td className={num}>{s.newThisWeek}</td>
-                <td className={num} style={s.reviewNeeded > 0 ? { color: "var(--attention-deep)" } : undefined}>
-                  {s.reviewNeeded}
-                </td>
-                <td className={num}>{s.ready}</td>
-                <td className={num}>{s.exported}</td>
-                <td className={cell + " text-[var(--ink-muted)]"}>
-                  {s.lastReceiptAt ? formatDate(s.lastReceiptAt) : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <ClientsView
+      active={active}
+      pending={pending}
+      stats={stats}
+      month={month}
+      hrefs={{
+        month: (m) => `/firm/clients?month=${m}`,
+        client: (orgId, m) => `/firm/clients/${orgId}?month=${m}`,
+      }}
+    />
   );
 }

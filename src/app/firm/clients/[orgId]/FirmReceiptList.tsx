@@ -27,7 +27,10 @@ export function bucketOf(r: Pick<Receipt, "status" | "exported_at">): Exclude<Fi
  */
 export function FirmReceiptList({ receipts }: { receipts: Receipt[] }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const [open, setOpen] = useState<Receipt | null>(null);
+  // The id, not a copy: after a save (booked, completed) the dialog shows
+  // the refreshed row from props instead of the one it was opened with.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = openId ? (receipts.find((r) => r.id === openId) ?? null) : null;
 
   const counts = useMemo(() => {
     const c = { all: receipts.length, review: 0, ready: 0, exported: 0 };
@@ -62,7 +65,7 @@ export function FirmReceiptList({ receipts }: { receipts: Receipt[] }) {
       ) : (
         <div className="space-y-2">
           {shown.map((r) => (
-            <ReceiptListItem key={r.id} receipt={r} onClick={() => setOpen(r)} />
+            <ReceiptListItem key={r.id} receipt={r} onClick={() => setOpenId(r.id)} />
           ))}
         </div>
       )}
@@ -71,7 +74,7 @@ export function FirmReceiptList({ receipts }: { receipts: Receipt[] }) {
         receipt={open}
         variant="firm"
         onOpenChange={(isOpen) => {
-          if (!isOpen) setOpen(null);
+          if (!isOpen) setOpenId(null);
         }}
       />
     </div>

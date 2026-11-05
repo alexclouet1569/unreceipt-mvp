@@ -1,6 +1,8 @@
-// DELETE /api/firm/clients/[id] — the firm revokes a client link (or
-// withdraws a pending invite). Scoped to the caller's firm; a row of
-// another firm answers 404.
+// DELETE /api/firm/links/[id] — the firm revokes a client link (or
+// withdraws a pending invite), by firm_clients id. Scoped to the caller's
+// firm; a row of another firm answers 404. Not under /api/firm/clients:
+// that level is keyed by organisation id ([orgId]), and Next refuses two
+// different slug names at one level.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { isSameHost } from "@/lib/same-origin";
@@ -43,7 +45,7 @@ export async function DELETE(
     .select("id")
     .maybeSingle();
   if (error) {
-    console.error("[/api/firm/clients/[id]] revoke failed", error.code);
+    console.error("[/api/firm/links/[id]] revoke failed", error.code);
     return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });

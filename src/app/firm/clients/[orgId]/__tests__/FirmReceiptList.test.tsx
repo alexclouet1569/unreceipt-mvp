@@ -114,3 +114,18 @@ describe("FirmReceiptList booking", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("FirmReceiptList refresh", () => {
+  it("shows the refreshed row in the open dialog after the list updates", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<FirmReceiptList receipts={receipts} />);
+    await user.click(screen.getByText("ICA Maxi"));
+    expect(await screen.findByRole("button", { name: /Mark as booked/ })).toBeInTheDocument();
+    rerender(
+      <FirmReceiptList
+        receipts={[{ ...receipts[0], booked_at: "2026-11-05T10:00:00Z", booked_ref: "V 9" }, ...receipts.slice(1)]}
+      />
+    );
+    expect(await screen.findByText(/ref V 9/)).toBeInTheDocument();
+  });
+});

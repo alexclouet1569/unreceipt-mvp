@@ -1,17 +1,8 @@
-import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { requireFirmClientAccess, requireFirmMemberPage, FirmAuthError } from "@/lib/require-firm";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import {
-  adjacentMonths,
-  monthBounds,
-  monthLabel,
-  receiptMonth,
-  resolveMonth,
-} from "@/lib/firm/client-stats";
+import { monthBounds, receiptMonth, resolveMonth } from "@/lib/firm/client-stats";
 import type { Receipt } from "@/lib/types";
-import { FirmReceiptList } from "./FirmReceiptList";
-import { ExportMonthPanel } from "./ExportMonthPanel";
+import { ClientView } from "../../_views";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +54,6 @@ export default async function FirmClientPage({
   const { orgId } = await params;
   const { month: requested } = await searchParams;
   const month = resolveMonth(requested);
-  const { prev, next } = adjacentMonths(month);
 
   let access;
   try {
@@ -75,51 +65,16 @@ export default async function FirmClientPage({
 
   const receipts = await loadMonthReceipts(access.organizationId, month);
 
-  const link =
-    "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-card transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Link href={`/firm/clients?month=${month}`} aria-label="Back to clients" className={link} style={{ width: "44px", height: "44px" }}>
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1
-              className="font-display font-bold text-[var(--ink)]"
-              style={{ fontSize: "22px", letterSpacing: "-0.01em" }}
-            >
-              {access.clientName}
-            </h1>
-            <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-              {receipts.length === 0
-                ? `No receipts in ${monthLabel(month)}.`
-                : `${receipts.length} receipt${receipts.length === 1 ? "" : "s"} in ${monthLabel(month)}.`}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Link href={`/firm/clients/${access.organizationId}?month=${prev}`} aria-label="Previous month" className={link} style={{ width: "44px", height: "44px" }}>
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <span className="font-display font-bold text-[var(--ink)] min-w-[9rem] text-center" style={{ fontSize: "15px" }}>
-            {monthLabel(month)}
-          </span>
-          <Link href={`/firm/clients/${access.organizationId}?month=${next}`} aria-label="Next month" className={link} style={{ width: "44px", height: "44px" }}>
-            <ChevronRight className="w-5 h-5" />
-          </Link>
-        </div>
-      </div>
-
-      <ExportMonthPanel
-        organizationId={access.organizationId}
-        month={month}
-        unexportedCount={receipts.filter((r) => r.status === "verified" && !r.exported_at).length}
-        reviewCount={receipts.filter((r) => r.status === "pending_review").length}
-      />
-
-      <FirmReceiptList receipts={receipts} />
-    </div>
+    <ClientView
+      clientName={access.clientName}
+      organizationId={access.organizationId}
+      month={month}
+      receipts={receipts}
+      hrefs={{
+        back: `/firm/clients?month=${month}`,
+        month: (m) => `/firm/clients/${access.organizationId}?month=${m}`,
+      }}
+    />
   );
 }

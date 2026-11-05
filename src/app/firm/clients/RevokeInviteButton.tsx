@@ -14,7 +14,7 @@ export function RevokeInviteButton({ id, clientName }: { id: string; clientName:
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/firm/clients/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const res = await fetch(`/api/firm/links/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!res.ok) {
         setError("Couldn't withdraw the invite. Try again.");
         return;

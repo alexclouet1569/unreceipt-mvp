@@ -1,7 +1,7 @@
 import { requireFirmMemberPage } from "@/lib/require-firm";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { FirmMember } from "@/lib/types";
-import { MembersSection } from "./MembersSection";
+import { SettingsView } from "../_views";
 
 export const dynamic = "force-dynamic";
 
@@ -25,38 +25,17 @@ export default async function FirmSettingsPage() {
   const members = await loadMembers(ctx.firmId);
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div>
-        <h1
-          className="font-display font-bold text-[var(--ink)]"
-          style={{ fontSize: "22px", letterSpacing: "-0.01em" }}
-        >
-          {ctx.firmName}
-        </h1>
-        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-          Signed in as {ctx.user.email ?? "you"} · {ctx.role === "admin" ? "admin" : "staff"}
-        </p>
-      </div>
-
-      <section aria-labelledby="members-heading">
-        <h2
-          id="members-heading"
-          className="uppercase text-[var(--ink-faint)]"
-          style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", marginBottom: "8px" }}
-        >
-          People in the firm
-        </h2>
-        <MembersSection
-          members={members.map((m) => ({
-            id: m.id,
-            email: m.email,
-            role: m.role,
-            claimed: Boolean(m.user_id),
-          }))}
-          isAdmin={ctx.role === "admin"}
-          selfId={ctx.memberId}
-        />
-      </section>
-    </div>
+    <SettingsView
+      firmName={ctx.firmName}
+      email={ctx.user.email ?? null}
+      role={ctx.role}
+      members={members.map((m) => ({
+        id: m.id,
+        email: m.email,
+        role: m.role,
+        claimed: Boolean(m.user_id),
+      }))}
+      selfId={ctx.memberId}
+    />
   );
 }
