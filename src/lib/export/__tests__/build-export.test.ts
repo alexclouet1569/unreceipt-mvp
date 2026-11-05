@@ -237,15 +237,16 @@ describe("buildExport", () => {
 
     expect(res.receiptCount).toBe(2);
     expect(res.missing).toBe(0);
-    expect(state.eqs).toEqual([["organization_id", ORG]]);
+    expect(state.eqs).toEqual([["organization_id", ORG], ["status", "verified"]]);
     expect(state.isNull).toEqual(["exported_at"]);
     // The ZIP belongs to the staff member, keyed by client.
     expect(state.uploads[0].path.startsWith(`${STAFF}/${ORG}-`)).toBe(true);
-    // Both receipts stamped once, after the upload.
+    // Only the ready receipt is stamped (after the upload): the one still
+    // in review must show up again once it is completed.
     expect(state.stamps).toEqual([
       {
         payload: { exported_at: now.toISOString(), exported_by: STAFF },
-        ids: [row(1).id, row(2).id],
+        ids: [row(1).id],
       },
     ]);
   });

@@ -7,7 +7,8 @@ import { CATEGORY_CONFIG } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { csvAmount, csvCell, receiptDate } from "@/lib/export/csv";
 import { basAccountFor, VAT_INPUT_ACCOUNT } from "./bas-map";
-import { vatLinesFor } from "./vat-lines";
+import { INPUT_VAT_CURRENCY } from "./rules";
+import { isSwedishRate, vatLinesFor } from "./vat-lines";
 
 export const BOOKKEEPING_COLUMNS = [
   "Date",
@@ -39,8 +40,25 @@ export type BookkeepingRow = {
   originalFile: string | null;
 };
 
-function csvRate(rate: number): string {
-  return String(rate).replace(".", ",");
+function csvRate(rate: number | null): string {
+  return rate == null ? "" : String(rate).replace(".", ",");
+}
+
+/**
+ * 2640 only when the VAT can be Swedish input VAT: a SEK receipt, a
+ * Swedish rate, a category whose VAT is deductible as such. Anything else
+ * (foreign VAT, representation, an unreadable rate) gets no account and
+ * the accountant decides. The CSV never claims the VAT is deductible.
+ */
+export function vatAccountFor(
+  r: Pick<Receipt, "currency">,
+  line: { rate: number | null; vat: number },
+  inputVatDeductible: boolean
+): string {
+  if (line.vat <= 0) return "";
+  if (r.currency !== INPUT_VAT_CURRENCY) return "";
+  if (!isSwedishRate(line.rate)) return "";
+  return inputVatDeductible ? VAT_INPUT_ACCOUNT : "";
 }
 
 export function buildBookkeepingCsv(rows: BookkeepingRow[]): string {
@@ -66,7 +84,7 @@ export function buildBookkeepingCsv(rows: BookkeepingRow[]): string {
           csvAmount(line.vat),
           csvCell(bas.account),
           csvCell(bas.name),
-          csvCell(line.vat > 0 ? VAT_INPUT_ACCOUNT : ""),
+          csvCell(vatAccountFor(r, line, bas.inputVatDeductible)),
           csvCell(CATEGORY_CONFIG[r.category]?.label ?? r.category),
           csvCell(r.payment_method),
           csvCell(r.status === "verified" ? "Ready" : "Needs review"),

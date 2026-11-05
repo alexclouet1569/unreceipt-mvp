@@ -29,6 +29,7 @@ import {
   MAX_UPLOAD_BYTES,
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
+import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -139,6 +140,15 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
+  if (vatLines && data.tax_amount != null && !vatLinesConsistent(vatLines, data.tax_amount)) {
+    return NextResponse.json(
+      {
+        error: "validation failed",
+        issues: [{ path: "vat_lines", message: "VAT per rate must add up to the VAT amount" }],
+      },
+      { status: 400 }
+    );
+  }
   // Line items extracted by OCR on the client. Optional — manual entries
   // skip this, supermarket scans include the full list. Lines that don't
   // validate are dropped instead of failing the save.

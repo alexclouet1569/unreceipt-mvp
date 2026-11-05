@@ -93,7 +93,7 @@ export function MembersSection({
                 onClick={() => remove(m)}
                 disabled={busy !== null}
                 aria-label={`Remove ${m.email}`}
-                className="shrink-0 inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors disabled:opacity-50"
+                className="shrink-0 inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors disabled:opacity-50 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 style={{ width: "44px", height: "44px", borderRadius: "10px" }}
               >
                 {busy === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
@@ -112,7 +112,7 @@ export function MembersSection({
             id="member-email"
             type="email"
             inputMode="email"
-            placeholder="colleague@firm.se"
+            placeholder="Work email"
             className="h-11 flex-1 min-w-[12rem]"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -123,7 +123,7 @@ export function MembersSection({
           </label>
           <select
             id="member-role"
-            className="h-11 rounded-md border bg-card px-3 text-base md:text-sm"
+            className="h-11 rounded-md border bg-card px-3 text-base md:text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             value={role}
             onChange={(e) => setRole(e.target.value as "admin" | "staff")}
           >

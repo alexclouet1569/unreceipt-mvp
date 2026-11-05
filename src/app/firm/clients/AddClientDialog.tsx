@@ -94,7 +94,7 @@ export function AddClientDialog() {
           <label htmlFor={`${id}-org`} className={label} style={{ fontSize: "13px" }}>
             Org.nr (optional)
           </label>
-          <Input id={`${id}-org`} className="h-11" value={orgNumber} onChange={(e) => setOrgNumber(e.target.value)} maxLength={20} placeholder="556677-8899" />
+          <Input id={`${id}-org`} className="h-11" value={orgNumber} onChange={(e) => setOrgNumber(e.target.value)} maxLength={20} placeholder="10 digits" />
         </div>
         <div className={field}>
           <label htmlFor={`${id}-email`} className={label} style={{ fontSize: "13px" }}>

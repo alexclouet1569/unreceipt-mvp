@@ -64,10 +64,12 @@ export async function POST(request: NextRequest) {
     invite.invite_token_hash !== null &&
     hashInviteToken(token) === invite.invite_token_hash &&
     !isInviteExpired(invite.invite_expires_at);
+  // The address match honours the same 14-day window as the link.
   const byEmail =
     typeof user.email === "string" &&
     Boolean(user.email_confirmed_at) &&
-    user.email.trim().toLowerCase() === invite.invited_email;
+    user.email.trim().toLowerCase() === invite.invited_email &&
+    !isInviteExpired(invite.invite_expires_at);
   if (!byToken && !byEmail) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
+import { FilterChip } from "@/components/receipt/FilterChip";
 import { ReceiptDetailDialog } from "@/app/app/(authed)/ReceiptDetailDialog";
 import type { Receipt } from "@/lib/types";
 
@@ -38,38 +39,17 @@ export function FirmReceiptList({ receipts }: { receipts: Receipt[] }) {
 
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="Filter receipts" className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => {
-          const active = filter === f.key;
-          const review = f.key === "review" && counts.review > 0;
-          return (
-            <button
-              key={f.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setFilter(f.key)}
-              className={
-                "inline-flex items-center gap-1.5 rounded-full border px-3 transition-colors " +
-                (active
-                  ? "border-[var(--ink)] bg-[var(--ink)] text-white"
-                  : "border-[var(--hairline)] bg-card text-[var(--ink-muted)] hover:text-[var(--ink)]")
-              }
-              style={{ height: "36px", fontSize: "13px", fontWeight: 600 }}
-            >
-              {f.label}
-              <span
-                className="font-mono tabular-nums"
-                style={{
-                  fontSize: "12px",
-                  color: active ? "rgba(255,255,255,0.8)" : review ? "var(--attention-deep)" : undefined,
-                }}
-              >
-                {counts[f.key]}
-              </span>
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap gap-2" aria-label="Filter receipts">
+        {FILTERS.map((f) => (
+          <FilterChip
+            key={f.key}
+            active={filter === f.key}
+            onClick={() => setFilter(f.key)}
+            label={f.label}
+            count={counts[f.key]}
+            attention={f.key === "review"}
+          />
+        ))}
       </div>
 
       {shown.length === 0 ? (

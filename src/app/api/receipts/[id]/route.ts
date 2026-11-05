@@ -32,6 +32,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import { editMarker } from "@/lib/receipts/edits";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
+import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import {
   MAX_AMOUNT,
   OrgNumberSchema,
@@ -219,6 +220,19 @@ export async function PATCH(
     );
   }
 
+  // A split must add up to the VAT amount it belongs to (both after the patch).
+  const linesAfter =
+    "vat_lines" in update ? (update.vat_lines as Array<{ vat: number }> | null) : existingRow.vat_lines;
+  if (linesAfter && linesAfter.length > 0 && !vatLinesConsistent(linesAfter, taxAfter)) {
+    return NextResponse.json(
+      {
+        error: "validation failed",
+        issues: [{ path: "vat_lines", message: "VAT per rate must add up to the VAT amount" }],
+      },
+      { status: 400 }
+    );
+  }
+
   update.status = computeReceiptStatus(merged);
   Object.assign(update, editMarker(existingRow, update, new Date(), user.id));
 
@@ -293,6 +307,16 @@ export async function DELETE(
     isOwnedStoragePath(row.original_source_url, user.id)
   ) {
     removals.push({ bucket: "receipt-originals", path: row.original_source_url });
+  }
+  // An email whose attachment is the original keeps the message itself
+  // next to it as <id>.eml; a missing file is not an error for remove().
+  const sibling = `${user.id}/${id}.eml`;
+  if (
+    row.original_source_url &&
+    row.original_source_url !== sibling &&
+    row.original_source_url.startsWith(`${user.id}/${id}.`)
+  ) {
+    removals.push({ bucket: "receipt-originals", path: sibling });
   }
 
   const admin = getSupabaseAdmin();

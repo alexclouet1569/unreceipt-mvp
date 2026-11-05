@@ -49,7 +49,7 @@ export function BookReceiptControl({ receipt }: { receipt: Receipt }) {
     return (
       <div className="space-y-2">
         <p className="flex items-center gap-1.5 text-[var(--ink)]" style={{ fontSize: "14px" }}>
-          <BookCheck className="w-4 h-4 text-[var(--brand-action)]" aria-hidden="true" />
+          <BookCheck className="w-4 h-4 text-[var(--ink)]" aria-hidden="true" />
           Booked {formatDate(receipt.booked_at)}
           {receipt.booked_ref ? ` · ref ${receipt.booked_ref}` : ""}
         </p>
@@ -80,7 +80,7 @@ export function BookReceiptControl({ receipt }: { receipt: Receipt }) {
           value={ref}
           onChange={(e) => setRef(e.target.value)}
           maxLength={60}
-          placeholder="A 123"
+          placeholder="Verification no."
         />
         <Button type="submit" className="h-11 gap-1.5" disabled={busy}>
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookCheck className="w-4 h-4" />}

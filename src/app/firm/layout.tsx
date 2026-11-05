@@ -27,7 +27,7 @@ export default async function FirmLayout({
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-4">
+        <div className="max-w-[1040px] mx-auto px-4 h-14 flex items-center gap-4">
           <Link href="/firm/clients" aria-label="UnReceipt for firms">
             <Wordmark />
           </Link>
@@ -41,7 +41,7 @@ export default async function FirmLayout({
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
+      <main className="max-w-[1040px] mx-auto px-4 py-6">{children}</main>
     </div>
   );
 }

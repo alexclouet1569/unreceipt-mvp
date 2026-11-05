@@ -39,7 +39,12 @@ export async function loadAccountantLinks(user: User): Promise<AccountantLink[]>
       ? db.from("firm_clients").select(select).eq("status", "active").in("organization_id", organizationIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
     email
-      ? db.from("firm_clients").select(select).eq("status", "invited").eq("invited_email", email)
+      ? db
+          .from("firm_clients")
+          .select(select)
+          .eq("status", "invited")
+          .eq("invited_email", email)
+          .gt("invite_expires_at", new Date().toISOString())
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
   if (active.error || invited.error) {

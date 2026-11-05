@@ -594,6 +594,9 @@ describe("POST /api/intake/email — attachments", () => {
     expect(path).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]{36}\\.pdf$`));
     expect((bytes as Buffer).toString("latin1")).toBe(PDF);
     expect((options as { contentType?: string }).contentType).toBe("application/pdf");
+    // The message itself is kept next to the attachment.
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(2);
+    expect(mocks.storageUpload.mock.calls[1][0]).toBe(path.replace(/\.pdf$/, ".eml"));
 
     const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
     expect(row).toMatchObject({
@@ -608,7 +611,7 @@ describe("POST /api/intake/email — attachments", () => {
     expect(usageMock).not.toHaveBeenCalled();
   });
 
-  it("keeps a trusted template hit over the attachment, which is still stored as the original", async () => {
+  it("keeps a trusted template hit over the attachment and stores the message as the original", async () => {
     mocks.parseReceipt.mockResolvedValueOnce({
       status: "ok",
       fields: { merchant_name: "Stripe", purchased_at: "2026-11-02T12:00:00.000Z", total: 49, currency: "EUR", parse_confidence: 0.95 },
@@ -617,23 +620,26 @@ describe("POST /api/intake/email — attachments", () => {
     const res = await POST(buildRequest(body, sign(body)));
     expect(res.status).toBe(200);
     expect(ocrMock).not.toHaveBeenCalled();
-    // The PDF is the bookkeeping document; the template's fields stay.
-    expect(mocks.storageUpload.mock.calls[0][0]).toMatch(/\.pdf$/);
+    // The fields came from the message, so the message (which contains the
+    // PDF) is the original.
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+    expect(mocks.storageUpload.mock.calls[0][0]).toMatch(/\.eml$/);
     expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({
       merchant_name: "Stripe",
-      original_source_kind: "application/pdf",
+      original_source_kind: "eml",
       status: "verified",
     });
   });
 
-  it("falls back to the text (LLM included) when OCR can't read the attachment, which is still stored", async () => {
+  it("falls back to the text (LLM included) when OCR can't read the attachment; the message stays the original", async () => {
     ocrMock.mockRejectedValue(new Error("model down"));
     const body = inboundPayload({ raw: emlWithPdf() });
     const res = await POST(buildRequest(body, sign(body)));
     expect(res.status).toBe(200);
     expect(mocks.parseReceipt).toHaveBeenCalledTimes(2);
     expect(mocks.parseReceipt.mock.calls[1][0]).toMatchObject({ raw: { templatesOnly: false } });
-    expect(mocks.storageUpload.mock.calls[0][0]).toMatch(/\.pdf$/);
-    expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({ original_source_kind: "application/pdf", status: "pending_review" });
+    expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+    expect(mocks.storageUpload.mock.calls[0][0]).toMatch(/\.eml$/);
+    expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({ original_source_kind: "eml", status: "pending_review" });
   });
 });

@@ -78,11 +78,12 @@ describe("FirmReceiptList", () => {
   it("shows counts per chip and filters the list", async () => {
     const user = userEvent.setup();
     render(<FirmReceiptList receipts={receipts} />);
-    expect(screen.getByRole("tab", { name: /All\s*3/ })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Review needed\s*1/ })).toBeInTheDocument();
-    expect(screen.getAllByRole("button").length).toBe(3);
+    expect(screen.getByRole("button", { name: /All\s*3/, pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Review needed\s*1/ })).toBeInTheDocument();
+    // 4 chips + 3 receipt rows.
+    expect(screen.getAllByRole("button").length).toBe(7);
 
-    await user.click(screen.getByRole("tab", { name: /Exported\s*1/ }));
+    await user.click(screen.getByRole("button", { name: /Exported\s*1/ }));
     expect(screen.getByText("Coop")).toBeInTheDocument();
     expect(screen.queryByText("Uber")).not.toBeInTheDocument();
   });

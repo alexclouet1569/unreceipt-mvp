@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   memberRead: vi.fn(),
+  pendingRead: vi.fn(),
   claim: vi.fn(),
   clientRead: vi.fn(),
   updatePayload: null as unknown,
@@ -28,8 +29,16 @@ vi.mock("@/lib/supabase-admin", () => ({
             filters[col] = v;
             return chain;
           },
-          maybeSingle: () =>
-            table === "firm_members" ? mocks.memberRead(filters) : mocks.clientRead(filters),
+          is: (col: string, v: unknown) => {
+            filters[col] = v;
+            return chain;
+          },
+          order: () => chain,
+          limit: () => chain,
+          maybeSingle: () => {
+            if (table !== "firm_members") return mocks.clientRead(filters);
+            return "email" in filters ? mocks.pendingRead(filters) : mocks.memberRead(filters);
+          },
         };
         return chain;
       },
@@ -67,6 +76,7 @@ const MEMBER_ROW = { id: "fm-1", firm_id: "firm-1", role: "staff", firms: { name
 beforeEach(() => {
   mocks.getServerUser.mockReset();
   mocks.memberRead.mockReset().mockResolvedValue({ data: null, error: null });
+  mocks.pendingRead.mockReset().mockResolvedValue({ data: null, error: null });
   mocks.claim.mockReset().mockResolvedValue({ data: null, error: null });
   mocks.clientRead.mockReset().mockResolvedValue({ data: null, error: null });
   mocks.updatePayload = null;
@@ -98,11 +108,13 @@ describe("requireFirmMember", () => {
     expect(mocks.claim).not.toHaveBeenCalled();
   });
 
-  it("claims a pending row for the confirmed, lowercased email", async () => {
+  it("claims exactly one pending row for the confirmed, lowercased email", async () => {
     mocks.getServerUser.mockResolvedValue(USER);
+    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1" }, error: null });
     mocks.claim.mockResolvedValue({ data: { ...MEMBER_ROW, role: "admin" }, error: null });
     const ctx = await requireFirmMember();
     expect(ctx.role).toBe("admin");
+    expect(mocks.pendingRead).toHaveBeenCalledWith({ email: "eva@byran.se", user_id: null });
     expect(mocks.updatePayload).toMatchObject({ user_id: USER.id });
     expect((mocks.updatePayload as { claimed_at: string }).claimed_at).toMatch(/^\d{4}-/);
   });

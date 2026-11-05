@@ -38,9 +38,9 @@ describe("buildBookkeepingCsv", () => {
     const lines = csv.slice(1).trimEnd().split("\r\n");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toBe(
-      "2026-10-03;22222222-2222-4222-8222-222222222222;ICA Maxi;556677-8899;SE556677889901;SEK;181,00;181,00;25;100,00;25,00;5800;Resekostnader (måltid);2640;Meals & dining;Card;Ready;;;pdf/a.pdf;originals/a.jpg"
+      "2026-10-03;22222222-2222-4222-8222-222222222222;ICA Maxi;556677-8899;SE556677889901;SEK;181,00;181,00;25;100,00;25,00;5830;Kost och logi;2640;Meals & dining;Card;Ready;;;pdf/a.pdf;originals/a.jpg"
     );
-    expect(lines[2]).toContain(";12;50,00;6,00;5800;");
+    expect(lines[2]).toContain(";12;50,00;6,00;5830;Kost och logi;2640;");
   });
 
   it("uses the firm's account, blanks Total SEK for foreign currency, and skips the VAT account on a 0 line", () => {
@@ -62,5 +62,24 @@ describe("buildBookkeepingCsv", () => {
     const line = csv.slice(1).trimEnd().split("\r\n")[1];
     expect(line).toContain(";EUR;80,00;;0;80,00;0,00;5410;;;Meals & dining;");
     expect(line).toContain(";Ready;2026-11-05;V-12;;");
+  });
+
+  it("gives foreign VAT no account and leaves an unreadable rate blank", () => {
+    const csv = buildBookkeepingCsv([
+      { receipt: receipt({ currency: "EUR", vat_lines: null, tax_amount: 19, tax_rate: null, total: 119 }), pdfFile: null, originalFile: null },
+      // A Swedish receipt with a printed non-Swedish rate: no account either.
+      { receipt: receipt({ vat_lines: [{ rate: 19, net: 100, vat: 19 }], tax_amount: 19, total: 119 }), pdfFile: null, originalFile: null },
+    ]);
+    const lines = csv.slice(1).trimEnd().split("\r\n");
+    expect(lines[1]).toContain(";EUR;119,00;;;100,00;19,00;5830;Kost och logi;;");
+    expect(lines[2]).toContain(";SEK;119,00;119,00;19;100,00;19,00;5830;Kost och logi;;");
+  });
+
+  it("books representation on 6072 with no VAT account", () => {
+    const csv = buildBookkeepingCsv([
+      { receipt: receipt({ category: "client_entertainment", vat_lines: null, tax_amount: 36, tax_rate: 12, total: 336 }), pdfFile: null, originalFile: null },
+    ]);
+    const line = csv.slice(1).trimEnd().split("\r\n")[1];
+    expect(line).toContain(";12;300,00;36,00;6072;Representation, ej avdragsgill;;Client entertainment;");
   });
 });

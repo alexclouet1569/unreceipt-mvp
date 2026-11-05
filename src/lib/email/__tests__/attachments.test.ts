@@ -95,9 +95,12 @@ describe("pickReceiptAttachment", () => {
   const photo = { filename: "p.jpg", mediaType: "image/jpeg" as const, bytes: Buffer.from(bigJpeg, "latin1"), disposition: "attachment" as const };
   const logo = { filename: "l.png", mediaType: "image/png" as const, bytes: Buffer.alloc(500), disposition: "inline" as const };
 
-  it("prefers a PDF, then the largest real image, never a tiny logo", () => {
+  it("prefers a PDF, then an attached image over a bigger inline one, never a tiny logo", () => {
     expect(pickReceiptAttachment([logo, photo, pdf])).toBe(pdf);
     expect(pickReceiptAttachment([logo, photo])).toBe(photo);
+    const bigInline = { ...photo, filename: "map.jpg", bytes: Buffer.alloc(40000), disposition: "inline" as const };
+    expect(pickReceiptAttachment([bigInline, photo])).toBe(photo);
+    expect(pickReceiptAttachment([bigInline])).toBe(bigInline);
     expect(pickReceiptAttachment([logo])).toBeNull();
     expect(pickReceiptAttachment([])).toBeNull();
   });

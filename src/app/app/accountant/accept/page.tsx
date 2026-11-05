@@ -51,16 +51,16 @@ export default async function AcceptInvitePage({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center">
+        <div className="max-w-[540px] mx-auto px-4 h-14 flex items-center">
           <Link href="/app" aria-label="UnReceipt">
             <Wordmark />
           </Link>
         </div>
       </header>
-      <main className="max-w-2xl mx-auto px-4 py-10">
+      <main className="max-w-[540px] mx-auto px-4 py-10">
         <div
           className="bg-card space-y-4"
-          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "24px 20px" }}
+          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "16px 14px" }}
         >
           {!invite || invite.state === "missing" ? (
             <Notice title="This link doesn't work">

@@ -10,16 +10,20 @@ import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { OcrResult } from "@/lib/ocr";
 import type { CanonicalReceiptFields } from "./parser-types";
 import { usableItems, usableVatLines } from "./receipt-fields";
+import { UNTRUSTED_EXTRACTION_CONFIDENCE_CAP } from "@/lib/bookkeeping/rules";
+import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 
-export const ATTACHMENT_CONFIDENCE_CAP = 0.7;
+export const ATTACHMENT_CONFIDENCE_CAP = UNTRUSTED_EXTRACTION_CONFIDENCE_CAP;
 
 function finite(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
 /**
- * Null when the model saw no receipt or couldn't read the required fields
- * (merchant, total, date); the caller then falls back to the email text.
+ * Null when the model saw no receipt, couldn't read the required fields
+ * (merchant, total, date) or read a currency the app doesn't handle; the
+ * caller then falls back to the email text. The currency is never
+ * derived: a Danish receipt must not become a SEK one.
  */
 export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null {
   if (result.not_a_receipt) return null;
@@ -31,10 +35,13 @@ export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null 
       : null;
   if (!merchant || total == null || total <= 0 || !date) return null;
 
-  const currency =
-    typeof result.currency === "string" && (CURRENCY_OPTIONS as readonly string[]).includes(result.currency)
-      ? result.currency
-      : "SEK";
+  if (
+    typeof result.currency !== "string" ||
+    !(CURRENCY_OPTIONS as readonly string[]).includes(result.currency)
+  ) {
+    return null;
+  }
+  const currency = result.currency;
   const category =
     typeof result.category === "string" && (CATEGORY_KEYS as readonly string[]).includes(result.category)
       ? result.category
@@ -43,6 +50,10 @@ export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null 
   const taxRate = finite(result.tax_rate);
   const confidence = finite(result.confidence) ?? 0.5;
   const items = usableItems(result.items);
+  const safeTax = taxAmount != null && taxAmount >= 0 && taxAmount <= total ? taxAmount : null;
+  const split = usableVatLines(result.vat_lines);
+  // A split that doesn't add up to the VAT total is dropped, never stored.
+  const vatLines = split && vatLinesConsistent(split, safeTax) ? split : null;
 
   return {
     merchant_name: merchant,
@@ -50,13 +61,13 @@ export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null 
     total,
     currency,
     subtotal: null,
-    tax_amount: taxAmount != null && taxAmount >= 0 && taxAmount <= total ? taxAmount : null,
+    tax_amount: safeTax,
     tax_rate: taxRate != null && taxRate >= 0 && taxRate <= 100 ? taxRate : null,
     seller_org_number:
       typeof result.seller_org_number === "string" ? result.seller_org_number.trim().slice(0, 20) || null : null,
     merchant_vat_number:
       typeof result.seller_vat_number === "string" ? result.seller_vat_number.trim().slice(0, 32) || null : null,
-    vat_lines: usableVatLines(result.vat_lines) ?? null,
+    vat_lines: vatLines,
     category,
     payment_method:
       typeof result.payment_method === "string" ? result.payment_method.trim().slice(0, 50) || null : null,

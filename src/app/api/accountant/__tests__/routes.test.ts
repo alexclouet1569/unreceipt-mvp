@@ -125,6 +125,11 @@ describe("POST /api/accountant/respond", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
+  it("refuses an expired invite by email match too", async () => {
+    mocks.invite = { data: openInvite({ invite_expires_at: "2020-01-01T00:00:00Z" }), error: null };
+    expect((await respond({ inviteId: INVITE_ID, action: "accept" })).status).toBe(404);
+  });
+
   it("refuses an expired token even for the right link", async () => {
     mocks.user = { ...USER, email: "other@x.se" };
     mocks.invite = { data: openInvite({ invite_expires_at: "2020-01-01T00:00:00Z" }), error: null };

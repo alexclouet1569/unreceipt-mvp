@@ -77,7 +77,7 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
           style={{ border: "1px solid var(--hairline)", borderRadius: "12px" }}
         >
           {active.map((l) => (
-            <li key={l.id} className="flex flex-wrap items-center justify-between gap-3" style={{ padding: "10px 14px", minHeight: "56px" }}>
+            <li key={l.id} className="flex flex-wrap items-center justify-between gap-3" style={{ padding: "12px 14px", minHeight: "56px" }}>
               <span className="min-w-0">
                 <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
                   {l.firmName}
@@ -100,7 +100,7 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
             </li>
           ))}
           {pending.map((l) => (
-            <li key={l.id} className="flex flex-wrap items-center justify-between gap-3" style={{ padding: "10px 14px", minHeight: "56px" }}>
+            <li key={l.id} className="flex flex-wrap items-center justify-between gap-3" style={{ padding: "12px 14px", minHeight: "56px" }}>
               <span className="min-w-0">
                 <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
                   {l.firmName}

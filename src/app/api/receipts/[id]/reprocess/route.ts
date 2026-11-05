@@ -23,6 +23,7 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { usableVatLines } from "@/lib/receipts/receipt-fields";
+import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { Receipt, ReceiptItem } from "@/lib/types";
 
@@ -277,7 +278,12 @@ export function mergeExtraction(
     "merchant_vat_number",
     typeof fresh.seller_vat_number === "string" ? fresh.seller_vat_number.trim().slice(0, 32) : null
   );
-  writeIfBetter("vat_lines", usableVatLines(fresh.vat_lines) ?? null);
+  {
+    const split = usableVatLines(fresh.vat_lines);
+    const taxAfter =
+      "tax_amount" in patch ? (patch.tax_amount as number | null) : existing.tax_amount;
+    writeIfBetter("vat_lines", split && vatLinesConsistent(split, taxAfter) ? split : null);
+  }
 
   // Items: always backfill if the row currently has none. If it already
   // has some, only overwrite when the new extraction wins on confidence.

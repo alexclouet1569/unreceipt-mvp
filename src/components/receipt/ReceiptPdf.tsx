@@ -400,8 +400,8 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
               </View>
             ) : null}
             {showTax && vatSplit
-              ? vatSplit.map((line) => (
-                  <View key={line.rate} style={styles.totalsRow}>
+              ? vatSplit.map((line, idx) => (
+                  <View key={`${line.rate}-${idx}`} style={styles.totalsRow}>
                     <Text style={styles.totalsLabel}>{`VAT (${line.rate}%)`}</Text>
                     <Text style={styles.totalsValue}>
                       {formatAmount(line.vat, receipt.currency)}

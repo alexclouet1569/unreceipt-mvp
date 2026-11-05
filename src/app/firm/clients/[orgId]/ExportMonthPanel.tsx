@@ -49,7 +49,7 @@ export function ExportMonthPanel({
           <input
             id={id}
             type="checkbox"
-            className="size-4"
+            className="size-5 accent-[var(--ink)]"
             checked={onlyNew}
             onChange={(e) => setOnlyNew(e.target.checked)}
           />

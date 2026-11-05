@@ -163,9 +163,9 @@ export function ReceiptDetailCard({ receipt, viewer = "owner" }: ReceiptDetailCa
         {showTax ? (
           <div className="mt-2 space-y-1">
             {vatSplit ? (
-              vatSplit.map((line) => (
+              vatSplit.map((line, idx) => (
                 <Leader
-                  key={line.rate}
+                  key={`${line.rate}-${idx}`}
                   label={`VAT ${line.rate} %`}
                   value={formatAmount(line.vat, currency)}
                   mono

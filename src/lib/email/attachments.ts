@@ -149,8 +149,9 @@ export function pickReceiptAttachment(attachments: EmailAttachment[]): EmailAtta
   const pdf = usable.find((a) => a.mediaType === "application/pdf" && a.disposition === "attachment")
     ?? usable.find((a) => a.mediaType === "application/pdf");
   if (pdf) return pdf;
+  // A photo someone attached beats an inline image (a map, a big logo).
   const images = usable
     .filter((a) => a.mediaType !== "application/pdf")
     .sort((a, b) => b.bytes.length - a.bytes.length);
-  return images[0] ?? null;
+  return images.find((a) => a.disposition === "attachment") ?? images[0] ?? null;
 }

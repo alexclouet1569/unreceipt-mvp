@@ -383,12 +383,17 @@ export async function POST(request: NextRequest) {
   // if that can't read it, let the LLM read the text after all.
   const templateTrusted =
     parseResult.status === "ok" && parseResult.fields.parse_confidence >= 0.75;
+  // True once OCR read the attachment: it then becomes the stored original.
+  let readFromAttachment = false;
   if (attachment && !templateTrusted) {
     let fromAttachment: Awaited<ReturnType<typeof parseReceipt>> | null = null;
     try {
       const ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType);
       const fields = fieldsFromOcr(ocr);
-      if (fields) fromAttachment = { status: "ok", fields };
+      if (fields) {
+        fromAttachment = { status: "ok", fields };
+        readFromAttachment = true;
+      }
     } catch (err) {
       console.error("[intake/email] attachment OCR failed", err instanceof Error ? err.message : "unknown");
       Sentry.captureException(err, { tags: { area: "intake-attachment-ocr" } });
@@ -400,11 +405,13 @@ export async function POST(request: NextRequest) {
   // reference the same uuid. If the insert later loses an idempotency race
   // (23505 on intake_ref), we best-effort delete the storage object.
   const receiptId = crypto.randomUUID();
-  // The original stored for the receipt: the attachment itself when there
-  // is one (what the accountant needs, and what a re-run reads), else the
-  // whole message.
+  // The original stored for the receipt: the attachment when its fields
+  // came from it (what the accountant needs, and what a re-run reads),
+  // else the whole message. The message itself is kept in both cases
+  // (BFL 7 kap.: räkenskapsinformation in the form it was received); it
+  // sits next to the attachment as <id>.eml and is deleted with the row.
   const original: { path: string; bytes: Buffer; contentType: string; kind: string } | null =
-    attachment
+    attachment && readFromAttachment
       ? {
           path: `${userId}/${receiptId}.${EXTENSION_BY_TYPE[attachment.mediaType]}`,
           bytes: attachment.bytes,
@@ -428,6 +435,16 @@ export async function POST(request: NextRequest) {
       console.error("[intake/email] original upload failed", uploadError);
       // Soft-fail — keep going, the row is the user-visible artifact.
       // We just won't have an "Original source" toggle for this one.
+    }
+    if (original.kind !== "eml" && hasRaw) {
+      const { error: emlError } = await supabase.storage
+        .from("receipt-originals")
+        .upload(`${userId}/${receiptId}.eml`, rawEml, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: "message/rfc822",
+        });
+      if (emlError) console.error("[intake/email] eml upload failed", emlError);
     }
   }
 

@@ -126,7 +126,10 @@ async function loadReceipts(
     scope.kind === "user"
       ? query.eq("user_id", scope.userId)
       : query.eq("organization_id", scope.organizationId);
-  if (unexportedOnly) query = query.is("exported_at", null);
+  // "Not exported yet" means ready receipts the firm hasn't booked from:
+  // a receipt still in review has no PDF and would otherwise be stamped
+  // before it was even complete, and then never reappear.
+  if (unexportedOnly) query = query.is("exported_at", null).eq("status", "verified");
   const range = periodRange(period);
   if (range) {
     const { start, end } = range;
@@ -227,10 +230,19 @@ function readme(
     "              directly in Excel or Numbers set to Swedish).",
     ...(forFirm
       ? [
-          "bookkeeping.csv  One line per receipt and VAT rate: net, VAT, a BAS account",
-          "              suggestion per category (override it per receipt in the",
-          "              portal), the input-VAT account, seller org.nr and the booked",
-          "              reference. Receipts in this file are stamped as exported.",
+          "bookkeeping.csv  One line per receipt and VAT rate: net, VAT, seller org.nr",
+          "              and the booked reference. The BAS account is a SUGGESTION from",
+          "              the receipt's category (standard BAS defaults, not confirmed",
+          "              by your firm; set the account per receipt in the portal to",
+          "              override it). The VAT account 2640 appears only for a SEK",
+          "              receipt with a Swedish rate on a category whose VAT is normally",
+          "              deductible; it does not mean the VAT is deductible for this",
+          "              purchase. Representation gets 6072 and no VAT account: split it",
+          "              yourself (300 kr per person). Foreign VAT has no account. A",
+          "              blank VAT rate means the receipt printed none that could be read.",
+          "              Total SEK is blank for other currencies (no conversion is done).",
+          "              Ready receipts included for the first time are stamped as",
+          "              exported; a re-export never changes the stamp.",
         ]
       : []),
     "pdf/          The digital receipt for every receipt that is ready. Receipts you",
@@ -381,8 +393,10 @@ export async function buildExport(opts: ExportOptions): Promise<ExportResult> {
     console.error("[export] files missing from export", { count: missing });
   }
   if (opts.markExported) {
+    // Only ready receipts: one in review will be completed later and must
+    // then show up in the next "not exported yet" export.
     await markExportedRows(
-      receipts.map((r) => r.id),
+      receipts.filter((r) => r.status === "verified").map((r) => r.id),
       actorUserId,
       now,
     );

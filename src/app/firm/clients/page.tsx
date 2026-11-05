@@ -183,7 +183,7 @@ export default async function FirmClientsPage({
 
 function MonthSwitch({ month, prev, next }: { month: string; prev: string; next: string }) {
   const link =
-    "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors";
+    "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-card transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
   return (
     <div className="flex items-center gap-1">
       <Link href={`/firm/clients?month=${prev}`} aria-label="Previous month" className={link} style={{ width: "44px", height: "44px" }}>
@@ -210,7 +210,7 @@ function ClientTable({
 }) {
   const head = "px-4 py-2 text-left font-semibold text-[var(--ink-muted)]";
   const cell = "px-4 py-3";
-  const num = "px-4 py-3 text-right font-mono tabular-nums";
+  const num = "px-4 py-3 text-right tabular-nums";
   return (
     <div className="overflow-x-auto rounded-[12px] border border-[var(--hairline)] bg-card">
       <table className="w-full" style={{ fontSize: "14px" }}>
@@ -228,11 +228,11 @@ function ClientTable({
           {active.map((c) => {
             const s = stats.get(c.organization_id) ?? EMPTY_STATS;
             return (
-              <tr key={c.id} className="hover:bg-[var(--brand-tint)]/40 transition-colors">
+              <tr key={c.id} className="hover:bg-card transition-colors">
                 <td className={cell}>
                   <Link
                     href={`/firm/clients/${c.organization_id}?month=${month}`}
-                    className="font-medium text-[var(--ink)] hover:underline"
+                    className="inline-flex min-h-11 items-center font-medium text-[var(--ink)] hover:underline rounded-[6px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     {c.client_name}
                   </Link>

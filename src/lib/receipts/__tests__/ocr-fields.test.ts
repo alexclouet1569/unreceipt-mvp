@@ -45,8 +45,23 @@ describe("fieldsFromOcr", () => {
     expect(fieldsFromOcr({ merchant: "ICA", amount: 10, receipt_date: "2/11/2026" })).toBeNull();
   });
 
-  it("falls back to SEK, drops an unknown category and a VAT above the total", () => {
-    const fields = fieldsFromOcr({ merchant: "X", amount: 10, receipt_date: "2026-11-02", currency: "DKK", category: "pets", tax_amount: 12 });
-    expect(fields).toMatchObject({ currency: "SEK", category: null, tax_amount: null });
+  it("never derives a currency: an unsupported one means no fields", () => {
+    expect(fieldsFromOcr({ merchant: "X", amount: 10, receipt_date: "2026-11-02", currency: "DKK" })).toBeNull();
+    expect(fieldsFromOcr({ merchant: "X", amount: 10, receipt_date: "2026-11-02" })).toBeNull();
+  });
+
+  it("drops an unknown category, a VAT above the total and a split that doesn't add up", () => {
+    const fields = fieldsFromOcr({
+      merchant: "X",
+      amount: 10,
+      receipt_date: "2026-11-02",
+      currency: "SEK",
+      category: "pets",
+      tax_amount: 12,
+      vat_lines: [{ rate: 25, vat: 2 }],
+    });
+    expect(fields).toMatchObject({ category: null, tax_amount: null });
+    const split = fieldsFromOcr({ merchant: "X", amount: 125, receipt_date: "2026-11-02", currency: "SEK", tax_amount: 25, vat_lines: [{ rate: 25, vat: 20 }] });
+    expect(split?.vat_lines).toBeNull();
   });
 });

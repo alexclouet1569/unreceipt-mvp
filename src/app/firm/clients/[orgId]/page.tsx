@@ -76,7 +76,7 @@ export default async function FirmClientPage({
   const receipts = await loadMonthReceipts(access.organizationId, month);
 
   const link =
-    "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors";
+    "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-card transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
   return (
     <div className="space-y-6">

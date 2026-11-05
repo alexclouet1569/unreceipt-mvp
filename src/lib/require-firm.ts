@@ -95,18 +95,31 @@ async function claimPendingMembership(
 ): Promise<Omit<FirmContext, "user"> | null> {
   if (!user.email || !user.email_confirmed_at) return null;
   const email = user.email.trim().toLowerCase();
-  const { data, error } = await getSupabaseAdmin()
+  const db = getSupabaseAdmin();
+  // Exactly one row: the same address invited by two firms must not fail
+  // the whole update on the one-firm-per-person index.
+  const { data: pending, error: pendingError } = await db
+    .from("firm_members")
+    .select("id")
+    .eq("email", email)
+    .is("user_id", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (pendingError) {
+    console.error("[require-firm] pending lookup failed", pendingError);
+    return null;
+  }
+  if (!pending) return null;
+  const { data, error } = await db
     .from("firm_members")
     .update({ user_id: user.id, claimed_at: new Date().toISOString() })
-    .eq("email", email)
+    .eq("id", pending.id as string)
     .is("user_id", null)
     .select(MEMBER_SELECT)
     .maybeSingle();
   if (error) {
-    // 23505: the person already holds another firm's row; that one wins.
-    if (error.code !== "23505") {
-      console.error("[require-firm] claim failed", error);
-    }
+    console.error("[require-firm] claim failed", error.code);
     return null;
   }
   if (!data) return null;

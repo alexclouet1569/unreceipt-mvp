@@ -20,10 +20,10 @@ export function FirmNav({ alsoCustomer }: { alsoCustomer: boolean }) {
             href={l.href}
             aria-current={active ? "page" : undefined}
             className={
-              "inline-flex items-center px-3 rounded-[10px] transition-colors " +
+              "inline-flex items-center px-3 rounded-[10px] border-b-2 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 " +
               (active
-                ? "bg-[var(--brand-tint)] text-[var(--ink)]"
-                : "text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)]")
+                ? "border-[var(--ink)] text-[var(--ink)]"
+                : "border-transparent text-[var(--ink-muted)] hover:text-[var(--ink)]")
             }
             style={{ height: "44px", fontSize: "14px", fontWeight: 600 }}
           >
@@ -34,7 +34,7 @@ export function FirmNav({ alsoCustomer }: { alsoCustomer: boolean }) {
       {alsoCustomer ? (
         <Link
           href="/app"
-          className="inline-flex items-center px-3 rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
+          className="inline-flex items-center px-3 rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           style={{ height: "44px", fontSize: "14px" }}
         >
           Your own receipts ↗
