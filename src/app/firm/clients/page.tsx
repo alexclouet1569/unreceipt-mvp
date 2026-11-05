@@ -25,7 +25,7 @@ type ActiveClient = Pick<
 type PendingInvite = Pick<
   FirmClient,
   "id" | "client_name" | "invited_email" | "invite_expires_at" | "created_at"
->;
+> & { expired: boolean };
 
 async function loadClients(firmId: string): Promise<{
   active: ActiveClient[];
@@ -49,7 +49,14 @@ async function loadClients(firmId: string): Promise<{
       (r): r is FirmClient & { organization_id: string } =>
         r.status === "active" && typeof r.organization_id === "string"
     ),
-    pending: rows.filter((r) => r.status === "invited"),
+    pending: rows
+      .filter((r) => r.status === "invited")
+      .map((r) => ({
+        ...r,
+        expired:
+          typeof r.invite_expires_at === "string" &&
+          Date.parse(r.invite_expires_at) < Date.now(),
+      })),
   };
 }
 
@@ -156,9 +163,7 @@ export default async function FirmClientsPage({
                 </span>
                 <span className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
                   invited {formatDate(p.created_at)}
-                  {p.invite_expires_at && Date.parse(p.invite_expires_at) < Date.now()
-                    ? " · link expired"
-                    : ""}
+                  {p.expired ? " · link expired" : ""}
                 </span>
               </li>
             ))}
