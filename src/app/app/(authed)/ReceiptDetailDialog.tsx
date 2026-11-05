@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Download, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
+import { BookReceiptControl } from "@/components/receipt/BookReceiptControl";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -263,6 +264,7 @@ export function ReceiptDetailDialog({
                     <Pencil className="w-4 h-4" />
                     Edit receipt
                   </Button>
+                  {isFirm ? <BookReceiptControl receipt={receipt} /> : null}
                 </>
               )}
 

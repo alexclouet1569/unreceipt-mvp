@@ -95,3 +95,21 @@ describe("FirmReceiptList", () => {
     expect(screen.queryByRole("button", { name: /Delete receipt/i })).not.toBeInTheDocument();
   });
 });
+
+describe("FirmReceiptList booking", () => {
+  it("offers 'Mark as booked' on a ready receipt and posts to the client's booking route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, updated: 1 }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<FirmReceiptList receipts={receipts} />);
+    await user.click(screen.getByText("ICA Maxi"));
+    await user.type(await screen.findByLabelText("Verification reference (optional)"), "A 7");
+    await user.click(screen.getByRole("button", { name: /Mark as booked/ }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/firm/clients/org-1/receipts/book", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ receiptIds: ["r-1"], ref: "A 7", booked: true }),
+    });
+    vi.unstubAllGlobals();
+  });
+});
