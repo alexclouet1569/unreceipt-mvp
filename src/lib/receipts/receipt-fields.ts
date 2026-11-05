@@ -65,6 +65,45 @@ export const TaxRateSchema = z
   .min(0, "The VAT rate must be between 0 and 100 %")
   .max(100, "The VAT rate must be between 0 and 100 %");
 
+// Seller identifiers as printed: Swedish org.nr "556677-8899" (also
+// accepted without the dash), a VAT number "SE556677889901" or a foreign
+// one. Kept loose: the accountant checks them; the field just has to fit.
+export const OrgNumberSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(20, "Org.nr can be at most 20 characters");
+
+export const VatNumberSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(32, "VAT number can be at most 32 characters");
+
+// VAT split per rate (25/12/6/0 in Sweden; any rate abroad). `net` may be
+// unknown when a receipt prints only the VAT per rate.
+export const VatLineSchema = z.object({
+  rate: z.number().min(0).max(100),
+  net: z.number().min(-MAX_AMOUNT).max(MAX_AMOUNT).nullable().optional(),
+  vat: z.number().min(0).max(MAX_AMOUNT),
+});
+
+export const VatLinesSchema = z.array(VatLineSchema).max(10);
+
+/** VAT lines read by a model: malformed lines are dropped, never fatal. */
+export type UsableVatLine = { rate: number; net: number | null; vat: number };
+
+export function usableVatLines(raw: unknown): UsableVatLine[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const lines: UsableVatLine[] = raw.slice(0, 10).flatMap((line) => {
+    const parsed = VatLineSchema.safeParse(line);
+    return parsed.success
+      ? [{ rate: parsed.data.rate, net: parsed.data.net ?? null, vat: parsed.data.vat }]
+      : [];
+  });
+  return lines.length > 0 ? lines : undefined;
+}
+
 // Free text ("Card", "Swish", "Amex ending 1234"…), kept short so it fits
 // one line on the PDF.
 export const PaymentMethodSchema = z

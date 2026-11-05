@@ -10,14 +10,13 @@
 //                                via /api/capture).
 //   * neither                  → 404 ("no_original").
 //
-// RLS-keyed by user_id via the anon-key client. Service-role is not
-// needed: the rows are owner-readable, and storage buckets are private
-// with policies matching the receipts table.
+// The row is read through loadReceiptForActor(): the owner, or staff of
+// the accounting firm linked to the receipt's company. Storage paths are
+// checked against the OWNER's folder (never the actor's) before signing.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/supabase-server";
+import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import type { Receipt, ReceiptOriginalKind } from "@/lib/types";
@@ -49,26 +48,6 @@ type OriginalPayload = {
 };
 
 type NoOriginal = { error: "no_original" };
-
-async function getUserScopedClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const cookieStore = await cookies();
-  return createServerClient(url, anon, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll: (toSet) => {
-        try {
-          for (const { name, value, options } of toSet) {
-            cookieStore.set(name, value, options);
-          }
-        } catch {
-          /* read-only context */
-        }
-      },
-    },
-  });
-}
 
 function inferKindFromPath(path: string): ReceiptOriginalKind {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -175,24 +154,21 @@ export async function GET(
     return NextResponse.json({ error: "invalid id" }, { status: 400 });
   }
 
-  const supabase = await getUserScopedClient();
-
-  // RLS hides other users' rows, so a miss is correctly 404 from the
-  // caller's perspective. No need to verify user_id ourselves.
-  const { data: row, error } = await supabase
-    .from("receipts")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+  // A row the caller may not see is a miss (404), so ids can't be probed.
+  let access;
+  try {
+    access = await loadReceiptForActor(user, id);
+  } catch (err) {
+    if (err instanceof ReceiptAccessError) {
+      return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+    }
+    throw err;
   }
-  if (!row) {
+  if (!access) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const receipt = row as Receipt;
+  const receipt: Receipt = access.receipt;
 
   // Manual rows never have an original — surface that explicitly so the
   // client can hide the tab.
@@ -217,13 +193,13 @@ export async function GET(
     return NextResponse.json({ error: "no_original" }, { status: 404 });
   }
 
-  if (!isOwnedStoragePath(path, user.id)) {
+  // The owner's folder, whoever is looking.
+  if (!isOwnedStoragePath(path, receipt.user_id)) {
     return NextResponse.json({ error: "no_original" }, { status: 404 });
   }
 
-  // Mint the signed URL. The row lookup above is RLS-scoped via the
-  // user-cookie client (so we already verified ownership). The storage
-  // call uses the service-role admin client because storage RLS
+  // Mint the signed URL. The storage call uses the service-role admin
+  // client because storage RLS
   // policies for the `receipts` and `receipt-originals` buckets were
   // never wired for anon-key reads — the intake handlers upload via
   // the admin client, and downloads must mirror that.

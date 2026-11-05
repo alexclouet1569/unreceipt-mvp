@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
+import { FilterChip } from "@/components/receipt/FilterChip";
 import { CaptureFab } from "@/components/CaptureFab";
 import { IntakeRow } from "@/components/IntakeRow";
 import {
@@ -16,7 +17,6 @@ import {
   type CategoryKey,
 } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
@@ -431,44 +431,6 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
         );
       })}
     </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-  count,
-  attention = false,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  attention?: boolean;
-}) {
-  // A 36px pill inside a 44px tap target.
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className="group flex h-11 shrink-0 items-center rounded-full outline-none"
-    >
-      <span
-        className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-semibold tracking-[0.02em] whitespace-nowrap transition-colors group-focus-visible:ring-2 group-focus-visible:ring-[var(--ring)]",
-          active
-            ? attention
-              ? "border-[var(--attention)] bg-[var(--attention-tint)] text-[var(--attention-deep)]"
-              : "border-[var(--ink)] bg-card text-[var(--ink)]"
-            : "border-[var(--hairline)] bg-transparent text-[var(--ink-muted)]",
-        )}
-      >
-        <span>{label}</span>
-        <span className="text-[11px] tabular-nums opacity-70">{count}</span>
-      </span>
-    </button>
   );
 }
 

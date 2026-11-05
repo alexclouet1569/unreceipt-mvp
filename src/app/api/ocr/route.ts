@@ -7,6 +7,7 @@ import {
   hasProductAccess,
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
+import { countPdfPages, MAX_PDF_PAGES } from "@/lib/receipts/pdf-pages";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
 import {
   MAX_UPLOAD_BYTES,
@@ -18,20 +19,6 @@ export const dynamic = "force-dynamic";
 // Vision calls typically resolve in 3-8s; give 30s headroom for large
 // images and multi-page PDFs.
 export const maxDuration = 30;
-
-// Cap PDF page count so a 50-page contract uploaded by mistake doesn't burn
-// vision tokens. Counted via /Type /Page occurrences — works for the vast
-// majority of PDFs we see in the wild; linearized PDFs may over-count but
-// that's a safe-direction error (false rejects, not false accepts).
-const MAX_PDF_PAGES = 10;
-
-function countPdfPages(buf: Buffer): number {
-  // Match `/Type /Page` (with optional whitespace) but exclude `/Pages`
-  // (the catalog node). The negative lookahead `(?!s)` keeps the count
-  // accurate on standard PDFs without parsing the cross-ref table.
-  const matches = buf.toString("latin1").match(/\/Type\s*\/Page(?!s)/g);
-  return matches ? matches.length : 0;
-}
 
 export async function POST(request: NextRequest) {
   const user = await getServerUser();

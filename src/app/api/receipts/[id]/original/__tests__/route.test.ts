@@ -11,6 +11,21 @@ vi.mock("@/lib/supabase-server", () => ({
   getServerUser: () => mockGetServerUser(),
 }));
 
+vi.mock("@/lib/receipts/access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/receipts/access")>();
+  return {
+    ...actual,
+    loadReceiptForActor: async (user: { id: string }) => {
+      const r = (await mockMaybeSingle()) as { data: Record<string, unknown> | null; error: unknown };
+      if (r?.error) throw new actual.ReceiptAccessError();
+      if (!r?.data) return null;
+      return r.data.user_id === user.id
+        ? { receipt: r.data, via: "owner" }
+        : { receipt: r.data, via: "firm", firmId: "firm-1" };
+    },
+  };
+});
+
 vi.mock("next/headers", () => ({
   cookies: () =>
     Promise.resolve({
@@ -66,6 +81,7 @@ function params() {
 function paperRow(overrides: Record<string, unknown> = {}) {
   return {
     id: FIXTURE_ID,
+    user_id: "user-1",
     source: "paper",
     merchant_name: "ICA Maxi",
     purchased_at: "2026-05-10T12:00:00Z",

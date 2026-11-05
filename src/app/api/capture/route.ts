@@ -10,21 +10,26 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { recordReceiptUsage } from "@/lib/usage";
+import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import {
   MAX_AMOUNT,
+  OrgNumberSchema,
   PaymentMethodSchema,
   TaxAmountSchema,
   TaxRateSchema,
+  VatNumberSchema,
   optionalNumber,
   optionalString,
   taxExceedsTotal,
   usableItems,
+  usableVatLines,
 } from "@/lib/receipts/receipt-fields";
 import {
   EXTENSION_BY_TYPE,
   MAX_UPLOAD_BYTES,
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
+import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +55,8 @@ const CaptureSchema = z
     // All optional: plenty of receipts (foreign, VAT-exempt) show none.
     tax_amount: TaxAmountSchema.optional(),
     tax_rate: TaxRateSchema.optional(),
+    seller_org_number: OrgNumberSchema.optional(),
+    merchant_vat_number: VatNumberSchema.optional(),
     payment_method: PaymentMethodSchema.optional(),
   })
   .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
@@ -94,6 +101,16 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+  // VAT split per rate, JSON-encoded like items; bad lines are dropped.
+  const vatLinesRaw = form.get("vat_lines");
+  let vatLines: ReturnType<typeof usableVatLines> = undefined;
+  if (typeof vatLinesRaw === "string" && vatLinesRaw.length > 0) {
+    try {
+      vatLines = usableVatLines(JSON.parse(vatLinesRaw));
+    } catch {
+      vatLines = undefined;
+    }
+  }
   const parsed = CaptureSchema.safeParse({
     merchant: typeof form.get("merchant") === "string" ? form.get("merchant") : undefined,
     amount: typeof amountRaw === "string" && amountRaw !== "" ? Number(amountRaw) : NaN,
@@ -104,6 +121,8 @@ export async function POST(request: NextRequest) {
     notes: typeof notesRaw === "string" && notesRaw.length > 0 ? notesRaw : undefined,
     tax_amount: optionalNumber(form.get("tax_amount")),
     tax_rate: optionalNumber(form.get("tax_rate")),
+    seller_org_number: optionalString(form.get("seller_org_number")),
+    merchant_vat_number: optionalString(form.get("merchant_vat_number")),
     payment_method: optionalString(form.get("payment_method")),
   });
 
@@ -121,6 +140,15 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data;
+  if (vatLines && data.tax_amount != null && !vatLinesConsistent(vatLines, data.tax_amount)) {
+    return NextResponse.json(
+      {
+        error: "validation failed",
+        issues: [{ path: "vat_lines", message: "VAT per rate must add up to the VAT amount" }],
+      },
+      { status: 400 }
+    );
+  }
   // Line items extracted by OCR on the client. Optional — manual entries
   // skip this, supermarket scans include the full list. Lines that don't
   // validate are dropped instead of failing the save.
@@ -185,10 +213,14 @@ export async function POST(request: NextRequest) {
     parse_confidence: null,
   });
 
+  // Which company the receipt belongs to; the firm portal filters on it.
+  const organizationId = await getOrCreateDefaultOrganization(user.id);
+
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")
     .insert({
       user_id: user.id,
+      organization_id: organizationId,
       merchant_name: data.merchant.trim(),
       category: data.category,
       currency: data.currency,
@@ -198,6 +230,11 @@ export async function POST(request: NextRequest) {
       notes: data.notes?.trim() || null,
       tax_amount: data.tax_amount ?? null,
       tax_rate: data.tax_rate ?? null,
+      seller_org_number: data.seller_org_number ?? null,
+      merchant_vat_number: data.merchant_vat_number ?? null,
+      // Only kept with the VAT it belongs to: the split without the total
+      // VAT would contradict the receipt.
+      vat_lines: data.tax_amount != null ? (vatLines ?? null) : null,
       payment_method: data.payment_method ?? null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,

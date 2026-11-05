@@ -22,6 +22,9 @@ export type LlmExtractResult = {
   category?: string;
   tax_amount?: number;
   tax_rate?: number;
+  seller_org_number?: string;
+  seller_vat_number?: string;
+  vat_lines?: Array<{ rate: number; net?: number | null; vat: number }>;
   payment_method?: string;
   card_last_four?: string;
   notes?: string;
@@ -68,8 +71,11 @@ Return ONLY valid JSON matching this shape — no markdown, no prose, no code fe
   "receipt_date": "YYYY-MM-DD",
   "receipt_time": "HH:MM",
   "category": "<one of: ${CATEGORY_KEYS.join(", ")}>",
-  "tax_amount": <VAT/MOMS number, or omit>,
-  "tax_rate": <VAT percentage 0-100, or omit>,
+  "tax_amount": <total VAT/MOMS number, or omit>,
+  "tax_rate": <VAT percentage 0-100 when there is ONE rate, or omit>,
+  "vat_lines": [ { "rate": <percent>, "net": <amount excl. VAT or null>, "vat": <VAT amount> } ],
+  "seller_org_number": "<seller's organisation number exactly as printed (e.g. 556677-8899), or omit>",
+  "seller_vat_number": "<seller's VAT / momsreg.nr exactly as printed (e.g. SE556677889901), or omit>",
   "payment_method": "<card | cash | klarna | swish | wire | apple_pay | google_pay, or omit>",
   "card_last_four": "<last 4 digits of card if mentioned, or omit>",
   "notes": "<one short line worth retaining, e.g. 'Trip from Hötorget to Arlanda', or omit>",
@@ -88,6 +94,7 @@ Rules:
 - If you cannot determine a required field (merchant, amount, currency, date), set confidence below 0.5.
 - If a field is unknown, OMIT it. Never invent. Never put null.
 - amount is the FINAL TOTAL paid, not subtotal.
+- vat_lines: one entry per VAT rate when the receipt prints a VAT table; omit when only one total VAT figure is shown. Never invent seller_org_number or seller_vat_number: copy them as printed or omit.
 - currency: € → EUR, kr/SEK → SEK, $ → USD. Default SEK when ambiguous and the language looks Swedish; EUR otherwise.
 - receipt_date: convert relative dates ("today", "yesterday", "i går") using Stockholm timezone.
 - receipt_time: only include when explicitly stated.

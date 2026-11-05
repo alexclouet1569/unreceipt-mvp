@@ -39,6 +39,15 @@ const baseReceipt = (overrides: Partial<Receipt> = {}): Receipt => ({
   edited_at: null,
   edited_fields: null,
   edit_history: null,
+  organization_id: null,
+  seller_org_number: null,
+  vat_lines: null,
+  bas_account: null,
+  exported_at: null,
+  exported_by: null,
+  booked_at: null,
+  booked_by: null,
+  booked_ref: null,
   status: "verified",
   original_source_url: null,
   original_source_kind: null,
@@ -136,7 +145,7 @@ describe("ReceiptPdf — edited receipts", () => {
         })}
       />
     );
-    expect(html).toContain("Edited by you on Oct 15, 2026");
+    expect(html).toContain("Edited by the account holder on Oct 15, 2026");
     expect(html).toContain("Total — originally: €49.00");
     // Manual receipt: no original file to speak of.
     expect(html).not.toContain("original file is unchanged");
@@ -145,7 +154,7 @@ describe("ReceiptPdf — edited receipts", () => {
 
   it("only mentions an original file when one is stored", () => {
     const manual = renderToString(<ReceiptPdf receipt={baseReceipt()} />);
-    expect(manual).not.toContain("Edited by you");
+    expect(manual).not.toContain("Edited by");
     expect(manual).toContain("There is no original file for this receipt.");
 
     const photo = renderToString(

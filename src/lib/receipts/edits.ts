@@ -23,6 +23,9 @@ export const TRACKED_EDIT_FIELDS = [
   "tax_rate",
   "payment_method",
   "items",
+  "seller_org_number",
+  "merchant_vat_number",
+  "vat_lines",
 ] as const;
 export type TrackedEditField = (typeof TRACKED_EDIT_FIELDS)[number];
 
@@ -35,6 +38,9 @@ export const EDIT_FIELD_LABELS: Record<TrackedEditField, string> = {
   tax_rate: "VAT rate",
   payment_method: "Payment method",
   items: "Line items",
+  seller_org_number: "Seller org.nr",
+  merchant_vat_number: "Seller VAT no.",
+  vat_lines: "VAT per rate",
 };
 
 // Enough for any realistic correction trail; keeps the row small.
@@ -54,9 +60,21 @@ function normalizeItems(items: unknown): ReceiptItem[] {
   }));
 }
 
+function normalizeVatLines(lines: unknown): Array<{ rate: number; net: number | null; vat: number }> {
+  if (!Array.isArray(lines)) return [];
+  return lines.map((l) => ({
+    rate: Number(l?.rate ?? 0),
+    net: l?.net == null ? null : Number(l.net),
+    vat: Number(l?.vat ?? 0),
+  }));
+}
+
 function sameValue(field: TrackedEditField, a: unknown, b: unknown): boolean {
   if (field === "items") {
     return JSON.stringify(normalizeItems(a)) === JSON.stringify(normalizeItems(b));
+  }
+  if (field === "vat_lines") {
+    return JSON.stringify(normalizeVatLines(a)) === JSON.stringify(normalizeVatLines(b));
   }
   if (a == null || b == null) return a == null && b == null;
   if (field === "total" || field === "tax_amount" || field === "tax_rate") {
@@ -138,6 +156,67 @@ export function editedOnLabel(receipt: Pick<Receipt, "edited_at">): string | nul
   });
 }
 
+export type EditedBy = "owner" | "accountant" | "both";
+
+/**
+ * Who made the recorded edits: the account holder, their accounting firm,
+ * or both. Entries without `by` (written before 2026-10-15) count as the
+ * owner's. Null when nothing was edited.
+ */
+export function editedBy(
+  receipt: Pick<Receipt, "edited_at" | "edit_history" | "user_id">,
+): EditedBy | null {
+  if (!receipt.edited_at) return null;
+  const history = Array.isArray(receipt.edit_history) ? receipt.edit_history : [];
+  let owner = false;
+  let accountant = false;
+  for (const entry of history) {
+    if (!entry.by || entry.by === receipt.user_id) owner = true;
+    else accountant = true;
+  }
+  if (owner && accountant) return "both";
+  if (accountant) return "accountant";
+  return "owner";
+}
+
+/**
+ * "Edited by you" for the owner's screen, "Edited by your accountant" when
+ * the firm did it; the firm sees "Edited by the client" / "Edited by your
+ * firm".
+ */
+export function editedByLabel(
+  receipt: Pick<Receipt, "edited_at" | "edit_history" | "user_id">,
+  viewer: "owner" | "firm" = "owner",
+): string | null {
+  const who = editedBy(receipt);
+  if (!who) return null;
+  if (viewer === "firm") {
+    return who === "owner"
+      ? "Edited by the client"
+      : who === "accountant"
+        ? "Edited by your firm"
+        : "Edited by the client and your firm";
+  }
+  return who === "owner"
+    ? "Edited by you"
+    : who === "accountant"
+      ? "Edited by your accountant"
+      : "Edited by you and your accountant";
+}
+
+/** Neutral wording for the PDF and exports. */
+export function editedByNeutralLabel(
+  receipt: Pick<Receipt, "edited_at" | "edit_history" | "user_id">,
+): string | null {
+  const who = editedBy(receipt);
+  if (!who) return null;
+  return who === "owner"
+    ? "Edited by the account holder"
+    : who === "accountant"
+      ? "Edited by the accounting firm"
+      : "Edited by the account holder and the accounting firm";
+}
+
 /** Human labels of the fields the customer changed, in a stable order. */
 export function editedFieldLabels(receipt: Pick<Receipt, "edited_fields">): string[] {
   const fields = receipt.edited_fields ?? [];
@@ -186,6 +265,12 @@ function formatWas(field: TrackedEditField, value: unknown, currency: string): s
     case "items": {
       const n = Array.isArray(value) ? value.length : 0;
       return n === 0 ? "empty" : `${n} line${n === 1 ? "" : "s"}`;
+    }
+    case "vat_lines": {
+      const lines = normalizeVatLines(value);
+      return lines.length === 0
+        ? "empty"
+        : lines.map((l) => `${l.rate}%: ${formatAmount(l.vat, currency)}`).join(", ");
     }
     default:
       return String(value);

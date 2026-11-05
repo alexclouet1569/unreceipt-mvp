@@ -40,6 +40,15 @@ Defense in depth (plan decision A2):
 
 Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_ADMIN_EMAILS`.
 
+# Firm portal auth
+
+`/firm/*` and `/api/firm/*` are the accounting-firm portal (`src/lib/require-firm.ts`). Receipts stay owner-only at the database; the firm reads client data server-side with the service role. Rules:
+
+1. Every `/firm` page calls `requireFirmMemberPage()` and every `/api/firm` handler calls `requireFirmMember()` first. The layout check alone is not enough (layouts don't re-run on client navigations).
+2. Any read or write of client data goes through `requireFirmClientAccess(firmId, organizationId)` and is scoped with `.eq("organization_id", <its result>)`. The firm id comes from the session-bound `firm_members` row, never from the request. A client the firm isn't linked to answers 404, like one that doesn't exist.
+3. No subscription gate on `/firm`: firm staff have no plan. When they complete a client's receipt, usage is recorded for the **client**.
+4. Firm staff are created by email (`firm_members.user_id IS NULL`) and claim the row on their first confirmed sign-in; the pilot firm is bootstrapped by hand in the SQL editor (see the 2026-11-04 block in `supabase/schema.sql`).
+
 # Stripe local dev
 
 Required env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_LIGHT`, `STRIPE_PRICE_REGULAR`, `STRIPE_PRICE_HEAVY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; for extra-receipt billing also `STRIPE_METER_EVENT_NAME` and `STRIPE_PRICE_OVERAGE` (see `.env.example`).
@@ -85,6 +94,7 @@ To flip back to paid: in Vercel → Settings → Environment Variables, remove `
 - `/api/ocr` is auth-gated via `getServerUser()` and `hasProductAccess()`, accepts `image/jpeg|png|webp` and `application/pdf` (max 10 pages), capped at 4 MB (`src/lib/receipts/upload-limits.ts` — Vercel rejects bodies over 4.5 MB anyway), runs on Node.js with `maxDuration = 30`. The capture dialog shrinks photos in the browser first (`src/lib/image-resize.ts`).
 - `/api/ocr`, `/api/receipts/[id]/reprocess`, `/api/capture` and `/api/intake/email` are rate-limited per user (per alias for email) via `rateLimit()` in `src/lib/rate-limit.ts`, backed by `public.rate_limit_hit()`. Any new route that calls Claude or writes to storage must call it too. It fails open if the counter errors; the Anthropic console spend cap is the hard backstop.
 - Email receipts (`/api/intake/email`) are marked verified from a template (Uber, Stripe) only when Resend's DMARC verdict passes, the sender is the template's own domain, and the message's single To: header (read from the raw .eml; a repeated To: or a Cc: never counts) names one of the user's own inboxes (sign-in email or `user_email_addresses`, managed on `/app/settings/forwarding`). A receipt sent straight to the forwarding alias is never trusted as-is: Uber and Stripe let anyone type any receipt address. Without the raw .eml, or when its header block can't be read in full, nothing is trusted. Everything else lands in Review needed and isn't billed until confirmed.
+- A forwarded email that carries a PDF or photo (`src/lib/email/attachments.ts`: nested MIME, base64/quoted-printable, same type and 4 MB rules as uploads, PDF page cap) is read by Claude OCR from that attachment instead of the text, unless a trusted template already read the mail; when OCR read it, the attachment is stored as the receipt's original (byte for byte) and the message itself is kept next to it as `<id>.eml` (deleted with the row); otherwise the .eml stays the original (it contains the attachment). The fields land in Review needed like any untrusted extraction. OCR failure falls back to the text parser.
 - The OCR step runs BEFORE `/api/capture` and is best-effort — failures fall back silently to manual entry. OCR never persists anything; the existing capture/admin-receipts routes still handle saves.
 
 Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.
@@ -101,7 +111,8 @@ Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NE
 # Exports and account deletion
 
 - `POST /api/export` (period `YYYY-MM`, `YYYY` or `all`, max 1,000 receipts) builds a ZIP (receipts.csv, PDFs, originals, edit-history.json) into the private `exports` bucket, replacing the user's previous export, and returns 15-minute signed URLs — Vercel caps a function response at 4.5 MB. Parts stay under 40 MB because Supabase Free caps a stored file at 50 MB. Not subscription-gated: cancelled customers must be able to take their data.
-- `POST /api/account/delete` (needs this session's sign-in, from the token's `amr`, within 30 min) and the retention job both call `deleteAccount()` (`src/lib/account-deletion.ts`): cancel every chargeable Stripe subscription of the user's customers (asked from Stripe, not just our rows), remove every file under `<user_id>/` in `USER_FILE_BUCKETS`, delete receipts, then the auth user (the rest cascades). A new bucket holding user files must be added to `USER_FILE_BUCKETS`.
+- `POST /api/firm/clients/[orgId]/export` is the firm's version of the same (`buildExport()` with an `organization` scope, from `requireFirmClientAccess()`): the ZIP also holds `bookkeeping.csv` (one line per receipt and VAT rate, BAS suggestion from `src/lib/bookkeeping/bas-map.ts` unless `receipts.bas_account` is set, input-VAT account 2640). By default only receipts with `exported_at IS NULL` are included and they are stamped `exported_at`/`exported_by` once the last upload succeeded; a re-export never moves the stamp. Files are `exports/<actor>/<scope>-<stamp>-<label>.zip`; `self-…` for a customer's own export, the organisation id for a firm's, so one client's export never deletes another's link. The BAS defaults are standard BAS 2026 values still to be confirmed by the pilot accountant.
+- `POST /api/account/delete` (needs this session's sign-in, from the token's `amr`, within 30 min) and the retention job both call `deleteAccount()` (`src/lib/account-deletion.ts`): cancel every chargeable Stripe subscription of the user's customers (asked from Stripe, not just our rows), remove every file under `<user_id>/` in `USER_FILE_BUCKETS`, delete receipts, then the auth user (the rest cascades). A new bucket holding user files must be added to `USER_FILE_BUCKETS`. Organisations, memberships and firm links (2026-11-04 block) cascade from `auth.users`: deleting a client removes their default organisation and its firm link; deleting a firm member leaves the firm and every client's data untouched. Firm staff have no `subscriptions` rows, so the retention job never selects them.
 
 # Region
 

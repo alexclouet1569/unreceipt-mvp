@@ -25,12 +25,24 @@ export interface OcrResult {
   notes?: string;
   tax_amount?: number;
   tax_rate?: number;
+  // The seller's identifiers as printed (Swedish org.nr 556677-8899,
+  // VAT/momsreg.nr SE556677889901) and the VAT split per rate when the
+  // receipt shows more than one rate. Bookkeeping needs all three.
+  seller_org_number?: string;
+  seller_vat_number?: string;
+  vat_lines?: OcrVatLine[];
   payment_method?: string;
   // Every line item visible on the receipt — what makes the digital
   // copy usable as proof of payment instead of just a summary.
   items?: OcrItem[];
   confidence?: number;
   not_a_receipt?: boolean;
+}
+
+export interface OcrVatLine {
+  rate: number;
+  net?: number | null;
+  vat: number;
 }
 
 export interface OcrItem {
@@ -66,8 +78,11 @@ Extract fields from the user's receipt image and return ONLY valid JSON matching
   "currency": "<one of: ${CURRENCY_OPTIONS.join(", ")}>",
   "receipt_date": "YYYY-MM-DD",
   "category": "<one of: ${CATEGORY_KEYS.join(", ")}>",
-  "tax_amount": <VAT/MOMS as a number, or omit if not visible>,
-  "tax_rate": <VAT percentage as a number 0-100, or omit>,
+  "tax_amount": <total VAT/MOMS as a number, or omit if not visible>,
+  "tax_rate": <VAT percentage as a number 0-100 when the receipt has ONE rate, or omit>,
+  "vat_lines": [ { "rate": <percent>, "net": <amount excl. VAT or null>, "vat": <VAT amount> } ],
+  "seller_org_number": "<the seller's organisation number exactly as printed, e.g. 556677-8899 (Sweden: 'Org.nr', 'Orgnr'), or omit>",
+  "seller_vat_number": "<the seller's VAT / momsreg.nr exactly as printed, e.g. SE556677889901, or omit>",
   "payment_method": "<e.g. card, cash, klarna, swish, or omit>",
   "items": [
     {
@@ -84,6 +99,8 @@ Rules:
 - If you cannot determine a field, OMIT it (do not guess and do not put null).
 - If the image is not a receipt, return only: {"not_a_receipt": true}
 - amount is the FINAL TOTAL paid, not subtotal.
+- vat_lines: Swedish receipts often print a VAT table ("Moms 25% 100,00 25,00", "12%", "6%"). Give one entry per rate with the net and VAT amounts as printed; omit the array when only one total VAT figure is shown (use tax_amount/tax_rate then). The sum of vat_lines[].vat must equal tax_amount.
+- seller_org_number / seller_vat_number: copy exactly as printed, never derive one from the other or invent one.
 - currency: infer from currency symbol (€=EUR, kr=SEK, $=USD), or default to SEK for Swedish-looking receipts.
 - category: pick the closest match from the allowed list, default to "other" if unclear.
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.

@@ -42,7 +42,7 @@ import {
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
-import type { OcrItem, OcrResult } from "@/lib/ocr";
+import type { OcrItem, OcrResult, OcrVatLine } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { cn } from "@/lib/utils";
@@ -171,6 +171,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // Line items extracted by OCR, forwarded to /api/capture so the digital
   // receipt renders the full line breakdown.
   const [items, setItems] = useState<OcrItem[] | null>(null);
+  // Bookkeeping fields read by OCR and passed through unchanged: the
+  // seller's org.nr / VAT no. and the VAT split per rate.
+  const [sellerIds, setSellerIds] = useState<{ org: string | null; vat: string | null }>({ org: null, vat: null });
+  const [vatLines, setVatLines] = useState<OcrVatLine[] | null>(null);
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
 
   // Reset everything when the sheet closes so the next open is fresh.
@@ -193,6 +197,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       setTaxAuto(false);
       setShowNotes(false);
       setItems(null);
+      setSellerIds({ org: null, vat: null });
+      setVatLines(null);
       setSavedReceipt(null);
     }
   }
@@ -287,6 +293,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
 
       // OCR only fills what the customer hasn't typed; the receipt's
       // currency, date and category win over our defaults.
+      setSellerIds({
+        org: typeof data.seller_org_number === "string" ? data.seller_org_number.trim().slice(0, 20) : null,
+        vat: typeof data.seller_vat_number === "string" ? data.seller_vat_number.trim().slice(0, 32) : null,
+      });
+      setVatLines(Array.isArray(data.vat_lines) && data.vat_lines.length > 0 ? data.vat_lines : null);
       setForm((prev) => {
         const next: FormState = { ...prev };
         if (!prev.merchant && typeof data.merchant === "string") {
@@ -416,6 +427,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (imageFile) fd.append("image", imageFile);
       if (items && items.length > 0) {
         fd.append("items", JSON.stringify(items));
+      }
+      if (sellerIds.org) fd.append("seller_org_number", sellerIds.org);
+      if (sellerIds.vat) fd.append("merchant_vat_number", sellerIds.vat);
+      if (includeVat && vatLines && vatLines.length > 0) {
+        fd.append("vat_lines", JSON.stringify(vatLines));
       }
 
       const res = await fetch("/api/capture", {

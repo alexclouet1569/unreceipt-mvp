@@ -326,6 +326,46 @@ export function forwardingSetupEmail(opts: { url: string }): EmailContent {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Firm invite — an accounting firm asks a client company to connect
+// ---------------------------------------------------------------------------
+
+export function firmInviteEmail(opts: {
+  firmName: string;
+  clientName: string;
+  url: string;
+}): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const intro = `${firm} asked to connect to ${opts.clientName.trim() || "your company"}'s UnReceipt account. Once connected they can see your receipts and originals, fill in the ones that need review, and download a monthly export for your bookkeeping. They can't change your plan or delete anything.`;
+  const newHere =
+    "New to UnReceipt? The same link lets you create your free pilot account first. Receipts you photograph or forward by email are read automatically and land with your accountant without any typing.";
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(firm)} wants to handle your receipts in UnReceipt</h1>`,
+    paragraph(esc(intro)),
+    button(`Connect ${firm}`, opts.url),
+    paragraph(esc(newHere)),
+  ].join("\n");
+  return {
+    subject: `${firm} wants to handle your receipts in UnReceipt`,
+    html: layout({
+      preheader: `Connect ${firm} to your receipts.`,
+      bodyHtml,
+      footerHtml: `Sent because ${esc(firm)} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
+    }),
+    text: [
+      `${firm} wants to handle your receipts in UnReceipt`,
+      "",
+      intro,
+      "",
+      `Connect ${firm}: ${opts.url}`,
+      "",
+      newHere,
+      "",
+      `Sent because ${firm} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
+    ].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {

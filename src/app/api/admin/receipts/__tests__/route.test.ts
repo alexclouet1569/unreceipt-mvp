@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
+const orgMock = vi.hoisted(() => vi.fn(async () => "org-1"));
+vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: orgMock }));
 
 vi.mock("@/lib/require-admin", () => ({
   requireAdmin: mocks.requireAdmin,
@@ -115,7 +117,9 @@ describe("POST /api/admin/receipts", () => {
       receiptId: "receipt-1",
       source: "manual",
     });
+    expect(orgMock).toHaveBeenCalledWith(TARGET_USER_ID);
     expect(row).toMatchObject({
+      organization_id: "org-1",
       user_id: TARGET_USER_ID,
       merchant_name: "Stripe",
       category: "software",

@@ -14,6 +14,8 @@ import { planSuggestion } from "@/lib/usage-copy";
 import { SignOutButton } from "./SignOutButton";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
+import { AccountantSection } from "./AccountantSection";
+import { loadAccountantLinks } from "@/lib/firm/client-links";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -67,11 +69,12 @@ export default async function SettingsPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [profile, aliasHash, usage, firstReceiptDate] = await Promise.all([
+  const [profile, aliasHash, usage, firstReceiptDate, accountantLinks] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
     loadUsage(user.id),
     loadFirstReceiptDate(user.id),
+    loadAccountantLinks(user),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -167,6 +170,11 @@ export default async function SettingsPage() {
             </p>
             <ExportPanel firstReceiptDate={firstReceiptDate} />
           </div>
+        </section>
+
+        <section aria-labelledby="accountant-heading">
+          <SectionLabel id="accountant-heading">Your accountant</SectionLabel>
+          <AccountantSection links={accountantLinks} />
         </section>
 
         <section aria-labelledby="account-heading">

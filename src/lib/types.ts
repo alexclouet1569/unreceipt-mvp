@@ -110,6 +110,26 @@ export interface Receipt {
   edited_fields: string[] | null;
   edit_history: EditHistoryEntry[] | null;
 
+  // Which company the receipt belongs to (2026-11-04). Set on insert from the
+  // owner's default organisation; the firm portal filters on it. Null only on
+  // rows older than the backfill.
+  organization_id: string | null;
+
+  // Bookkeeping facts for the accountant (2026-11-04). vat_lines holds the
+  // VAT split per rate; bas_account the account the firm chose (overrides the
+  // category suggestion in src/lib/bookkeeping/bas-map.ts).
+  seller_org_number: string | null;
+  vat_lines: VatLine[] | null;
+  bas_account: string | null;
+  // Set once by the first export that included the receipt (firm export
+  // with markExported); never moved by a re-export.
+  exported_at: string | null;
+  exported_by: string | null;
+  // Set by the firm when the receipt is booked in their system.
+  booked_at: string | null;
+  booked_by: string | null;
+  booked_ref: string | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -211,4 +231,88 @@ export interface UserEmailAddress {
   user_id: string;
   address: string;
   created_at: string;
+}
+
+// ─── Accounting-firm portal (2026-11-04) ─────────────────────────────────────
+
+// A client company. Every user has one default organisation
+// (default_for_user_id = that user), minted lazily by
+// getOrCreateDefaultOrganization() and backfilled by the migration.
+export interface Organization {
+  id: string;
+  name: string;
+  // ISO 3166-1 alpha-2, e.g. "SE".
+  country: string;
+  org_number: string | null;
+  default_for_user_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MembershipRole = "owner" | "member";
+
+export interface Membership {
+  organization_id: string;
+  user_id: string;
+  role: MembershipRole;
+  created_at: string;
+}
+
+// An accounting firm (redovisningsbyrå) using /firm.
+export interface Firm {
+  id: string;
+  name: string;
+  org_number: string | null;
+  country: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type FirmMemberRole = "admin" | "staff";
+
+// Firm staff. user_id is null until the invited address signs in and
+// claims the row (requireFirmMember() does that on first confirmed sign-in).
+export interface FirmMember {
+  id: string;
+  firm_id: string;
+  user_id: string | null;
+  // Lowercased.
+  email: string;
+  role: FirmMemberRole;
+  invited_by: string | null;
+  claimed_at: string | null;
+  created_at: string;
+}
+
+export type FirmClientStatus = "invited" | "active" | "revoked";
+
+// Firm ↔ client company link. organization_id is null until the client
+// accepts; one active firm per organisation during the pilot.
+export interface FirmClient {
+  id: string;
+  firm_id: string;
+  organization_id: string | null;
+  status: FirmClientStatus;
+  client_name: string;
+  client_org_number: string | null;
+  // Lowercased.
+  invited_email: string;
+  // sha256 of the invite link token; null once used or revoked.
+  invite_token_hash: string | null;
+  invite_expires_at: string | null;
+  invited_by: string | null;
+  accepted_by: string | null;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+// VAT split per rate, stored on receipts.vat_lines as a JSON array (like
+// items). `net` is null when the receipt shows only the VAT amount.
+export interface VatLine {
+  // Percent, e.g. 25, 12, 6 or 0.
+  rate: number;
+  net: number | null;
+  vat: number;
 }

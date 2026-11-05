@@ -19,6 +19,7 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import type { Receipt } from "@/lib/types";
 import { buildReceiptsCsv, receiptDate, type CsvRow } from "./csv";
 import { buildZip, zipSize, type ZipEntry } from "./zip";
+import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
 
 export const EXPORT_BUCKET = "exports";
 export const PART_TARGET_BYTES = 40 * 1024 * 1024;
@@ -33,6 +34,27 @@ export type ExportPeriod =
   | { kind: "month"; month: string }
   | { kind: "year"; year: string }
   | { kind: "all" };
+
+/**
+ * Whose receipts: the signed-in customer's own, or one client company of
+ * an accounting firm (the organisation id must come from
+ * requireFirmClientAccess()).
+ */
+export type ExportScope =
+  | { kind: "user"; userId: string }
+  | { kind: "organization"; organizationId: string };
+
+export type ExportOptions = {
+  scope: ExportScope;
+  // Who is exporting; owns the ZIP in storage and is recorded as exported_by.
+  actorUserId: string;
+  period: ExportPeriod;
+  // Only receipts never exported before (firm month-end).
+  unexportedOnly?: boolean;
+  // Stamp exported_at/by on the receipts included, once the upload succeeded.
+  markExported?: boolean;
+  now?: Date;
+};
 
 export class ExportTooLargeError extends Error {
   constructor() {
@@ -94,11 +116,20 @@ function extensionOf(path: string): string {
   return /^[a-z0-9]{1,5}$/.test(ext) ? ext : "bin";
 }
 
-async function loadReceipts(userId: string, period: ExportPeriod): Promise<Receipt[]> {
-  let query = getSupabaseAdmin()
-    .from("receipts")
-    .select("*")
-    .eq("user_id", userId);
+async function loadReceipts(
+  scope: ExportScope,
+  period: ExportPeriod,
+  unexportedOnly: boolean,
+): Promise<Receipt[]> {
+  let query = getSupabaseAdmin().from("receipts").select("*");
+  query =
+    scope.kind === "user"
+      ? query.eq("user_id", scope.userId)
+      : query.eq("organization_id", scope.organizationId);
+  // "Not exported yet" means ready receipts the firm hasn't booked from:
+  // a receipt still in review has no PDF and would otherwise be stamped
+  // before it was even complete, and then never reappear.
+  if (unexportedOnly) query = query.is("exported_at", null).eq("status", "verified");
   const range = periodRange(period);
   if (range) {
     const { start, end } = range;
@@ -125,7 +156,6 @@ async function download(bucket: string, path: string): Promise<Uint8Array | null
 }
 
 async function collectReceipt(
-  userId: string,
   r: Receipt,
 ): Promise<{ row: CsvRow; files: ZipEntry[]; missing: number }> {
   const base = fileBase(r);
@@ -154,7 +184,8 @@ async function collectReceipt(
     { bucket: "receipt-originals", path: r.original_source_url, suffix: "-original" },
   ];
   for (const { bucket, path, suffix } of sources) {
-    if (!path || !isOwnedStoragePath(path, userId)) continue;
+    // Files live under the OWNER's folder, whoever is exporting.
+    if (!path || !isOwnedStoragePath(path, r.user_id)) continue;
     const data = await download(bucket, path);
     if (!data) {
       missing++;
@@ -179,6 +210,7 @@ function readme(
   partNo: number | null,
   now: Date,
   missing: number | null,
+  forFirm: boolean,
 ): string {
   return [
     `UnReceipt export — ${label}`,
@@ -196,6 +228,23 @@ function readme(
     "",
     "receipts.csv  One line per receipt. Semicolon-separated, decimal comma (opens",
     "              directly in Excel or Numbers set to Swedish).",
+    ...(forFirm
+      ? [
+          "bookkeeping.csv  One line per receipt and VAT rate: net, VAT, seller org.nr",
+          "              and the booked reference. The BAS account is a SUGGESTION from",
+          "              the receipt's category (standard BAS defaults, not confirmed",
+          "              by your firm; set the account per receipt in the portal to",
+          "              override it). The VAT account 2640 appears only for a SEK",
+          "              receipt with a Swedish rate on a category whose VAT is normally",
+          "              deductible; it does not mean the VAT is deductible for this",
+          "              purchase. Representation gets 6072 and no VAT account: split it",
+          "              yourself (300 kr per person). Foreign VAT has no account. A",
+          "              blank VAT rate means the receipt printed none that could be read.",
+          "              Total SEK is blank for other currencies (no conversion is done).",
+          "              Ready receipts included for the first time are stamped as",
+          "              exported; a re-export never changes the stamp.",
+        ]
+      : []),
     "pdf/          The digital receipt for every receipt that is ready. Receipts you",
     "              edited say so on the PDF, with the original values.",
     "originals/    Each receipt's original file as it was uploaded or received: the",
@@ -218,24 +267,48 @@ export type ExportResult = {
   parts: ExportPart[];
 };
 
-async function removePreviousExports(userId: string): Promise<void> {
+// Files are `<actor>/<scopeKey>-<stamp>-<label>.zip`; the scope key keeps
+// a firm's exports for two clients apart so one doesn't delete the other's
+// still-valid link. Flat under the actor's folder, as the cleanup cron and
+// account deletion expect.
+function scopeKey(scope: ExportScope): string {
+  return scope.kind === "user" ? "self" : scope.organizationId;
+}
+
+async function removePreviousExports(actorUserId: string, key: string): Promise<void> {
   const storage = getSupabaseAdmin().storage.from(EXPORT_BUCKET);
-  const { data, error } = await storage.list(userId, { limit: 1000 });
+  const { data, error } = await storage.list(actorUserId, { limit: 1000 });
   if (error || !data || data.length === 0) return;
-  const paths = data.filter((f) => f.id != null).map((f) => `${userId}/${f.name}`);
+  const paths = data
+    .filter((f) => f.id != null && f.name.startsWith(`${key}-`))
+    .map((f) => `${actorUserId}/${f.name}`);
   if (paths.length > 0) await storage.remove(paths);
 }
 
-export async function buildExport(
-  userId: string,
-  period: ExportPeriod,
-  now: Date = new Date(),
-): Promise<ExportResult> {
-  const receipts = await loadReceipts(userId, period);
+// Stamps the receipts the export included, only those not stamped before
+// (a re-export never moves the first stamp). Called after the last upload
+// succeeded, so a failed export never marks anything.
+async function markExportedRows(ids: string[], actorUserId: string, now: Date): Promise<void> {
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await getSupabaseAdmin()
+      .from("receipts")
+      .update({ exported_at: now.toISOString(), exported_by: actorUserId })
+      .in("id", ids.slice(i, i + 200))
+      .is("exported_at", null);
+    if (error) throw new Error(`export stamp failed (${error.code})`);
+  }
+}
+
+export async function buildExport(opts: ExportOptions): Promise<ExportResult> {
+  const { scope, actorUserId, period } = opts;
+  const now = opts.now ?? new Date();
+  const forFirm = scope.kind === "organization";
+  const receipts = await loadReceipts(scope, period, opts.unexportedOnly === true);
   if (receipts.length === 0) return { receiptCount: 0, missing: 0, parts: [] };
-  // Keep at most one export per user in storage: each one copies every
-  // file, and storage is shared (Supabase Free: 1 GB for everything).
-  await removePreviousExports(userId);
+  // Keep at most one export per actor and scope in storage: each one copies
+  // every file, and storage is shared (Supabase Free: 1 GB for everything).
+  const key = scopeKey(scope);
+  await removePreviousExports(actorUserId, key);
   const label = periodLabel(period, now);
   const enc = new TextEncoder();
   const stamp = now.toISOString().replace(/[:.]/g, "-");
@@ -253,7 +326,7 @@ export async function buildExport(
     const entries: ZipEntry[] = [
       {
         name: "README.txt",
-        data: enc.encode(readme(label, receipts.length, partNo, now, missingNow)),
+        data: enc.encode(readme(label, receipts.length, partNo, now, missingNow, forFirm)),
         date: now,
       },
       ...extra,
@@ -265,7 +338,7 @@ export async function buildExport(
 
     const suffix = partNo != null ? `-part-${partNo}` : "";
     const filename = `unreceipt-${label}${suffix}.zip`;
-    const path = `${userId}/${stamp}-${label}${suffix}.zip`;
+    const path = `${actorUserId}/${key}-${stamp}-${label}${suffix}.zip`;
     const { error: uploadError } = await admin.storage
       .from(EXPORT_BUCKET)
       .upload(path, zip, { contentType: "application/zip", upsert: false });
@@ -281,7 +354,7 @@ export async function buildExport(
   // One receipt at a time; a part is uploaded as soon as the next receipt
   // would push it past the target, so memory holds about one part.
   for (const r of receipts) {
-    const { row, files, missing: m } = await collectReceipt(userId, r);
+    const { row, files, missing: m } = await collectReceipt(r);
     missing += m;
     rows.push(row);
     const size = zipSize(files.map((f) => ({ name: f.name, size: f.data.length })));
@@ -295,6 +368,9 @@ export async function buildExport(
   const last: ZipEntry[] = [
     { name: "receipts.csv", data: enc.encode(buildReceiptsCsv(rows)), date: now },
   ];
+  if (forFirm) {
+    last.push({ name: "bookkeeping.csv", data: enc.encode(buildBookkeepingCsv(rows)), date: now });
+  }
   // The full correction trail (who/when/before/after), so it survives the
   // account: the PDF shows the original values, this shows every step.
   const edited = receipts
@@ -315,6 +391,15 @@ export async function buildExport(
   await flush(parts.length > 0 ? parts.length + 1 : null, last, missing);
   if (missing > 0) {
     console.error("[export] files missing from export", { count: missing });
+  }
+  if (opts.markExported) {
+    // Only ready receipts: one in review will be completed later and must
+    // then show up in the next "not exported yet" export.
+    await markExportedRows(
+      receipts.filter((r) => r.status === "verified").map((r) => r.id),
+      actorUserId,
+      now,
+    );
   }
 
   return { receiptCount: receipts.length, missing, parts };

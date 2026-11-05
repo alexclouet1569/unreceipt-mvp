@@ -11,11 +11,13 @@ import {
   formatQty,
   splitFormattedAmount,
 } from "@/lib/receipt-format";
-import { editedFieldLabels, editedOnLabel } from "@/lib/receipts/edits";
+import { editedByLabel, editedFieldLabels, editedOnLabel } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 type ReceiptDetailCardProps = {
   receipt: Receipt;
+  // Who is looking: the account holder (default) or their accounting firm.
+  viewer?: "owner" | "firm";
 };
 
 /**
@@ -25,12 +27,15 @@ type ReceiptDetailCardProps = {
  * "Digital receipt"). Branded UnReceipt — the store gets a logo badge,
  * never the letterhead, so it can't pass for a receipt the store issued.
  */
-export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
+export function ReceiptDetailCard({ receipt, viewer = "owner" }: ReceiptDetailCardProps) {
   const config = CATEGORY_CONFIG[receipt.category];
   const currency = receipt.currency;
   const merchant = receipt.merchant_name ?? "Unknown merchant";
   const total = splitFormattedAmount(receipt.total, currency);
   const showTax = receipt.tax_amount != null && receipt.tax_amount > 0;
+  // More than one VAT rate: show each, then the total.
+  const vatSplit =
+    Array.isArray(receipt.vat_lines) && receipt.vat_lines.length > 1 ? receipt.vat_lines : null;
   const showTip = receipt.tip_amount != null && receipt.tip_amount > 0;
   const net =
     showTax && receipt.total != null
@@ -40,7 +45,10 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
   const editedFields = editedFieldLabels(receipt);
   const hasOriginal = Boolean(receipt.image_url || receipt.original_source_url);
   const hasMeta =
-    receipt.payment_method || receipt.transaction_ref || receipt.merchant_vat_number;
+    receipt.payment_method ||
+    receipt.transaction_ref ||
+    receipt.merchant_vat_number ||
+    receipt.seller_org_number;
 
   const when = [
     formatDate(receipt.receipt_date),
@@ -87,7 +95,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           >
             <Pencil className="mt-[2px] size-3.5 shrink-0" aria-hidden="true" />
             <span>
-              Edited by you on {editedOn}
+              {editedByLabel(receipt, viewer) ?? "Edited"} on {editedOn}
               {editedFields.length > 0 ? ` · ${editedFields.join(", ")}` : ""}
             </span>
           </p>
@@ -154,8 +162,18 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
 
         {showTax ? (
           <div className="mt-2 space-y-1">
+            {vatSplit ? (
+              vatSplit.map((line, idx) => (
+                <Leader
+                  key={`${line.rate}-${idx}`}
+                  label={`VAT ${line.rate} %`}
+                  value={formatAmount(line.vat, currency)}
+                  mono
+                />
+              ))
+            ) : null}
             <Leader
-              label={receipt.tax_rate != null ? `VAT ${receipt.tax_rate} %` : "VAT"}
+              label={vatSplit ? "VAT total" : receipt.tax_rate != null ? `VAT ${receipt.tax_rate} %` : "VAT"}
               value={formatAmount(receipt.tax_amount, currency)}
               mono
             />
@@ -172,6 +190,9 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
               ) : null}
               {receipt.transaction_ref ? (
                 <Leader label="Transaction" value={receipt.transaction_ref} />
+              ) : null}
+              {receipt.seller_org_number ? (
+                <Leader label="Org.nr" value={receipt.seller_org_number} />
               ) : null}
               {receipt.merchant_vat_number ? (
                 <Leader label="VAT No." value={receipt.merchant_vat_number} />
@@ -206,7 +227,9 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
             ) : (
               <span className="text-[12px] font-semibold text-[var(--ink-muted)]">
                 {receipt.source === "paper" || receipt.source === "manual"
-                  ? "Checked by you"
+                  ? viewer === "firm"
+                    ? "Checked by the client"
+                    : "Checked by you"
                   : "Read automatically"}
               </span>
             )}

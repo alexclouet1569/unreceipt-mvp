@@ -22,7 +22,7 @@ import {
   formatDate,
   formatQty,
 } from "@/lib/receipt-format";
-import { editedOnLabel, originalValues } from "@/lib/receipts/edits";
+import { editedByNeutralLabel, editedOnLabel, originalValues } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 // Bundled font registration. Done once per process — Font.register guards
@@ -311,6 +311,8 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
   const showTip = receipt.tip_amount != null && receipt.tip_amount > 0;
   const taxLabel =
     receipt.tax_rate != null ? `VAT (${receipt.tax_rate}%)` : "VAT";
+  const vatSplit =
+    Array.isArray(receipt.vat_lines) && receipt.vat_lines.length > 1 ? receipt.vat_lines : null;
 
   const editedOn = editedOnLabel(receipt);
   // Only claim an original when one is stored: manual entries have none.
@@ -353,8 +355,11 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
             {editedOn ? (
               <BodyRow
                 label="Edited"
-                value={`By you on ${editedOn} — see below`}
+                value={`${editedOn} — see below`}
               />
+            ) : null}
+            {receipt.seller_org_number ? (
+              <BodyRow label="Seller org.nr" value={receipt.seller_org_number} />
             ) : null}
             {receipt.merchant_vat_number ? (
               <BodyRow
@@ -394,9 +399,19 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
                 </Text>
               </View>
             ) : null}
+            {showTax && vatSplit
+              ? vatSplit.map((line, idx) => (
+                  <View key={`${line.rate}-${idx}`} style={styles.totalsRow}>
+                    <Text style={styles.totalsLabel}>{`VAT (${line.rate}%)`}</Text>
+                    <Text style={styles.totalsValue}>
+                      {formatAmount(line.vat, receipt.currency)}
+                    </Text>
+                  </View>
+                ))
+              : null}
             {showTax ? (
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>{taxLabel}</Text>
+                <Text style={styles.totalsLabel}>{vatSplit ? "VAT total" : taxLabel}</Text>
                 <Text style={styles.totalsValue}>
                   {formatAmount(receipt.tax_amount, receipt.currency)}
                 </Text>
@@ -454,12 +469,12 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
           {editedOn ? (
             <View style={styles.editedBox}>
               <Text style={styles.editedTitle}>
-                {`Edited by you on ${editedOn}`}
+                {`${editedByNeutralLabel(receipt) ?? "Edited"} on ${editedOn}`}
               </Text>
               <Text style={styles.editedLine}>
                 {hasOriginal
-                  ? "These fields were changed by the account holder after the receipt was captured. The original file is unchanged."
-                  : "These fields were changed by the account holder after the receipt was entered."}
+                  ? "These fields were changed after the receipt was captured. The original file is unchanged."
+                  : "These fields were changed after the receipt was entered."}
               </Text>
               {wasValues.map(({ label, was }) => (
                 <Text key={label} style={styles.editedLine}>

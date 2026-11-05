@@ -11,6 +11,10 @@ const state = vi.hoisted(() => ({
   uploads: [] as Array<{ bucket: string; path: string; size: number }>,
   previous: [] as Array<{ name: string; id: string | null }>,
   removed: [] as string[][],
+  eqs: [] as [string, unknown][],
+  isNull: [] as string[],
+  stamps: [] as Array<{ payload: Record<string, unknown>; ids: string[] }>,
+  uploadError: null as null | { message: string },
 }));
 
 vi.mock("@react-pdf/renderer", async (importOriginal) => ({
@@ -23,13 +27,28 @@ vi.mock("@/lib/supabase-admin", () => ({
     from: () => {
       const q = {
         select: () => q,
-        eq: () => q,
+        eq: (c: string, v: unknown) => {
+          state.eqs.push([c, v]);
+          return q;
+        },
+        is: (c: string) => {
+          state.isNull.push(c);
+          return q;
+        },
         or: (f: string) => {
           state.orFilter = f;
           return q;
         },
         order: () => q,
         limit: async () => ({ data: state.rows, error: null }),
+        update: (payload: Record<string, unknown>) => ({
+          in: (_c: string, ids: string[]) => ({
+            is: async () => {
+              state.stamps.push({ payload, ids });
+              return { error: null };
+            },
+          }),
+        }),
       };
       return q;
     },
@@ -48,7 +67,7 @@ vi.mock("@/lib/supabase-admin", () => ({
         },
         upload: async (path: string, data: Uint8Array) => {
           state.uploads.push({ bucket, path, size: data.length });
-          return { error: null };
+          return { error: state.uploadError };
         },
         createSignedUrl: async (path: string, _s: number, opts: { download: string }) => ({
           data: { signedUrl: `https://signed/${path}?download=${opts.download}` },
@@ -93,7 +112,14 @@ beforeEach(() => {
   state.uploads = [];
   state.previous = [];
   state.removed = [];
+  state.eqs = [];
+  state.isNull = [];
+  state.stamps = [];
+  state.uploadError = null;
 });
+
+const own = (period: Parameters<typeof parsePeriod>[0] extends unknown ? ReturnType<typeof parsePeriod> : never, now?: Date) =>
+  buildExport({ scope: { kind: "user", userId: USER_ID }, actorUserId: USER_ID, period: period!, now });
 
 describe("export helpers", () => {
   it("parses a month or 'all' only", () => {
@@ -119,7 +145,7 @@ describe("export helpers", () => {
 
 describe("buildExport", () => {
   it("returns no parts when the period is empty", async () => {
-    expect(await buildExport(USER_ID, { kind: "month", month: "2026-10" })).toEqual({
+    expect(await own({ kind: "month", month: "2026-10" })).toEqual({
       receiptCount: 0,
       missing: 0,
       parts: [],
@@ -133,18 +159,16 @@ describe("buildExport", () => {
     state.files[`receipts/${USER_ID}/img1.jpg`] = new Uint8Array(100);
     state.files[`receipts/${USER_ID}/img2.jpg`] = new Uint8Array(100);
 
-    const res = await buildExport(
-      USER_ID,
-      { kind: "month", month: "2026-10" },
-      new Date("2026-11-01T09:00:00Z"),
-    );
+    const res = await own({ kind: "month", month: "2026-10" }, new Date("2026-11-01T09:00:00Z"));
 
     expect(res.receiptCount).toBe(2);
     expect(res.parts).toHaveLength(1);
     expect(res.parts[0].filename).toBe("unreceipt-2026-10.zip");
     expect(state.uploads).toHaveLength(1);
     expect(state.uploads[0].bucket).toBe("exports");
-    expect(state.uploads[0].path.startsWith(`${USER_ID}/`)).toBe(true);
+    expect(state.uploads[0].path.startsWith(`${USER_ID}/self-`)).toBe(true);
+    expect(state.eqs).toEqual([["user_id", USER_ID]]);
+    expect(state.stamps).toEqual([]);
   });
 
   it("splits into parts under the size target", async () => {
@@ -154,7 +178,7 @@ describe("buildExport", () => {
       state.files[`receipts/${USER_ID}/img${i}.jpg`] = new Uint8Array(big);
     }
 
-    const res = await buildExport(USER_ID, { kind: "all" }, new Date("2026-11-01T09:00:00Z"));
+    const res = await own({ kind: "all" }, new Date("2026-11-01T09:00:00Z"));
 
     expect(res.parts.map((p) => p.filename)).toEqual([
       "unreceipt-all-receipts-2026-11-01-part-1.zip",
@@ -168,25 +192,77 @@ describe("buildExport", () => {
     state.rows = [row(1, { image_url: "someone-else/img.jpg" })];
     state.files["receipts/someone-else/img.jpg"] = new Uint8Array(10);
 
-    const res = await buildExport(USER_ID, { kind: "all" });
+    const res = await own({ kind: "all" });
     // Only the README, CSV and PDF: the foreign file was skipped.
     expect(res.parts[0].bytes).toBeLessThan(2000);
   });
 
   it("refuses more than the receipt cap", async () => {
     state.rows = Array.from({ length: MAX_EXPORT_RECEIPTS + 1 }, (_, i) => row(i));
-    await expect(buildExport(USER_ID, { kind: "all" })).rejects.toThrow(/too many/);
+    await expect(own({ kind: "all" })).rejects.toThrow(/too many/);
   });
 
   it("replaces the user's previous export and counts files it couldn't read", async () => {
-    state.previous = [{ name: "old.zip", id: "1" }];
+    state.previous = [
+      { name: "self-old.zip", id: "1" },
+      // A firm export for a client, kept: its link may still be in use.
+      { name: "33333333-3333-4333-8333-333333333333-old.zip", id: "2" },
+    ];
     state.rows = [row(1)]; // its photo isn't in storage
 
-    const res = await buildExport(USER_ID, { kind: "year", year: "2026" });
+    const res = await own({ kind: "year", year: "2026" });
 
-    expect(state.removed).toEqual([[`${USER_ID}/old.zip`]]);
+    expect(state.removed).toEqual([[`${USER_ID}/self-old.zip`]]);
     expect(res.missing).toBe(1);
     expect(state.orFilter).toContain("purchased_at.gte.2026-01-01");
     expect(state.orFilter).toContain("purchased_at.lt.2027-01-01");
+  });
+
+  it("exports one client company for a firm: bookkeeping.csv, owner-folder files, stamped after upload", async () => {
+    const ORG = "33333333-3333-4333-8333-333333333333";
+    const STAFF = "44444444-4444-4444-8444-444444444444";
+    state.rows = [row(1, { organization_id: ORG }), row(2, { organization_id: ORG, status: "pending_review" })];
+    state.files[`receipts/${USER_ID}/img1.jpg`] = new Uint8Array(100);
+    state.files[`receipts/${USER_ID}/img2.jpg`] = new Uint8Array(100);
+    const now = new Date("2026-11-05T09:00:00Z");
+
+    const res = await buildExport({
+      scope: { kind: "organization", organizationId: ORG },
+      actorUserId: STAFF,
+      period: { kind: "month", month: "2026-10" },
+      unexportedOnly: true,
+      markExported: true,
+      now,
+    });
+
+    expect(res.receiptCount).toBe(2);
+    expect(res.missing).toBe(0);
+    expect(state.eqs).toEqual([["organization_id", ORG], ["status", "verified"]]);
+    expect(state.isNull).toEqual(["exported_at"]);
+    // The ZIP belongs to the staff member, keyed by client.
+    expect(state.uploads[0].path.startsWith(`${STAFF}/${ORG}-`)).toBe(true);
+    // Only the ready receipt is stamped (after the upload): the one still
+    // in review must show up again once it is completed.
+    expect(state.stamps).toEqual([
+      {
+        payload: { exported_at: now.toISOString(), exported_by: STAFF },
+        ids: [row(1).id],
+      },
+    ]);
+  });
+
+  it("does not stamp when the upload fails", async () => {
+    const ORG = "33333333-3333-4333-8333-333333333333";
+    state.rows = [row(1, { organization_id: ORG })];
+    state.uploadError = { message: "disk full" };
+    await expect(
+      buildExport({
+        scope: { kind: "organization", organizationId: ORG },
+        actorUserId: USER_ID,
+        period: { kind: "all" },
+        markExported: true,
+      })
+    ).rejects.toThrow(/upload failed/);
+    expect(state.stamps).toEqual([]);
   });
 });

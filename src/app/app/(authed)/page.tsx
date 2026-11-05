@@ -9,6 +9,8 @@ import {
   getOrCreateAliasForUser,
 } from "@/lib/email-alias";
 import { getConciergeEmail } from "@/lib/concierge-email";
+import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organizations";
+import { getFirmMembership } from "@/lib/require-firm";
 import type { Receipt } from "@/lib/types";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
@@ -80,6 +82,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     redirect("/app/login");
   }
 
+  // Firm staff with no company of their own belong on the firm portal.
+  // Checked before the gate and before any lazy mint below, so an accountant
+  // never gets a phantom company or a subscribe prompt.
+  if (await getFirmMembership(user.id)) {
+    if (!(await hasAnyMembership(user.id))) redirect("/firm");
+  }
+
   const { session_id } = await searchParams;
   const sessionId = session_id ?? null;
   const result = await checkSubscriptionGate(user.id, sessionId);
@@ -115,7 +124,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   // Falls back to the legacy getConciergeEmail derivation if the profile
   // row is missing (shouldn't happen post-signup, but the gate runs
   // before profile-sync in a few edge cases).
-  const aliasHash = await getOrCreateAliasForUser(user.id);
+  const [aliasHash] = await Promise.all([
+    getOrCreateAliasForUser(user.id),
+    // The company this account's receipts belong to (firm portal). Minted
+    // here so it exists before the first receipt; failures fall back to the
+    // insert trigger.
+    getOrCreateDefaultOrganization(user.id),
+  ]);
   const forwardingEmail = aliasHash
     ? buildForwardingAddress(aliasHash)
     : getConciergeEmail(user.id);

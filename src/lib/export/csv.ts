@@ -9,6 +9,7 @@
  */
 
 import { CATEGORY_CONFIG } from "@/lib/receipt-format";
+import { editedBy } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 export const CSV_COLUMNS = [
@@ -24,13 +25,28 @@ export const CSV_COLUMNS = [
   "Merchant VAT no.",
   "Status",
   "Source",
-  "Edited by you",
+  // "you", "accountant" or "you, accountant" plus the date of the last edit.
+  "Edited",
   "Notes",
   "PDF file",
   "Original file",
   "Captured at",
   "Receipt ID",
+  // 2026-11-04: bookkeeping fields, appended so older columns keep their
+  // positions in any spreadsheet the accountant set up.
+  "Seller org.nr",
+  "Exported at",
+  "Booked ref",
+  "BAS account",
 ] as const;
+
+function editedCell(r: Receipt): string {
+  const who = editedBy(r);
+  if (!who) return "";
+  const date = r.edited_at ? r.edited_at.slice(0, 10) : "";
+  const label = who === "owner" ? "you" : who === "accountant" ? "accountant" : "you, accountant";
+  return date ? `${label} ${date}` : label;
+}
 
 export type CsvRow = {
   receipt: Receipt;
@@ -97,12 +113,16 @@ export function buildReceiptsCsv(rows: CsvRow[]): string {
         csvCell(r.merchant_vat_number),
         csvCell(r.status === "verified" ? "Ready" : "Needs review"),
         csvCell(r.source),
-        csvCell(r.edited_at ? r.edited_at.slice(0, 10) : ""),
+        csvCell(editedCell(r)),
         csvCell(r.notes),
         csvCell(pdfFile),
         csvCell(originalFile),
         csvCell(stockholmDateTime(r.created_at)),
         csvCell(r.id),
+        csvCell(r.seller_org_number),
+        csvCell(r.exported_at ? r.exported_at.slice(0, 10) : ""),
+        csvCell(r.booked_ref),
+        csvCell(r.bas_account),
       ].join(";"),
     );
   }

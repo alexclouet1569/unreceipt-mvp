@@ -324,6 +324,64 @@ describe("parseReceipt — sender trust", () => {
   });
 });
 
+describe("parseReceipt — templatesOnly", () => {
+  it("never calls the LLM when the caller will read an attachment instead", async () => {
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "kvitto@ica.se",
+        to: "alex+abc@in.unreceipt.com",
+        subject: "Kvitto",
+        text: "Ditt kvitto bifogas som PDF.",
+        html: null,
+        templatesOnly: true,
+      },
+    });
+    expect(result.status).toBe("pending_review");
+    expect(mockLlmExtract).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseReceipt — bookkeeping fields from the LLM", () => {
+  it("keeps the seller's identifiers and the VAT split, dropping a malformed line", async () => {
+    mockLlmExtract.mockResolvedValue({
+      merchant: "ICA Maxi",
+      amount: 181,
+      currency: "SEK",
+      receipt_date: "2026-11-02",
+      tax_amount: 31,
+      seller_org_number: " 556677-8899 ",
+      seller_vat_number: "SE556677889901",
+      vat_lines: [
+        { rate: 25, net: 100, vat: 25 },
+        { rate: 12, net: 50, vat: 6 },
+        { rate: "bad", vat: 1 },
+      ],
+      confidence: 0.9,
+    });
+
+    const result = await parseReceipt({
+      kind: "email",
+      raw: {
+        from: "kvitto@ica.se",
+        to: "alex+abc@in.unreceipt.com",
+        subject: "Ditt kvitto",
+        text: "Tack för ditt köp. Org.nr 556677-8899. Moms 25% 100,00 25,00; 12% 50,00 6,00. Totalt 181,00",
+        html: null,
+      },
+    });
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.fields.seller_org_number).toBe("556677-8899");
+    expect(result.fields.merchant_vat_number).toBe("SE556677889901");
+    expect(result.fields.vat_lines).toEqual([
+      { rate: 25, net: 100, vat: 25 },
+      { rate: 12, net: 50, vat: 6 },
+    ]);
+  });
+});
+
 describe("parseReceipt — SMS templates", () => {
   it("matches a Swedbank-style Köp SMS", async () => {
     const result = await parseReceipt({

@@ -11,11 +11,13 @@
 // DELETE — removes the row and every stored file behind it (the photo in
 // `receipts`, the forwarded .eml or PDF in `receipt-originals`).
 //
-// Rows are read through the anon-key client, so RLS enforces ownership.
-// Updates go through the service role, scoped to the user: users have no
-// direct INSERT/UPDATE grant on receipts, so the trust fields (status,
-// intake_ref, …) can only be set by server code. Storage deletes also use
-// the service role (`receipt-originals` has no user DELETE policy), on
+// PATCH reads the row through loadReceiptForActor() (owner, or staff of the
+// accounting firm linked to the receipt's company) and writes with the
+// service role scoped to the row's owner: users have no direct
+// INSERT/UPDATE grant on receipts, so the trust fields (status, intake_ref,
+// …) can only be set by server code. DELETE stays owner-only: it reads
+// through the anon-key client, so RLS enforces ownership. Storage deletes
+// use the service role (`receipt-originals` has no user DELETE policy), on
 // paths checked with isOwnedStoragePath first.
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -29,12 +31,17 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import { editMarker } from "@/lib/receipts/edits";
+import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
+import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import {
   MAX_AMOUNT,
+  OrgNumberSchema,
   PaymentMethodSchema,
   ReceiptItemsSchema,
   TaxAmountSchema,
   TaxRateSchema,
+  VatLinesSchema,
+  VatNumberSchema,
   taxExceedsTotal,
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt } from "@/lib/types";
@@ -58,6 +65,12 @@ const PatchSchema = z.object({
   tax_rate: TaxRateSchema.nullable().optional(),
   payment_method: PaymentMethodSchema.nullable().optional(),
   items: ReceiptItemsSchema.nullable().optional(),
+  seller_org_number: OrgNumberSchema.nullable().optional(),
+  merchant_vat_number: VatNumberSchema.nullable().optional(),
+  vat_lines: VatLinesSchema.nullable().optional(),
+  // The firm's bookkeeping account for this receipt (overrides the
+  // category suggestion in the export).
+  bas_account: z.string().trim().regex(/^\d{4}$/, "A BAS account has 4 digits").nullable().optional(),
 });
 
 async function getUserScopedClient() {
@@ -115,27 +128,24 @@ export async function PATCH(
     );
   }
 
-  const supabase = await getUserScopedClient();
-
   // Read the existing row first — we need its current values to compute
   // the merged status (required-field check on the *result* of the patch,
-  // not just on the patch payload).
-  const { data: existing, error: readError } = await supabase
-    .from("receipts")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (readError) {
-    return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+  // not just on the patch payload). Owner or linked firm staff only.
+  let access;
+  try {
+    access = await loadReceiptForActor(user, id);
+  } catch (err) {
+    if (err instanceof ReceiptAccessError) {
+      return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+    }
+    throw err;
   }
-  if (!existing) {
-    // RLS hides rows owned by other users, so a miss is correctly 404
-    // from the caller's perspective.
+  if (!access) {
+    // A row the caller may not see is a miss, so ids can't be probed.
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const existingRow = existing as Receipt;
+  const existingRow: Receipt = access.receipt;
   const patch = parsed.data;
 
   // Build the update payload + the prospective post-patch view for the
@@ -186,6 +196,15 @@ export async function PATCH(
   if (patch.items !== undefined) {
     update.items = patch.items && patch.items.length > 0 ? patch.items : null;
   }
+  if (patch.seller_org_number !== undefined) update.seller_org_number = patch.seller_org_number;
+  if (patch.merchant_vat_number !== undefined) update.merchant_vat_number = patch.merchant_vat_number;
+  if (patch.vat_lines !== undefined) {
+    update.vat_lines =
+      patch.vat_lines && patch.vat_lines.length > 0
+        ? patch.vat_lines.map((l) => ({ rate: l.rate, net: l.net ?? null, vat: l.vat }))
+        : null;
+  }
+  if (patch.bas_account !== undefined) update.bas_account = patch.bas_account;
 
   // VAT can't exceed the total — checked on the result, since the patch may
   // change either one.
@@ -201,17 +220,31 @@ export async function PATCH(
     );
   }
 
+  // A split must add up to the VAT amount it belongs to (both after the patch).
+  const linesAfter =
+    "vat_lines" in update ? (update.vat_lines as Array<{ vat: number }> | null) : existingRow.vat_lines;
+  if (linesAfter && linesAfter.length > 0 && !vatLinesConsistent(linesAfter, taxAfter)) {
+    return NextResponse.json(
+      {
+        error: "validation failed",
+        issues: [{ path: "vat_lines", message: "VAT per rate must add up to the VAT amount" }],
+      },
+      { status: 400 }
+    );
+  }
+
   update.status = computeReceiptStatus(merged);
   Object.assign(update, editMarker(existingRow, update, new Date(), user.id));
 
-  // The row was read under RLS above, so it belongs to this user. The write
-  // itself goes through the service role: users have no direct UPDATE on
+  // loadReceiptForActor() proved the caller may edit this row. The write
+  // goes through the service role, scoped to the row's owner (never the
+  // actor: for firm staff they differ): users have no direct UPDATE on
   // receipts (status and the other trust fields must only be set here).
   const { error: updateError } = await getSupabaseAdmin()
     .from("receipts")
     .update(update)
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", existingRow.user_id);
 
   if (updateError) {
     console.error("[/api/receipts/PATCH] update failed", updateError);
@@ -221,9 +254,10 @@ export async function PATCH(
   // Confirming a receipt that was waiting for review is when it counts
   // toward the plan (forwarded emails are only counted once confirmed).
   // Idempotent: receipts already counted at capture are a no-op.
+  // Always the client's usage, whoever completed the receipt.
   if (update.status === "verified") {
     await recordReceiptUsage({
-      userId: user.id,
+      userId: existingRow.user_id,
       receiptId: id,
       source: usageSource(existingRow.source),
     });
@@ -273,6 +307,16 @@ export async function DELETE(
     isOwnedStoragePath(row.original_source_url, user.id)
   ) {
     removals.push({ bucket: "receipt-originals", path: row.original_source_url });
+  }
+  // An email whose attachment is the original keeps the message itself
+  // next to it as <id>.eml; a missing file is not an error for remove().
+  const sibling = `${user.id}/${id}.eml`;
+  if (
+    row.original_source_url &&
+    row.original_source_url !== sibling &&
+    row.original_source_url.startsWith(`${user.id}/${id}.`)
+  ) {
+    removals.push({ bucket: "receipt-originals", path: sibling });
   }
 
   const admin = getSupabaseAdmin();

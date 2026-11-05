@@ -65,10 +65,22 @@ function sizeLabel(bytes: number): string {
 export function ExportPanel({
   fixedPeriod,
   firstReceiptDate,
+  endpoint = "/api/export",
+  extraBody,
+  buttonLabel,
+  onDone,
 }: {
-  fixedPeriod?: "all";
+  // "all" for the delete-account flow; a "YYYY-MM" month for the firm's
+  // per-client month view. Either hides the period picker.
+  fixedPeriod?: "all" | string;
   // Earliest purchase date on the account; widens the period list.
   firstReceiptDate?: string | null;
+  // The firm export posts to its per-client route with extra options.
+  endpoint?: string;
+  extraBody?: Record<string, unknown>;
+  buttonLabel?: string;
+  // Called after a successful export (the firm page refreshes its stamps).
+  onDone?: () => void;
 }) {
   const [period, setPeriod] = useState<string>(
     () => fixedPeriod ?? recentMonths(new Date())[0],
@@ -87,10 +99,10 @@ export function ExportPanel({
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("/api/export", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ period }),
+        body: JSON.stringify({ period, ...(extraBody ?? {}) }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -110,6 +122,7 @@ export function ExportPanel({
           missing: body.missing ?? 0,
           parts: body.parts ?? [],
         });
+        onDone?.();
       }
     } catch {
       setError("Network error. Check your connection and try again.");
@@ -166,9 +179,8 @@ export function ExportPanel({
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
         {busy
           ? "Preparing your export…"
-          : fixedPeriod
-            ? "Download all receipts (ZIP)"
-            : "Create export"}
+          : (buttonLabel ??
+            (fixedPeriod === "all" ? "Download all receipts (ZIP)" : "Create export"))}
       </Button>
 
       {error ? (

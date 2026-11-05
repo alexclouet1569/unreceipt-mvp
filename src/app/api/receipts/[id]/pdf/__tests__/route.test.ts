@@ -44,6 +44,25 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 
+vi.mock("@/lib/receipts/access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/receipts/access")>();
+  return {
+    ...actual,
+    loadReceiptForActor: async (user: { id: string }, id: string) => {
+      mocks.from("receipts");
+      mocks.select("*");
+      mocks.eqId("id", id);
+      const r = (await mocks.maybeSingle()) as { data: Record<string, unknown> | null; error: unknown };
+      if (r?.error) throw new actual.ReceiptAccessError();
+      if (!r?.data) return null;
+      mocks.eqUser("user_id", r.data.user_id);
+      return r.data.user_id === user.id
+        ? { receipt: r.data, via: "owner" }
+        : { receipt: r.data, via: "firm", firmId: "firm-1" };
+    },
+  };
+});
+
 import { GET } from "@/app/api/receipts/[id]/pdf/route";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -83,6 +102,15 @@ const fakeReceipt = (overrides: Partial<Receipt> = {}): Receipt => ({
   edited_at: null,
   edited_fields: null,
   edit_history: null,
+  organization_id: null,
+  seller_org_number: null,
+  vat_lines: null,
+  bas_account: null,
+  exported_at: null,
+  exported_by: null,
+  booked_at: null,
+  booked_by: null,
+  booked_ref: null,
   status: "verified",
   original_source_url: null,
   original_source_kind: null,
@@ -137,10 +165,10 @@ describe("GET /api/receipts/[id]/pdf", () => {
     const res = await GET(buildRequest(), params);
 
     expect(res.status).toBe(404);
-    // Confirms we did query with both id AND user_id — the second .eq()
-    // call is what enforces ownership at the SQL layer.
+    // The read is by id; loadReceiptForActor() decides who may see the
+    // row (owner, or staff of the linked firm) and a miss is 404.
     expect(mocks.eqId).toHaveBeenCalledWith("id", RECEIPT_ID);
-    expect(mocks.eqUser).toHaveBeenCalledWith("user_id", USER_ID);
+    expect(mocks.eqUser).not.toHaveBeenCalled();
   });
 
   it("returns 409 with review_required + missing_fields when the row is pending_review", async () => {

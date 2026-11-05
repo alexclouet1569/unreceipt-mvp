@@ -23,6 +23,13 @@ that the diff touches; skip the ones it doesn't.
    `"use client"` file. Every service-role query on user data is scoped with
    `.eq("user_id", <session user id>)`, and that id comes from the session
    (`getServerUser()`), never from the request body, query string or URL.
+2b. **Firm portal.** Every `/firm/**` page calls `requireFirmMemberPage()`
+   and every `/api/firm/**` handler calls `requireFirmMember()` first
+   (`src/lib/require-firm.ts`). Every service-role query on client data
+   under `/firm` or `/api/firm` is scoped with
+   `.eq("organization_id", id)` where `id` is the result of
+   `requireFirmClientAccess()`, never a request value. A write never
+   uses `.eq("user_id", <actor>)` for a client row.
 3. **Paid and storage routes.** Any route that calls Claude
    (`extractReceipt`, `llmExtract`, `parseReceipt`) or writes to storage
    calls `rateLimit()` from `src/lib/rate-limit.ts` and, for customer

@@ -3,6 +3,9 @@ import {
   MAX_EDIT_HISTORY,
   diffTrackedFields,
   editMarker,
+  editedBy,
+  editedByLabel,
+  editedByNeutralLabel,
   editedFieldLabels,
   editedOnLabel,
   originalValues,
@@ -113,5 +116,50 @@ describe("display helpers", () => {
       { label: "Total", was: "245.00 kr" },
       { label: "VAT amount", was: "empty" },
     ]);
+  });
+});
+
+describe("editedBy / editedByLabel", () => {
+  const OWNER = "owner-1";
+  const base = { user_id: OWNER, edited_at: "2026-10-15T10:00:00Z" };
+
+  it("is null when nothing was edited", () => {
+    expect(editedBy({ ...base, edited_at: null, edit_history: null })).toBeNull();
+    expect(editedByLabel({ ...base, edited_at: null, edit_history: null })).toBeNull();
+  });
+
+  it("treats entries without `by` as the owner's", () => {
+    const r = { ...base, edit_history: [{ at: "a", changes: {} }] };
+    expect(editedBy(r)).toBe("owner");
+    expect(editedByLabel(r)).toBe("Edited by you");
+    expect(editedByLabel(r, "firm")).toBe("Edited by the client");
+    expect(editedByNeutralLabel(r)).toBe("Edited by the account holder");
+  });
+
+  it("tells the accountant's edits apart, and both", () => {
+    const firmOnly = { ...base, edit_history: [{ at: "a", by: "staff-1", changes: {} }] };
+    expect(editedBy(firmOnly)).toBe("accountant");
+    expect(editedByLabel(firmOnly)).toBe("Edited by your accountant");
+    expect(editedByLabel(firmOnly, "firm")).toBe("Edited by your firm");
+    const both = { ...base, edit_history: [{ at: "a", by: OWNER, changes: {} }, { at: "b", by: "staff-1", changes: {} }] };
+    expect(editedBy(both)).toBe("both");
+    expect(editedByLabel(both)).toBe("Edited by you and your accountant");
+    expect(editedByNeutralLabel(both)).toBe("Edited by the account holder and the accounting firm");
+  });
+});
+
+describe("VAT lines are a tracked field", () => {
+  it("records a changed split and ignores an equivalent one", () => {
+    const existing = {
+      vat_lines: [{ rate: 25, net: 100, vat: 25 }],
+      edited_fields: null,
+      edit_history: null,
+    };
+    expect(editMarker(existing, { vat_lines: [{ rate: 25, net: 100, vat: 25 }] })).toEqual({});
+    const marker = editMarker(existing, { vat_lines: [{ rate: 12, net: 50, vat: 6 }] }, new Date("2026-11-04T10:00:00Z"));
+    expect(marker.edited_fields).toEqual(["vat_lines"]);
+    expect(
+      originalValues({ currency: "SEK", edit_history: marker.edit_history! })
+    ).toEqual([{ label: "VAT per rate", was: "25%: 25.00 kr" }]);
   });
 });
