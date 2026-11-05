@@ -165,11 +165,12 @@ describe("firmInviteEmail", () => {
       clientName: "Acme AB",
       url: "https://app.unreceipt.com/app/accountant/accept?token=abc",
     });
-    expect(email.subject).toBe("Byrån <AB> wants to handle your receipts in UnReceipt");
+    expect(email.subject).toBe("Byrån <AB> wants to see your receipts");
     expect(email.html).toContain("Byrån &lt;AB&gt;");
     expect(email.html).not.toContain("Byrån <AB>");
     expect(email.html).toContain('href="https://app.unreceipt.com/app/accountant/accept?token=abc"');
     expect(email.text).toContain("Acme AB");
-    expect(email.text).toContain("can't change your plan or delete anything");
+    expect(email.text).toContain("Yes, share: https://app.unreceipt.com/app/accountant/accept?token=abc");
+    expect(email.text).toContain("They'll see all your receipts and do your bookkeeping.");
   });
 });

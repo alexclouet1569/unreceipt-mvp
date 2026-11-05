@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
@@ -33,6 +34,8 @@ type DashboardProps = {
   intakeSmsNumber: string | null;
   // First run: no receipts yet and onboarding never finished or skipped.
   showOnboarding?: boolean;
+  // Accounting-firm invites waiting for this user's answer.
+  accountantInvites?: PendingAccountantInvite[];
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -46,6 +49,7 @@ export function Dashboard({
   forwardingEmail,
   intakeSmsNumber,
   showOnboarding = false,
+  accountantInvites = [],
 }: DashboardProps) {
   const [captureOpen, setCaptureOpen] = useState(false);
   // Once started, onboarding stays until finished — even after the first
@@ -95,12 +99,13 @@ export function Dashboard({
     const monthIso = monthStart.toISOString().slice(0, 10);
 
     const baseCurrency = receipts[0]?.currency ?? "EUR";
-    const monthTotal = receipts
-      .filter((r) => (r.purchased_at ?? r.receipt_date ?? "") >= monthIso)
-      .reduce((sum, r) => sum + (r.total ?? 0), 0);
+    // One total per currency, never added across currencies (DESIGN.md).
+    const monthTotals = sumByCurrency(
+      receipts.filter((r) => (r.purchased_at ?? r.receipt_date ?? "") >= monthIso),
+    );
     const verified = receipts.filter((r) => r.status === "verified").length;
 
-    return { baseCurrency, monthTotal, verified };
+    return { baseCurrency, monthTotals, verified };
   }, [receipts]);
 
   const groupedReceipts = useMemo(() => {
@@ -176,6 +181,8 @@ export function Dashboard({
           </p>
         </div>
 
+        <AccountantInviteNotice invites={accountantInvites} />
+
         {onboardingStep != null ? (
           <FirstRun
             step={onboardingStep}
@@ -195,11 +202,12 @@ export function Dashboard({
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 mb-6">
-              <StatCard label="Receipts" value={String(receipts.length)} />
-              <StatCard label="Verified" value={String(stats.verified)} />
+              <StatCard label="Receipts" lines={[String(receipts.length)]} />
+              <StatCard label="Verified" lines={[String(stats.verified)]} />
               <StatCard
                 label="This month"
-                value={formatAmount(stats.monthTotal, stats.baseCurrency)}
+                lines={stats.monthTotals ? stats.monthTotals.split(" + ") : [formatAmount(0, stats.baseCurrency)]}
+                amount
               />
             </div>
 
@@ -434,11 +442,19 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+// Mono only for money (DESIGN.md); one line per currency.
+function StatCard({ label, lines, amount = false }: { label: string; lines: string[]; amount?: boolean }) {
   return (
     <Card>
-      <CardContent className="py-3 px-4 text-center">
-        <div className="text-base font-mono font-medium tabular-nums">{value}</div>
+      <CardContent className="py-3 px-2 text-center">
+        {lines.map((line) => (
+          <div
+            key={line}
+            className={"font-medium tabular-nums whitespace-nowrap " + (amount ? "font-mono text-sm" : "text-base")}
+          >
+            {line}
+          </div>
+        ))}
         <div className="text-xs text-muted-foreground">{label}</div>
       </CardContent>
     </Card>

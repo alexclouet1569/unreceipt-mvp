@@ -371,7 +371,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </a>
                 <a
-                  href="#how"
+                  href={appUrl("/demo")}
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",

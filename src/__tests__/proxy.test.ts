@@ -91,6 +91,14 @@ describe("proxy — host-based routing", () => {
     );
   });
 
+  it("redirects the public demo from apex → app subdomain", async () => {
+    const res = await proxy(
+      buildRequest("https://unreceipt.com/demo/company?step=2", "unreceipt.com")
+    );
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/demo/company?step=2");
+  });
+
   it("redirects / from app subdomain → apex", async () => {
     const res = await proxy(
       buildRequest("https://app.unreceipt.com/", "app.unreceipt.com")

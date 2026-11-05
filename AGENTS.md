@@ -124,6 +124,7 @@ Two hosts, one Next.js app:
 
 - `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/fr`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
 - `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/webhooks/*`, `/api/admin/*`. PWA-installable.
+- `/demo` (on the app host) — the public guided tour: `/demo/company` and `/demo/accountant` render the real screens with sample data, and every `/api` call is answered in the browser, so nothing reaches the database, Resend or Claude. Keep it that way: a demo component must never call a real route. Linked from the landing hero.
 - `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
 
 `proxy.ts` enforces the split with 308 redirects when a request lands on the wrong host. Local dev (`localhost`, `127.*`) and Vercel previews (`*.vercel.app`) sit outside the apex/app split, so both surfaces remain reachable on the same origin.

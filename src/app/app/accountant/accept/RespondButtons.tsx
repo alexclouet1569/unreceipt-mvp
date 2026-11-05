@@ -5,14 +5,36 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// Plain-language messages for the errors /api/accountant/respond returns as
+// codes rather than sentences.
+function errorText(code: string | undefined): string {
+  if (code === "not_found") return "This invite isn't valid any more. Ask your accountant to send a new one.";
+  if (code === "unauthorized") return "You were signed out. Sign in again and try once more.";
+  if (!code || code === "bad_request" || code === "forbidden") return "Couldn't save. Try again.";
+  return code;
+}
+
+/**
+ * "Yes, share" / "No thanks" for one accounting-firm invite. Used
+ * on the invite page (with the link token) and on the dashboard and in
+ * Settings (no token: the invite is matched by the signed-in address).
+ */
 export function RespondButtons({
   inviteId,
   token,
   firmName,
+  showHomeLink = true,
+  quietAccept = false,
+  onDone,
 }: {
   inviteId: string;
-  token: string;
+  token?: string;
   firmName: string;
+  showHomeLink?: boolean;
+  // Ink instead of brand green, for screens that already have their green
+  // call to action (the receipts page has the capture button).
+  quietAccept?: boolean;
+  onDone?: (status: "active" | "revoked") => void;
 }) {
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +47,18 @@ export function RespondButtons({
       const res = await fetch("/api/accountant/respond", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ inviteId, action, token }),
+        body: JSON.stringify({ inviteId, action, ...(token ? { token } : {}) }),
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string; status?: "active" | "revoked" };
       if (!res.ok) {
-        setError(body.error ?? "Couldn't save. Try again.");
+        setError(errorText(body.error));
         return;
       }
       // No router.refresh(): accepting clears the invite token, so a reload
       // would replace this confirmation with "This link doesn't work".
-      setDone(body.status ?? (action === "accept" ? "active" : "revoked"));
+      const status = body.status ?? (action === "accept" ? "active" : "revoked");
+      setDone(status);
+      onDone?.(status);
     } catch {
       setError("Couldn't save. Check your connection and try again.");
     } finally {
@@ -44,15 +68,17 @@ export function RespondButtons({
 
   if (done) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-1">
         <p role="status" className="text-[var(--ink)] font-semibold" style={{ fontSize: "15px" }}>
           {done === "active"
-            ? `Connected. ${firmName} can now see your receipts.`
-            : `Declined. Nothing is shared with ${firmName}.`}
+            ? `Done. ${firmName} now gets your receipts.`
+            : "OK, nothing is shared. They can invite you again later."}
         </p>
-        <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
-          Go to your receipts
-        </Link>
+        {showHomeLink ? (
+          <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
+            Go to your receipts
+          </Link>
+        ) : null}
       </div>
     );
   }
@@ -60,9 +86,14 @@ export function RespondButtons({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" className="h-11" onClick={() => respond("accept")} disabled={busy !== null}>
+        <Button
+          type="button"
+          className={quietAccept ? "h-11 bg-[var(--ink)] text-[var(--surface)] hover:bg-[var(--ink)]/90" : "h-11"}
+          onClick={() => respond("accept")}
+          disabled={busy !== null}
+        >
           {busy === "accept" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Connect {firmName}
+          Yes, share
         </Button>
         <Button
           type="button"
@@ -72,7 +103,7 @@ export function RespondButtons({
           disabled={busy !== null}
         >
           {busy === "decline" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Not now
+          No thanks
         </Button>
       </div>
       {error ? (

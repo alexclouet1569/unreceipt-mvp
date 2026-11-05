@@ -9,7 +9,7 @@ import { InviteCard, type InviteView } from "./_invite-card";
 export const dynamic = "force-dynamic";
 
 // GET never changes anything: the invite is resolved by its token hash and
-// shown with Connect / Not now buttons, which POST /api/accountant/respond.
+// shown with "Yes, share my receipts" / "No thanks" buttons, which POST /api/accountant/respond.
 async function loadInvite(token: string | undefined): Promise<InviteView | null> {
   if (!isInviteTokenShape(token)) return null;
   const { data, error } = await getSupabaseAdmin()
@@ -50,7 +50,7 @@ export default async function AcceptInvitePage({
           </Link>
         </div>
       </header>
-      <main className="max-w-[540px] mx-auto px-4 py-10">
+      <main className="max-w-[540px] mx-auto px-4 pt-16 pb-10">
         <InviteCard invite={invite} token={token ?? ""} email={user.email ?? null} />
       </main>
     </div>

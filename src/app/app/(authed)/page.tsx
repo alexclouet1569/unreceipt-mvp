@@ -12,6 +12,8 @@ import { getConciergeEmail } from "@/lib/concierge-email";
 import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organizations";
 import { getFirmMembership } from "@/lib/require-firm";
 import type { Receipt } from "@/lib/types";
+import { loadAccountantLinks } from "@/lib/firm/client-links";
+import type { PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
 import { DbWarningBanner } from "./_db-warning-banner";
@@ -55,6 +57,22 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
 
 // First-run onboarding shows until finished or skipped. A failed read (or
 // the column not existing yet) counts as done: never trap someone in it.
+// Accounting-firm invites addressed to this user that wait for an answer.
+// Best-effort: a failed lookup just hides the notice (Settings still has it).
+async function loadPendingInvites(
+  user: Parameters<typeof loadAccountantLinks>[0]
+): Promise<PendingAccountantInvite[]> {
+  try {
+    const links = await loadAccountantLinks(user);
+    return links
+      .filter((l) => l.status === "invited")
+      .map((l) => ({ id: l.id, firmName: l.firmName }));
+  } catch (err) {
+    console.error("[/app] accountant invites load failed", err);
+    return [];
+  }
+}
+
 async function loadOnboarded(userId: string): Promise<boolean> {
   const { data, error } = await getSupabaseAdmin()
     .from("profiles")
@@ -112,9 +130,10 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   }
 
   const userEmail = user.email ?? "";
-  const [receipts, onboarded] = await Promise.all([
+  const [receipts, onboarded, accountantInvites] = await Promise.all([
     loadReceiptsForUser(user.id),
     loadOnboarded(user.id),
+    loadPendingInvites(user),
   ]);
   const showOnboarding = !onboarded && receipts.length === 0;
 
@@ -152,6 +171,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           forwardingEmail={forwardingEmail}
           intakeSmsNumber={intakeSmsNumber}
           showOnboarding={showOnboarding}
+          accountantInvites={accountantInvites}
         />
       </>
     );
@@ -168,6 +188,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
         forwardingEmail={forwardingEmail}
         intakeSmsNumber={intakeSmsNumber}
         showOnboarding={showOnboarding}
+          accountantInvites={accountantInvites}
       />
     </>
   );
