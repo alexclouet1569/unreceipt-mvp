@@ -22,7 +22,7 @@ import {
   formatDate,
   formatQty,
 } from "@/lib/receipt-format";
-import { editedOnLabel, originalValues } from "@/lib/receipts/edits";
+import { editedByNeutralLabel, editedOnLabel, originalValues } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 // Bundled font registration. Done once per process — Font.register guards
@@ -454,12 +454,12 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
           {editedOn ? (
             <View style={styles.editedBox}>
               <Text style={styles.editedTitle}>
-                {`Edited by you on ${editedOn}`}
+                {`${editedByNeutralLabel(receipt) ?? "Edited"} on ${editedOn}`}
               </Text>
               <Text style={styles.editedLine}>
                 {hasOriginal
-                  ? "These fields were changed by the account holder after the receipt was captured. The original file is unchanged."
-                  : "These fields were changed by the account holder after the receipt was entered."}
+                  ? "These fields were changed after the receipt was captured. The original file is unchanged."
+                  : "These fields were changed after the receipt was entered."}
               </Text>
               {wasValues.map(({ label, was }) => (
                 <Text key={label} style={styles.editedLine}>

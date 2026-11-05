@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { renderToStream } from "@react-pdf/renderer";
 import type { Readable } from "node:stream";
 import { getServerUser } from "@/lib/supabase-server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { ReceiptPdf, pdfFilenameFor } from "@/components/receipt/ReceiptPdf";
 import { missingRequiredFields } from "@/lib/receipts/status";
 import type { Receipt } from "@/lib/types";
@@ -33,26 +33,22 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  // Service-role client bypasses RLS; we enforce ownership inline with
-  // .eq("user_id") so the gate is explicit and visible at the call site,
-  // matching the pattern used by /app's loadReceiptsForUser.
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("receipts")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[api/receipts/:id/pdf] fetch failed", error);
-    return NextResponse.json({ error: "fetch failed" }, { status: 500 });
+  // Owner, or staff of the accounting firm linked to the receipt's company.
+  let access;
+  try {
+    access = await loadReceiptForActor(user, id);
+  } catch (err) {
+    if (err instanceof ReceiptAccessError) {
+      console.error("[api/receipts/:id/pdf] fetch failed");
+      return NextResponse.json({ error: "fetch failed" }, { status: 500 });
+    }
+    throw err;
   }
-  if (!data) {
+  if (!access) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const receipt = data as Receipt;
+  const receipt: Receipt = access.receipt;
 
   // A receipt still in review isn't something to hand to finance yet —
   // the UI hides the button, this is the server-side backstop.

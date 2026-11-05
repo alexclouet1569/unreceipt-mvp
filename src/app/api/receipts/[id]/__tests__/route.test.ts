@@ -42,6 +42,22 @@ vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
 }));
 
+// PATCH reads through loadReceiptForActor(); DELETE still reads under RLS.
+vi.mock("@/lib/receipts/access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/receipts/access")>();
+  return {
+    ...actual,
+    loadReceiptForActor: async (user: { id: string }) => {
+      const r = (await mocks.maybeSingle()) as { data: Record<string, unknown> | null; error: unknown };
+      if (r?.error) throw new actual.ReceiptAccessError();
+      if (!r?.data) return null;
+      return r.data.user_id === user.id
+        ? { receipt: r.data, via: "owner" }
+        : { receipt: r.data, via: "firm", firmId: "firm-1" };
+    },
+  };
+});
+
 vi.mock("next/headers", () => ({
   cookies: () =>
     Promise.resolve({
@@ -425,5 +441,50 @@ describe("DELETE /api/receipts/[id]", () => {
     expect(res.status).toBe(404);
     expect(mocks.storageRemove).not.toHaveBeenCalled();
     expect(mocks.deleteEq).not.toHaveBeenCalled();
+  });
+});
+
+describe("PATCH /api/receipts/[id] by the client's accounting firm", () => {
+  const STAFF_ID = "33333333-3333-4333-8333-333333333333";
+
+  it("writes scoped to the row's owner and counts usage for the client, not the accountant", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: STAFF_ID, email: "eva@byran.se" });
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: RECEIPT_ID,
+        user_id: USER_ID,
+        organization_id: "org-1",
+        status: "pending_review",
+        merchant_name: null,
+        purchased_at: null,
+        receipt_date: null,
+        total: 120,
+        source: "email",
+        currency: "SEK",
+        tax_amount: null,
+        edited_fields: null,
+        edit_history: null,
+      },
+      error: null,
+    });
+
+    const res = await PATCH(req({ merchant: "ICA", receipt_date: "2026-11-02" }), params());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, status: "verified" });
+
+    const [payload, , , scopeCol, scopeVal] = mocks.updateEq.mock.calls[0];
+    expect([scopeCol, scopeVal]).toEqual(["user_id", USER_ID]);
+    expect((payload as { edit_history: Array<{ by: string }> }).edit_history[0].by).toBe(STAFF_ID);
+    expect(usageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, receiptId: RECEIPT_ID })
+    );
+  });
+
+  it("answers 404 for a receipt of a company the firm isn't linked to", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: STAFF_ID, email: "eva@byran.se" });
+    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    const res = await PATCH(req({ merchant: "ICA" }), params());
+    expect(res.status).toBe(404);
+    expect(mocks.updateEq).not.toHaveBeenCalled();
   });
 });

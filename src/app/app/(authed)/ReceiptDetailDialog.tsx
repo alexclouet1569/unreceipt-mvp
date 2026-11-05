@@ -31,12 +31,18 @@ import type { Receipt, ReceiptItem } from "@/lib/types";
 type ReceiptDetailDialogProps = {
   receipt: Receipt | null;
   onOpenChange: (open: boolean) => void;
+  // "firm": the accounting firm looking at a client's receipt. Same card,
+  // same Original tab, same completion/edit form (PATCH is actor-aware);
+  // no Delete and no Re-run, which stay the client's own actions.
+  variant?: "owner" | "firm";
 };
 
 export function ReceiptDetailDialog({
   receipt,
   onOpenChange,
+  variant = "owner",
 }: ReceiptDetailDialogProps) {
+  const isFirm = variant === "firm";
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -84,6 +90,7 @@ export function ReceiptDetailDialog({
         receipt.original_source_kind.startsWith("image/")) ||
       receipt.original_source_kind === "application/pdf");
   const couldReprocess =
+    !isFirm &&
     receipt != null &&
     isOcrEligibleArtifact &&
     ((receipt.items == null || receipt.items.length === 0) ||
@@ -178,7 +185,7 @@ export function ReceiptDetailDialog({
                 </div>
                 <TabsContent value="digital">
                   <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
-                    <ReceiptDetailCard receipt={receipt} />
+                    <ReceiptDetailCard receipt={receipt} viewer={variant} />
                   </div>
                   {form}
                 </TabsContent>
@@ -189,7 +196,7 @@ export function ReceiptDetailDialog({
             ) : (
               <>
                 <div className="bg-[var(--surface)] px-4 pt-4 pb-6">
-                  <ReceiptDetailCard receipt={receipt} />
+                  <ReceiptDetailCard receipt={receipt} viewer={variant} />
                 </div>
                 {form}
               </>
@@ -259,7 +266,7 @@ export function ReceiptDetailDialog({
                 </>
               )}
 
-              {deleteError ? (
+              {isFirm ? null : deleteError ? (
                 <p
                   role="alert"
                   className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2"
@@ -268,7 +275,7 @@ export function ReceiptDetailDialog({
                 </p>
               ) : null}
 
-              {confirming ? (
+              {isFirm ? null : confirming ? (
                 <div className="flex gap-2">
                   <Button
                     type="button"

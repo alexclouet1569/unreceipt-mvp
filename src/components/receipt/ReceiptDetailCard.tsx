@@ -11,11 +11,13 @@ import {
   formatQty,
   splitFormattedAmount,
 } from "@/lib/receipt-format";
-import { editedFieldLabels, editedOnLabel } from "@/lib/receipts/edits";
+import { editedByLabel, editedFieldLabels, editedOnLabel } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
 
 type ReceiptDetailCardProps = {
   receipt: Receipt;
+  // Who is looking: the account holder (default) or their accounting firm.
+  viewer?: "owner" | "firm";
 };
 
 /**
@@ -25,7 +27,7 @@ type ReceiptDetailCardProps = {
  * "Digital receipt"). Branded UnReceipt — the store gets a logo badge,
  * never the letterhead, so it can't pass for a receipt the store issued.
  */
-export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
+export function ReceiptDetailCard({ receipt, viewer = "owner" }: ReceiptDetailCardProps) {
   const config = CATEGORY_CONFIG[receipt.category];
   const currency = receipt.currency;
   const merchant = receipt.merchant_name ?? "Unknown merchant";
@@ -87,7 +89,7 @@ export function ReceiptDetailCard({ receipt }: ReceiptDetailCardProps) {
           >
             <Pencil className="mt-[2px] size-3.5 shrink-0" aria-hidden="true" />
             <span>
-              Edited by you on {editedOn}
+              {editedByLabel(receipt, viewer) ?? "Edited"} on {editedOn}
               {editedFields.length > 0 ? ` · ${editedFields.join(", ")}` : ""}
             </span>
           </p>

@@ -138,6 +138,67 @@ export function editedOnLabel(receipt: Pick<Receipt, "edited_at">): string | nul
   });
 }
 
+export type EditedBy = "owner" | "accountant" | "both";
+
+/**
+ * Who made the recorded edits: the account holder, their accounting firm,
+ * or both. Entries without `by` (written before 2026-10-15) count as the
+ * owner's. Null when nothing was edited.
+ */
+export function editedBy(
+  receipt: Pick<Receipt, "edited_at" | "edit_history" | "user_id">,
+): EditedBy | null {
+  if (!receipt.edited_at) return null;
+  const history = Array.isArray(receipt.edit_history) ? receipt.edit_history : [];
+  let owner = false;
+  let accountant = false;
+  for (const entry of history) {
+    if (!entry.by || entry.by === receipt.user_id) owner = true;
+    else accountant = true;
+  }
+  if (owner && accountant) return "both";
+  if (accountant) return "accountant";
+  return "owner";
+}
+
+/**
+ * "Edited by you" for the owner's screen, "Edited by your accountant" when
+ * the firm did it; the firm sees "Edited by the client" / "Edited by your
+ * firm".
+ */
+export function editedByLabel(
+  receipt: Pick<Receipt, "edited_at" | "edit_history" | "user_id">,
+  viewer: "owner" | "firm" = "owner",
+): string | null {
+  const who = editedBy(receipt);
+  if (!who) return null;
+  if (viewer === "firm") {
+    return who === "owner"
+      ? "Edited by the client"
+      : who === "accountant"
+        ? "Edited by your firm"
+        : "Edited by the client and your firm";
+  }
+  return who === "owner"
+    ? "Edited by you"
+    : who === "accountant"
+      ? "Edited by your accountant"
+      : "Edited by you and your accountant";
+}
+
+/** Neutral wording for the PDF and exports. */
+export function editedByNeutralLabel(
+  receipt: Pick<Receipt, "edited_at" | "edit_history" | "user_id">,
+): string | null {
+  const who = editedBy(receipt);
+  if (!who) return null;
+  return who === "owner"
+    ? "Edited by the account holder"
+    : who === "accountant"
+      ? "Edited by the accounting firm"
+      : "Edited by the account holder and the accounting firm";
+}
+
 /** Human labels of the fields the customer changed, in a stable order. */
 export function editedFieldLabels(receipt: Pick<Receipt, "edited_fields">): string[] {
   const fields = receipt.edited_fields ?? [];
