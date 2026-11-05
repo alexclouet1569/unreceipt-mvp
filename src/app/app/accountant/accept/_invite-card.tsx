@@ -80,7 +80,7 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
       <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.6 }}>
         {children}
       </p>
-      <Link href="/app" className="inline-block underline text-[var(--ink)]" style={{ fontSize: "14px" }}>
+      <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
         Go to your receipts
       </Link>
     </>
