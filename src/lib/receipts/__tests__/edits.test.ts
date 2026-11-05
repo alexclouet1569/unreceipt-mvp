@@ -147,3 +147,19 @@ describe("editedBy / editedByLabel", () => {
     expect(editedByNeutralLabel(both)).toBe("Edited by the account holder and the accounting firm");
   });
 });
+
+describe("VAT lines are a tracked field", () => {
+  it("records a changed split and ignores an equivalent one", () => {
+    const existing = {
+      vat_lines: [{ rate: 25, net: 100, vat: 25 }],
+      edited_fields: null,
+      edit_history: null,
+    };
+    expect(editMarker(existing, { vat_lines: [{ rate: 25, net: 100, vat: 25 }] })).toEqual({});
+    const marker = editMarker(existing, { vat_lines: [{ rate: 12, net: 50, vat: 6 }] }, new Date("2026-11-04T10:00:00Z"));
+    expect(marker.edited_fields).toEqual(["vat_lines"]);
+    expect(
+      originalValues({ currency: "SEK", edit_history: marker.edit_history! })
+    ).toEqual([{ label: "VAT per rate", was: "25%: 25.00 kr" }]);
+  });
+});

@@ -41,6 +41,10 @@ export type CanonicalReceiptFields = {
   subtotal?: number | null;
   tax_amount?: number | null;
   tax_rate?: number | null;
+  // Seller identifiers as printed and the VAT split per rate (bookkeeping).
+  seller_org_number?: string | null;
+  merchant_vat_number?: string | null;
+  vat_lines?: Array<{ rate: number; net: number | null; vat: number }> | null;
   category?: string | null;
   payment_method?: string | null;
   card_last_four?: string | null;

@@ -478,4 +478,38 @@ describe("CaptureDialog", () => {
     // Still on the photo choice, so the customer can pick another file.
     expect(screen.getByRole("button", { name: /Take photo/i })).toBeInTheDocument();
   });
+
+  it("forwards the seller's org.nr and the VAT split read from the photo", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockImplementation((url: string) =>
+      Promise.resolve(
+        okResponse(
+          url === "/api/ocr"
+            ? {
+                ...OCR_RESULT,
+                tax_amount: 31,
+                seller_org_number: "556677-8899",
+                seller_vat_number: "SE556677889901",
+                vat_lines: [
+                  { rate: 25, net: 100, vat: 25 },
+                  { rate: 12, net: 50, vat: 6 },
+                ],
+              }
+            : { ok: true, id: "rec-1" }
+        )
+      )
+    );
+    renderDialog();
+    await user.upload(uploadInput(), new File(["x"], "ica.jpg", { type: "image/jpeg" }));
+    await screen.findByRole("button", { name: /Save receipt/i });
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    const fd = captureCall()![1].body as FormData;
+    expect(fd.get("seller_org_number")).toBe("556677-8899");
+    expect(fd.get("merchant_vat_number")).toBe("SE556677889901");
+    expect(JSON.parse(fd.get("vat_lines") as string)).toEqual([
+      { rate: 25, net: 100, vat: 25 },
+      { rate: 12, net: 50, vat: 6 },
+    ]);
+  });
 });

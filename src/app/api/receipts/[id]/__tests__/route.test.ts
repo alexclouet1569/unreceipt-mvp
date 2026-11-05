@@ -488,3 +488,47 @@ describe("PATCH /api/receipts/[id] by the client's accounting firm", () => {
     expect(mocks.updateEq).not.toHaveBeenCalled();
   });
 });
+
+describe("PATCH /api/receipts/[id] — bookkeeping fields", () => {
+  it("accepts a VAT split, the seller's org.nr and a 4-digit BAS account", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "u@x.com" });
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: {
+        id: RECEIPT_ID,
+        user_id: USER_ID,
+        status: "verified",
+        merchant_name: "ICA",
+        purchased_at: "2026-11-02T12:00:00Z",
+        receipt_date: "2026-11-02",
+        total: 181,
+        source: "paper",
+        currency: "SEK",
+        tax_amount: 31,
+        edited_fields: null,
+        edit_history: null,
+      },
+      error: null,
+    });
+    const res = await PATCH(
+      req({ vat_lines: [{ rate: 25, net: 100, vat: 25 }, { rate: 12, vat: 6 }], seller_org_number: "556677-8899", bas_account: "5410" }),
+      params()
+    );
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload).toMatchObject({
+      vat_lines: [
+        { rate: 25, net: 100, vat: 25 },
+        { rate: 12, net: null, vat: 6 },
+      ],
+      seller_org_number: "556677-8899",
+      bas_account: "5410",
+    });
+    expect((payload as { edited_fields: string[] }).edited_fields).toEqual(["seller_org_number", "vat_lines"]);
+  });
+
+  it("refuses a BAS account that isn't 4 digits", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "u@x.com" });
+    const res = await PATCH(req({ bas_account: "54" }), params());
+    expect(res.status).toBe(400);
+  });
+});

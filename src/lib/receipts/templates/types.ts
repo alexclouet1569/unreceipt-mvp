@@ -10,6 +10,9 @@ export type PartialFields = {
   subtotal?: number;
   tax_amount?: number;
   tax_rate?: number;
+  seller_org_number?: string;
+  merchant_vat_number?: string;
+  vat_lines?: Array<{ rate: number; net: number | null; vat: number }>;
   payment_method?: string;
   card_last_four?: string;
   notes?: string;

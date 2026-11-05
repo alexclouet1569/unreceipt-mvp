@@ -389,3 +389,45 @@ describe("POST /api/capture", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/capture — bookkeeping fields", () => {
+  beforeEach(() => {
+    mocks.getServerUser.mockReset();
+    mocks.upload.mockReset().mockResolvedValue({ error: null });
+    mocks.insert.mockReset();
+    mocks.single.mockReset().mockResolvedValue({ data: { id: "rec-1" }, error: null });
+  });
+
+  it("stores the seller's identifiers and the VAT split next to the VAT", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const res = await POST(
+      buildRequest(
+        buildFormData({
+          tax_amount: "31",
+          seller_org_number: " 556677-8899 ",
+          merchant_vat_number: "SE556677889901",
+          vat_lines: JSON.stringify([{ rate: 25, net: 100, vat: 25 }, { rate: 12, vat: 6 }, { rate: "x" }]),
+          amount: "181",
+        })
+      )
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({
+      seller_org_number: "556677-8899",
+      merchant_vat_number: "SE556677889901",
+      vat_lines: [
+        { rate: 25, net: 100, vat: 25 },
+        { rate: 12, net: null, vat: 6 },
+      ],
+    });
+  });
+
+  it("drops the split when no VAT amount is saved", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const res = await POST(
+      buildRequest(buildFormData({ vat_lines: JSON.stringify([{ rate: 25, vat: 25 }]) }))
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({ vat_lines: null });
+  });
+});

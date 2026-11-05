@@ -13,13 +13,16 @@ import { recordReceiptUsage } from "@/lib/usage";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import {
   MAX_AMOUNT,
+  OrgNumberSchema,
   PaymentMethodSchema,
   TaxAmountSchema,
   TaxRateSchema,
+  VatNumberSchema,
   optionalNumber,
   optionalString,
   taxExceedsTotal,
   usableItems,
+  usableVatLines,
 } from "@/lib/receipts/receipt-fields";
 import {
   EXTENSION_BY_TYPE,
@@ -51,6 +54,8 @@ const CaptureSchema = z
     // All optional: plenty of receipts (foreign, VAT-exempt) show none.
     tax_amount: TaxAmountSchema.optional(),
     tax_rate: TaxRateSchema.optional(),
+    seller_org_number: OrgNumberSchema.optional(),
+    merchant_vat_number: VatNumberSchema.optional(),
     payment_method: PaymentMethodSchema.optional(),
   })
   .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
@@ -95,6 +100,16 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+  // VAT split per rate, JSON-encoded like items; bad lines are dropped.
+  const vatLinesRaw = form.get("vat_lines");
+  let vatLines: ReturnType<typeof usableVatLines> = undefined;
+  if (typeof vatLinesRaw === "string" && vatLinesRaw.length > 0) {
+    try {
+      vatLines = usableVatLines(JSON.parse(vatLinesRaw));
+    } catch {
+      vatLines = undefined;
+    }
+  }
   const parsed = CaptureSchema.safeParse({
     merchant: typeof form.get("merchant") === "string" ? form.get("merchant") : undefined,
     amount: typeof amountRaw === "string" && amountRaw !== "" ? Number(amountRaw) : NaN,
@@ -105,6 +120,8 @@ export async function POST(request: NextRequest) {
     notes: typeof notesRaw === "string" && notesRaw.length > 0 ? notesRaw : undefined,
     tax_amount: optionalNumber(form.get("tax_amount")),
     tax_rate: optionalNumber(form.get("tax_rate")),
+    seller_org_number: optionalString(form.get("seller_org_number")),
+    merchant_vat_number: optionalString(form.get("merchant_vat_number")),
     payment_method: optionalString(form.get("payment_method")),
   });
 
@@ -203,6 +220,11 @@ export async function POST(request: NextRequest) {
       notes: data.notes?.trim() || null,
       tax_amount: data.tax_amount ?? null,
       tax_rate: data.tax_rate ?? null,
+      seller_org_number: data.seller_org_number ?? null,
+      merchant_vat_number: data.merchant_vat_number ?? null,
+      // Only kept with the VAT it belongs to: the split without the total
+      // VAT would contradict the receipt.
+      vat_lines: data.tax_amount != null ? (vatLines ?? null) : null,
       payment_method: data.payment_method ?? null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,

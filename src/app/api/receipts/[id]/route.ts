@@ -34,10 +34,13 @@ import { editMarker } from "@/lib/receipts/edits";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import {
   MAX_AMOUNT,
+  OrgNumberSchema,
   PaymentMethodSchema,
   ReceiptItemsSchema,
   TaxAmountSchema,
   TaxRateSchema,
+  VatLinesSchema,
+  VatNumberSchema,
   taxExceedsTotal,
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt } from "@/lib/types";
@@ -61,6 +64,12 @@ const PatchSchema = z.object({
   tax_rate: TaxRateSchema.nullable().optional(),
   payment_method: PaymentMethodSchema.nullable().optional(),
   items: ReceiptItemsSchema.nullable().optional(),
+  seller_org_number: OrgNumberSchema.nullable().optional(),
+  merchant_vat_number: VatNumberSchema.nullable().optional(),
+  vat_lines: VatLinesSchema.nullable().optional(),
+  // The firm's bookkeeping account for this receipt (overrides the
+  // category suggestion in the export).
+  bas_account: z.string().trim().regex(/^\d{4}$/, "A BAS account has 4 digits").nullable().optional(),
 });
 
 async function getUserScopedClient() {
@@ -186,6 +195,15 @@ export async function PATCH(
   if (patch.items !== undefined) {
     update.items = patch.items && patch.items.length > 0 ? patch.items : null;
   }
+  if (patch.seller_org_number !== undefined) update.seller_org_number = patch.seller_org_number;
+  if (patch.merchant_vat_number !== undefined) update.merchant_vat_number = patch.merchant_vat_number;
+  if (patch.vat_lines !== undefined) {
+    update.vat_lines =
+      patch.vat_lines && patch.vat_lines.length > 0
+        ? patch.vat_lines.map((l) => ({ rate: l.rate, net: l.net ?? null, vat: l.vat }))
+        : null;
+  }
+  if (patch.bas_account !== undefined) update.bas_account = patch.bas_account;
 
   // VAT can't exceed the total — checked on the result, since the patch may
   // change either one.

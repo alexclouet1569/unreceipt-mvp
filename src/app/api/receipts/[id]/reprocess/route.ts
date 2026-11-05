@@ -22,6 +22,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
+import { usableVatLines } from "@/lib/receipts/receipt-fields";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { Receipt, ReceiptItem } from "@/lib/types";
 
@@ -268,6 +269,15 @@ export function mergeExtraction(
     "payment_method",
     typeof fresh.payment_method === "string" ? fresh.payment_method : null
   );
+  writeIfBetter(
+    "seller_org_number",
+    typeof fresh.seller_org_number === "string" ? fresh.seller_org_number.trim().slice(0, 20) : null
+  );
+  writeIfBetter(
+    "merchant_vat_number",
+    typeof fresh.seller_vat_number === "string" ? fresh.seller_vat_number.trim().slice(0, 32) : null
+  );
+  writeIfBetter("vat_lines", usableVatLines(fresh.vat_lines) ?? null);
 
   // Items: always backfill if the row currently has none. If it already
   // has some, only overwrite when the new extraction wins on confidence.

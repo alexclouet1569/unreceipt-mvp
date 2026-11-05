@@ -23,7 +23,7 @@ import { EMAIL_TEMPLATES, SMS_TEMPLATES } from "./templates";
 import type { PartialFields } from "./templates/types";
 import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
-import { usableItems } from "./receipt-fields";
+import { usableItems, usableVatLines } from "./receipt-fields";
 import type {
   CanonicalReceiptFields,
   EmailRaw,
@@ -68,6 +68,10 @@ const LlmResultSchema = z
     category: z.enum(CATEGORY_KEYS as [string, ...string[]]).optional(),
     tax_amount: z.number().nonnegative().max(1_000_000).optional(),
     tax_rate: z.number().min(0).max(100).optional(),
+    seller_org_number: z.string().min(1).max(20).optional(),
+    seller_vat_number: z.string().min(1).max(32).optional(),
+    // Checked line by line in usableVatLines, like items.
+    vat_lines: z.unknown().optional(),
     payment_method: z.string().max(50).optional(),
     card_last_four: z.string().regex(/^\d{4}$/).optional(),
     notes: z.string().max(500).optional(),
@@ -255,6 +259,10 @@ function mergeAndFinalize(
   if (llm.currency) merged.currency = llm.currency;
   if (llm.tax_amount != null) merged.tax_amount = llm.tax_amount;
   if (llm.tax_rate != null) merged.tax_rate = llm.tax_rate;
+  if (llm.seller_org_number) merged.seller_org_number = llm.seller_org_number.trim();
+  if (llm.seller_vat_number) merged.merchant_vat_number = llm.seller_vat_number.trim();
+  const llmVatLines = usableVatLines(llm.vat_lines);
+  if (llmVatLines) merged.vat_lines = llmVatLines;
   if (llm.payment_method) merged.payment_method = llm.payment_method;
   if (llm.card_last_four) merged.card_last_four = llm.card_last_four;
   if (llm.notes) merged.notes = llm.notes;
@@ -327,6 +335,9 @@ function finalize(
     subtotal: fields.subtotal ?? null,
     tax_amount: fields.tax_amount ?? null,
     tax_rate: fields.tax_rate ?? null,
+    seller_org_number: fields.seller_org_number ?? null,
+    merchant_vat_number: fields.merchant_vat_number ?? null,
+    vat_lines: fields.vat_lines ?? null,
     category,
     payment_method: fields.payment_method ?? null,
     card_last_four: fields.card_last_four ?? null,
