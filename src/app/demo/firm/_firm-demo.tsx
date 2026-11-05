@@ -393,6 +393,9 @@ export function FirmDemo({ params }: { params: DemoParams }) {
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [members, setMembers] = useState<MemberView[]>(initialMembers);
   const [notice, setNotice] = useState<string | null>(null);
+  // Answered on this visit: keep the card's own "Connected" message, like
+  // the real page does after Connect.
+  const [answered, setAnswered] = useState(false);
 
   // Latest data for the fetch stub, which is installed once.
   const state = useRef({ receipts, clients });
@@ -553,6 +556,7 @@ export function FirmDemo({ params }: { params: DemoParams }) {
       if (path === "/api/accountant/respond" && method === "POST") {
         const next = body.action === "accept" ? "active" : "revoked";
         setClients((prev) => prev.map((c) => (c.id === body.inviteId ? { ...c, status: next } : c)));
+        setAnswered(true);
         return json({ ok: true, status: next });
       }
       if (path === "/api/accountant/link" && method === "DELETE") {
@@ -656,7 +660,7 @@ export function FirmDemo({ params }: { params: DemoParams }) {
                 2 · The page the button opens
               </h2>
               <InviteCard
-                invite={{ id: nd.id, firmName: FIRM, clientName: nd.client_name, state: nd.status === "invited" ? "open" : "used" }}
+                invite={{ id: nd.id, firmName: FIRM, clientName: nd.client_name, state: nd.status === "invited" || answered ? "open" : "used" }}
                 token="demo"
                 email={CLIENT_EMAIL}
               />

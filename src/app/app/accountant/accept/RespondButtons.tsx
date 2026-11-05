@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +14,6 @@ export function RespondButtons({
   token: string;
   firmName: string;
 }) {
-  const router = useRouter();
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<"active" | "revoked" | null>(null);
@@ -33,8 +32,9 @@ export function RespondButtons({
         setError(body.error ?? "Couldn't save. Try again.");
         return;
       }
+      // No router.refresh(): accepting clears the invite token, so a reload
+      // would replace this confirmation with "This link doesn't work".
       setDone(body.status ?? (action === "accept" ? "active" : "revoked"));
-      router.refresh();
     } catch {
       setError("Couldn't save. Check your connection and try again.");
     } finally {
@@ -42,18 +42,18 @@ export function RespondButtons({
     }
   };
 
-  if (done === "active") {
+  if (done) {
     return (
-      <p role="status" className="text-[var(--ink)]" style={{ fontSize: "15px" }}>
-        {firmName} is now connected. Their team can see your receipts from now on.
-      </p>
-    );
-  }
-  if (done === "revoked") {
-    return (
-      <p role="status" className="text-[var(--ink)]" style={{ fontSize: "15px" }}>
-        Declined. Nothing is shared with {firmName}.
-      </p>
+      <div className="space-y-3">
+        <p role="status" className="text-[var(--ink)] font-semibold" style={{ fontSize: "15px" }}>
+          {done === "active"
+            ? `Connected. ${firmName} can now see your receipts.`
+            : `Declined. Nothing is shared with ${firmName}.`}
+        </p>
+        <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
+          Go to your receipts
+        </Link>
+      </div>
     );
   }
 
