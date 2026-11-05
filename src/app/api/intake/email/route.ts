@@ -30,6 +30,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage } from "@/lib/usage";
+import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
@@ -370,6 +371,7 @@ export async function POST(request: NextRequest) {
   const baseFields = {
     id: receiptId,
     user_id: userId,
+    organization_id: await getOrCreateDefaultOrganization(userId),
     source: "email" as const,
     intake_ref: intakeRef,
     original_source_url: hasRaw ? storagePath : null,

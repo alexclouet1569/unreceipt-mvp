@@ -10,6 +10,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { recordReceiptUsage } from "@/lib/usage";
+import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import {
   MAX_AMOUNT,
   PaymentMethodSchema,
@@ -185,10 +186,14 @@ export async function POST(request: NextRequest) {
     parse_confidence: null,
   });
 
+  // Which company the receipt belongs to; the firm portal filters on it.
+  const organizationId = await getOrCreateDefaultOrganization(user.id);
+
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")
     .insert({
       user_id: user.id,
+      organization_id: organizationId,
       merchant_name: data.merchant.trim(),
       category: data.category,
       currency: data.currency,

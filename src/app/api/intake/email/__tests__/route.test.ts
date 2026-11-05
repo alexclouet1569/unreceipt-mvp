@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => ({
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
+const orgMock = vi.hoisted(() => vi.fn(async () => "org-1"));
+vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: orgMock }));
 
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
@@ -206,6 +208,8 @@ describe("POST /api/intake/email", () => {
       intake_ref: "<msg-uber-001@uber.com>",
     });
     expect(mocks.receiptsInsert).toHaveBeenCalledTimes(1);
+    expect(orgMock).toHaveBeenCalledWith(USER_ID);
+    expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({ organization_id: "org-1" });
     expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
     // Lands as pending_review (parser can't vouch for it): anyone can
     // email an alias, so it only counts once the user confirms it.

@@ -19,6 +19,8 @@ vi.mock("@/lib/subscription-gate", async (importOriginal) => ({
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
+const orgMock = vi.hoisted(() => vi.fn(async () => "org-1"));
+vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: orgMock }));
 
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))
@@ -157,8 +159,10 @@ describe("POST /api/capture", () => {
 
     expect(mocks.upload).not.toHaveBeenCalled();
     expect(mocks.insert).toHaveBeenCalledTimes(1);
+    expect(orgMock).toHaveBeenCalledWith(USER_ID);
     expect(mocks.insert.mock.calls[0][0]).toMatchObject({
       user_id: USER_ID,
+      organization_id: "org-1",
       merchant_name: "ICA Maxi",
       total: 49,
       currency: "EUR",

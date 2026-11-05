@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AdminAuthError, requireAdmin } from "@/lib/require-admin";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage } from "@/lib/usage";
+import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
 export const runtime = "nodejs";
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
 
   const { data: inserted, error } = await supabase.from("receipts").insert({
     user_id: data.user_id,
+    organization_id: await getOrCreateDefaultOrganization(data.user_id),
     merchant_name: data.merchant,
     category: data.category,
     currency: data.currency,

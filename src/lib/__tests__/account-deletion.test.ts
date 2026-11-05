@@ -205,6 +205,15 @@ describe("deleteAccount", () => {
     expect(ops()).toEqual(["remove:receipts"]);
   });
 
+  it("leaves organisations, memberships and firm links to the database cascades", async () => {
+    // A client's default organisation cascades from auth.users (and its
+    // firm_clients row with it); a firm member's row cascades the same way.
+    // The firm itself and its other clients are never touched.
+    await deleteAccount(USER_ID, { email: null });
+    const tables = ops().filter((op) => op.startsWith("delete:"));
+    expect(tables).toEqual(["delete:receipts", "delete:rate_limits"]);
+  });
+
   it("refuses an id that isn't a UUID (it becomes a storage prefix)", async () => {
     await expect(deleteAccount("../other")).rejects.toMatchObject({ step: "auth" });
     expect(ops()).toEqual([]);
