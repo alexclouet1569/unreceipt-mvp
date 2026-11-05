@@ -40,6 +40,15 @@ Defense in depth (plan decision A2):
 
 Required env vars (see `.env.example`): `SUPABASE_SERVICE_ROLE_KEY`, `CONCIERGE_ADMIN_EMAILS`.
 
+# Firm portal auth
+
+`/firm/*` and `/api/firm/*` are the accounting-firm portal (`src/lib/require-firm.ts`). Receipts stay owner-only at the database; the firm reads client data server-side with the service role. Rules:
+
+1. Every `/firm` page calls `requireFirmMemberPage()` and every `/api/firm` handler calls `requireFirmMember()` first. The layout check alone is not enough (layouts don't re-run on client navigations).
+2. Any read or write of client data goes through `requireFirmClientAccess(firmId, organizationId)` and is scoped with `.eq("organization_id", <its result>)`. The firm id comes from the session-bound `firm_members` row, never from the request. A client the firm isn't linked to answers 404, like one that doesn't exist.
+3. No subscription gate on `/firm`: firm staff have no plan. When they complete a client's receipt, usage is recorded for the **client**.
+4. Firm staff are created by email (`firm_members.user_id IS NULL`) and claim the row on their first confirmed sign-in; the pilot firm is bootstrapped by hand in the SQL editor (see the 2026-11-04 block in `supabase/schema.sql`).
+
 # Stripe local dev
 
 Required env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_LIGHT`, `STRIPE_PRICE_REGULAR`, `STRIPE_PRICE_HEAVY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; for extra-receipt billing also `STRIPE_METER_EVENT_NAME` and `STRIPE_PRICE_OVERAGE` (see `.env.example`).

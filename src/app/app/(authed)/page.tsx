@@ -9,7 +9,8 @@ import {
   getOrCreateAliasForUser,
 } from "@/lib/email-alias";
 import { getConciergeEmail } from "@/lib/concierge-email";
-import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organizations";
+import { getFirmMembership } from "@/lib/require-firm";
 import type { Receipt } from "@/lib/types";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
@@ -79,6 +80,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   const user = await getServerUser();
   if (!user) {
     redirect("/app/login");
+  }
+
+  // Firm staff with no company of their own belong on the firm portal.
+  // Checked before the gate and before any lazy mint below, so an accountant
+  // never gets a phantom company or a subscribe prompt.
+  if (await getFirmMembership(user.id)) {
+    if (!(await hasAnyMembership(user.id))) redirect("/firm");
   }
 
   const { session_id } = await searchParams;

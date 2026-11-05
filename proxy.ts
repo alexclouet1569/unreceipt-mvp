@@ -30,11 +30,13 @@ const APEX_ONLY_EXACT = new Set(["/", "/sv", "/fr", "/privacy"]);
 const APEX_ONLY_PREFIX = ["/api/waitlist"];
 
 // Paths that belong on the product host. Includes Stripe webhook,
-// checkout, auth callback, and admin so signups, payments, magic
-// links, and operator tools all originate from one cookie origin.
+// checkout, auth callback, admin and the firm portal so signups, payments,
+// magic links and operator tools all originate from one cookie origin.
 const APP_ONLY_PREFIX = [
   "/app",
   "/admin",
+  "/firm",
+  "/api/firm",
   "/auth",
   "/subscribe",
   "/api/checkout",

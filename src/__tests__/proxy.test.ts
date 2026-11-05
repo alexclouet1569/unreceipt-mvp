@@ -74,6 +74,23 @@ describe("proxy — host-based routing", () => {
     );
   });
 
+  it("redirects /firm and /api/firm from apex → app subdomain", async () => {
+    const page = await proxy(
+      buildRequest("https://unreceipt.com/firm/clients?month=2026-11", "unreceipt.com")
+    );
+    expect(page.status).toBe(308);
+    expect(page.headers.get("location")).toBe(
+      "https://app.unreceipt.com/firm/clients?month=2026-11"
+    );
+    const api = await proxy(
+      buildRequest("https://unreceipt.com/api/firm/clients", "unreceipt.com")
+    );
+    expect(api.status).toBe(308);
+    expect(api.headers.get("location")).toBe(
+      "https://app.unreceipt.com/api/firm/clients"
+    );
+  });
+
   it("redirects / from app subdomain → apex", async () => {
     const res = await proxy(
       buildRequest("https://app.unreceipt.com/", "app.unreceipt.com")
