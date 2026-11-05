@@ -11,6 +11,7 @@ import {
 } from "@/lib/firm/client-stats";
 import type { Receipt } from "@/lib/types";
 import { FirmReceiptList } from "./FirmReceiptList";
+import { ExportMonthPanel } from "./ExportMonthPanel";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -110,6 +111,13 @@ export default async function FirmClientPage({
           </Link>
         </div>
       </div>
+
+      <ExportMonthPanel
+        organizationId={access.organizationId}
+        month={month}
+        unexportedCount={receipts.filter((r) => r.status === "verified" && !r.exported_at).length}
+        reviewCount={receipts.filter((r) => r.status === "pending_review").length}
+      />
 
       <FirmReceiptList receipts={receipts} />
     </div>

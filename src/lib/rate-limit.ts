@@ -44,6 +44,12 @@ export const RATE_LIMITS = {
     { limit: 10, windowSeconds: 60 * 60 },
     { limit: 30, windowSeconds: 24 * 60 * 60 },
   ],
+  // One accountant doing month-end for many clients: an export per client,
+  // plus retries.
+  firmExport: [
+    { limit: 60, windowSeconds: 60 * 60 },
+    { limit: 200, windowSeconds: 24 * 60 * 60 },
+  ],
   // Emails the user their own setup link: a few retries is plenty.
   forwardingLink: [
     { limit: 3, windowSeconds: 60 * 60 },

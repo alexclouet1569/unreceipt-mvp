@@ -58,9 +58,30 @@ describe("csv", () => {
     const lines = csv.slice(1).trimEnd().split("\r\n");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toBe(
-      "2026-10-03;ICA Maxi;245,50;SEK;49,10;25;Meals & dining;Card;4421;SE556677889901;Ready;paper;;;pdf/a.pdf;originals/a.jpg;2026-10-03 15:05;22222222-2222-4222-8222-222222222222",
+      "2026-10-03;ICA Maxi;245,50;SEK;49,10;25;Meals & dining;Card;4421;SE556677889901;Ready;paper;;;pdf/a.pdf;originals/a.jpg;2026-10-03 15:05;22222222-2222-4222-8222-222222222222;;;;",
     );
-    expect(lines[2]).toContain(";Needs review;paper;2026-10-05;");
+    expect(lines[2]).toContain(";Needs review;paper;you 2026-10-05;");
+  });
+
+  it("says who edited and carries the bookkeeping columns", () => {
+    const csv = buildReceiptsCsv([
+      {
+        receipt: receipt({
+          user_id: "owner-1",
+          edited_at: "2026-10-05T10:00:00Z",
+          edit_history: [{ at: "2026-10-05T10:00:00Z", by: "staff-1", changes: {} }],
+          seller_org_number: "556677-8899",
+          exported_at: "2026-11-05T09:00:00Z",
+          booked_ref: "A123",
+          bas_account: "5410",
+        }),
+        pdfFile: null,
+        originalFile: null,
+      },
+    ]);
+    const line = csv.slice(1).trimEnd().split("\r\n")[1];
+    expect(line).toContain(";accountant 2026-10-05;");
+    expect(line.endsWith(";556677-8899;2026-11-05;A123;5410")).toBe(true);
   });
 });
 

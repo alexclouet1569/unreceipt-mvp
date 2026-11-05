@@ -65,7 +65,11 @@ describe("POST /api/export", () => {
       receiptCount: 3,
       parts: [{ filename: "unreceipt-2026-10.zip", url: "https://signed", bytes: 10 }],
     });
-    expect(mocks.buildExport).toHaveBeenCalledWith("u1", { kind: "month", month: "2026-10" });
+    expect(mocks.buildExport).toHaveBeenCalledWith({
+      scope: { kind: "user", userId: "u1" },
+      actorUserId: "u1",
+      period: { kind: "month", month: "2026-10" },
+    });
   });
 
   it("explains when there are too many receipts", async () => {

@@ -45,7 +45,11 @@ export async function POST(request: NextRequest) {
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   try {
-    const result = await buildExport(user.id, period);
+    const result = await buildExport({
+      scope: { kind: "user", userId: user.id },
+      actorUserId: user.id,
+      period,
+    });
     return NextResponse.json({
       receiptCount: result.receiptCount,
       missing: result.missing,
