@@ -12,7 +12,8 @@
 //     receipts stay in the client's own account. Leaving the firm behind
 //     would strand those links: one active firm per client
 //     (firm_clients_active_org_unique) means the client could never link
-//     another accountant.
+//     another accountant. Each linked company's owners are then emailed
+//     that the firm closed (sendFirmClosedNotices, src/lib/firm/link-emails.ts).
 //
 // Plain functions over a Supabase client passed in by the caller (the
 // service-role client in deleteAccount() and on /firm/settings), so the
@@ -30,7 +31,14 @@ export type FirmExitPlan =
       successorMemberId: string;
       successorEmail: string;
     }
-  | { kind: "close"; firmId: string; firmName: string; activeClients: number };
+  | {
+      kind: "close";
+      firmId: string;
+      firmName: string;
+      activeClients: number;
+      /** The linked companies, emailed once the firm is gone (sendFirmClosedNotices). */
+      clientOrganizationIds: string[];
+    };
 
 export class FirmExitError extends Error {
   constructor(message: string) {
@@ -87,13 +95,26 @@ export async function planFirmExit(
   const colleagues = ((others ?? []) as ColleagueRow[]).sort(joinedOrder);
 
   if (colleagues.length === 0) {
-    const { count, error: countError } = await supabase
+    const { data: links, error: linksError } = await supabase
       .from("firm_clients")
-      .select("id", { count: "exact", head: true })
+      .select("organization_id")
       .eq("firm_id", firmId)
       .eq("status", "active");
-    if (countError) throw new FirmExitError("client count failed");
-    return { kind: "close", firmId, firmName, activeClients: count ?? 0 };
+    if (linksError) throw new FirmExitError("client lookup failed");
+    const clientOrganizationIds = [
+      ...new Set(
+        ((links ?? []) as Array<{ organization_id: string | null }>)
+          .map((l) => l.organization_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    return {
+      kind: "close",
+      firmId,
+      firmName,
+      activeClients: clientOrganizationIds.length,
+      clientOrganizationIds,
+    };
   }
 
   if (colleagues.some((c) => c.role === "admin")) {
@@ -142,7 +163,8 @@ export async function applyFirmExit(
 
 // Known gap (pilot scale, accepted): plan and apply are two steps without a
 // lock, so two last members deleting within the same seconds can each see
-// the other and leave the firm with nobody in it. The fix if it ever
+// the other and leave the firm with nobody in it, and a client link that
+// turns active in that window is closed without the email. The fix if it ever
 // matters is one security-definer SQL function that locks the firms row.
 
 
@@ -159,7 +181,7 @@ export function firmExitNotice(plan: FirmExitPlan): string | null {
       const clients =
         plan.activeClients === 0
           ? "Nothing else is affected: the firm has no linked clients."
-          : `Its link with ${plan.activeClients} client${plan.activeClients === 1 ? "" : "s"} ends. Their receipts stay in their own accounts.`;
+          : `Its link with ${plan.activeClients} client${plan.activeClients === 1 ? "" : "s"} ends, and we email ${plan.activeClients === 1 ? "that client" : "each of them"} to say so. Their receipts stay in their own accounts.`;
       return `You're the only person in ${plan.firmName}, so deleting your account also closes the firm. ${clients}`;
     }
   }

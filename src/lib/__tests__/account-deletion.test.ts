@@ -19,8 +19,15 @@ const state = vi.hoisted(() => ({
   removeError: null as null | { message: string },
   deleteUserError: null as null | { message: string },
   cancel: vi.fn(),
-  firmPlan: { kind: "none" } as { kind: string },
+  firmPlan: { kind: "none" } as { kind: string; firmName?: string; clientOrganizationIds?: string[] },
   firmError: null as null | Error,
+}));
+
+vi.mock("@/lib/firm/link-emails", () => ({
+  sendFirmClosedNotices: async (opts: { firmName: string; organizationIds: string[] }) => {
+    state.calls.push({ op: "email:firm-closed", args: [opts.firmName, ...opts.organizationIds] });
+    return { sent: opts.organizationIds.length, failed: 0 };
+  },
 }));
 
 // The firm step has its own tests (src/lib/firm/__tests__/account-exit.test.ts).
@@ -231,9 +238,27 @@ describe("deleteAccount", () => {
   });
 
   it("settles the person's firm after the files and before the rows and the user", async () => {
-    state.firmPlan = { kind: "close" };
+    state.firmPlan = { kind: "handover" };
     await deleteAccount(USER_ID, { email: null });
-    expect(ops()).toEqual(["firm:close", "delete:receipts", "deleteUser", "delete:rate_limits"]);
+    expect(ops()).toEqual(["firm:handover", "delete:receipts", "deleteUser", "delete:rate_limits"]);
+  });
+
+  it("emails the linked clients once a closed firm is gone, and only then", async () => {
+    state.firmPlan = { kind: "close", firmName: "Bokföring AB", clientOrganizationIds: ["org-1", "org-2"] };
+    await deleteAccount(USER_ID, { email: null });
+    // After the account is fully deleted, so a slow send can't leave it half done.
+    expect(ops()).toEqual([
+      "firm:close",
+      "delete:receipts",
+      "deleteUser",
+      "delete:rate_limits",
+      "email:firm-closed",
+    ]);
+    expect(state.calls.find((c) => c.op === "email:firm-closed")!.args).toEqual([
+      "Bokföring AB",
+      "org-1",
+      "org-2",
+    ]);
   });
 
   it("retention never settles a firm by itself", async () => {

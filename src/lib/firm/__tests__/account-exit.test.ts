@@ -102,7 +102,12 @@ function baseDb(members: Row[], activeClients = 2): Db {
     firms: [{ id: FIRM, name: "Bokföring AB" }],
     firm_members: members,
     firm_clients: [
-      ...Array.from({ length: activeClients }, (_, i) => ({ id: `c${i}`, firm_id: FIRM, status: "active" })),
+      ...Array.from({ length: activeClients }, (_, i) => ({
+        id: `c${i}`,
+        firm_id: FIRM,
+        organization_id: `org-${i}`,
+        status: "active",
+      })),
       { id: "c-invited", firm_id: FIRM, status: "invited" },
     ],
   };
@@ -124,6 +129,7 @@ describe("planFirmExit", () => {
       firmId: FIRM,
       firmName: "Bokföring AB",
       activeClients: 2,
+      clientOrganizationIds: ["org-0", "org-1"],
     });
   });
 
@@ -222,14 +228,14 @@ describe("firmExitNotice", () => {
       firmExitNotice({ kind: "handover", ...base, successorMemberId: "x", successorEmail: "anna@firm.se" }),
     ).toContain("anna@firm.se becomes admin");
     const plans: FirmExitPlan[] = [
-      { kind: "close", ...base, activeClients: 0 },
-      { kind: "close", ...base, activeClients: 1 },
-      { kind: "close", ...base, activeClients: 3 },
+      { kind: "close", ...base, activeClients: 0, clientOrganizationIds: [] },
+      { kind: "close", ...base, activeClients: 1, clientOrganizationIds: ["a"] },
+      { kind: "close", ...base, activeClients: 3, clientOrganizationIds: ["a", "b", "c"] },
     ];
     expect(plans.map(firmExitNotice)).toEqual([
       "You're the only person in Bokföring AB, so deleting your account also closes the firm. Nothing else is affected: the firm has no linked clients.",
-      "You're the only person in Bokföring AB, so deleting your account also closes the firm. Its link with 1 client ends. Their receipts stay in their own accounts.",
-      "You're the only person in Bokföring AB, so deleting your account also closes the firm. Its link with 3 clients ends. Their receipts stay in their own accounts.",
+      "You're the only person in Bokföring AB, so deleting your account also closes the firm. Its link with 1 client ends, and we email that client to say so. Their receipts stay in their own accounts.",
+      "You're the only person in Bokföring AB, so deleting your account also closes the firm. Its link with 3 clients ends, and we email each of them to say so. Their receipts stay in their own accounts.",
     ]);
   });
 });

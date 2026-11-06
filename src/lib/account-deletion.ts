@@ -12,7 +12,7 @@
 //   2. Remove every stored file under `<user_id>/` in each private bucket.
 //   3. Settle the person's accounting firm, if any (src/lib/firm/
 //      account-exit.ts): hand the admin role over, or close a firm nobody
-//      else has joined.
+//      else has joined and email its clients that the link has ended.
 //   4. Delete the receipts, then the auth user. profiles, subscriptions,
 //      receipt_usage (and transactions via profiles) cascade from
 //      auth.users ON DELETE CASCADE.
@@ -23,6 +23,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
 import { applyFirmExit, planFirmExit } from "./firm/account-exit";
+import { sendFirmClosedNotices } from "./firm/link-emails";
 
 // Every bucket that stores files under `<user_id>/`.
 export const USER_FILE_BUCKETS = ["receipts", "receipt-originals", "exports"] as const;
@@ -246,7 +247,6 @@ export async function deleteAccount(
   } catch {
     throw new AccountDeletionError("firm", "firm exit failed");
   }
-
   const { error: receiptsError } = await supabase
     .from("receipts")
     .delete()
@@ -273,6 +273,17 @@ export async function deleteAccount(
       // an address would be wildcards and could match someone else's row.
       .eq("email", email.trim().toLowerCase());
     if (wlError) console.error("[account-deletion] waitlist cleanup failed", wlError.code);
+  }
+
+  // Last, once the account is fully gone: a closed firm's clients hear that
+  // it no longer sees their receipts. Sent after the deletion (not between
+  // the firm and the user) so a slow mail provider can never leave an
+  // account half-deleted; time-boxed inside, never throws.
+  if (firmPlan.kind === "close") {
+    await sendFirmClosedNotices({
+      firmName: firmPlan.firmName,
+      organizationIds: firmPlan.clientOrganizationIds,
+    });
   }
 
   return { canceledSubscriptions, removedFiles };

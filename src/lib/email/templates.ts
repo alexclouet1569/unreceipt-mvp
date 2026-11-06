@@ -421,6 +421,32 @@ export function linkConfirmationEmail(opts: { firmName: string; settingsUrl: str
   };
 }
 
+// The other half of linkConfirmationEmail: a firm the client was linked to
+// closed its UnReceipt account (its last person deleted their account,
+// src/lib/firm/account-exit.ts), so it no longer sees the receipts.
+export function firmClosedEmail(opts: { firmName: string; settingsUrl: string }): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const title = `${firm} no longer sees your receipts`;
+  const intro = `${firm} has deleted its UnReceipt account, so the link between you has ended. They can't see or export your receipts any more.`;
+  const after =
+    "Your receipts stay in your account, exactly as before. To work with an accountant again, invite one in Settings.";
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    paragraph(esc(after)),
+    button("Open Settings", opts.settingsUrl),
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout({
+      preheader: intro,
+      bodyHtml,
+      footerHtml: "You get this email whenever someone stops seeing your receipts.",
+    }),
+    text: [title, "", intro, "", after, "", `Settings: ${opts.settingsUrl}`].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {
