@@ -25,7 +25,7 @@ const noSubscribe = () => () => {};
  * Dismissal persists in localStorage — the founder doesn't want a
  * recurring banner once a pilot user has acknowledged it.
  */
-export function PilotBanner() {
+export function PilotBanner({ inStoreApp = false }: { inStoreApp?: boolean }) {
   // Server snapshot is "dismissed" so SSR renders nothing and the banner
   // only appears after hydration for users who haven't closed it.
   const dismissedEarlier = useSyncExternalStore(noSubscribe, readDismissed, () => true);
@@ -48,9 +48,20 @@ export function PilotBanner() {
       <div className="max-w-2xl mx-auto px-4 py-2 flex items-start gap-3">
         <Sparkles className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-900 flex-1">
-          You&apos;re using the UnReceipt free pilot. When we open paid access
-          in the coming weeks, we&apos;ll send you a heads-up. Until then,
-          every receipt you forward gets concierge processing within 24 hours.
+          {/* The store apps never mention paid access (App Store 3.1.3(f),
+              src/lib/native-app.ts). */}
+          {inStoreApp ? (
+            <>
+              You&apos;re using the UnReceipt free pilot. Every receipt you
+              forward gets concierge processing within 24 hours.
+            </>
+          ) : (
+            <>
+              You&apos;re using the UnReceipt free pilot. When we open paid access
+              in the coming weeks, we&apos;ll send you a heads-up. Until then,
+              every receipt you forward gets concierge processing within 24 hours.
+            </>
+          )}
         </p>
         <button
           type="button"

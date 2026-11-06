@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Receipt, Check, ArrowRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import { isPilotMode } from "@/lib/pilot";
+import { getNativeApp } from "@/lib/native-app-server";
 import { SubscribeButton } from "./SubscribeButton";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ export default async function SubscribePage({
 
   const { canceled } = await searchParams;
   const pilot = isPilotMode();
+
+  // The store apps sell nothing and point to no purchase elsewhere (App
+  // Store 3.1.3(f), src/lib/native-app.ts): no plans, prices, trial or
+  // Checkout, and no "subscribe on the website".
+  if (await getNativeApp()) {
+    return <StoreAppAccountScreen pilot={pilot} email={user.email ?? null} />;
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
@@ -106,6 +114,55 @@ export default async function SubscribePage({
             </Link>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function StoreAppAccountScreen({ pilot, email }: { pilot: boolean; email: string | null }) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <Card>
+          <CardContent className="py-6 px-6 space-y-4">
+            {pilot ? (
+              <>
+                <h1 className="text-lg font-bold">You&apos;re in the free pilot</h1>
+                <p className="text-sm text-muted-foreground">
+                  Everything is open to you during the pilot.
+                </p>
+                <Link
+                  href="/app"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                >
+                  Continue to your receipts
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <h1 className="text-lg font-bold">This account isn&apos;t active</h1>
+                <p className="text-sm text-muted-foreground">
+                  There&apos;s no active UnReceipt plan on this account, so new
+                  receipts can&apos;t be added right now. Everything you&apos;ve
+                  saved is safe: you can download it or delete the account in
+                  Settings.
+                </p>
+                <Link
+                  href="/app/settings"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-foreground"
+                >
+                  Open Settings
+                </Link>
+              </>
+            )}
+            {email ? (
+              <p className="text-[11px] text-muted-foreground text-center">
+                Signed in as <span className="font-medium text-foreground">{email}</span>
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

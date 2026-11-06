@@ -31,7 +31,13 @@ const originalLocation = window.location;
 const CALLBACK = "http://localhost:3000/auth/callback?next=/app";
 
 const renderCard = (
-  props: Partial<{ initialMode: AuthMode; pilot: boolean; linkError: boolean; notice: string | null }> = {}
+  props: Partial<{
+    initialMode: AuthMode;
+    pilot: boolean;
+    linkError: boolean;
+    notice: string | null;
+    inStoreApp: boolean;
+  }> = {}
 ) =>
   render(
     <AuthCard
@@ -39,6 +45,7 @@ const renderCard = (
       pilot={props.pilot ?? false}
       linkError={props.linkError ?? false}
       notice={props.notice ?? null}
+      inStoreApp={props.inStoreApp ?? false}
     />
   );
 
@@ -360,5 +367,30 @@ describe("/app/login — create account", () => {
     await user.click(await screen.findByRole("button", { name: /Sign in instead/i }));
     expect(screen.getByRole("tab", { name: "Sign in" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText(/Email address/i)).toHaveValue("alex@example.se");
+  });
+});
+
+describe("/app/login — inside the store apps", () => {
+  it("has no link out to the marketing site (it shows prices)", () => {
+    renderCard();
+    expect(screen.getByRole("link", { name: /Back to unreceipt.com/ })).toHaveAttribute("href", "/");
+    cleanup();
+
+    renderCard({ inStoreApp: true, pilot: true, initialMode: "signup" });
+    expect(screen.queryByRole("link", { name: /Back to unreceipt.com/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/No card needed/)).not.toBeInTheDocument();
+  });
+
+  it("asks for the code, because the email's button opens the browser", async () => {
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard({ inStoreApp: true });
+
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@gmail.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    expect(await screen.findByText(/signs you in to your browser, not to the app/)).toBeInTheDocument();
+    expect(screen.queryByText(/even on another device/)).not.toBeInTheDocument();
   });
 });

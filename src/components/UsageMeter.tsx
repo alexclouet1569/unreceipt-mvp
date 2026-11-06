@@ -9,12 +9,25 @@ type Props = {
   overageBilled: boolean;
   periodEnd: string;
   suggestion: PlanSuggestion | null;
+  /**
+   * Inside the store apps: counts only, no prices and no "switch plans"
+   * (App Store 3.1.3(f), src/lib/native-app.ts).
+   */
+  hidePrices?: boolean;
 };
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
 
 /** Receipts used this billing period against the plan's allowance. */
-export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, suggestion }: Props) {
+export function UsageMeter({
+  used,
+  plan,
+  extra,
+  overageBilled,
+  periodEnd,
+  suggestion,
+  hidePrices = false,
+}: Props) {
   const resets = dateFormat.format(new Date(periodEnd));
 
   if (!plan) {
@@ -68,7 +81,7 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
       </div>
       <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", marginTop: "8px" }}>
         {over ? (
-          overageBilled ? (
+          overageBilled && !hidePrices ? (
             <>
               {extra} extra × <Money eur={OVERAGE_PRICE} /> ={" "}
               <Money eur={extra * OVERAGE_PRICE} /> on your next invoice.
@@ -76,13 +89,15 @@ export function UsageMeter({ used, plan, extra, overageBilled, periodEnd, sugges
           ) : (
             `${extra} over your plan — everything is still saved.`
           )
+        ) : hidePrices ? (
+          `Resets ${resets}.`
         ) : (
           <>
             Resets {resets}. Extra receipts are <Money eur={OVERAGE_PRICE} /> each.
           </>
         )}
       </p>
-      {suggestion ? (
+      {suggestion && !hidePrices ? (
         <p className="text-[var(--ink)]" style={{ fontSize: "13px", marginTop: "8px", fontWeight: 500 }}>
           At {suggestion.used} receipts, {suggestion.planName} would cost{" "}
           <Money eur={suggestion.better} /> instead of <Money eur={suggestion.current} /> a

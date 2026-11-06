@@ -51,4 +51,27 @@ describe("UsageMeter", () => {
     expect(screen.getByText("€14.99")).toHaveClass("font-mono");
     expect(screen.getByText("€17.99")).toHaveClass("font-mono");
   });
+
+  it("shows counts but no prices or plan switching inside the store apps", () => {
+    const { container } = render(
+      <UsageMeter
+        {...base}
+        used={45}
+        extra={30}
+        overageBilled
+        plan={getPlan("light")}
+        suggestion={{ planName: "Regular", used: 45, better: 14.99, current: 17.99 }}
+        hidePrices
+      />
+    );
+
+    expect(screen.getByText("45 of 15 receipts")).toBeInTheDocument();
+    expect(screen.getByText(/30 over your plan/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/€|Write to us|would cost/);
+
+    cleanup();
+    const under = render(<UsageMeter {...base} used={3} plan={getPlan("light")} hidePrices />);
+    expect(under.container.textContent).toMatch(/Resets/);
+    expect(under.container.textContent).not.toMatch(/€|each/);
+  });
 });

@@ -276,12 +276,16 @@ export function SettingsView({
   role,
   members,
   selfId,
+  accountSlot,
 }: {
   firmName: string;
   email: string | null;
   role: FirmMemberRole;
   members: MemberView[];
   selfId: string;
+  // "Delete account", passed only by the real page: the /demo tour renders
+  // this view too and must never reach a real route.
+  accountSlot?: React.ReactNode;
 }) {
   return (
     <div className="space-y-8 max-w-2xl">
@@ -307,6 +311,19 @@ export function SettingsView({
         </h2>
         <MembersSection members={members} isAdmin={role === "admin"} selfId={selfId} />
       </section>
+
+      {accountSlot ? (
+        <section aria-labelledby="account-heading">
+          <h2
+            id="account-heading"
+            className="uppercase text-[var(--ink-faint)]"
+            style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", marginBottom: "8px" }}
+          >
+            Your account
+          </h2>
+          {accountSlot}
+        </section>
+      ) : null}
     </div>
   );
 }

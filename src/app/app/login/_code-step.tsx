@@ -29,9 +29,18 @@ type CodeStepProps = {
   resend: () => Promise<AuthResult>;
   onChangeEmail: () => void;
   onSignInInstead?: () => void;
+  /** Inside the store apps: the email's button would sign in the browser, not the app. */
+  inStoreApp?: boolean;
 };
 
-export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstead }: CodeStepProps) {
+export function CodeStep({
+  email,
+  purpose,
+  resend,
+  onChangeEmail,
+  onSignInInstead,
+  inStoreApp = false,
+}: CodeStepProps) {
   const [code, setCode] = useState("");
   const [focused, setFocused] = useState(true);
   const [status, setStatus] = useState<"idle" | "checking" | "done">("idle");
@@ -229,8 +238,10 @@ export function CodeStep({ email, purpose, resend, onChangeEmail, onSignInInstea
       ) : null}
 
       <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] mt-5">
-        The email also has a button — tapping it works too, even on another
-        device. Not there after a minute? Check your spam folder.
+        {inStoreApp
+          ? "Type the code here: the button in the email signs you in to your browser, not to the app. "
+          : "The email also has a button — tapping it works too, even on another device. "}
+        Not there after a minute? Check your spam folder.
       </p>
 
       <div className="flex flex-wrap items-center justify-between gap-x-2 mt-3 -mx-2">

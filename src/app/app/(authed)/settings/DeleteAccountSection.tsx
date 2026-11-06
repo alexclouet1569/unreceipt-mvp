@@ -16,9 +16,16 @@ const CONFIRM_WORD = "DELETE";
  */
 export function DeleteAccountSection({
   exportSlot,
+  variant = "company",
+  firmNotice = null,
 }: {
   // The "download your data" control, rendered in step 1.
   exportSlot?: React.ReactNode;
+  // "firm": an accountant with no company of their own (/firm/settings).
+  // They hold no receipts, so step 1 is about the firm instead of a download.
+  variant?: "company" | "firm";
+  // What deleting does to the person's accounting firm (firmExitNotice()).
+  firmNotice?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
@@ -126,41 +133,81 @@ export function DeleteAccountSection({
         >
           Delete your account
         </h3>
-        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          This permanently deletes your account, every receipt and every
-          original file we store. It can&apos;t be undone. Any subscription is
-          cancelled straight away.
-        </p>
+        {variant === "firm" ? (
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+            This permanently deletes your UnReceipt sign-in. It can&apos;t be
+            undone. Your clients&apos; receipts are theirs and stay in their
+            own accounts.
+          </p>
+        ) : (
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+            This permanently deletes your account, every receipt and every
+            original file we store. It can&apos;t be undone. Any subscription is
+            cancelled straight away.
+          </p>
+        )}
+        {variant === "company" && firmNotice ? (
+          <p className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+            {firmNotice}
+          </p>
+        ) : null}
       </div>
 
-      <div className="space-y-2">
-        <p
-          className="uppercase text-[var(--ink-faint)]"
-          style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
-        >
-          1 · Download your data first
-        </p>
-        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Swedish bookkeeping law requires your company to keep its receipts
-          until the end of the seventh year after the financial year they
-          belong to. Download every part of the export and check it opens
-          before you delete: deleting also removes the download links, and
-          we can&apos;t send you a copy afterwards. Over 1,000 receipts?
-          Export year by year above.
-        </p>
-        {exportSlot}
-        <label className="flex items-start gap-3 cursor-pointer" style={{ minHeight: "44px" }}>
-          <input
-            type="checkbox"
-            checked={downloaded}
-            onChange={(e) => setDownloaded(e.target.checked)}
-            className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
-          />
-          <span className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-            I&apos;ve downloaded the receipts I need to keep.
-          </span>
-        </label>
-      </div>
+      {variant === "firm" ? (
+        <div className="space-y-2">
+          <p
+            className="uppercase text-[var(--ink-faint)]"
+            style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
+          >
+            1 · Your firm
+          </p>
+          {firmNotice ? (
+            <p className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+              {firmNotice}
+            </p>
+          ) : null}
+          <label className="flex items-start gap-3 cursor-pointer" style={{ minHeight: "44px" }}>
+            <input
+              type="checkbox"
+              checked={downloaded}
+              onChange={(e) => setDownloaded(e.target.checked)}
+              className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
+            />
+            <span className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+              I understand what happens to my firm.
+            </span>
+          </label>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p
+            className="uppercase text-[var(--ink-faint)]"
+            style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
+          >
+            1 · Download your data first
+          </p>
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+            Swedish bookkeeping law requires your company to keep its receipts
+            until the end of the seventh year after the financial year they
+            belong to. Download every part of the export and check it opens
+            before you delete: deleting also removes the download links, and
+            we can&apos;t send you a copy afterwards. Over 1,000 receipts?
+            Export year by year above.
+          </p>
+          {exportSlot}
+          <label className="flex items-start gap-3 cursor-pointer" style={{ minHeight: "44px" }}>
+            <input
+              type="checkbox"
+              checked={downloaded}
+              onChange={(e) => setDownloaded(e.target.checked)}
+              className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
+            />
+            <span className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+              I&apos;ve downloaded the receipts I need to keep.
+            </span>
+          </label>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label

@@ -10,7 +10,26 @@ Labels: **Y** = you, **B** = built by Claude (one PR each, reviewed by the match
 
 ---
 
+## 0a. No company yet (updated 2026-11-06)
+
+There is no AB yet, so there is no D-U-N-S number, and neither store will open an **organization** account. The goal right now is to validate the product with pilots, not to launch publicly. So:
+
+- **Validate first with what already works.** `app.unreceipt.com` is already an installable PWA: camera capture via the file input. iOS 16.4+ also allows web push for home-screen apps, but UnReceipt doesn't send push yet. Many pilot questions need no store app at all: do people forward receipts, does the accountant use `/firm`?
+- **For a native pilot, enrol as an individual.**
+  - **Apple:** Developer Program as an **individual**, 99 USD a year, no D-U-N-S. Distribute through **TestFlight** only: up to 10,000 external testers through a public link, with a light Beta App Review. Apple's DSA page says TestFlight-only distribution doesn't make you an EU "trader", so no public address is needed yet. The seller name shown is your own legal name.
+  - **Google:** Play Console **personal** account, 25 USD. Internal testing (up to 100 testers, no review) is enough for pilots. Google's "12 testers opted in for 14 days in closed testing" rule applies to personal accounts and only matters for **production** access. Firebase App Distribution, or simply sending the APK, works with no Play account at all.
+- **When a company exists**, before the public launch and before payments are switched on:
+  - Apple: request the individual → organization conversion with the D-U-N-S. Forum reports show it can take weeks to months, so start it well before launch. The fallback is an app transfer to a new organization account.
+  - Google: create an organization account and transfer the app; the package name moves with it.
+  - Bundle ID and package name stay `com.unreceipt.app` in both cases.
+- **Code impact:** none. Everything in §3 is the same; only who signs the builds changes.
+
 ## 0. Findings from the code that change the plan
+
+**Status 2026-11-06:**
+- Fixed on `claude/epic-babbage-2eexd3`: **1** (deletion for firm staff, with firm handover or close) and **2** (native "store-safe" mode: no prices or purchase CTAs, `/subscribe` neutral screen, `/api/checkout` 403).
+- Partly fixed: **3**. The app's login asks for the code; links on our own domain still wait for B10.
+- Waiting for the shell (B2/B4): **4**.
 
 These come from reading the code, not from the old plan. Four of them would get the app rejected or broken if nobody fixed them.
 

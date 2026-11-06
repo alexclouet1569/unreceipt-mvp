@@ -19,6 +19,19 @@ const state = vi.hoisted(() => ({
   removeError: null as null | { message: string },
   deleteUserError: null as null | { message: string },
   cancel: vi.fn(),
+  firmPlan: { kind: "none" } as { kind: string },
+  firmError: null as null | Error,
+}));
+
+// The firm step has its own tests (src/lib/firm/__tests__/account-exit.test.ts).
+vi.mock("@/lib/firm/account-exit", () => ({
+  planFirmExit: async () => {
+    if (state.firmError) throw state.firmError;
+    return state.firmPlan;
+  },
+  applyFirmExit: async (_supabase: unknown, plan: { kind: string }) => {
+    state.calls.push({ op: `firm:${plan.kind}`, args: [] });
+  },
 }));
 
 vi.mock("@/lib/stripe", () => ({
@@ -100,6 +113,8 @@ beforeEach(() => {
   state.files = {};
   state.removeError = null;
   state.deleteUserError = null;
+  state.firmPlan = { kind: "none" };
+  state.firmError = null;
   state.cancel.mockReset().mockResolvedValue({});
 });
 
@@ -132,6 +147,7 @@ describe("deleteAccount", () => {
     expect(ops()).toEqual([
       "remove:receipts",
       "remove:receipt-originals",
+      "firm:none",
       "delete:receipts",
       "deleteUser",
       "delete:rate_limits",
@@ -208,10 +224,22 @@ describe("deleteAccount", () => {
   it("leaves organisations, memberships and firm links to the database cascades", async () => {
     // A client's default organisation cascades from auth.users (and its
     // firm_clients row with it); a firm member's row cascades the same way.
-    // The firm itself and its other clients are never touched.
+    // The firm is settled by the firm step (handover or close), never here.
     await deleteAccount(USER_ID, { email: null });
     const tables = ops().filter((op) => op.startsWith("delete:"));
     expect(tables).toEqual(["delete:receipts", "delete:rate_limits"]);
+  });
+
+  it("settles the person's firm after the files and before the rows and the user", async () => {
+    state.firmPlan = { kind: "close" };
+    await deleteAccount(USER_ID, { email: null });
+    expect(ops()).toEqual(["firm:close", "delete:receipts", "deleteUser", "delete:rate_limits"]);
+  });
+
+  it("keeps the rows and the user when the firm step fails", async () => {
+    state.firmError = new Error("db down");
+    await expect(deleteAccount(USER_ID)).rejects.toMatchObject({ step: "firm" });
+    expect(ops()).toEqual([]);
   });
 
   it("refuses an id that isn't a UUID (it becomes a storage prefix)", async () => {

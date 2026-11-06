@@ -44,13 +44,19 @@ type AuthCardProps = {
   linkError: boolean;
   /** Neutral notice, e.g. after account deletion or a re-auth bounce. */
   notice: string | null;
+  /**
+   * Inside the store apps (src/lib/native-app.ts): no link out to the
+   * marketing site (it has prices; App Store 3.1.3(f)), and sign-in by the
+   * 6-digit code, because the email's button opens the browser, not the app.
+   */
+  inStoreApp?: boolean;
 };
 
 type PendingCode = { email: string; purpose: "signup" | "signin" };
 type EntryFocus = "first" | "email" | null;
 type SignUpDetails = { fullName: string; companyName: string; password: string };
 
-export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProps) {
+export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = false }: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showLinkError, setShowLinkError] = useState(linkError);
   // Where focus goes when a form appears: its first field on page load, the
@@ -81,7 +87,9 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
       : {
           title: pilot ? "Join the pilot" : "Create your account",
           sub: pilot
-            ? "Free during the pilot. No card needed."
+            ? inStoreApp
+              ? "Free during the pilot."
+              : "Free during the pilot. No card needed."
             : "One private receipt address for your whole company.",
         };
 
@@ -128,6 +136,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
               <CodeStep
                 email={pendingCode.email}
                 purpose={pendingCode.purpose}
+                inStoreApp={inStoreApp}
                 resend={resendFor(pendingCode)}
                 onChangeEmail={() => {
                   setPendingCode(null);
@@ -187,16 +196,18 @@ export function AuthCard({ initialMode, pilot, linkError, notice }: AuthCardProp
 
         <div className="flex flex-col items-center mt-3">
           <ResetSessionLink />
-          <Link
-            href="/"
-            className={cn(
-              "text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] inline-flex items-center gap-1 min-h-[44px] px-2 rounded-[6px]",
-              FOCUS_RING
-            )}
-          >
-            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            Back to unreceipt.com
-          </Link>
+          {inStoreApp ? null : (
+            <Link
+              href="/"
+              className={cn(
+                "text-[13px] text-[var(--ink-muted)] hover:text-[var(--ink)] inline-flex items-center gap-1 min-h-[44px] px-2 rounded-[6px]",
+                FOCUS_RING
+              )}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              Back to unreceipt.com
+            </Link>
+          )}
         </div>
       </div>
     </main>
