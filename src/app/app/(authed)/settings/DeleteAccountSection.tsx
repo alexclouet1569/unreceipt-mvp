@@ -161,17 +161,16 @@ export function DeleteAccountSection({
           >
             1 · Your firm
           </p>
-          {firmNotice ? (
-            <p className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-              {firmNotice}
-            </p>
-          ) : null}
+          <p className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
+            {firmNotice ??
+              "We couldn't check what happens to your firm just now. Reload the page to see it before you delete."}
+          </p>
           <label className="flex items-start gap-3 cursor-pointer" style={{ minHeight: "44px" }}>
             <input
               type="checkbox"
               checked={downloaded}
               onChange={(e) => setDownloaded(e.target.checked)}
-              className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
+              className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand-action)]"
             />
             <span className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
               I understand what happens to my firm.
@@ -200,7 +199,7 @@ export function DeleteAccountSection({
               type="checkbox"
               checked={downloaded}
               onChange={(e) => setDownloaded(e.target.checked)}
-              className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
+              className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand-action)]"
             />
             <span className="text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
               I&apos;ve downloaded the receipts I need to keep.

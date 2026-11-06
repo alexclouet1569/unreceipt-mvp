@@ -50,7 +50,10 @@ export default async function FirmSettingsPage() {
     <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
       Your account also holds your own company&apos;s receipts. To delete it,
       download them first in{" "}
-      <Link href="/app/settings" className="underline text-[var(--ink)]">
+      <Link
+        href="/app/settings"
+        className="underline text-[var(--ink)] rounded-[6px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
         your company settings
       </Link>
       .

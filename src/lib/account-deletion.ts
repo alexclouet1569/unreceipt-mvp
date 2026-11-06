@@ -229,8 +229,20 @@ export async function deleteAccount(
   });
   const removedFiles = await removeUserFiles(supabase, userId);
 
+  let firmPlan;
   try {
-    await applyFirmExit(supabase, await planFirmExit(supabase, userId));
+    firmPlan = await planFirmExit(supabase, userId);
+  } catch {
+    throw new AccountDeletionError("firm", "firm lookup failed");
+  }
+  // The retention job never settles a firm by itself: closing one ends
+  // every client's link, and nobody would have seen the warning that the
+  // in-app dialog shows. It fails (Sentry) for a manual decision instead.
+  if (refuseIfLive && firmPlan.kind !== "none") {
+    throw new AccountDeletionError("firm", "firm member, not deleting automatically");
+  }
+  try {
+    await applyFirmExit(supabase, firmPlan);
   } catch {
     throw new AccountDeletionError("firm", "firm exit failed");
   }

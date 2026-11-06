@@ -123,17 +123,20 @@ function StoreAppAccountScreen({ pilot, email }: { pilot: boolean; email: string
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <Card>
-          <CardContent className="py-6 px-6 space-y-4">
+        {/* Shown inside the store app, so it follows DESIGN.md cards. */}
+        <div
+          className="bg-card space-y-4"
+          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "20px" }}
+        >
             {pilot ? (
               <>
-                <h1 className="text-lg font-bold">You&apos;re in the free pilot</h1>
+                <h1 className="font-display font-bold text-[22px] text-[var(--ink)]">You&apos;re in the free pilot</h1>
                 <p className="text-sm text-muted-foreground">
                   Everything is open to you during the pilot.
                 </p>
                 <Link
                   href="/app"
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                  className="inline-flex w-full h-11 items-center justify-center gap-1.5 rounded-[10px] bg-primary px-4 text-[15px] font-semibold text-primary-foreground hover:opacity-90 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   Continue to your receipts
                   <ArrowRight className="w-4 h-4" />
@@ -141,7 +144,7 @@ function StoreAppAccountScreen({ pilot, email }: { pilot: boolean; email: string
               </>
             ) : (
               <>
-                <h1 className="text-lg font-bold">This account isn&apos;t active</h1>
+                <h1 className="font-display font-bold text-[22px] text-[var(--ink)]">This account isn&apos;t active</h1>
                 <p className="text-sm text-muted-foreground">
                   There&apos;s no active UnReceipt plan on this account, so new
                   receipts can&apos;t be added right now. Everything you&apos;ve
@@ -150,19 +153,18 @@ function StoreAppAccountScreen({ pilot, email }: { pilot: boolean; email: string
                 </p>
                 <Link
                   href="/app/settings"
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-foreground"
+                  className="inline-flex w-full h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[var(--hairline)] px-4 text-[15px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   Open Settings
                 </Link>
               </>
             )}
             {email ? (
-              <p className="text-[11px] text-muted-foreground text-center">
+              <p className="text-[13px] text-muted-foreground text-center">
                 Signed in as <span className="font-medium text-foreground">{email}</span>
               </p>
             ) : null}
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   );

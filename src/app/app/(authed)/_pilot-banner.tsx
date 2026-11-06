@@ -44,10 +44,10 @@ export function PilotBanner({ inStoreApp = false }: { inStoreApp?: boolean }) {
   };
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200">
-      <div className="max-w-2xl mx-auto px-4 py-2 flex items-start gap-3">
-        <Sparkles className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-900 flex-1">
+    <div className="bg-[var(--brand-tint)] border-b border-[var(--hairline)]">
+      <div className="max-w-2xl mx-auto px-4 py-1 flex items-center gap-3">
+        <Sparkles className="w-4 h-4 text-[var(--ink-muted)] shrink-0" aria-hidden="true" />
+        <p className="text-[13px] leading-[1.45] text-[var(--ink)] flex-1 py-1.5">
           {/* The store apps never mention paid access (App Store 3.1.3(f),
               src/lib/native-app.ts). */}
           {inStoreApp ? (
@@ -66,10 +66,10 @@ export function PilotBanner({ inStoreApp = false }: { inStoreApp?: boolean }) {
         <button
           type="button"
           onClick={dismiss}
-          className="text-amber-700 hover:text-amber-900 p-0.5 -m-0.5"
-          aria-label="Dismiss"
+          className="inline-flex items-center justify-center w-11 h-11 -mr-3 shrink-0 rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          aria-label="Dismiss pilot notice"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4" aria-hidden="true" />
         </button>
       </div>
     </div>

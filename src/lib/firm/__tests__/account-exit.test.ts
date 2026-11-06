@@ -37,8 +37,9 @@ function fakeSupabase(db: Db, failOn: string | null = null) {
         return { data: null, error: null };
       }
       if (mode === "update") {
-        for (const r of rows()) Object.assign(r, patch);
-        return { data: null, error: null };
+        const hit = rows();
+        for (const r of hit) Object.assign(r, patch);
+        return { data: hit, error: null };
       }
       const found = rows();
       return { data: head ? null : found, count: found.length, error: null };
@@ -190,6 +191,18 @@ describe("applyFirmExit", () => {
     const roles = Object.fromEntries(db.firm_members.map((m) => [m.id, m.role]));
     expect(roles).toEqual({ me: "admin", early: "admin", late: "staff" });
     expect((await planFirmExit(supabase, ME)).kind).toBe("stays");
+  });
+
+  it("handover stops when the successor left after the plan was read", async () => {
+    const db = baseDb([
+      member("me", ME, "admin", "2026-11-01T09:00:00Z"),
+      member("early", "u-early", "staff", "2026-11-02T09:00:00Z"),
+    ]);
+    const supabase = fakeSupabase(db);
+    const plan = await planFirmExit(supabase, ME);
+    db.firm_members = db.firm_members.filter((m) => m.id !== "early");
+
+    await expect(applyFirmExit(supabase, plan)).rejects.toThrow(/no successor/);
   });
 
   it("throws when the write fails", async () => {

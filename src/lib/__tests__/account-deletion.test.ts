@@ -236,6 +236,14 @@ describe("deleteAccount", () => {
     expect(ops()).toEqual(["firm:close", "delete:receipts", "deleteUser", "delete:rate_limits"]);
   });
 
+  it("retention never settles a firm by itself", async () => {
+    state.firmPlan = { kind: "close" };
+    await expect(deleteAccount(USER_ID, { refuseIfLive: true })).rejects.toMatchObject({
+      step: "firm",
+    });
+    expect(ops()).toEqual([]);
+  });
+
   it("keeps the rows and the user when the firm step fails", async () => {
     state.firmError = new Error("db down");
     await expect(deleteAccount(USER_ID)).rejects.toMatchObject({ step: "firm" });

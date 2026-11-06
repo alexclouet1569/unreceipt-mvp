@@ -126,14 +126,25 @@ export async function applyFirmExit(
     return;
   }
   if (plan.kind === "handover") {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("firm_members")
       .update({ role: "admin" })
       .eq("id", plan.successorMemberId)
-      .eq("firm_id", plan.firmId);
+      .eq("firm_id", plan.firmId)
+      .select("id")
+      .maybeSingle();
     if (error) throw new FirmExitError("admin handover failed");
+    // The successor left or was removed since the plan was read: stop, so
+    // the retry plans again instead of leaving a firm with no admin.
+    if (!data) throw new FirmExitError("admin handover found no successor");
   }
 }
+
+// Known gap (pilot scale, accepted): plan and apply are two steps without a
+// lock, so two last members deleting within the same seconds can each see
+// the other and leave the firm with nobody in it. The fix if it ever
+// matters is one security-definer SQL function that locks the firms row.
+
 
 /** One sentence for the delete-account dialog, or null when there's no firm. */
 export function firmExitNotice(plan: FirmExitPlan): string | null {

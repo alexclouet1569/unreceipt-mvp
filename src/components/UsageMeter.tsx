@@ -55,7 +55,7 @@ export function UsageMeter({
       style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
+        <p className="text-[var(--ink)] tabular-nums" style={{ fontSize: "15px", fontWeight: 600 }}>
           {used} of {plan.receipts} receipts
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", fontWeight: 500 }}>
