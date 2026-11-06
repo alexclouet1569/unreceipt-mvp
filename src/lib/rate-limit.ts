@@ -61,6 +61,12 @@ export const RATE_LIMITS = {
     { limit: 10, windowSeconds: 60 * 60 },
     { limit: 30, windowSeconds: 24 * 60 * 60 },
   ],
+  // A client inviting its accountant: one firm per company, so a handful
+  // of tries (typos) is all a real person needs.
+  accountantInvite: [
+    { limit: 5, windowSeconds: 60 * 60 },
+    { limit: 10, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

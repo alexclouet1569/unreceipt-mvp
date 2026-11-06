@@ -348,6 +348,9 @@ type EditFormState = {
   taxRate: string;
   paymentMethod: string;
   items: EditItem[];
+  // What the bank actually charged in the company's currency, for a
+  // foreign receipt. Empty = use the ECB rate (src/lib/fx.ts).
+  homeAmount: string;
 };
 
 let itemKeySeq = 0;
@@ -421,6 +424,8 @@ function deriveFormState(receipt: Receipt): EditFormState {
     taxRate: receipt.tax_rate != null ? String(receipt.tax_rate) : "",
     paymentMethod: receipt.payment_method ?? "",
     items: toEditItems(receipt.items),
+    homeAmount:
+      receipt.fx_source === "manual" && receipt.home_total != null ? String(receipt.home_total) : "",
   };
 }
 
@@ -469,6 +474,14 @@ export function buildPatchBody(
   }
   if (form.paymentMethod.trim() !== initial.paymentMethod.trim()) {
     body.payment_method = form.paymentMethod.trim() || null;
+  }
+  if (form.homeAmount.trim() !== initial.homeAmount.trim()) {
+    const v = optionalDecimal(form.homeAmount, {
+      max: 100_000_000,
+      message: "Enter a valid amount",
+    });
+    if (v === 0) throw new Error("Enter a valid amount");
+    body.home_total = v;
   }
   if (includeItems) {
     const items = toReceiptItems(form.items);
@@ -774,6 +787,29 @@ function ReceiptEditForm({
           ))}
         </datalist>
       </div>
+
+      {receipt.home_currency && receipt.home_currency !== form.currency ? (
+        <div className="space-y-2">
+          <label htmlFor={id("home-amount")} className={LABEL_CLASS}>
+            Charged in {receipt.home_currency} (optional)
+          </label>
+          <Input
+            id={id("home-amount")}
+            inputMode="decimal"
+            className="h-11 font-mono tabular-nums placeholder:font-sans"
+            value={form.homeAmount}
+            onChange={(e) => update("homeAmount", e.target.value)}
+            placeholder={
+              receipt.home_total != null && receipt.fx_source !== "manual"
+                ? `${receipt.home_total} (ECB rate)`
+                : "From the bank statement"
+            }
+          />
+          <p className="text-[13px] text-[var(--ink-muted)]">
+            Leave empty to use the ECB rate of the purchase day.
+          </p>
+        </div>
+      ) : null}
 
       {isEdit ? (
         <fieldset className="space-y-2">

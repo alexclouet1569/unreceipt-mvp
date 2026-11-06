@@ -45,6 +45,7 @@ import {
   taxExceedsTotal,
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt } from "@/lib/types";
+import { homeCurrencyOf, round2 } from "@/lib/fx";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,10 @@ const PatchSchema = z.object({
   // The firm's bookkeeping account for this receipt (overrides the
   // category suggestion in the export).
   bas_account: z.string().trim().regex(/^\d{4}$/, "A BAS account has 4 digits").nullable().optional(),
+  // The amount in the organisation's home currency, typed from the bank
+  // statement for a foreign receipt (fx_source 'manual'). null goes back
+  // to the ECB rate.
+  home_total: z.number().positive().max(MAX_AMOUNT).nullable().optional(),
 });
 
 async function getUserScopedClient() {
@@ -205,6 +210,27 @@ export async function PATCH(
         : null;
   }
   if (patch.bas_account !== undefined) update.bas_account = patch.bas_account;
+
+  // Home-currency amount (src/lib/fx.ts). A typed amount is kept as
+  // 'manual'; a change of amount, currency or date drops any conversion so
+  // the next read converts again at the right day's rate.
+  const clearFx = { home_currency: null, home_total: null, fx_rate: null, fx_date: null, fx_source: null };
+  if (patch.home_total != null) {
+    const home = await homeCurrencyOf(existingRow.organization_id);
+    const amount = round2(patch.home_total);
+    update.home_currency = home;
+    update.home_total = amount;
+    update.fx_source = "manual";
+    update.fx_date = null;
+    update.fx_rate = merged.total ? Math.round((amount / merged.total) * 1e8) / 1e8 : null;
+  } else if (
+    patch.home_total === null ||
+    ("total" in update && update.total !== existingRow.total) ||
+    ("currency" in update && update.currency !== existingRow.currency) ||
+    ("purchased_at" in update && update.purchased_at !== existingRow.purchased_at)
+  ) {
+    Object.assign(update, clearFx);
+  }
 
   // VAT can't exceed the total — checked on the result, since the patch may
   // change either one.

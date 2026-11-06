@@ -37,3 +37,30 @@ export const REPRESENTATION_VAT_BASE_PER_PERSON_SEK = 300;
 // below the review threshold in src/lib/receipts/status.ts (0.75), so a
 // person always confirms them before they can be exported as verified.
 export const UNTRUSTED_EXTRACTION_CONFIDENCE_CAP = 0.7;
+
+// ─── Foreign currency (2026-11-05, src/lib/fx.ts) ──────────────────────────
+//
+// A foreign receipt is converted into the company's currency at the
+// spot rate of the transaction day (BFNAR 2013:2 p. 2.4); an approximate
+// rate is allowed when it doesn't deviate much (p. 2.5). We use the ECB
+// euro reference rate of the purchase day, crossing through the euro for
+// two non-euro currencies, as in Skatteverket's ställningstagande
+// 2013-02-27 (VAT conversion). Sources read via FAR Online summaries,
+// UNVERIFIED against bfn.se / skatteverket.se. The ECB publishes the rates
+// "for information purposes only" (UNVERIFIED): a card purchase is
+// settled at the issuer's rate, so the bank-statement amount, typed by
+// the accountant, always wins over the ECB estimate, and the export keeps
+// the two in separate columns.
+export const FX_RATE_SOURCE = "ECB euro reference rate";
+
+// The ECB publishes on banking days around 16:00 CET; a weekend or holiday
+// purchase uses the last rate before it. A gap longer than this means the
+// rate is missing, not a holiday (product choice, no legal source).
+export const FX_MAX_RATE_AGE_DAYS = 7;
+
+// First day of ECB reference rates; nothing earlier can be converted.
+export const FX_FIRST_RATE_DATE = "1999-01-04";
+
+// Default company currency by country (organizations.currency); the
+// company can change it in Settings.
+export const DEFAULT_CURRENCY_BY_COUNTRY: Record<string, string> = { SE: "SEK", FR: "EUR" };

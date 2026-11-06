@@ -132,6 +132,13 @@ async function claimPendingMembership(
   };
 }
 
+/** The user's firm membership, claiming a pending invite row if there is one. */
+export async function resolveFirmMembership(
+  user: User
+): Promise<Omit<FirmContext, "user"> | null> {
+  return (await getFirmMembership(user.id)) ?? (await claimPendingMembership(user));
+}
+
 /** Throws FirmAuthError unless the session user is a firm member. */
 export async function requireFirmMember(): Promise<FirmContext> {
   const user = await getServerUser();

@@ -1,8 +1,10 @@
 // POST /api/accountant/respond — a client accepts or declines an accounting
-// firm's invite. The caller must either hold the link token or be signed in
-// with the invited address (so an invite also shows up in Settings without
-// the link). Accepting links the firm to the caller's default organisation;
-// one active firm per company.
+// firm's invite (direction 'firm'). Two locks: the invite went to one
+// address, and only that address, signed in and confirmed, can answer it.
+// The link token alone is not enough (since 2026-11-05): someone who opens
+// the email while signed in to another account gets "wrong_account".
+// Accepting links the firm to the caller's default organisation; one active
+// firm per company. The client then gets a confirmation email.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -10,7 +12,8 @@ import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
-import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
+import { isInviteExpired } from "@/lib/firm/invites";
+import { sendLinkConfirmation } from "@/lib/firm/link-emails";
 import { isUuid } from "@/lib/require-firm";
 import type { FirmClient } from "@/lib/types";
 
@@ -25,7 +28,7 @@ const BodySchema = z.object({
 
 type InviteRow = Pick<
   FirmClient,
-  "id" | "firm_id" | "status" | "invited_email" | "invite_token_hash" | "invite_expires_at"
+  "id" | "firm_id" | "status" | "invited_email" | "invite_expires_at" | "direction"
 >;
 
 export async function POST(request: NextRequest) {
@@ -41,12 +44,12 @@ export async function POST(request: NextRequest) {
   if (!parsed.success || !isUuid(parsed.data.inviteId)) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
-  const { inviteId, action, token } = parsed.data;
+  const { inviteId, action } = parsed.data;
 
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("firm_clients")
-    .select("id, firm_id, status, invited_email, invite_token_hash, invite_expires_at")
+    .select("id, firm_id, status, invited_email, invite_expires_at, direction")
     .eq("id", inviteId)
     .maybeSingle();
   if (error) {
@@ -55,23 +58,19 @@ export async function POST(request: NextRequest) {
   }
   const invite = data as InviteRow | null;
   // Anything the caller may not act on looks like it doesn't exist.
-  if (!invite || invite.status !== "invited") {
+  if (!invite || invite.status !== "invited" || invite.direction !== "firm") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const byToken =
-    isInviteTokenShape(token) &&
-    invite.invite_token_hash !== null &&
-    hashInviteToken(token) === invite.invite_token_hash &&
-    !isInviteExpired(invite.invite_expires_at);
-  // The address match honours the same 14-day window as the link.
-  const byEmail =
-    typeof user.email === "string" &&
-    Boolean(user.email_confirmed_at) &&
-    user.email.trim().toLowerCase() === invite.invited_email &&
-    !isInviteExpired(invite.invite_expires_at);
-  if (!byToken && !byEmail) {
+  if (isInviteExpired(invite.invite_expires_at)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  const signedInAs =
+    typeof user.email === "string" && user.email_confirmed_at
+      ? user.email.trim().toLowerCase()
+      : null;
+  if (signedInAs !== invite.invited_email) {
+    return NextResponse.json({ error: "wrong_account" }, { status: 403 });
   }
 
   if (action === "decline") {
@@ -118,5 +117,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Couldn't connect. Try again." }, { status: 500 });
   }
   if (!updated) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  // Best effort: the link is made whether or not the email goes out.
+  await sendLinkConfirmation({ clientUserId: user.id, firmId: invite.firm_id as string });
   return NextResponse.json({ ok: true, status: "active" });
 }

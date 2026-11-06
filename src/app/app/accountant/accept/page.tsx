@@ -4,29 +4,43 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
-import { InviteCard, type InviteView } from "./_invite-card";
+import type { User } from "@supabase/supabase-js";
+import { InviteCard, maskEmail, type InviteView } from "./_invite-card";
 
 export const dynamic = "force-dynamic";
 
 // GET never changes anything: the invite is resolved by its token hash and
-// shown with "Yes, share my receipts" / "No thanks" buttons, which POST /api/accountant/respond.
-async function loadInvite(token: string | undefined): Promise<InviteView | null> {
+// shown with "Yes, share" / "No thanks" buttons, which POST
+// /api/accountant/respond. Only the invited address, signed in and
+// confirmed, gets the buttons; anyone else sees "wrong_account".
+async function loadInvite(token: string | undefined, user: User): Promise<InviteView | null> {
   if (!isInviteTokenShape(token)) return null;
   const { data, error } = await getSupabaseAdmin()
     .from("firm_clients")
-    .select("id, status, client_name, invite_expires_at, firms(name)")
+    .select("id, status, direction, client_name, invited_email, invite_expires_at, firms(name)")
     .eq("invite_token_hash", hashInviteToken(token))
     .maybeSingle();
-  if (error || !data) return null;
+  if (error || !data || data.direction !== "firm") return null;
   const firms = data.firms as { name: string } | { name: string }[] | null;
   const firmName = (Array.isArray(firms) ? firms[0] : firms)?.name ?? "Your accounting firm";
+  const invitedEmail = data.invited_email as string;
+  const signedInAs =
+    typeof user.email === "string" && user.email_confirmed_at ? user.email.trim().toLowerCase() : null;
   const state: InviteView["state"] =
     data.status !== "invited"
       ? "used"
       : isInviteExpired(data.invite_expires_at as string | null)
         ? "expired"
-        : "open";
-  return { id: data.id as string, firmName, clientName: data.client_name as string, state };
+        : signedInAs !== invitedEmail
+          ? "wrong_account"
+          : "open";
+  return {
+    id: data.id as string,
+    firmName,
+    clientName: data.client_name as string,
+    state,
+    maskedEmail: state === "wrong_account" ? maskEmail(invitedEmail) : undefined,
+  };
 }
 
 export default async function AcceptInvitePage({
@@ -39,7 +53,7 @@ export default async function AcceptInvitePage({
   if (!user) {
     redirect(`/app/login?next=${encodeURIComponent(`/app/accountant/accept?token=${token ?? ""}`)}`);
   }
-  const invite = await loadInvite(token);
+  const invite = await loadInvite(token, user);
 
   return (
     <div className="min-h-screen bg-background">

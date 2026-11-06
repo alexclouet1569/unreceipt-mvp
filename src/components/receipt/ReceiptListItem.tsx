@@ -23,6 +23,13 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
     receipt.currency,
   );
   const pending = receipt.status === "pending_review";
+  // A foreign receipt also shows its amount in the company's currency.
+  const converted =
+    receipt.home_total != null &&
+    receipt.home_currency != null &&
+    receipt.home_currency !== receipt.currency
+      ? splitFormattedAmount(receipt.home_total, receipt.home_currency)
+      : null;
 
   return (
     <div
@@ -82,32 +89,48 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
             ) : null}
           </p>
         </div>
-        <p
-          className="text-[var(--ink-faint)] truncate"
-          style={{ fontSize: "13px", fontWeight: 500, marginTop: "4px" }}
+        <div
+          className="flex items-baseline justify-between gap-3"
+          style={{ marginTop: "4px" }}
         >
-          {config.label}
-          <span style={{ margin: "0 6px" }} aria-hidden="true">
-            ·
-          </span>
-          {formatRelative(receipt.receipt_date)}
-          {pending ? (
-            <>
-              <span style={{ margin: "0 6px" }} aria-hidden="true">
-                ·
-              </span>
-              <span
-                className="font-accent italic"
-                style={{
-                  color: "var(--attention-mint)",
-                  fontWeight: 500,
-                }}
-              >
-                needs review
-              </span>
-            </>
-          ) : null}
-        </p>
+          <p
+            className="text-[var(--ink-faint)] truncate min-w-0"
+            style={{ fontSize: "13px", fontWeight: 500 }}
+          >
+            {config.label}
+            <span style={{ margin: "0 6px" }} aria-hidden="true">
+              ·
+            </span>
+            {formatRelative(receipt.receipt_date)}
+            {pending ? (
+              <>
+                <span style={{ margin: "0 6px" }} aria-hidden="true">
+                  ·
+                </span>
+                <span
+                  className="font-accent italic"
+                  style={{
+                    color: "var(--attention-mint)",
+                    fontWeight: 500,
+                  }}
+                >
+                  needs review
+                </span>
+              </>
+            ) : null}
+          </p>
+          {converted ? (
+          <p
+            className="font-mono tabular-nums shrink-0 text-[var(--ink-faint)]"
+            style={{ fontSize: "14px", fontWeight: 400 }}
+          >
+            ≈ {converted.value}
+            {converted.suffix ? (
+              <span style={{ fontSize: "11px", marginLeft: "3px" }}>{converted.suffix}</span>
+            ) : null}
+          </p>
+        ) : null}
+        </div>
       </div>
     </div>
   );

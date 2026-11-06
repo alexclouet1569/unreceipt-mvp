@@ -14,6 +14,7 @@ import { getFirmMembership } from "@/lib/require-firm";
 import type { Receipt } from "@/lib/types";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import type { PendingAccountantInvite } from "@/components/AccountantInviteNotice";
+import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
 import { DbWarningBanner } from "./_db-warning-banner";
@@ -130,12 +131,12 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   }
 
   const userEmail = user.email ?? "";
-  const [receipts, onboarded, accountantInvites] = await Promise.all([
+  const [loadedReceipts, onboarded, accountantInvites] = await Promise.all([
     loadReceiptsForUser(user.id),
     loadOnboarded(user.id),
     loadPendingInvites(user),
   ]);
-  const showOnboarding = !onboarded && receipts.length === 0;
+  const showOnboarding = !onboarded && loadedReceipts.length === 0;
 
   // Mint (or fetch) the user's forwarding alias. This is the live MX
   // address that routes to the /api/intake/email webhook — surfaced on
@@ -143,13 +144,22 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   // Falls back to the legacy getConciergeEmail derivation if the profile
   // row is missing (shouldn't happen post-signup, but the gate runs
   // before profile-sync in a few edge cases).
-  const [aliasHash] = await Promise.all([
+  const [aliasHash, organizationId] = await Promise.all([
     getOrCreateAliasForUser(user.id),
     // The company this account's receipts belong to (firm portal). Minted
     // here so it exists before the first receipt; failures fall back to the
     // insert trigger.
     getOrCreateDefaultOrganization(user.id),
   ]);
+  // Amounts in the company's currency next to foreign ones (src/lib/fx.ts).
+  // Best effort: a missing rate leaves the receipt unconverted.
+  const receipts = await ensureHomeAmounts(loadedReceipts, await homeCurrencyOf(organizationId)).catch(
+    (err) => {
+      console.error("[/app] currency conversion failed", err);
+      return loadedReceipts;
+    }
+  );
+
   const forwardingEmail = aliasHash
     ? buildForwardingAddress(aliasHash)
     : getConciergeEmail(user.id);

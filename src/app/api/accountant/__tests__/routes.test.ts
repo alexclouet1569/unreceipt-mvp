@@ -11,7 +11,10 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   org: vi.fn(),
   filters: [] as [string, unknown][],
+  confirm: vi.fn(),
 }));
+
+vi.mock("@/lib/firm/link-emails", () => ({ sendLinkConfirmation: mocks.confirm }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: async () => mocks.user }));
 vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: mocks.org }));
@@ -36,6 +39,10 @@ vi.mock("@/lib/supabase-admin", () => ({
             mocks.filters.push([c, v]);
             return chain;
           },
+          or: (v: unknown) => {
+            mocks.filters.push(["or", v]);
+            return chain;
+          },
           select: () => ({ maybeSingle: () => mocks.update(row) }),
           then: (r: (v: unknown) => void) => r(mocks.update(row)),
         };
@@ -54,6 +61,7 @@ const TOKEN = "A".repeat(32);
 const openInvite = (over: Record<string, unknown> = {}) => ({
   id: INVITE_ID,
   firm_id: "firm-1",
+  direction: "firm",
   status: "invited",
   invited_email: "anna@acme.se",
   invite_token_hash: hashInviteToken(TOKEN),
@@ -85,6 +93,7 @@ beforeEach(() => {
   mocks.update.mockReset().mockResolvedValue({ data: { id: INVITE_ID }, error: null });
   mocks.org.mockReset().mockResolvedValue("org-1");
   mocks.filters = [];
+  mocks.confirm.mockReset().mockResolvedValue(undefined);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -97,8 +106,15 @@ describe("POST /api/accountant/respond", () => {
     expect((await respond({ inviteId: INVITE_ID, action: "maybe" })).status).toBe(400);
   });
 
-  it("accepts with the link token: links the caller's default organisation", async () => {
+  it("refuses the link token from another account (two locks: link + invited address)", async () => {
     mocks.user = { ...USER, email: "someone-else@example.com" };
+    const res = await respond({ inviteId: INVITE_ID, action: "accept", token: TOKEN });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "wrong_account" });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts for the invited, confirmed address: links the caller's default organisation", async () => {
     const res = await respond({ inviteId: INVITE_ID, action: "accept", token: TOKEN });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, status: "active" });
@@ -110,6 +126,12 @@ describe("POST /api/accountant/respond", () => {
       invite_token_hash: null,
     });
     expect(mocks.filters).toEqual([["id", INVITE_ID], ["status", "invited"]]);
+    expect(mocks.confirm).toHaveBeenCalledWith({ clientUserId: USER.id, firmId: "firm-1" });
+  });
+
+  it("ignores a client-sent invite (that one is answered by the accountant)", async () => {
+    mocks.invite = { data: openInvite({ direction: "client" }), error: null };
+    expect((await respond({ inviteId: INVITE_ID, action: "accept" })).status).toBe(404);
   });
 
   it("accepts without a token when signed in with the invited, confirmed address", async () => {
@@ -117,11 +139,11 @@ describe("POST /api/accountant/respond", () => {
     expect(res.status).toBe(200);
   });
 
-  it("refuses an unconfirmed address and a wrong token (404, not 403)", async () => {
+  it("refuses an unconfirmed address and another account", async () => {
     mocks.user = { ...USER, email_confirmed_at: null };
-    expect((await respond({ inviteId: INVITE_ID, action: "accept" })).status).toBe(404);
+    expect((await respond({ inviteId: INVITE_ID, action: "accept" })).status).toBe(403);
     mocks.user = { ...USER, email: "other@x.se" };
-    expect((await respond({ inviteId: INVITE_ID, action: "accept", token: "B".repeat(32) })).status).toBe(404);
+    expect((await respond({ inviteId: INVITE_ID, action: "accept", token: "B".repeat(32) })).status).toBe(403);
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
@@ -156,13 +178,13 @@ describe("POST /api/accountant/respond", () => {
 });
 
 describe("DELETE /api/accountant/link", () => {
-  it("revokes an active link of one of the caller's organisations", async () => {
+  it("revokes an active link, or a waiting client-sent invite, of the caller's organisations", async () => {
     const res = await unlink({ linkId: INVITE_ID });
     expect(res.status).toBe(200);
     expect(mocks.filters).toEqual([
       ["id", INVITE_ID],
-      ["status", "active"],
       ["organization_id", ["org-1"]],
+      ["or", "status.eq.active,and(status.eq.invited,direction.eq.client)"],
     ]);
   });
 

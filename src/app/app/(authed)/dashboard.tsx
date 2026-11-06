@@ -99,7 +99,8 @@ export function Dashboard({
     const monthIso = monthStart.toISOString().slice(0, 10);
 
     const baseCurrency = receipts[0]?.currency ?? "EUR";
-    // One total per currency, never added across currencies (DESIGN.md).
+    // In the company's currency; a receipt not converted yet stays apart
+    // (DESIGN.md, 2026-11-05).
     const monthTotals = sumByCurrency(
       receipts.filter((r) => (r.purchased_at ?? r.receipt_date ?? "") >= monthIso),
     );
@@ -397,15 +398,25 @@ function EmptyState({
   );
 }
 
-/** "1,245.00 kr" — or "€18.50 + 245.00 kr" when a group mixes currencies. */
+/**
+ * "1,245.00 kr": foreign receipts count with their amount in the company's
+ * currency (home_total, src/lib/fx.ts). Only a receipt that couldn't be
+ * converted yet is listed apart ("1,245.00 kr + €18.50"), never added in.
+ */
 function sumByCurrency(items: Receipt[]): string {
   const sums = new Map<string, number>();
+  // Currencies whose sum includes an ECB-rate estimate get a "≈".
+  const estimated = new Set<string>();
   for (const r of items) {
-    if (r.total == null) continue;
-    sums.set(r.currency, (sums.get(r.currency) ?? 0) + r.total);
+    const converted = r.home_total != null && r.home_currency != null;
+    const amount = converted ? r.home_total : r.total;
+    const currency = converted ? (r.home_currency as string) : r.currency;
+    if (amount == null) continue;
+    sums.set(currency, (sums.get(currency) ?? 0) + amount);
+    if (converted && r.fx_source === "ecb" && r.currency !== r.home_currency) estimated.add(currency);
   }
   return Array.from(sums, ([currency, sum]) =>
-    formatAmount(Math.round(sum * 100) / 100, currency),
+    (estimated.has(currency) ? "≈ " : "") + formatAmount(Math.round(sum * 100) / 100, currency),
   ).join(" + ");
 }
 

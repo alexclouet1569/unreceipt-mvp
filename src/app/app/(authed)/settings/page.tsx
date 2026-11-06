@@ -15,6 +15,9 @@ import { SignOutButton } from "./SignOutButton";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
 import { AccountantSection } from "./AccountantSection";
+import { CurrencySetting } from "./CurrencySetting";
+import { homeCurrencyOf } from "@/lib/fx";
+import { getDefaultOrganizationId } from "@/lib/organizations";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 
 // Settings is reachable without an active subscription on purpose: a
@@ -69,12 +72,13 @@ export default async function SettingsPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [profile, aliasHash, usage, firstReceiptDate, accountantLinks] = await Promise.all([
+  const [profile, aliasHash, usage, firstReceiptDate, accountantLinks, homeCurrency] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
     loadUsage(user.id),
     loadFirstReceiptDate(user.id),
     loadAccountantLinks(user),
+    getDefaultOrganizationId(user.id).then(homeCurrencyOf),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -170,6 +174,11 @@ export default async function SettingsPage() {
             </p>
             <ExportPanel firstReceiptDate={firstReceiptDate} />
           </div>
+        </section>
+
+        <section aria-labelledby="currency-heading">
+          <SectionLabel id="currency-heading">Currency</SectionLabel>
+          <CurrencySetting currency={homeCurrency} />
         </section>
 
         <section aria-labelledby="accountant-heading">

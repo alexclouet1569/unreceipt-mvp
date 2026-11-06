@@ -33,6 +33,20 @@ export function ReceiptDetailCard({ receipt, viewer = "owner" }: ReceiptDetailCa
   const merchant = receipt.merchant_name ?? "Unknown merchant";
   const total = splitFormattedAmount(receipt.total, currency);
   const showTax = receipt.tax_amount != null && receipt.tax_amount > 0;
+  // A foreign receipt: its amount in the company's currency, and where the
+  // rate came from (src/lib/fx.ts).
+  const converted =
+    receipt.home_total != null && receipt.home_currency && receipt.home_currency !== receipt.currency
+      ? {
+          amount: formatAmount(receipt.home_total, receipt.home_currency),
+          source:
+            receipt.fx_source === "manual"
+              ? "From the bank statement"
+              : receipt.fx_date
+                ? `ECB rate of ${formatDate(receipt.fx_date)}`
+                : "ECB rate",
+        }
+      : null;
   // More than one VAT rate: show each, then the total.
   const vatSplit =
     Array.isArray(receipt.vat_lines) && receipt.vat_lines.length > 1 ? receipt.vat_lines : null;
@@ -159,6 +173,12 @@ export function ReceiptDetailCard({ receipt, viewer = "owner" }: ReceiptDetailCa
             ) : null}
           </span>
         </div>
+        {converted ? (
+          <div className="mt-1 space-y-0.5">
+            <Leader label={`In ${receipt.home_currency}`} value={`≈ ${converted.amount}`} mono />
+            <p className="text-right text-[13px] text-[var(--ink-muted)]">{converted.source}</p>
+          </div>
+        ) : null}
 
         {showTax ? (
           <div className="mt-2 space-y-1">
