@@ -11,6 +11,7 @@ import {
 import { getConciergeEmail } from "@/lib/concierge-email";
 import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organizations";
 import { getFirmMembership } from "@/lib/require-firm";
+import { getNativeApp } from "@/lib/native-app-server";
 import type { Receipt } from "@/lib/types";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import type { PendingAccountantInvite } from "@/components/AccountantInviteNotice";
@@ -169,12 +170,16 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   // Twilio number is provisioned.
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER ?? null;
 
+  const inStoreApp = Boolean(await getNativeApp());
+
   if (result.kind === "allow_with_warning") {
-    const Banner =
-      result.reason === "pilot_mode" ? PilotBanner : DbWarningBanner;
     return (
       <>
-        <Banner />
+        {result.reason === "pilot_mode" ? (
+          <PilotBanner inStoreApp={inStoreApp} />
+        ) : (
+          <DbWarningBanner />
+        )}
         <Dashboard
           userEmail={userEmail}
           receipts={receipts}
@@ -191,7 +196,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
 
   return (
     <>
-      {notice ? <UsageNoticeBanner notice={notice} /> : null}
+      {notice ? <UsageNoticeBanner notice={notice} hidePrices={inStoreApp} /> : null}
       <Dashboard
         userEmail={userEmail}
         receipts={receipts}

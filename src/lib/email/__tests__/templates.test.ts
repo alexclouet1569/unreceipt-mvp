@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   companySiteFor,
+  firmClosedEmail,
   firmInviteEmail,
   firstNameFrom,
   pilotWelcomeEmail,
@@ -172,5 +173,21 @@ describe("firmInviteEmail", () => {
     expect(email.text).toContain("Acme AB");
     expect(email.text).toContain("Yes, share: https://app.unreceipt.com/app/accountant/accept?token=abc");
     expect(email.text).toContain("They'll see all your receipts and do your bookkeeping.");
+  });
+});
+
+describe("firmClosedEmail", () => {
+  it("says the firm no longer sees the receipts, that they stay, and links to Settings", () => {
+    const email = firmClosedEmail({
+      firmName: "Bokföring <AB>",
+      settingsUrl: "https://app.unreceipt.com/app/settings",
+    });
+    expect(email.subject).toBe("Bokföring <AB> no longer sees your receipts");
+    expect(email.text).toContain("has deleted its UnReceipt account");
+    expect(email.text).toContain("Your receipts stay in your account");
+    expect(email.text).toContain("Settings: https://app.unreceipt.com/app/settings");
+    // The firm name is escaped in the HTML part.
+    expect(email.html).toContain("Bokföring &lt;AB&gt;");
+    expect(email.html).not.toContain("<AB>");
   });
 });

@@ -19,6 +19,8 @@ import { CurrencySetting } from "./CurrencySetting";
 import { homeCurrencyOf } from "@/lib/fx";
 import { getDefaultOrganizationId } from "@/lib/organizations";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
+import { firmExitNotice, planFirmExit } from "@/lib/firm/account-exit";
+import { getNativeApp } from "@/lib/native-app-server";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -59,6 +61,17 @@ async function loadFirstReceiptDate(userId: string): Promise<string | null> {
   return dates.reduce((min, d) => (Date.parse(d) < Date.parse(min) ? d : min));
 }
 
+// An accountant who also has a company deletes here; say what that does to
+// their firm. Best-effort: deleteAccount() re-reads it and stops on an error.
+async function loadFirmNotice(userId: string): Promise<string | null> {
+  try {
+    return firmExitNotice(await planFirmExit(getSupabaseAdmin(), userId));
+  } catch (err) {
+    console.error("[/app/settings] firm exit lookup failed", err);
+    return null;
+  }
+}
+
 async function loadUsage(userId: string): Promise<Usage | null> {
   try {
     return await getUsage(userId);
@@ -72,13 +85,24 @@ export default async function SettingsPage() {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
 
-  const [profile, aliasHash, usage, firstReceiptDate, accountantLinks, homeCurrency] = await Promise.all([
+  const [
+    profile,
+    aliasHash,
+    usage,
+    firstReceiptDate,
+    accountantLinks,
+    homeCurrency,
+    firmNotice,
+    nativeApp,
+  ] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
     loadUsage(user.id),
     loadFirstReceiptDate(user.id),
     loadAccountantLinks(user),
     getDefaultOrganizationId(user.id).then(homeCurrencyOf),
+    loadFirmNotice(user.id),
+    getNativeApp(),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -158,6 +182,7 @@ export default async function SettingsPage() {
               overageBilled={usage.overageBilled}
               periodEnd={usage.periodEnd.toISOString()}
               suggestion={planSuggestion(usage)}
+              hidePrices={Boolean(nativeApp)}
             />
           </section>
         ) : null}
@@ -204,7 +229,10 @@ export default async function SettingsPage() {
 
         <section aria-labelledby="danger-heading">
           <SectionLabel id="danger-heading">Delete account</SectionLabel>
-          <DeleteAccountSection exportSlot={<ExportPanel fixedPeriod="all" />} />
+          <DeleteAccountSection
+            exportSlot={<ExportPanel fixedPeriod="all" />}
+            firmNotice={firmNotice}
+          />
         </section>
       </main>
     </div>

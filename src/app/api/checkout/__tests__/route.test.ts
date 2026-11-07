@@ -60,6 +60,22 @@ describe("POST /api/checkout", () => {
     }
   });
 
+  it("refuses to start Checkout from inside the store apps (App Store 3.1.3(f))", async () => {
+    mocks.getServerUser.mockResolvedValue(adminUser);
+    const req = new NextRequest("http://localhost:3000/api/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 UnReceiptApp/1.0.0 (ios)",
+      },
+      body: JSON.stringify({ plan: "regular" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    expect(mocks.createSession).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when there is no authenticated user", async () => {
     mocks.getServerUser.mockResolvedValue(null);
 

@@ -9,7 +9,14 @@ import { Money } from "@/components/Money";
  * not alarming — DESIGN.md): saving receipts is never blocked. The whole
  * row links to Settings so the tap target is full width.
  */
-export function UsageNoticeBanner({ notice }: { notice: UsageNotice }) {
+export function UsageNoticeBanner({
+  notice,
+  hidePrices = false,
+}: {
+  notice: UsageNotice;
+  /** Inside the store apps: no prices (App Store 3.1.3(f), src/lib/native-app.ts). */
+  hidePrices?: boolean;
+}) {
   return (
     <div
       role="status"
@@ -26,7 +33,7 @@ export function UsageNoticeBanner({ notice }: { notice: UsageNotice }) {
       >
         <Info className="w-4 h-4 shrink-0" />
         <span className="flex-1">
-          <NoticeText notice={notice} />
+          <NoticeText notice={notice} hidePrices={hidePrices} />
         </span>
         <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
         <span className="sr-only">See usage in settings</span>
@@ -35,8 +42,16 @@ export function UsageNoticeBanner({ notice }: { notice: UsageNotice }) {
   );
 }
 
-function NoticeText({ notice }: { notice: UsageNotice }) {
+function NoticeText({ notice, hidePrices }: { notice: UsageNotice; hidePrices: boolean }) {
   if (notice.level === "warn") {
+    if (hidePrices) {
+      return (
+        <>
+          You&apos;ve used {notice.used} of the {notice.allowance} receipts in your{" "}
+          {notice.planName} plan this period.
+        </>
+      );
+    }
     return (
       <>
         You&apos;ve used {notice.used} of the {notice.allowance} receipts in your{" "}
@@ -46,7 +61,7 @@ function NoticeText({ notice }: { notice: UsageNotice }) {
     );
   }
   const receipts = `${notice.extra} receipt${notice.extra === 1 ? "" : "s"}`;
-  return notice.extraCost !== null ? (
+  return notice.extraCost !== null && !hidePrices ? (
     <>
       You&apos;re {receipts} over your {notice.planName} plan ({notice.allowance} a
       month). Extra receipts are <Money eur={notice.overagePrice} /> each —{" "}

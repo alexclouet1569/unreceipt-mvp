@@ -25,7 +25,8 @@ export type OutgoingEmail = {
     | "signup_digest"
     | "firm_invite"
     | "client_request"
-    | "link_confirmation";
+    | "link_confirmation"
+    | "firm_closed";
 };
 
 export type SendResult =
@@ -39,6 +40,8 @@ export function founderReplyTo(): string | null {
     .find((s) => s.includes("@"));
   return first ?? null;
 }
+
+const SEND_TIMEOUT_MS = 10_000;
 
 export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -63,6 +66,8 @@ export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
         ...(email.replyTo ? { reply_to: email.replyTo } : {}),
         tags: [{ name: "flow", value: email.tag }],
       }),
+      // A hung request must not eat the caller's function time.
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
 
     if (!res.ok) {

@@ -85,4 +85,35 @@ describe("DeleteAccountSection", () => {
       /Couldn't delete your account/,
     );
   });
+
+  it("firm variant: asks about the firm instead of a download, then posts the same confirmation", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockReturnValue(new Promise(() => {}));
+    const notice = "You're the only person in Bokföring AB, so deleting your account also closes the firm.";
+    render(<DeleteAccountSection variant="firm" firmNotice={notice} />);
+
+    await user.click(screen.getByRole("button", { name: /Delete account/i }));
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    expect(screen.queryByText(/Download your data first/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Your clients.* receipts are theirs/)).toBeInTheDocument();
+
+    const confirm = screen.getByRole("button", { name: /^Delete account$/ });
+    await user.type(screen.getByLabelText(/Type DELETE/i), "DELETE");
+    expect(confirm).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: /what happens to my firm/ }));
+    await user.click(confirm);
+
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      "/api/account/delete",
+      expect.objectContaining({ body: JSON.stringify({ confirm: "DELETE" }) }),
+    );
+  });
+
+  it("company variant tells an accountant-with-a-company what happens to the firm", async () => {
+    const user = userEvent.setup();
+    render(<DeleteAccountSection firmNotice="You'll leave Bokföring AB." />);
+    await user.click(screen.getByRole("button", { name: /Delete account/i }));
+    expect(screen.getByText("You'll leave Bokföring AB.")).toBeInTheDocument();
+    expect(screen.getByText(/Download your data first/)).toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getStripe } from "@/lib/stripe";
 import { PLAN_IDS, planPriceEnv } from "@/lib/plans";
+import { parseNativeApp } from "@/lib/native-app";
 
 // The customer picks a plan; each plan is one flat monthly price for the
 // whole company (no per-user quantity).
@@ -14,6 +15,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  // Belt and braces for App Store 3.1.3(f): the store apps never show a
+  // purchase, and a Checkout session never starts from inside one.
+  if (parseNativeApp(request.headers.get("user-agent"))) {
+    return NextResponse.json({ error: "Purchases aren't available in the app." }, { status: 403 });
+  }
+
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

@@ -10,15 +10,20 @@
 //      be charged again. Stripe's customer and invoices are kept: they are
 //      UnReceipt's own billing records, which the law requires us to keep.
 //   2. Remove every stored file under `<user_id>/` in each private bucket.
-//   3. Delete the receipts, then the auth user. profiles, subscriptions,
+//   3. Settle the person's accounting firm, if any (src/lib/firm/
+//      account-exit.ts): hand the admin role over, or close a firm nobody
+//      else has joined and email its clients that the link has ended.
+//   4. Delete the receipts, then the auth user. profiles, subscriptions,
 //      receipt_usage (and transactions via profiles) cascade from
 //      auth.users ON DELETE CASCADE.
-//   4. Best-effort clean-up of data keyed by the user without a foreign
+//   5. Best-effort clean-up of data keyed by the user without a foreign
 //      key: rate-limit counters and a waitlist entry with the same email.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
+import { applyFirmExit, planFirmExit } from "./firm/account-exit";
+import { sendFirmClosedNotices } from "./firm/link-emails";
 
 // Every bucket that stores files under `<user_id>/`.
 export const USER_FILE_BUCKETS = ["receipts", "receipt-originals", "exports"] as const;
@@ -35,7 +40,7 @@ const CHARGEABLE_STATUSES = new Set([
 
 export class AccountDeletionError extends Error {
   constructor(
-    public readonly step: "stripe" | "storage" | "rows" | "auth",
+    public readonly step: "stripe" | "storage" | "firm" | "rows" | "auth",
     message: string,
   ) {
     super(message);
@@ -225,6 +230,23 @@ export async function deleteAccount(
   });
   const removedFiles = await removeUserFiles(supabase, userId);
 
+  let firmPlan;
+  try {
+    firmPlan = await planFirmExit(supabase, userId);
+  } catch {
+    throw new AccountDeletionError("firm", "firm lookup failed");
+  }
+  // The retention job never settles a firm by itself: closing one ends
+  // every client's link, and nobody would have seen the warning that the
+  // in-app dialog shows. It fails (Sentry) for a manual decision instead.
+  if (refuseIfLive && firmPlan.kind !== "none") {
+    throw new AccountDeletionError("firm", "firm member, not deleting automatically");
+  }
+  try {
+    await applyFirmExit(supabase, firmPlan);
+  } catch {
+    throw new AccountDeletionError("firm", "firm exit failed");
+  }
   const { error: receiptsError } = await supabase
     .from("receipts")
     .delete()
@@ -251,6 +273,17 @@ export async function deleteAccount(
       // an address would be wildcards and could match someone else's row.
       .eq("email", email.trim().toLowerCase());
     if (wlError) console.error("[account-deletion] waitlist cleanup failed", wlError.code);
+  }
+
+  // Last, once the account is fully gone: a closed firm's clients hear that
+  // it no longer sees their receipts. Sent after the deletion (not between
+  // the firm and the user) so a slow mail provider can never leave an
+  // account half-deleted; time-boxed inside, never throws.
+  if (firmPlan.kind === "close") {
+    await sendFirmClosedNotices({
+      firmName: firmPlan.firmName,
+      organizationIds: firmPlan.clientOrganizationIds,
+    });
   }
 
   return { canceledSubscriptions, removedFiles };

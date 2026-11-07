@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
+import { getNativeApp } from "@/lib/native-app-server";
 import { AuthCard, type AuthMode } from "./_auth-card";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       pilot={isPilotMode()}
       linkError={Boolean(params.error)}
       notice={notice}
+      inStoreApp={Boolean(await getNativeApp())}
     />
   );
 }
