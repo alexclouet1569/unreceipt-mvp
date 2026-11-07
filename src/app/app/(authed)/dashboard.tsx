@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
+import { ChevronDown, Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { FilterChip } from "@/components/receipt/FilterChip";
@@ -96,32 +96,46 @@ export function Dashboard({
     return receipts;
   }, [receipts, filter]);
 
-  // "This month" in the user's own calendar, known only in the browser: the
+  // Today's month in the user's own calendar, known only in the browser: the
   // server renders in UTC, so around midnight on the 1st it would name (and
   // total) a different month than the phone, and React would see a mismatch.
-  const [month, setMonth] = useState<{ year: number; index: number; label: string } | null>(null);
+  const [today, setToday] = useState<{ year: number; index: number } | null>(null);
   useEffect(() => {
     const now = new Date();
     // One-off after mount: the server can't know the user's month.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMonth({
-      year: now.getFullYear(),
-      index: now.getMonth(),
-      label: new Intl.DateTimeFormat("en-GB", { month: "long" }).format(now),
-    });
+    setToday({ year: now.getFullYear(), index: now.getMonth() });
   }, []);
+  // Which total the third card shows: a month ("2026-11") or "all". null
+  // means "this month", so the default follows the calendar.
+  const [period, setPeriod] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const baseCurrency = homeCurrency ?? receipts[0]?.currency ?? "EUR";
-    // In the company's currency; a receipt not converted yet stays apart
-    // (DESIGN.md, 2026-11-05). null until the browser knows the month.
-    const monthTotals = month
-      ? sumByCurrency(receipts.filter((r) => boughtInMonth(r, month.year, month.index)))
-      : null;
     const verified = receipts.filter((r) => r.status === "verified").length;
-
-    return { baseCurrency, monthTotals, monthLabel: month?.label ?? "This month", verified };
-  }, [receipts, homeCurrency, month]);
+    if (!today) {
+      return { baseCurrency, verified, periods: null, selected: null, totals: null };
+    }
+    // This month, then every month that has a receipt, newest first, then
+    // all time. A month in another year carries the year.
+    const current = monthKey(today.year, today.index);
+    const keys = new Set<string>([current]);
+    for (const r of receipts) {
+      const k = receiptMonthKey(r);
+      if (k) keys.add(k);
+    }
+    const periods = [
+      ...[...keys].sort().reverse().map((key) => ({ key, label: monthLabel(key, today.year) })),
+      { key: "all", label: "All time" },
+    ];
+    const selected = periods.find((p) => p.key === (period ?? current)) ?? periods[0];
+    // In the company's currency; a receipt not converted yet stays apart
+    // (DESIGN.md, 2026-11-05).
+    const totals = sumByCurrency(
+      selected.key === "all" ? receipts : receipts.filter((r) => receiptMonthKey(r) === selected.key),
+    );
+    return { baseCurrency, verified, periods, selected, totals };
+  }, [receipts, homeCurrency, today, period]);
 
   const groupedReceipts = useMemo(() => {
     if (view === "category") {
@@ -219,19 +233,17 @@ export function Dashboard({
             <div className="grid grid-cols-3 gap-3 mb-6">
               <StatCard label="Receipts" lines={[String(receipts.length)]} />
               <StatCard label="Verified" lines={[String(stats.verified)]} />
-              <StatCard
-                // The month by name: "This month" read as "all receipts"
-                // when the only receipts were from an earlier month.
-                label={stats.monthLabel}
-                lines={
-                  stats.monthTotals === null
-                    ? ["–"]
-                    : stats.monthTotals
-                      ? stats.monthTotals.split(" + ")
-                      : [formatAmount(0, stats.baseCurrency)]
-                }
-                amount
-              />
+              {stats.periods && stats.selected ? (
+                <PeriodTotalCard
+                  periods={stats.periods}
+                  selected={stats.selected}
+                  onSelect={setPeriod}
+                  lines={stats.totals ? stats.totals.split(" + ") : [formatAmount(0, stats.baseCurrency)]}
+                />
+              ) : (
+                // Until the browser knows today's month.
+                <StatCard label="This month" lines={["–"]} amount />
+              )}
             </div>
 
             <ViewToggle view={view} onChange={setView} />
@@ -420,21 +432,78 @@ function EmptyState({
   );
 }
 
+function monthKey(year: number, index: number): string {
+  return `${year}-${String(index + 1).padStart(2, "0")}`;
+}
+
 /**
- * Was the receipt bought in this calendar month, in the user's own time
- * zone? purchased_at is a UTC timestamp, so it's read through Date (00:30 on
+ * The month a receipt was bought in ("2026-10"), in the user's own time
+ * zone. purchased_at is a UTC timestamp, so it's read through Date (00:30 on
  * the 1st in Stockholm is still the 31st in UTC); receipt_date is already a
  * plain calendar date.
  */
-function boughtInMonth(r: Receipt, year: number, index: number): boolean {
+function receiptMonthKey(r: Receipt): string | null {
   if (r.purchased_at) {
     const d = new Date(r.purchased_at);
-    if (!Number.isNaN(d.getTime())) return d.getFullYear() === year && d.getMonth() === index;
+    if (!Number.isNaN(d.getTime())) return monthKey(d.getFullYear(), d.getMonth());
   }
-  if (r.receipt_date) {
-    return r.receipt_date.slice(0, 7) === `${year}-${String(index + 1).padStart(2, "0")}`;
-  }
-  return false;
+  if (r.receipt_date && /^\d{4}-\d{2}/.test(r.receipt_date)) return r.receipt_date.slice(0, 7);
+  return null;
+}
+
+/** "October", or "October 2025" for a month in another year. */
+function monthLabel(key: string, currentYear: number): string {
+  const [y, m] = key.split("-").map(Number);
+  const name = new Intl.DateTimeFormat("en-GB", { month: "long" }).format(new Date(y, m - 1, 1));
+  return y === currentYear ? name : `${name} ${y}`;
+}
+
+/**
+ * The third stat card: the total for a month or for all time. The whole
+ * card is a native <select> under the visible text, so a tap opens the
+ * phone's own picker (the wheel on iOS) and it works with VoiceOver and the
+ * keyboard without a custom menu.
+ */
+function PeriodTotalCard({
+  periods,
+  selected,
+  onSelect,
+  lines,
+}: {
+  periods: Array<{ key: string; label: string }>;
+  selected: { key: string; label: string };
+  onSelect: (key: string) => void;
+  lines: string[];
+}) {
+  return (
+    <Card className="relative focus-within:ring-2 focus-within:ring-[var(--ring)]">
+      <CardContent className="py-3 px-2 text-center">
+        {lines.map((line) => (
+          <div key={line} className="font-medium tabular-nums whitespace-nowrap font-mono text-sm">
+            {line}
+          </div>
+        ))}
+        <div className="text-xs text-muted-foreground inline-flex items-center justify-center gap-0.5 max-w-full">
+          <span className="truncate">{selected.label}</span>
+          <ChevronDown className="w-3 h-3 shrink-0" aria-hidden="true" />
+        </div>
+      </CardContent>
+      <select
+        aria-label="Show the total for"
+        value={selected.key}
+        onChange={(e) => onSelect(e.target.value)}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+        // 16px keeps iOS from zooming the page when the picker opens.
+        style={{ fontSize: "16px" }}
+      >
+        {periods.map((p) => (
+          <option key={p.key} value={p.key}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+    </Card>
+  );
 }
 
 /**

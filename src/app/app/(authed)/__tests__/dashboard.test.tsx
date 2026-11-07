@@ -124,45 +124,63 @@ describe("Dashboard grouping and filters", () => {
   });
 });
 
-describe("Dashboard month total", () => {
+describe("Dashboard period total", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
   });
 
-  it("names the month and counts only receipts bought in it, in the company's currency", () => {
+  const at7Nov = () => {
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date(2026, 10, 7, 12, 0)); // 7 November, local time
+    vi.setSystemTime(new Date(2026, 10, 7, 12, 0)); // 7 November 2026, local time
+  };
+  const renderWith = (receipts: Receipt[], homeCurrency = "SEK") =>
     render(
       <Dashboard
         userEmail="owner@example.se"
-        receipts={[
-          receipt({ id: "oct", total: 1217, currency: "SEK", purchased_at: "2026-10-14T12:00:00Z", receipt_date: "2026-10-14" }),
-        ]}
+        receipts={receipts}
         forwardingEmail="receipts+abc@in.unreceipt.com"
         intakeSmsNumber={null}
-        homeCurrency="EUR"
+        homeCurrency={homeCurrency}
       />,
     );
-    // The month is known only after mount (the server renders in UTC).
-    const card = screen.getByText("November").parentElement!;
-    // October's receipt isn't this month's; zero is shown in the company's currency.
-    expect(card.textContent).toMatch(/€0/);
-    expect(card.textContent).not.toMatch(/1[ ,.]?217/);
+  // The card is the select's parent; its text is the amount plus the label.
+  const totalCard = () => screen.getByRole("combobox", { name: /Show the total for/ }).parentElement!;
+
+  const OCT = receipt({ id: "oct", total: 1217, currency: "SEK", purchased_at: "2026-10-14T12:00:00Z", receipt_date: "2026-10-14" });
+  const NOV = receipt({ id: "nov", total: 245, currency: "SEK", purchased_at: null, receipt_date: "2026-11-03" });
+  const LAST_YEAR = receipt({ id: "old", total: 100, currency: "SEK", purchased_at: null, receipt_date: "2025-12-20" });
+
+  it("starts on this month, named, in the company's currency", () => {
+    at7Nov();
+    renderWith([OCT], "EUR");
+    expect(totalCard().textContent).toMatch(/November/);
+    // October's receipt isn't this month's.
+    expect(totalCard().textContent).toMatch(/€0/);
+    expect(totalCard().textContent).not.toMatch(/1[ ,.]?217/);
   });
 
-  it("counts a receipt bought this month by its date alone", () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date(2026, 10, 7, 12, 0));
-    render(
-      <Dashboard
-        userEmail="owner@example.se"
-        receipts={[receipt({ id: "nov", total: 245, currency: "SEK", purchased_at: null, receipt_date: "2026-11-03" })]}
-        forwardingEmail="receipts+abc@in.unreceipt.com"
-        intakeSmsNumber={null}
-        homeCurrency="SEK"
-      />,
-    );
-    expect(screen.getByText("November").parentElement!.textContent).toMatch(/245/);
+  it("offers this month, every month with a receipt (newest first) and all time", () => {
+    at7Nov();
+    renderWith([OCT, NOV, LAST_YEAR]);
+    const options = within(screen.getByRole("combobox", { name: /Show the total for/ }))
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(options).toEqual(["November", "October", "December 2025", "All time"]);
+  });
+
+  it("shows the total for the month or for all time that the user picks", async () => {
+    at7Nov();
+    renderWith([OCT, NOV, LAST_YEAR]);
+    const select = screen.getByRole("combobox", { name: /Show the total for/ });
+    expect(totalCard().textContent).toMatch(/245/);
+
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).selectOptions(select, "2026-10");
+    expect(totalCard().textContent).toMatch(/1[ ,.]?217/);
+    expect(totalCard().textContent).toMatch(/October/);
+
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).selectOptions(select, "all");
+    expect(totalCard().textContent).toMatch(/1[ ,.]?562/);
+    expect(totalCard().textContent).toMatch(/All time/);
   });
 });
