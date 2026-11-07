@@ -13,7 +13,8 @@ One app for both roles. It opens `app.unreceipt.com/app`, which sends accountant
 | `scripts/ios-sync.mjs` | `npm run ios:sync`: copies the config, the offline page and the plugins into `ios/` |
 | `ios/App/App/NavigationGuardPlugin.swift` | Our first native code. Keeps only app.unreceipt.com inside the app; every other page opens in Safari, because every page inside the app gets the native bridge |
 | `ios/App/App/DownloadsPlugin.swift` | Downloads: fetches a receipt PDF, an original or an export and opens the share sheet (Save to Files, Mail, AirDrop) |
-| `ios/App/App/AppViewController.swift` | Registers our own plugins (set as the screen's class in `Main.storyboard`) |
+| `ios/App/App/WebViewDelegateProxy.swift` | Safety net: a file that would replace the page goes to the share sheet, so the app never gets stuck on a PDF; a cancelled load doesn't show the offline screen |
+| `ios/App/App/AppViewController.swift` | Registers our own plugins and the safety net (set as the screen's class in `Main.storyboard`) |
 
 The screens are the website, so a website deploy reaches the app without a new App Store review. Native code goes in `ios/` (Swift).
 
@@ -95,7 +96,7 @@ The Simulator reaches the Mac's `localhost`, so this shows your local `npm run d
 7. **Dark mode:** switch the iPhone to dark mode. The app stays light, with a dark clock and battery on cream.
 8. **Prices:** no prices, "subscribe" or "free week" anywhere (PR #102 must be live on the server for this).
 
-9. **Downloads** (needs a new build: press ▶ in Xcode once, because this is native code):
+9. **Downloads** (needs a new build: `git pull`, `npm run ios:sync`, then ▶ in Xcode, because this is native code; an older build still opens the PDF full screen):
    - Open a receipt and tap **Download PDF**: "Preparing your file…" appears, then the share sheet. Choose **Save to Files** and check the PDF opens.
    - Settings → **Export** a month, then tap the ZIP: the share sheet again.
    - In a receipt's **Original** tab, tap **Download original**.
