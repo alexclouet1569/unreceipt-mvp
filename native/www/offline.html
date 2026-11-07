@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UnReceipt</title>
+<!--
+  Shown by the app when app.unreceipt.com can't be reached (server.errorPath
+  in capacitor.config.ts), so it never shows a blank screen. Bundled in the
+  app: it must work with no connection at all. Colours and type: DESIGN.md.
+-->
+<style>
+  @font-face { font-family: Manrope; font-weight: 400; src: url(fonts/Manrope-Regular.otf); }
+  @font-face { font-family: Manrope; font-weight: 700; src: url(fonts/Manrope-Bold.otf); }
+  :root {
+    --surface: #FAFAF7; --ink: #303568; --ink-muted: #5A5F7A;
+    --brand-action: #1A7F52; --brand-action-deep: #176E47;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--surface); }
+  body {
+    font-family: Manrope, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    -webkit-user-select: none; user-select: none;
+  }
+  main { width: 100%; max-width: 360px; text-align: center; }
+  .mark { width: 64px; height: 64px; margin: 0 auto 24px; display: block; }
+  h1 { font-size: 24px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; margin: 0 0 8px; }
+  p { font-size: 15px; line-height: 1.5; color: var(--ink-muted); margin: 0 0 24px; }
+  button {
+    font: inherit; font-size: 15px; font-weight: 700;
+    width: 100%; height: 48px; border: 0; border-radius: 10px;
+    background: var(--brand-action); color: #fff;
+  }
+  button:active { background: var(--brand-action-deep); }
+  button:focus-visible { outline: 2px solid var(--brand-action); outline-offset: 3px; }
+  button[disabled] { opacity: 0.6; }
+</style>
+</head>
+<body>
+<main>
+  <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+    <rect width="100" height="100" rx="22" fill="#303568"/>
+    <g transform="translate(19 19) scale(0.96875)">
+      <path d="M30 14 H56 A2 2 0 0 1 58 16 V49 L55.5 52 L52.5 49 L49.5 52 L46.5 49 L43.5 52 L40.5 49 L37.5 52 L34.5 49 L31.5 52 L30 49 Z" fill="#FAFAF7"/>
+      <rect x="36" y="22" width="14" height="2.6" rx="1.3" fill="#27BE7B"/>
+      <rect x="33" y="29" width="20" height="2.6" rx="1.3" fill="#27BE7B"/>
+      <rect x="33" y="36" width="17" height="2.6" rx="1.3" fill="#27BE7B"/>
+      <rect x="33" y="43" width="14" height="2.6" rx="1.3" fill="#27BE7B"/>
+      <path d="M30 26 A12 12 0 1 1 23 11" stroke="#27BE7B" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <path d="M19.5 11 L25.5 7.5 L25.5 14.5 Z" fill="#27BE7B"/>
+    </g>
+  </svg>
+  <h1>You're offline</h1>
+  <p>UnReceipt needs a connection to show your receipts. Check your Wi-Fi or mobile data, then try again.</p>
+  <button type="button" id="retry">Try again</button>
+</main>
+<script src="start-url.js"></script>
+<script>
+  // start-url.js is written by `npm run ios:sync` for development servers;
+  // without it, the app goes back to production.
+  var START = window.UNRECEIPT_START_URL || "https://app.unreceipt.com/app";
+  var button = document.getElementById("retry");
+  function retry() {
+    button.disabled = true;
+    button.textContent = "Connecting…";
+    window.location.replace(START);
+  }
+  button.addEventListener("click", retry);
+  // Come back by itself as soon as the phone is online again.
+  window.addEventListener("online", retry);
+  // The splash screen waits for the website to hide it; it never loaded.
+  try { window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) {}
+</script>
+</body>
+</html>

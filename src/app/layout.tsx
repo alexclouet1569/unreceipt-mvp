@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL } from "@/lib/seo";
 import "./globals.css";
+import { NativeAppBridge } from "./_native-app-bridge";
 
 const APP_HOST = "app.unreceipt.com";
 
@@ -126,6 +127,7 @@ export default async function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <TooltipProvider>{children}</TooltipProvider>
+        <NativeAppBridge />
         <Analytics />
         <SpeedInsights />
       </body>
