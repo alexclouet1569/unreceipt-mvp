@@ -17,7 +17,7 @@ Paste this at the start of a new Claude Code session:
 | #107 | Safety net: `WebViewDelegateProxy.swift`. A file (PDF, ZIP) that would replace the page goes to the share sheet, and a cancelled load doesn't show the offline page. |
 
 **Tested by the founder in the iOS Simulator (iPhone 18 Pro, iOS 27), on the #103 build:** sign-in, receipts, layout, prices hidden, month picker. **Not yet tested:**
-- downloads (#106/#107);
+- ~~downloads (#106/#107)~~: **works on the Simulator (2026-11-07, after #110)**, founder: "everything worked";
 - a real iPhone;
 - offline (Airplane mode);
 - the Firm portal "Join" link.
@@ -30,11 +30,11 @@ Paste this at the start of a new Claude Code session:
 - So the project is fine; only the Xcode window fails.
 - **Root cause of the full-screen PDF (found 2026-11-07 from the `ios:run` log, no `[UnReceipt] native code loaded` line):** `SceneDelegate.swift` set `CAPBridgeViewController()` as the root screen, so `AppViewController` never ran and NavigationGuard, Downloads and the safety net were never registered, since #103. Fixed: `AppViewController()`, guarded by `src/lib/__tests__/ios-shell.test.ts`. (The earlier "old build" explanation was wrong.)
 
-**Workaround in place:** `npm run ios:run` (`scripts/ios-run.mjs`) builds with xcodebuild, installs over the old build and opens the app with its log in Terminal; `--clean` clears the package caches. Native code now logs `[UnReceipt] …` lines (downloads, safety net). Next: founder runs `npm run ios:run`, tests Download PDF, sends the `[UnReceipt]` lines. The Xcode window is still needed for a real iPhone and for TestFlight uploads; if it still fails after `--clean`, consider replacing `@capacitor/splash-screen` (the only local-path package) with an app-local splash plugin.
+**Workaround in place:** `npm run ios:run` (`scripts/ios-run.mjs`) builds with xcodebuild, installs over the old build and opens the app with its log in Terminal; `--clean` clears the package caches. Native code now logs `[UnReceipt] …` lines (downloads, safety net). Founder ran it on 2026-11-07: `[UnReceipt] native code loaded` appears and downloads work. In Xcode 27 the simulator shows in **Device Hub** (Simulator.app is gone); `ios:run` opens it. The Xcode window is still needed for a real iPhone and for TestFlight uploads; if it still fails after `--clean`, consider replacing `@capacitor/splash-screen` (the only local-path package) with an app-local splash plugin.
 
 ## Next work (plan steps in `docs/plans/unreceipt-store-apps-plan.md`)
 
-1. Get downloads verified on the Simulator: Download PDF → share sheet → Save to Files; export ZIP; Download original; still signed in afterwards.
+1. ~~Get downloads verified on the Simulator~~ (done 2026-11-07). Still to check on a real iPhone.
 2. Founder: commit `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` after a successful build.
 3. B5: document scanner in Swift (VisionKit `VNDocumentCameraViewController`) as an app-local plugin like `DownloadsPlugin`, feeding the existing `CaptureDialog` → `/api/ocr` flow.
 4. Push notifications (B8), then the share extension (B7). Both need the paid Apple account.
