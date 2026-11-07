@@ -280,6 +280,26 @@ describe("CaptureDialog", () => {
     expect((captureCall()![1].body as FormData).get("image")).toBeNull();
   });
 
+  it("opens the photo full screen, and deletes it from there", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(okResponse({ not_a_receipt: true }));
+    renderDialog();
+
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+    await user.click(await screen.findByRole("button", { name: /View photo full screen/i }));
+
+    const viewer = await screen.findByTestId("photo-viewer");
+    expect(viewer).toHaveTextContent("Your photo");
+    expect(screen.getByRole("button", { name: /Zoom in/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Delete photo/i }));
+
+    await waitFor(() => expect(screen.queryByTestId("photo-viewer")).toBeNull());
+    expect(screen.queryByRole("button", { name: /View photo full screen/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /Upload file/i })).toBeInTheDocument();
+    // Focus lands on the button that replaced the photo, not on the page.
+    await waitFor(() => expect(screen.getByRole("button", { name: /Take photo/i })).toHaveFocus());
+  });
+
   it("works out the VAT from the rate, and stops once the customer types it", async () => {
     const user = userEvent.setup();
     renderDialog();

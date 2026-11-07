@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhotoViewer } from "@/components/receipt/PhotoViewer";
 import type { ReceiptOriginalKind } from "@/lib/types";
 
 // Tailwind utility helper kept inline — the project's Button primitive
@@ -155,6 +156,30 @@ export function OriginalSourceViewer({
   );
 }
 
+// Tap the photo to open it full screen and zoom in. No delete here: the
+// original is the receipt's evidence.
+function ZoomableOriginal({ url }: { url: string }) {
+  const [viewing, setViewing] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setViewing(true)}
+        aria-label="View original full screen"
+        className="block w-full rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="Original receipt"
+          className="w-full max-h-[60vh] object-contain rounded-md bg-[var(--background)]"
+        />
+      </button>
+      <PhotoViewer open={viewing} onOpenChange={setViewing} src={url} alt="Original receipt" title="Original" />
+    </>
+  );
+}
+
 function ArtifactBody({
   kind,
   url,
@@ -167,14 +192,7 @@ function ArtifactBody({
   smsFromHint?: string | null;
 }) {
   if (kind === "image/jpeg" || kind === "image/png" || kind === "image/webp") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={url}
-        alt="Original receipt"
-        className="w-full max-h-[60vh] object-contain rounded-md bg-[var(--background)]"
-      />
-    );
+    return <ZoomableOriginal url={url} />;
   }
 
   if (kind === "application/pdf") {

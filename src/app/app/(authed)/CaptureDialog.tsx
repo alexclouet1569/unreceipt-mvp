@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type Ref,
   useEffect,
   useRef,
   useState,
@@ -45,6 +46,7 @@ import {
 import type { OcrItem, OcrResult, OcrVatLine } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
+import { PhotoViewer } from "@/components/receipt/PhotoViewer";
 import { cn } from "@/lib/utils";
 import {
   PAYMENT_METHOD_SUGGESTIONS,
@@ -141,6 +143,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // `capture` pushed iOS straight to the camera and buried the gallery.
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  // Where focus goes after "Delete photo" in the photo viewer: the viewer and
+  // the thumbnail that opened it are gone, and this button replaces them.
+  const takePhotoButtonRef = useRef<HTMLButtonElement>(null);
   // Bumped whenever the photo is dropped or the sheet closes, so an OCR
   // answer that arrives late can't fill a form it no longer belongs to.
   const ocrRunRef = useRef(0);
@@ -557,6 +562,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                     imagePreview={imagePreview}
                     file={imageFile}
                     onRemove={removeImage}
+                    onRemovedInViewer={() =>
+                      requestAnimationFrame(() => takePhotoButtonRef.current?.focus())
+                    }
                   />
                 ) : null}
                 <div className="min-w-0 flex-1">
@@ -739,7 +747,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
                 ) : null}
                 {!imageFile ? (
                   <>
-                    <TextButton onClick={() => cameraInputRef.current?.click()}>
+                    <TextButton
+                      buttonRef={takePhotoButtonRef}
+                      onClick={() => cameraInputRef.current?.click()}
+                    >
                       <Camera className="size-4" aria-hidden="true" />
                       Take photo
                     </TextButton>
@@ -1021,22 +1032,55 @@ function PhotoThumb({
   imagePreview,
   file,
   onRemove,
+  onRemovedInViewer,
 }: {
   imagePreview: string | null;
   file: File;
   onRemove: () => void;
+  onRemovedInViewer?: () => void;
 }) {
+  const [viewing, setViewing] = useState(false);
+  // A photo opens full screen to check the details against it; a PDF has no
+  // preview here (the saved receipt's Original tab shows it).
+  const canView = !!imagePreview && imagePreview !== "__pdf__";
+  const frame =
+    "block h-[84px] w-16 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]";
   return (
     <div className="relative shrink-0">
-      <div className="h-[84px] w-16 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]">
-        <ThumbContent imagePreview={imagePreview} file={file} />
-      </div>
+      {canView ? (
+        <button
+          type="button"
+          onClick={() => setViewing(true)}
+          aria-label="View photo full screen"
+          className={cn(frame, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+        >
+          <ThumbContent imagePreview={imagePreview} file={file} />
+        </button>
+      ) : (
+        <div className={frame}>
+          <ThumbContent imagePreview={imagePreview} file={file} />
+        </div>
+      )}
+      {canView ? (
+        <PhotoViewer
+          open={viewing}
+          onOpenChange={setViewing}
+          src={imagePreview}
+          alt={`Receipt photo ${file.name}`}
+          onDelete={() => {
+            onRemove();
+            onRemovedInViewer?.();
+          }}
+        />
+      ) : null}
       {/* 44px tap target around a small visual badge. */}
       <button
         type="button"
         onClick={onRemove}
         aria-label="Remove photo"
-        className="absolute -top-3 -right-4 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        // Mostly outside the thumbnail, which is a button too: a tap on the
+        // photo opens it, only the badge's corner removes it.
+        className="absolute -top-5 -right-6 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span className="flex size-6 items-center justify-center rounded-full border border-[var(--hairline)] bg-card text-[var(--ink-muted)]">
           <X className="size-3.5" aria-hidden="true" />
@@ -1150,12 +1194,15 @@ function Switch({
 function TextButton({
   onClick,
   children,
+  buttonRef,
 }: {
   onClick: () => void;
   children: ReactNode;
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onClick}
       className="flex h-11 items-center gap-2 rounded-[10px] px-1 text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
