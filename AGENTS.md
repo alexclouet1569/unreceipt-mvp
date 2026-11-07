@@ -125,6 +125,8 @@ One Capacitor app wraps `app.unreceipt.com` for both roles (plan: `docs/plans/un
 
 - The store apps sell nothing and point to no purchase elsewhere (App Store 3.1.3(f); the same rule on Android). Inside the app: no prices, plan suggestions, trial copy, "subscribe" or links to the marketing site; `/subscribe` shows a neutral screen and `/api/checkout` answers 403. Any new surface that mentions prices or plans must take the same native variant.
 - The user agent is display-only. Never use it for access, limits or anything a user gains by faking it.
+- The iOS project is `ios/` (Swift Package Manager), configured in `capacitor.config.ts`; how to run it: `native/README.md`. `server.url` must stay the bare origin (`https://app.unreceipt.com`, start page via `appStartPath`): Capacitor keeps a link inside the app only when it starts with that URL, and opens everything else in Safari. Every page inside the app gets the native bridge (`window.Capacitor` and every plugin), and that prefix check alone would also accept look-alikes such as `app.unreceipt.com.evil.com`, so `NavigationGuardPlugin` (`ios/App/App/NavigationGuardPlugin.swift`) keeps only the exact host (scheme, host, port) inside the app. Never iframe third-party HTML in the app either: any frame can post to the bridge. Release builds refuse to build unless `capacitor.config.json` points at production (Xcode build phase). Debug builds use the bundle ID `com.unreceipt.app.dev`; release builds `com.unreceipt.app`. `APP_VERSION` in `capacitor.config.ts` must match the Xcode version.
+- Inside the app the service worker isn't registered (`_client-shell.tsx`), and `NativeAppBridge` (root layout) hides the splash once the page has painted.
 
 # Region
 

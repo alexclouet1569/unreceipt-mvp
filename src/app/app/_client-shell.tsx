@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { parseNativeApp } from "@/lib/native-app";
 
 /**
  * Browser-only shell mounted by /app/layout.tsx so it wraps both the
@@ -47,7 +48,10 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       hostname === "localhost" ||
       hostname === "127.0.0.1" ||
       hostname.endsWith(".vercel.app");
-    if (isAppHost && "serviceWorker" in navigator) {
+    // Not inside the store app: the app always loads the live site, and a
+    // service-worker cache there could serve stale code after a deploy.
+    const inStoreApp = Boolean(parseNativeApp(navigator.userAgent));
+    if (isAppHost && !inStoreApp && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 

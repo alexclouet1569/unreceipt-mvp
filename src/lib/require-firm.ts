@@ -132,6 +132,37 @@ async function claimPendingMembership(
   };
 }
 
+/**
+ * The firm this user works in or is invited to, for a link to /firm from the
+ * company side (in the store app there's no address bar to type /firm).
+ * Read-only: a pending invite is claimed only when /firm itself is opened
+ * (requireFirmMember), and only for the confirmed address it was sent to;
+ * the caller shows it as "Join", so opening it is the user's choice.
+ */
+export async function findFirmForUser(
+  user: User,
+): Promise<{ firmName: string; pending: boolean } | null> {
+  const membership = await getFirmMembership(user.id);
+  if (membership) return { firmName: membership.firmName, pending: false };
+  if (!user.email || !user.email_confirmed_at) return null;
+  const { data, error } = await getSupabaseAdmin()
+    .from("firm_members")
+    .select(MEMBER_SELECT)
+    .eq("email", user.email.trim().toLowerCase())
+    .is("user_id", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("[require-firm] pending firm lookup failed", error.code);
+    return null;
+  }
+  if (!data) return null;
+  // Pending: the link must read as an invitation to join, never as a firm
+  // the user already belongs to (any firm admin can add any address).
+  return { firmName: firmName(data as unknown as MemberRow), pending: true };
+}
+
 /** The user's firm membership, claiming a pending invite row if there is one. */
 export async function resolveFirmMembership(
   user: User

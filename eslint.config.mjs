@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Xcode project: generated files and the copied web assets.
+    "ios/**",
   ]),
 ]);
 

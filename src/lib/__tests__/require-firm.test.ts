@@ -57,6 +57,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 
 import {
   FirmAuthError,
+  findFirmForUser,
   firmAuthResponse,
   getFirmMembership,
   isUuid,
@@ -191,5 +192,28 @@ describe("isUuid", () => {
   it("accepts v4 ids and rejects the rest", () => {
     expect(isUuid(ORG)).toBe(true);
     expect(isUuid("not-a-uuid")).toBe(false);
+  });
+});
+
+describe("findFirmForUser", () => {
+  it("names the firm the user works in", async () => {
+    mocks.memberRead.mockResolvedValue({ data: MEMBER_ROW, error: null });
+    expect(await findFirmForUser(USER as never)).toEqual({ firmName: "Byrån AB", pending: false });
+  });
+
+  it("names a firm that invited the confirmed address, without claiming it", async () => {
+    mocks.pendingRead.mockResolvedValue({ data: { ...MEMBER_ROW, firms: [{ name: "Byrån AB" }] }, error: null });
+    expect(await findFirmForUser(USER as never)).toEqual({ firmName: "Byrån AB", pending: true });
+    expect(mocks.pendingRead).toHaveBeenCalledWith({ email: "eva@byran.se", user_id: null });
+    expect(mocks.claim).not.toHaveBeenCalled();
+    expect(mocks.updatePayload).toBeNull();
+  });
+
+  it("is null for an unconfirmed address, no firm, or a failed lookup", async () => {
+    expect(await findFirmForUser({ ...USER, email_confirmed_at: null } as never)).toBeNull();
+    expect(mocks.pendingRead).not.toHaveBeenCalled();
+    expect(await findFirmForUser(USER as never)).toBeNull();
+    mocks.pendingRead.mockResolvedValue({ data: null, error: { code: "XX000" } });
+    expect(await findFirmForUser(USER as never)).toBeNull();
   });
 });

@@ -50,3 +50,6 @@ next-env.d.ts
 !/evals/receipt-ocr/real/labels.example.json
 /.claude/hillclimb/*/*
 !/.claude/hillclimb/*/_state.json
+
+# store app: written by `npm run ios:sync` for the build's server
+/native/www/start-url.js
