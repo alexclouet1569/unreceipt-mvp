@@ -115,10 +115,17 @@ console.log("  Build succeeded.");
 
 step("Starting the simulator");
 if (device.state !== "Booted") run("xcrun", ["simctl", "boot", device.udid]);
-// Simulator.app lives inside Xcode; `open -a Simulator` can't always find it.
+// Xcode 27 replaced Simulator.app with Device Hub; older Xcodes still have
+// Simulator.app inside Xcode.
 const simulatorApp = join(read("xcode-select", ["-p"]).trim(), "Applications/Simulator.app");
-if (!run("open", [simulatorApp], { stdio: "ignore" }) && !run("open", ["-a", "Simulator"])) {
-  console.log("  Couldn't open the Simulator window. The app still runs; open Simulator from Spotlight.");
+const opened =
+  run("open", ["-a", "DeviceHub"], { stdio: "ignore" }) ||
+  run("open", ["-a", "Device Hub"], { stdio: "ignore" }) ||
+  run("open", [simulatorApp], { stdio: "ignore" }) ||
+  run("open", ["-a", "Simulator"], { stdio: "ignore" });
+if (!opened) {
+  console.log("  Couldn't open the simulator window. The app still runs: open Device Hub");
+  console.log("  (Xcode → Open Developer Tool → Device Hub) and pick " + device.name + ".");
 }
 run("xcrun", ["simctl", "bootstatus", device.udid, "-b"], { stdio: "ignore" });
 

@@ -46,7 +46,7 @@ Quit Xcode first (⌘Q). Then, in Terminal, in the repository folder:
 npm run ios:run
 ```
 
-It copies the config into `ios/`, builds the app, starts the Simulator, installs this build over the old one (you stay signed in) and opens it. The first build takes 3 to 8 minutes. Terminal then shows the app's log until you press Ctrl-C. Lines starting with `[UnReceipt]` come from our native code; copy them to Claude when something goes wrong.
+It copies the config into `ios/`, builds the app, starts the Simulator (in Xcode 27 it shows inside **Device Hub**, which replaced the Simulator app: Xcode → Open Developer Tool → Device Hub), installs this build over the old one (you stay signed in) and opens it. The first build takes 3 to 8 minutes. Terminal then shows the app's log until you press Ctrl-C. Lines starting with `[UnReceipt]` come from our native code; copy them to Claude when something goes wrong.
 
 The splash shows, then the UnReceipt login. Sign in with an existing account.
 
