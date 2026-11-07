@@ -1,4 +1,5 @@
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
@@ -21,6 +22,7 @@ import { getDefaultOrganizationId } from "@/lib/organizations";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { firmExitNotice, planFirmExit } from "@/lib/firm/account-exit";
 import { getNativeApp } from "@/lib/native-app-server";
+import { findFirmForUser } from "@/lib/require-firm";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -94,6 +96,7 @@ export default async function SettingsPage() {
     homeCurrency,
     firmNotice,
     nativeApp,
+    firm,
   ] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
@@ -103,6 +106,11 @@ export default async function SettingsPage() {
     getDefaultOrganizationId(user.id).then(homeCurrencyOf),
     loadFirmNotice(user.id),
     getNativeApp(),
+    findFirmForUser(user).catch((err) => {
+      console.error("[/app/settings] firm lookup failed", err);
+      Sentry.captureException(err, { tags: { area: "settings-firm-link" } });
+      return null;
+    }),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -129,6 +137,34 @@ export default async function SettingsPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+        {firm ? (
+          <section aria-labelledby="firm-portal-heading">
+            <SectionLabel id="firm-portal-heading">Firm portal</SectionLabel>
+            {/* The way from the company side to /firm for people in both: in
+                the store app there's no address bar to type it. */}
+            <Link
+              href="/firm"
+              className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+              style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
+            >
+              <span className="min-w-0">
+                <span
+                  className="block text-[var(--ink)] [overflow-wrap:anywhere]"
+                  style={{ fontSize: "15px", fontWeight: 600 }}
+                >
+                  {firm.pending ? `Join ${firm.firmName}` : `Open ${firm.firmName}`}
+                </span>
+                <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+                  {firm.pending
+                    ? "This firm added your email to its portal. Join only if you work there."
+                    : "Your clients\u2019 receipts, bookkeeping exports and colleagues."}
+                </span>
+              </span>
+              <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
+            </Link>
+          </section>
+        ) : null}
+
         <section aria-labelledby="intake-heading">
           <SectionLabel id="intake-heading">Send us receipts</SectionLabel>
           <div className="space-y-3">
@@ -155,7 +191,7 @@ export default async function SettingsPage() {
             ) : null}
             <Link
               href="/app/settings/forwarding"
-              className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors"
+              className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
               style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
             >
               <span>

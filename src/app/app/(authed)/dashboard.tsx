@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +36,9 @@ type DashboardProps = {
   showOnboarding?: boolean;
   // Accounting-firm invites waiting for this user's answer.
   accountantInvites?: PendingAccountantInvite[];
+  // The company's currency (organizations.currency); "0" this month is
+  // shown in it.
+  homeCurrency?: string;
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -50,6 +53,7 @@ export function Dashboard({
   intakeSmsNumber,
   showOnboarding = false,
   accountantInvites = [],
+  homeCurrency,
 }: DashboardProps) {
   const [captureOpen, setCaptureOpen] = useState(false);
   // Once started, onboarding stays until finished — even after the first
@@ -92,22 +96,32 @@ export function Dashboard({
     return receipts;
   }, [receipts, filter]);
 
-  const stats = useMemo(() => {
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-    const monthIso = monthStart.toISOString().slice(0, 10);
+  // "This month" in the user's own calendar, known only in the browser: the
+  // server renders in UTC, so around midnight on the 1st it would name (and
+  // total) a different month than the phone, and React would see a mismatch.
+  const [month, setMonth] = useState<{ year: number; index: number; label: string } | null>(null);
+  useEffect(() => {
+    const now = new Date();
+    // One-off after mount: the server can't know the user's month.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMonth({
+      year: now.getFullYear(),
+      index: now.getMonth(),
+      label: new Intl.DateTimeFormat("en-GB", { month: "long" }).format(now),
+    });
+  }, []);
 
-    const baseCurrency = receipts[0]?.currency ?? "EUR";
+  const stats = useMemo(() => {
+    const baseCurrency = homeCurrency ?? receipts[0]?.currency ?? "EUR";
     // In the company's currency; a receipt not converted yet stays apart
-    // (DESIGN.md, 2026-11-05).
-    const monthTotals = sumByCurrency(
-      receipts.filter((r) => (r.purchased_at ?? r.receipt_date ?? "") >= monthIso),
-    );
+    // (DESIGN.md, 2026-11-05). null until the browser knows the month.
+    const monthTotals = month
+      ? sumByCurrency(receipts.filter((r) => boughtInMonth(r, month.year, month.index)))
+      : null;
     const verified = receipts.filter((r) => r.status === "verified").length;
 
-    return { baseCurrency, monthTotals, verified };
-  }, [receipts]);
+    return { baseCurrency, monthTotals, monthLabel: month?.label ?? "This month", verified };
+  }, [receipts, homeCurrency, month]);
 
   const groupedReceipts = useMemo(() => {
     if (view === "category") {
@@ -206,8 +220,16 @@ export function Dashboard({
               <StatCard label="Receipts" lines={[String(receipts.length)]} />
               <StatCard label="Verified" lines={[String(stats.verified)]} />
               <StatCard
-                label="This month"
-                lines={stats.monthTotals ? stats.monthTotals.split(" + ") : [formatAmount(0, stats.baseCurrency)]}
+                // The month by name: "This month" read as "all receipts"
+                // when the only receipts were from an earlier month.
+                label={stats.monthLabel}
+                lines={
+                  stats.monthTotals === null
+                    ? ["–"]
+                    : stats.monthTotals
+                      ? stats.monthTotals.split(" + ")
+                      : [formatAmount(0, stats.baseCurrency)]
+                }
                 amount
               />
             </div>
@@ -396,6 +418,23 @@ function EmptyState({
       </p>
     </div>
   );
+}
+
+/**
+ * Was the receipt bought in this calendar month, in the user's own time
+ * zone? purchased_at is a UTC timestamp, so it's read through Date (00:30 on
+ * the 1st in Stockholm is still the 31st in UTC); receipt_date is already a
+ * plain calendar date.
+ */
+function boughtInMonth(r: Receipt, year: number, index: number): boolean {
+  if (r.purchased_at) {
+    const d = new Date(r.purchased_at);
+    if (!Number.isNaN(d.getTime())) return d.getFullYear() === year && d.getMonth() === index;
+  }
+  if (r.receipt_date) {
+    return r.receipt_date.slice(0, 7) === `${year}-${String(index + 1).padStart(2, "0")}`;
+  }
+  return false;
 }
 
 /**

@@ -154,7 +154,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   ]);
   // Amounts in the company's currency next to foreign ones (src/lib/fx.ts).
   // Best effort: a missing rate leaves the receipt unconverted.
-  const receipts = await ensureHomeAmounts(loadedReceipts, await homeCurrencyOf(organizationId)).catch(
+  const homeCurrency = await homeCurrencyOf(organizationId);
+  const receipts = await ensureHomeAmounts(loadedReceipts, homeCurrency).catch(
     (err) => {
       console.error("[/app] currency conversion failed", err);
       return loadedReceipts;
@@ -187,6 +188,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
           intakeSmsNumber={intakeSmsNumber}
           showOnboarding={showOnboarding}
           accountantInvites={accountantInvites}
+          homeCurrency={homeCurrency}
         />
       </>
     );
@@ -204,6 +206,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
         intakeSmsNumber={intakeSmsNumber}
         showOnboarding={showOnboarding}
           accountantInvites={accountantInvites}
+          homeCurrency={homeCurrency}
       />
     </>
   );

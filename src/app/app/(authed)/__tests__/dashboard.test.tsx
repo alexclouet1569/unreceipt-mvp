@@ -123,3 +123,46 @@ describe("Dashboard grouping and filters", () => {
     expect(screen.getByText("Kafé Ett")).toBeInTheDocument();
   });
 });
+
+describe("Dashboard month total", () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it("names the month and counts only receipts bought in it, in the company's currency", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 7, 12, 0)); // 7 November, local time
+    render(
+      <Dashboard
+        userEmail="owner@example.se"
+        receipts={[
+          receipt({ id: "oct", total: 1217, currency: "SEK", purchased_at: "2026-10-14T12:00:00Z", receipt_date: "2026-10-14" }),
+        ]}
+        forwardingEmail="receipts+abc@in.unreceipt.com"
+        intakeSmsNumber={null}
+        homeCurrency="EUR"
+      />,
+    );
+    // The month is known only after mount (the server renders in UTC).
+    const card = screen.getByText("November").parentElement!;
+    // October's receipt isn't this month's; zero is shown in the company's currency.
+    expect(card.textContent).toMatch(/€0/);
+    expect(card.textContent).not.toMatch(/1[ ,.]?217/);
+  });
+
+  it("counts a receipt bought this month by its date alone", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 7, 12, 0));
+    render(
+      <Dashboard
+        userEmail="owner@example.se"
+        receipts={[receipt({ id: "nov", total: 245, currency: "SEK", purchased_at: null, receipt_date: "2026-11-03" })]}
+        forwardingEmail="receipts+abc@in.unreceipt.com"
+        intakeSmsNumber={null}
+        homeCurrency="SEK"
+      />,
+    );
+    expect(screen.getByText("November").parentElement!.textContent).toMatch(/245/);
+  });
+});
