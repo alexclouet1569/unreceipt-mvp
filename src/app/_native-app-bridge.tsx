@@ -55,10 +55,19 @@ export function NativeAppBridge() {
       if (!(link instanceof HTMLAnchorElement)) return;
       const href = link.getAttribute("href");
       if (!href) return;
+      // Only real addresses: a file built in the page (blob:, data:, e.g. the
+      // demo's CSV) isn't fetchable by the app and is left to the web view.
+      let url: string;
+      try {
+        const parsed = new URL(href, window.location.href);
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
+        url = parsed.href;
+      } catch {
+        return;
+      }
       event.preventDefault();
       if (busy.current) return;
 
-      const url = new URL(href, window.location.href).href;
       const filename = link.getAttribute("download") || undefined;
       busy.current = true;
       clearTimeout(errorTimer);

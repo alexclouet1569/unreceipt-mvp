@@ -65,6 +65,13 @@ const config: CapacitorConfig = {
     // debug builds (Safari → Develop → your iPhone), off for release builds.
   },
   plugins: {
+    // ios/App/App/DownloadsPlugin.swift fetches only our server and this
+    // Supabase project's Storage (signed links for originals and exports).
+    // Public value: the project's API host. CAP_STORAGE_HOST for another
+    // project in development.
+    Downloads: {
+      storageHost: process.env.CAP_STORAGE_HOST || "zkomfxvyrtkwxzvbxxma.supabase.co",
+    },
     SplashScreen: {
       // The website hides the splash once it has painted
       // (src/app/_native-app-bridge.tsx, in the root layout); this is the

@@ -99,6 +99,9 @@ describe("NativeAppBridge: downloads", () => {
     (window as Win).Capacitor = { Plugins: { Downloads: { share } } };
     render(<NativeAppBridge />);
     expect(click(link({ href: "/app/settings" }))).toBe(true);
+    // A file built in the page (the demo's CSV) isn't the app's to fetch.
+    expect(click(link({ href: "blob:https://app.unreceipt.com/123", download: "x.csv" }))).toBe(true);
+    expect(click(link({ href: "data:text/csv,a,b", download: "x.csv" }))).toBe(true);
     expect(share).not.toHaveBeenCalled();
   });
 });
