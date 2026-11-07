@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useId, useState, useMemo } from "react";
 import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -125,8 +125,8 @@ export function Dashboard({
       if (k) keys.add(k);
     }
     const periods = [
-      ...[...keys].sort().reverse().map((key) => ({ key, label: monthLabel(key, today.year) })),
-      { key: "all", label: "All time" },
+      ...[...keys].sort().reverse().map((key) => ({ key, ...monthLabels(key, today.year) })),
+      { key: "all", label: "All time", short: "All time" },
     ];
     const selected = periods.find((p) => p.key === (period ?? current)) ?? periods[0];
     // In the company's currency; a receipt not converted yet stays apart
@@ -451,12 +451,21 @@ function receiptMonthKey(r: Receipt): string | null {
   return null;
 }
 
-/** "October", or "October 2025" for a month in another year. */
-function monthLabel(key: string, currentYear: number): string {
+/**
+ * "October" in the picker and on the card; another year's month is
+ * "October 2025" in the picker but "Oct 2025" on the narrow card, so the
+ * year never gets cut off (a card is ~95px wide at 390px).
+ */
+function monthLabels(key: string, currentYear: number): { label: string; short: string } {
   const [y, m] = key.split("-").map(Number);
-  const name = new Intl.DateTimeFormat("en-GB", { month: "long" }).format(new Date(y, m - 1, 1));
-  return y === currentYear ? name : `${name} ${y}`;
+  const date = new Date(y, m - 1, 1);
+  const long = new Intl.DateTimeFormat("en-GB", { month: "long" }).format(date);
+  if (y === currentYear) return { label: long, short: long };
+  const short = new Intl.DateTimeFormat("en-GB", { month: "short" }).format(date);
+  return { label: `${long} ${y}`, short: `${short} ${y}` };
 }
+
+type Period = { key: string; label: string; short: string };
 
 /**
  * The third stat card: the total for a month or for all time. The whole
@@ -470,31 +479,48 @@ function PeriodTotalCard({
   onSelect,
   lines,
 }: {
-  periods: Array<{ key: string; label: string }>;
-  selected: { key: string; label: string };
+  periods: Period[];
+  selected: Period;
   onSelect: (key: string) => void;
   lines: string[];
 }) {
+  const amountId = useId();
   return (
-    <Card className="relative focus-within:ring-2 focus-within:ring-[var(--ring)]">
+    // Ring only for keyboard focus: after a tap iOS keeps the select
+    // focused, and a lingering green ring would be a second green element.
+    <Card className="relative has-[select:focus-visible]:ring-2 has-[select:focus-visible]:ring-[var(--ring)]">
       <CardContent className="py-3 px-2 text-center">
-        {lines.map((line) => (
-          <div key={line} className="font-medium tabular-nums whitespace-nowrap font-mono text-sm">
-            {line}
-          </div>
-        ))}
-        <div className="text-xs text-muted-foreground inline-flex items-center justify-center gap-0.5 max-w-full">
-          <span className="truncate">{selected.label}</span>
-          <ChevronDown className="w-3 h-3 shrink-0" aria-hidden="true" />
+        <div id={amountId} aria-live="polite">
+          {lines.map((line) => (
+            <div
+              key={line}
+              // Totals grow ("All time" in kronor): step down rather than
+              // cut digits off, as the capture sheet does for long amounts.
+              className={
+                "font-medium tabular-nums whitespace-nowrap font-mono " +
+                (line.length > 11 ? "text-[12px] leading-5" : "text-sm")
+              }
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+        {/* The select announces the period itself, so this is visual only. */}
+        <div
+          className="text-xs text-muted-foreground flex w-full min-w-0 items-center justify-center gap-0.5"
+          aria-hidden="true"
+        >
+          <span className="truncate">{selected.short}</span>
+          <ChevronDown className="w-3 h-3 shrink-0" />
         </div>
       </CardContent>
       <select
-        aria-label="Show the total for"
+        aria-label="Total for period"
+        aria-describedby={amountId}
         value={selected.key}
         onChange={(e) => onSelect(e.target.value)}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
         // 16px keeps iOS from zooming the page when the picker opens.
-        style={{ fontSize: "16px" }}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none text-[16px]"
       >
         {periods.map((p) => (
           <option key={p.key} value={p.key}>

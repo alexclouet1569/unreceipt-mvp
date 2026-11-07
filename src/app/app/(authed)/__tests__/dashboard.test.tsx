@@ -145,7 +145,7 @@ describe("Dashboard period total", () => {
       />,
     );
   // The card is the select's parent; its text is the amount plus the label.
-  const totalCard = () => screen.getByRole("combobox", { name: /Show the total for/ }).parentElement!;
+  const totalCard = () => screen.getByRole("combobox", { name: /Total for period/ }).parentElement!;
 
   const OCT = receipt({ id: "oct", total: 1217, currency: "SEK", purchased_at: "2026-10-14T12:00:00Z", receipt_date: "2026-10-14" });
   const NOV = receipt({ id: "nov", total: 245, currency: "SEK", purchased_at: null, receipt_date: "2026-11-03" });
@@ -163,16 +163,29 @@ describe("Dashboard period total", () => {
   it("offers this month, every month with a receipt (newest first) and all time", () => {
     at7Nov();
     renderWith([OCT, NOV, LAST_YEAR]);
-    const options = within(screen.getByRole("combobox", { name: /Show the total for/ }))
+    const options = within(screen.getByRole("combobox", { name: /Total for period/ }))
       .getAllByRole("option")
       .map((o) => o.textContent);
     expect(options).toEqual(["November", "October", "December 2025", "All time"]);
   });
 
+  it("keeps another year's label short on the card and big totals readable", async () => {
+    at7Nov();
+    renderWith([receipt({ id: "big", total: 123456.78, currency: "SEK", purchased_at: null, receipt_date: "2025-12-20" })]);
+    const select = screen.getByRole("combobox", { name: /Total for period/ });
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).selectOptions(select, "2025-12");
+    expect(totalCard().textContent).toMatch(/Dec 2025/);
+    // A long amount steps down a size instead of being cut off.
+    const amount = within(totalCard()).getByText(/123/);
+    expect(amount.className).toMatch(/text-\[12px\]/);
+    // VoiceOver reads the total with the picker.
+    expect(select.getAttribute("aria-describedby")).toBeTruthy();
+  });
+
   it("shows the total for the month or for all time that the user picks", async () => {
     at7Nov();
     renderWith([OCT, NOV, LAST_YEAR]);
-    const select = screen.getByRole("combobox", { name: /Show the total for/ });
+    const select = screen.getByRole("combobox", { name: /Total for period/ });
     expect(totalCard().textContent).toMatch(/245/);
 
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).selectOptions(select, "2026-10");
