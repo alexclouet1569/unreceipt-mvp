@@ -106,9 +106,18 @@ Rules:
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.
 - Item total_amount is REQUIRED. qty and unit_amount are OPTIONAL — set to null when the receipt doesn't print them.`;
 
-// The production model. The receipt OCR eval (evals/receipt-ocr) compares
-// candidates against it before this changes.
-export const OCR_MODEL = "claude-sonnet-4-6";
+// The production model and settings. The receipt OCR eval (evals/receipt-ocr)
+// compares candidates against them before they change. 2026-11-07, 34
+// synthetic cases: Sonnet 5.5 at effort low scored the same as Sonnet 4.6
+// (97 %, same single miss) at p50 2.0 s instead of 4.5 s and a third of the
+// cost. It thinks briefly before answering, so it needs more room than the
+// answer itself (OCR_MAX_TOKENS below).
+export const OCR_MODEL = "claude-sonnet-5-5";
+export const OCR_EFFORT = "low";
+// Its longest answer in the eval (a 25-line grocery receipt) was ~1,100
+// output tokens; 8000 leaves room for thinking and ~100 item lines while
+// capping a runaway answer at about $0.08.
+export const OCR_MAX_TOKENS = 8000;
 
 // Eval-only knobs; the routes call extractReceipt() without them. Never fill
 // these from a request: they decide what each call costs.
@@ -152,12 +161,10 @@ export async function extractReceiptCall(
   const c = getClient();
   const res = await c.messages.create({
     model: options.model ?? OCR_MODEL,
-    // Items are now part of the output — a long supermarket receipt
-    // with ~30 lines can push the JSON past 1024 tokens, which
-    // truncates the response and breaks JSON.parse. 4096 gives
-    // headroom for ~100 items without breaking the bank.
-    max_tokens: options.maxTokens ?? 4096,
-    ...(options.effort ? { output_config: { effort: options.effort } } : {}),
+    // A long supermarket receipt (~30 item lines) plus the model's thinking
+    // needs several thousand tokens; a cut-off answer breaks JSON.parse.
+    max_tokens: options.maxTokens ?? OCR_MAX_TOKENS,
+    output_config: { effort: options.effort ?? OCR_EFFORT },
     system: [
       {
         type: "text",
@@ -201,13 +208,66 @@ export async function extractReceiptCall(
     throw new OcrOutputError("OCR returned no text content", call);
   }
   const raw = textBlock.text.trim();
-  const cleaned = raw.replace(/^```(?:json)?\n?|\n?```$/g, "").trim();
-  try {
-    return { ...call, result: JSON.parse(cleaned) as OcrResult };
-  } catch {
-    // Don't echo the model's output: it's receipt content (merchant,
-    // address, card digits, email text) and this message reaches logs and
-    // Sentry.
-    throw new OcrOutputError(`OCR returned non-JSON (${cleaned.length} chars)`, call);
+  // A cut-off answer is never used, even if an object can be found in it.
+  if (res.stop_reason === "max_tokens") {
+    throw new OcrOutputError(`OCR answer cut off at max_tokens (${raw.length} chars)`, call);
   }
+  const result = parseOcrJson(raw);
+  if (result) return { ...call, result };
+  // Don't echo the model's output: it's receipt content (merchant, address,
+  // card digits, email text) and this message reaches logs and Sentry.
+  throw new OcrOutputError(`OCR returned non-JSON (${raw.length} chars)`, call);
+}
+
+// Top-level keys of an answer; an object without any of them (an item
+// line, a VAT line) is not the answer.
+const RESULT_KEYS = ["merchant", "amount", "currency", "receipt_date", "not_a_receipt", "items", "tax_amount"];
+
+function asResult(value: unknown): OcrResult | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return RESULT_KEYS.some((k) => k in value) ? (value as OcrResult) : null;
+}
+
+/** The index of the `}` that closes the `{` at `start`, or -1. */
+function closingBrace(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (ch === "\\") i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') inString = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * The answer object in the model's reply. Usually the whole reply; on a hard
+ * photo (upside down) the model sometimes writes a sentence or its working
+ * first, or wraps the JSON in a code fence. The FIRST complete object with
+ * answer keys wins, so an object quoted after the answer (text printed on
+ * the receipt) can't replace it. Returns null when there is none.
+ */
+export function parseOcrJson(text: string): OcrResult | null {
+  const cleaned = text.replace(/^```(?:json)?\n?|\n?```$/g, "").trim();
+  try {
+    const whole = JSON.parse(cleaned);
+    if (whole && typeof whole === "object" && !Array.isArray(whole)) return whole as OcrResult;
+  } catch {
+    // Fall through: look for the object inside the text.
+  }
+  for (let start = cleaned.indexOf("{"); start !== -1; start = cleaned.indexOf("{", start + 1)) {
+    const end = closingBrace(cleaned, start);
+    if (end === -1) continue;
+    try {
+      const found = asResult(JSON.parse(cleaned.slice(start, end + 1)));
+      if (found) return found;
+    } catch {
+      // Not valid JSON from here; try the next brace.
+    }
+  }
+  return null;
 }
