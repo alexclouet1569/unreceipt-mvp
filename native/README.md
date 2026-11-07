@@ -11,6 +11,7 @@ One app for both roles. It opens `app.unreceipt.com/app`, which sends accountant
 | `native/www/offline.html` | Shown when the site can't be reached. Bundled in the app, so it works with no connection |
 | `native/assets/` | The icon and splash source images, plus `render-icons.mjs`, which regenerates them |
 | `scripts/ios-sync.mjs` | `npm run ios:sync`: copies the config, the offline page and the plugins into `ios/` |
+| `scripts/ios-run.mjs` | `npm run ios:run`: sync, build, install and open the app in the Simulator from Terminal, with the app's log |
 | `ios/App/App/NavigationGuardPlugin.swift` | Our first native code. Keeps only app.unreceipt.com inside the app; every other page opens in Safari, because every page inside the app gets the native bridge |
 | `ios/App/App/DownloadsPlugin.swift` | Downloads: fetches a receipt PDF, an original or an export and opens the share sheet (Save to Files, Mail, AirDrop) |
 | `ios/App/App/WebViewDelegateProxy.swift` | Safety net: a file that would replace the page goes to the share sheet, so the app never gets stuck on a PDF; a cancelled load doesn't show the offline screen |
@@ -34,12 +35,28 @@ cd unreceipt-mvp
 ```
 
 ```bash
-git checkout claude/ios-app-shell
-```
-
-```bash
 npm ci
 ```
+
+### In the Simulator (no Apple account needed): one command
+
+Quit Xcode first (⌘Q). Then, in Terminal, in the repository folder:
+
+```bash
+npm run ios:run
+```
+
+It copies the config into `ios/`, builds the app, starts the Simulator, installs this build over the old one (you stay signed in) and opens it. The first build takes 3 to 8 minutes. Terminal then shows the app's log until you press Ctrl-C. Lines starting with `[UnReceipt]` come from our native code; copy them to Claude when something goes wrong.
+
+The splash shows, then the UnReceipt login. Sign in with an existing account.
+
+- **After every `git pull`**, run `npm ci` if `package-lock.json` changed, then `npm run ios:run` again. It always builds the code in this folder, so an older build can't be left in the Simulator.
+- **"Missing package product …"** (seen in the Xcode window on 2026-11-07, while the same project built fine from Terminal): run `npm run ios:run -- --clean`. It clears Xcode's package caches for this project and builds again.
+- **Another simulator:** `npm run ios:run -- --device "iPhone 17"`.
+
+### In the Xcode window
+
+Needed for your own iPhone and, later, for uploading to TestFlight.
 
 ```bash
 npm run ios:sync
@@ -49,16 +66,9 @@ npm run ios:sync
 npm run ios:open
 ```
 
-`ios:open` opens Xcode. The first time, Xcode downloads the Capacitor Swift packages (top bar: "Resolving packages"). Wait until it finishes.
+`ios:open` opens Xcode on `ios/App/App.xcodeproj`. Open the project only this way: if `Package.swift` is also open in another Xcode window, Xcode reports "Missing package product". The first time, Xcode downloads the Capacitor Swift packages (top bar: "Resolving packages"). Wait until it finishes, pick a simulator in the top bar and press ▶ (⌘R). If it reports "Missing package product", use **File → Packages → Reset Package Caches** once; if it still does, quit Xcode, run `npm run ios:run -- --clean`, then open Xcode again.
 
 After the first successful build, commit the file Xcode creates at `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`. It pins the exact Capacitor code, not just the version tag.
-
-### In the Simulator (no Apple account needed)
-
-1. In Xcode's top bar, pick an iPhone simulator, e.g. "iPhone 16".
-2. Press ▶ (or ⌘R).
-
-The splash shows, then the UnReceipt login. Sign in with an existing account.
 
 ### On your iPhone (free Apple account)
 
@@ -96,7 +106,7 @@ The Simulator reaches the Mac's `localhost`, so this shows your local `npm run d
 7. **Dark mode:** switch the iPhone to dark mode. The app stays light, with a dark clock and battery on cream.
 8. **Prices:** no prices, "subscribe" or "free week" anywhere (PR #102 must be live on the server for this).
 
-9. **Downloads** (needs a new build: `git pull`, `npm run ios:sync`, then ▶ in Xcode, because this is native code; an older build still opens the PDF full screen):
+9. **Downloads** (needs a new build, because this is native code: `git pull`, then `npm run ios:run`. An older build opens the PDF full screen with no way back; if that happens, the Simulator is still running an old build):
    - Open a receipt and tap **Download PDF**: "Preparing your file…" appears, then the share sheet. Choose **Save to Files** and check the PDF opens.
    - Settings → **Export** a month, then tap the ZIP: the share sheet again.
    - In a receipt's **Original** tab, tap **Download original**.

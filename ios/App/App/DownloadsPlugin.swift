@@ -36,6 +36,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
     /// From WebViewDelegateProxy, on the main thread, when a file was about
     /// to replace the page. A second one while the first runs is ignored.
     func downloadFromPageLoad(_ url: URL) {
+        Self.log("safety net: a file was about to replace the page (\(Self.describe(url)))")
         guard !safetyNetBusy else { return }
         safetyNetBusy = true
         download(url, filename: nil) { [weak self] _ in
@@ -64,6 +65,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         case invalidURL = "INVALID_URL"
         case hostNotAllowed = "HOST_NOT_ALLOWED"
         case downloadFailed = "DOWNLOAD_FAILED"
+        case refused = "DOWNLOAD_REFUSED"
         case saveFailed = "SAVE_FAILED"
         case noView = "NO_VIEW"
 
@@ -72,6 +74,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
             case .invalidURL: return "Invalid download address."
             case .hostNotAllowed: return "This address can't be downloaded in the app."
             case .downloadFailed: return "The download didn't work. Check your connection and try again."
+            case .refused: return "The server didn't send the file."
             case .saveFailed: return "The file couldn't be saved on the phone."
             case .noView: return "The share sheet couldn't open."
             }
@@ -81,15 +84,27 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
     /// From the website: `Downloads.share({ url, filename })`.
     @objc func share(_ call: CAPPluginCall) {
         guard let raw = call.getString("url"), let url = URL(string: raw) else {
+            Self.log("refused: not a valid address")
             call.reject(Failure.invalidURL.message, Failure.invalidURL.rawValue)
             return
         }
+        Self.log("download asked by the page: \(Self.describe(url))")
         download(url, filename: call.getString("filename")) { result in
             switch result {
             case .success(let completed): call.resolve(["completed": completed])
             case .failure(let failure): call.reject(failure.message, failure.rawValue)
             }
         }
+    }
+
+    /// For the Xcode / `npm run ios:run` console. Only the host and path:
+    /// a signed storage link carries its token in the query.
+    static func log(_ message: String) {
+        CAPLog.print("[UnReceipt] Downloads: \(message)")
+    }
+
+    static func describe(_ url: URL) -> String {
+        "\(url.host ?? "?")\(url.path)"
     }
 
     /// Fetches `url` and opens the share sheet. Also called natively by
@@ -103,6 +118,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         let storageHost = getConfig().getString("storageHost")?.lowercased()
         let ownServer = NavigationGuardPlugin.isSameSite(url, as: server)
         guard ownServer || Self.isStorage(url, host: storageHost) else {
+            Self.log("refused: host not allowed (\(Self.describe(url)))")
             done(.failure(.hostNotAllowed))
             return
         }
@@ -132,7 +148,13 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
                 defer { session.finishTasksAndInvalidate() }
                 guard error == nil, let tempURL = tempURL,
                       let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                    done(.failure(.downloadFailed))
+                    let status = (response as? HTTPURLResponse).map { "HTTP \($0.statusCode)" } ?? "no response"
+                    Self.log("fetch failed: \(status), \(error?.localizedDescription ?? "no error"), \(cookies.count) cookie(s) sent")
+                    // A connection error (also one halfway through a file)
+                    // is about the connection; a complete answer that isn't
+                    // the file (signed out, not found) mustn't tell the user
+                    // to check their Wi-Fi.
+                    done(.failure(error == nil && response is HTTPURLResponse ? .refused : .downloadFailed))
                     return
                 }
                 let name = Self.safeFilename(requested ?? response?.suggestedFilename)
@@ -142,6 +164,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
                     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                     try FileManager.default.moveItem(at: tempURL, to: fileURL)
                 } catch {
+                    Self.log("saving failed: \(error.localizedDescription)")
                     try? FileManager.default.removeItem(at: folder)
                     done(.failure(.saveFailed))
                     return
@@ -199,6 +222,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         // Present from whatever is on top, so an open sheet or alert can't
         // make this silently do nothing and leave the page waiting.
         guard var presenter = bridge?.viewController else {
+            Self.log("no screen to show the share sheet on")
             try? FileManager.default.removeItem(at: folder)
             done(.failure(.noView))
             return
@@ -206,6 +230,8 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         while let top = presenter.presentedViewController, !top.isBeingDismissed {
             presenter = top
         }
+        // The extension only: the file name holds the merchant and date.
+        Self.log("opening the share sheet (.\(fileURL.pathExtension))")
         let sheet = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
         sheet.completionWithItemsHandler = { _, completed, _, _ in
             // The file is only needed while the sheet is open.

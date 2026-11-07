@@ -22,6 +22,9 @@ class AppViewController: CAPBridgeViewController {
             }
             webView.navigationDelegate = proxy
             delegateProxy = proxy
+            CAPLog.print("[UnReceipt] native code loaded: Downloads, NavigationGuard, safety net")
+        } else {
+            CAPLog.print("[UnReceipt] safety net NOT installed: the web view has no navigation delegate")
         }
     }
 }
