@@ -45,6 +45,7 @@ import {
 import type { OcrItem, OcrResult, OcrVatLine } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
+import { PhotoViewer } from "@/components/receipt/PhotoViewer";
 import { cn } from "@/lib/utils";
 import {
   PAYMENT_METHOD_SUGGESTIONS,
@@ -1026,11 +1027,37 @@ function PhotoThumb({
   file: File;
   onRemove: () => void;
 }) {
+  const [viewing, setViewing] = useState(false);
+  // A photo opens full screen to check the details against it; a PDF has no
+  // preview here (the saved receipt's Original tab shows it).
+  const canView = !!imagePreview && imagePreview !== "__pdf__";
+  const frame =
+    "block h-[84px] w-16 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]";
   return (
     <div className="relative shrink-0">
-      <div className="h-[84px] w-16 overflow-hidden rounded-[10px] border border-[var(--hairline)] bg-[var(--hairline)]">
-        <ThumbContent imagePreview={imagePreview} file={file} />
-      </div>
+      {canView ? (
+        <button
+          type="button"
+          onClick={() => setViewing(true)}
+          aria-label="View photo full screen"
+          className={cn(frame, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+        >
+          <ThumbContent imagePreview={imagePreview} file={file} />
+        </button>
+      ) : (
+        <div className={frame}>
+          <ThumbContent imagePreview={imagePreview} file={file} />
+        </div>
+      )}
+      {canView ? (
+        <PhotoViewer
+          open={viewing}
+          onOpenChange={setViewing}
+          src={imagePreview}
+          alt={`Receipt photo ${file.name}`}
+          onDelete={onRemove}
+        />
+      ) : null}
       {/* 44px tap target around a small visual badge. */}
       <button
         type="button"

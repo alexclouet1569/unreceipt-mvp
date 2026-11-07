@@ -231,6 +231,14 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 - **Fallback.** If the photo can't be read, the same form shows with the photo still attached, an attention notice ("We couldn't read this photo…") and the title "Fill in the details". Manual entry uses the title "Enter manually" and a back button to stage 1.
 - Placeholders describe the field ("Shop or company", "Card, Swish, cash…"); they never look like example data. No red asterisks: required fields are enforced on save.
 
+### Photo viewer
+
+`src/components/receipt/PhotoViewer.tsx` + `ZoomableImage.tsx`. Opens when the photo thumbnail in the capture sheet, or the photo in a saved receipt's **Original** tab, is tapped, so the details can be checked against the photo.
+
+- Full screen on `--ink` (Deep Space), white text: the photo is the only thing on screen, and the dark ground lets a white receipt stand out. Header: "Your photo" (15/700) and a 44px close button.
+- Pinch to zoom (100–500 %), double-tap to zoom to 250 % at the tapped point and back, drag when zoomed; the photo never leaves its frame. Below it, 44px **−** / **+** buttons with the zoom level, for a mouse or one-handed use.
+- In the capture sheet only: **Delete photo** (white button, `--destructive` text, trash icon) removes the photo and closes the viewer, same as the thumbnail's remove control. A saved receipt's original is its evidence and has no delete here.
+
 ### Empty state
 
 - `64×64` brand-tint square with rounded corners (`radius xl (20)`) holding a calm line illustration of a receipt mark.
@@ -290,6 +298,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-16 | **Action green `--brand-action` #1A7F52** for primary buttons, the FAB and focus rings (`--primary`, `--ring` point at it); `--brand` #27BE7B stays for the wordmark and accents. **`--ink-muted` set to its spec value #5A5F7A** in globals.css (it had drifted to 65% Deep Space, 3.8:1). | White on #27BE7B is 2.4:1 and the old muted text 3.8:1 — both under WCAG AA (4.5:1). Same hue, so the brand still reads green; now 5.0:1 and 6.3:1. |
 | 2026-10-16 | **Capture becomes a photo-first bottom sheet** (choose → reading → check and save), with edit-in-place rows instead of stacked input boxes, VAT worked out from the rate, and the receipt's own currency. iOS date inputs drop their native chrome (`globals.css`) so they no longer spill into the next column. | The centred dialog put nine boxes before the photo, overlapped on iPhone, scrolled its close button away and used placeholders that looked like real data. Reading the photo is the product; the form is the fallback. |
 | 2026-10-16 | **Digital receipt redesign + "Receipt saved" step.** `ReceiptDetailCard` becomes a paper receipt (perforated top, torn bottom, dotted leaders, verified stamp) and is shown right after saving as well as in the detail view. VAT moves from the mint panel to leader lines under the total. Store logos for a hand-checked list of merchants, served through our own cached endpoint. Inbox gains By date / By category grouping and category chips. | The founder wanted a receipt that feels like the one on the landing page, visible the moment it's created. Logos only where we're sure of the match: a wrong logo on an accounting record is worse than initials. The footer no longer says "Awaiting verification" on receipts nobody else will verify. |
+| 2026-11-07 | **Photo viewer**: tap a receipt photo (capture sheet, Original tab) to see it full screen on `--ink`, pinch / double-tap / ± to zoom; "Delete photo" in the capture sheet only. | The founder wanted to check the read values against the photo; a 64px thumbnail can't show the small print. The original of a saved receipt is evidence, so it can't be deleted from the viewer. |
 
 ---
 
