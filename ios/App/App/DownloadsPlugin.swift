@@ -29,16 +29,81 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         FileManager.default.temporaryDirectory.appendingPathComponent("downloads", isDirectory: true)
     }
 
+    /// One safety-net download at a time (main thread only): the user gets
+    /// no "Preparing" line on that path and may tap again.
+    private var safetyNetBusy = false
+
+    /// From WebViewDelegateProxy, on the main thread, when a file was about
+    /// to replace the page. A second one while the first runs is ignored.
+    func downloadFromPageLoad(_ url: URL) {
+        guard !safetyNetBusy else { return }
+        safetyNetBusy = true
+        download(url, filename: nil) { [weak self] _ in
+            DispatchQueue.main.async { self?.safetyNetBusy = false }
+        }
+    }
+
+    /// Removes download folders left by a share sheet the app was killed
+    /// under. Only folders older than 10 minutes, so a download still on its
+    /// way to the share sheet is never touched.
+    private static func removeStaleDownloads() {
+        let fm = FileManager.default
+        guard let folders = try? fm.contentsOfDirectory(
+            at: downloadsFolder, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        let cutoff = Date().addingTimeInterval(-600)
+        for folder in folders {
+            let created = (try? folder.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            if created < cutoff { try? fm.removeItem(at: folder) }
+        }
+    }
+
+    /// Why a download didn't happen, with the code the website reads
+    /// (src/app/_native-app-bridge.tsx: only DOWNLOAD_FAILED blames the
+    /// connection).
+    enum Failure: String, Error {
+        case invalidURL = "INVALID_URL"
+        case hostNotAllowed = "HOST_NOT_ALLOWED"
+        case downloadFailed = "DOWNLOAD_FAILED"
+        case saveFailed = "SAVE_FAILED"
+        case noView = "NO_VIEW"
+
+        var message: String {
+            switch self {
+            case .invalidURL: return "Invalid download address."
+            case .hostNotAllowed: return "This address can't be downloaded in the app."
+            case .downloadFailed: return "The download didn't work. Check your connection and try again."
+            case .saveFailed: return "The file couldn't be saved on the phone."
+            case .noView: return "The share sheet couldn't open."
+            }
+        }
+    }
+
+    /// From the website: `Downloads.share({ url, filename })`.
     @objc func share(_ call: CAPPluginCall) {
-        guard let raw = call.getString("url"), let url = URL(string: raw),
-              let server = bridge?.config.serverURL else {
-            call.reject("Invalid download address.", "INVALID_URL")
+        guard let raw = call.getString("url"), let url = URL(string: raw) else {
+            call.reject(Failure.invalidURL.message, Failure.invalidURL.rawValue)
+            return
+        }
+        download(url, filename: call.getString("filename")) { result in
+            switch result {
+            case .success(let completed): call.resolve(["completed": completed])
+            case .failure(let failure): call.reject(failure.message, failure.rawValue)
+            }
+        }
+    }
+
+    /// Fetches `url` and opens the share sheet. Also called natively by
+    /// WebViewDelegateProxy when a file was about to replace the page.
+    /// `done` reports whether the user completed a share action.
+    func download(_ url: URL, filename requested: String?, done: @escaping (Result<Bool, Failure>) -> Void) {
+        guard let server = bridge?.config.serverURL else {
+            done(.failure(.invalidURL))
             return
         }
         let storageHost = getConfig().getString("storageHost")?.lowercased()
         let ownServer = NavigationGuardPlugin.isSameSite(url, as: server)
         guard ownServer || Self.isStorage(url, host: storageHost) else {
-            call.reject("This address can't be downloaded in the app.", "HOST_NOT_ALLOWED")
+            done(.failure(.hostNotAllowed))
             return
         }
         // Redirects stay in the same lane: a request that carries the
@@ -47,10 +112,8 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         let allowed: (URL) -> Bool = ownServer
             ? { NavigationGuardPlugin.isSameSite($0, as: server) }
             : { Self.isStorage($0, host: storageHost) }
-        let requested = call.getString("filename")
 
-        // A file left by a share sheet the app was killed under goes now.
-        try? FileManager.default.removeItem(at: Self.downloadsFolder)
+        Self.removeStaleDownloads()
 
         let start = { (cookies: [HTTPCookie]) in
             var request = URLRequest(url: url)
@@ -69,7 +132,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
                 defer { session.finishTasksAndInvalidate() }
                 guard error == nil, let tempURL = tempURL,
                       let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                    call.reject("The download didn't work. Check your connection and try again.", "DOWNLOAD_FAILED")
+                    done(.failure(.downloadFailed))
                     return
                 }
                 let name = Self.safeFilename(requested ?? response?.suggestedFilename)
@@ -80,7 +143,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
                     try FileManager.default.moveItem(at: tempURL, to: fileURL)
                 } catch {
                     try? FileManager.default.removeItem(at: folder)
-                    call.reject("The file couldn't be saved on the phone.", "SAVE_FAILED")
+                    done(.failure(.saveFailed))
                     return
                 }
                 // Our server may have renewed the sign-in in this response
@@ -90,7 +153,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
                 let renewed = ownServer ? Self.cookies(from: http, for: url) : []
                 DispatchQueue.main.async {
                     self.store(renewed) {
-                        self.presentShareSheet(for: fileURL, folder: folder, call: call)
+                        self.presentShareSheet(for: fileURL, folder: folder, done: done)
                     }
                 }
             }.resume()
@@ -132,12 +195,12 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         group.notify(queue: .main, execute: done)
     }
 
-    private func presentShareSheet(for fileURL: URL, folder: URL, call: CAPPluginCall) {
+    private func presentShareSheet(for fileURL: URL, folder: URL, done: @escaping (Result<Bool, Failure>) -> Void) {
         // Present from whatever is on top, so an open sheet or alert can't
         // make this silently do nothing and leave the page waiting.
         guard var presenter = bridge?.viewController else {
             try? FileManager.default.removeItem(at: folder)
-            call.reject("The share sheet couldn't open.", "NO_VIEW")
+            done(.failure(.noView))
             return
         }
         while let top = presenter.presentedViewController, !top.isBeingDismissed {
@@ -147,7 +210,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         sheet.completionWithItemsHandler = { _, completed, _, _ in
             // The file is only needed while the sheet is open.
             try? FileManager.default.removeItem(at: folder)
-            call.resolve(["completed": completed])
+            done(.success(completed))
         }
         // Required on iPad (the app is iPhone-only, but iPads can run it).
         sheet.popoverPresentationController?.sourceView = presenter.view
