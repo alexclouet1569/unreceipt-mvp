@@ -47,13 +47,15 @@ Results land in `.claude/hillclimb/receipt-ocr/` (gitignored): one folder per va
 
 | Variant | Model | Settings |
 |---|---|---|
-| baseline | `claude-sonnet-4-6` | production today: no thinking, 4096 max tokens |
-| v1 | `claude-sonnet-5-5` | effort low |
+| baseline | `claude-sonnet-5-5` | production since 2026-11-07: effort low, 8000 max tokens (`OCR_MODEL`, `OCR_EFFORT`, `OCR_MAX_TOKENS` in `src/lib/ocr.ts`) |
+| v1 | `claude-sonnet-4-6` | the previous production model, for comparison |
 | v2 | `claude-haiku-5-5` | effort low |
 | v3 | `claude-haiku-5-5` | effort medium (its default) |
 | v4 | `claude-opus-5-5` | effort low, as a quality ceiling |
 
 The newer models think before answering by default, so they get 16000 max tokens to keep thinking from cutting off the JSON.
+
+**2026-11-07 result** (34 synthetic cases, 1 rep): Sonnet 4.6 as it ran then (no thinking, 4096 tokens) 97 % correct, p50 4.5 s, p90 7.2 s, $10.45 per 1,000 receipts; Sonnet 5.5 at effort low 97 %, p50 2.0 s, p90 2.8 s, $6.98. Both missed only the upside-down receipt, where the model wrote a sentence before the JSON; with `parseOcrJson()` reading the JSON after it, Sonnet 5.5 scored 100 %. Synthetic photos only: add real ones (below) to confirm.
 
 **Cost:** about $0.01–0.03 per call, depending on the model. A full run (34 cases × 2 reps × 5 variants = 340 calls) comes to roughly $5. `comparison.md` reports the measured cost.
 

@@ -21,8 +21,8 @@ REPORT=${REPORT_BUILDER:-}
 
 # variant | model | effort | max tokens | description
 VARIANTS=(
-  "baseline|claude-sonnet-4-6|||Production today: Sonnet 4.6, no thinking, 4096 max tokens"
-  "v1|claude-sonnet-5-5|low|16000|Sonnet 5.5, effort low"
+  "baseline|claude-sonnet-5-5|||Production since 2026-11-07: Sonnet 5.5, effort low, 8000 max tokens"
+  "v1|claude-sonnet-4-6|||Previous production model: Sonnet 4.6 (now with effort low, 8000 max tokens)"
   "v2|claude-haiku-5-5|low|16000|Haiku 5.5, effort low"
   "v3|claude-haiku-5-5|medium|16000|Haiku 5.5, effort medium (its default)"
   "v4|claude-opus-5-5|low|16000|Opus 5.5, effort low (quality ceiling)"

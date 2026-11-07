@@ -16,8 +16,8 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Vision calls typically resolve in 3-8s; give 30s headroom for large
-// images and multi-page PDFs.
+// Vision calls typically resolve in 2-3s (OCR eval, 2026-11-07); give 30s
+// headroom for long receipts and multi-page PDFs.
 export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {

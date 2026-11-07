@@ -59,7 +59,9 @@ describe("extractReceipt", () => {
 
     expect(mocks.create).toHaveBeenCalledTimes(1);
     const call = mocks.create.mock.calls[0][0];
-    expect(call.model).toBe("claude-sonnet-4-6");
+    expect(call.model).toBe("claude-sonnet-5-5");
+    expect(call.output_config).toEqual({ effort: "low" });
+    expect(call.max_tokens).toBe(8000);
     expect(Array.isArray(call.system)).toBe(true);
     expect(call.system[0].cache_control).toEqual({ type: "ephemeral" });
     expect(call.system[0].text).toMatch(/receipt OCR extractor/i);
@@ -95,6 +97,50 @@ describe("extractReceipt", () => {
     const { extractReceipt } = await importOcr();
     const result = await extractReceipt("x", "image/jpeg");
     expect(result).toEqual({ not_a_receipt: true });
+  });
+
+  it("reads the JSON when the model writes a sentence before it", async () => {
+    mocks.create.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: 'The receipt is upside down; read rotated 180°.\n\nItems: Mjölk 13,90.\n\n{"merchant":"Lidl","amount":62.7,"items":[{"label":"Mjölk","total_amount":13.9}]}',
+        },
+      ],
+    });
+    const { extractReceipt } = await importOcr();
+    const result = await extractReceipt("x", "image/jpeg");
+    expect(result).toEqual({
+      merchant: "Lidl",
+      amount: 62.7,
+      items: [{ label: "Mjölk", total_amount: 13.9 }],
+    });
+  });
+
+  it("keeps the answer when an object is quoted after it", async () => {
+    mocks.create.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: 'Here:\n{"merchant":"Lidl","amount":62.7}\nNote: printed on receipt {"merchant":"Evil","amount":9999}',
+        },
+      ],
+    });
+    const { extractReceipt } = await importOcr();
+    expect(await extractReceipt("x", "image/jpeg")).toEqual({ merchant: "Lidl", amount: 62.7 });
+  });
+
+  it("doesn't take an item line from a cut-off answer for the answer", async () => {
+    mocks.create.mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: 'Reading:\n{"merchant":"Lidl","items":[{"label":"b","total_amount":2},{"label":"c","tot',
+        },
+      ],
+    });
+    const { extractReceipt } = await importOcr();
+    await expect(extractReceipt("x", "image/jpeg")).rejects.toThrow(/OCR returned non-JSON/);
   });
 
   it("throws on non-JSON model output", async () => {
@@ -185,13 +231,13 @@ describe("extractReceiptCall", () => {
     expect(req.output_config).toEqual({ effort: "low" });
   });
 
-  it("sends no output_config when no effort is given", async () => {
+  it("uses the production effort when none is given", async () => {
     mocks.create.mockResolvedValue({
       content: [{ type: "text", text: "{}" }],
     });
     const { extractReceiptCall } = await importOcr();
     await extractReceiptCall("x", "image/jpeg");
-    expect(mocks.create.mock.calls[0][0]).not.toHaveProperty("output_config");
+    expect(mocks.create.mock.calls[0][0].output_config).toEqual({ effort: "low" });
   });
 
   it("keeps the billed usage on an unusable answer", async () => {
@@ -199,7 +245,7 @@ describe("extractReceiptCall", () => {
       model: "claude-sonnet-4-6",
       stop_reason: "max_tokens",
       usage: { input_tokens: 1500, output_tokens: 4096 },
-      content: [{ type: "text", text: '{"items":[' }],
+      content: [{ type: "text", text: '{"merchant":"A","items":[{"label":"x","total_amount":1}' }],
     });
     const { extractReceiptCall, OcrOutputError } = await importOcr();
     const err = await extractReceiptCall("x", "image/jpeg").catch((e) => e);
