@@ -175,7 +175,7 @@ function ZoomableOriginal({ url }: { url: string }) {
           className="w-full max-h-[60vh] object-contain rounded-md bg-[var(--background)]"
         />
       </button>
-      <PhotoViewer open={viewing} onOpenChange={setViewing} src={url} alt="Original receipt" />
+      <PhotoViewer open={viewing} onOpenChange={setViewing} src={url} alt="Original receipt" title="Original" />
     </>
   );
 }

@@ -237,7 +237,10 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 
 - Full screen on `--ink` (Deep Space), white text: the photo is the only thing on screen, and the dark ground lets a white receipt stand out. Header: "Your photo" (15/700) and a 44px close button.
 - Pinch to zoom (100–500 %), double-tap to zoom to 250 % at the tapped point and back, drag when zoomed; the photo never leaves its frame. Below it, 44px **−** / **+** buttons with the zoom level, for a mouse or one-handed use.
-- In the capture sheet only: **Delete photo** (white button, `--destructive` text, trash icon) removes the photo and closes the viewer, same as the thumbnail's remove control. A saved receipt's original is its evidence and has no delete here.
+- In the capture sheet only: **Delete photo** (white button, `--destructive` text, trash icon) removes the photo and closes the viewer, same as the thumbnail's remove control; focus moves to "Take photo". A saved receipt's original is its evidence and has no delete here (title "Original" there).
+- Content on `--ink` is white: text, the 1px white/40 border of the ± buttons, and the focus ring (white/60, because `--ring` on `--ink` is 2.3:1). Icon buttons use radius md (10). Opens and closes with a short (200ms) fade.
+- In the iOS app the site isn't `viewport-fit=cover` yet (`capacitor.config.ts`), so the cream bands above and below the web view stay cream: the viewer fills the web view, not the whole screen. That changes with the `viewport-fit=cover` step.
+- Known gap: a zoomed photo can be moved with touch or a mouse only, not the keyboard.
 
 ### Empty state
 

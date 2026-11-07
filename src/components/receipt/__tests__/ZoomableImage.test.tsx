@@ -27,12 +27,12 @@ describe("ZoomableImage", () => {
     render(<ZoomableImage src="data:image/png;base64,AA==" alt="Receipt" />);
     const img = screen.getByRole("img", { name: "Receipt" });
 
-    expect(screen.getByRole("button", { name: "Zoom out" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.getByRole("button", { name: /Zoom out/ })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /Zoom in/ }));
     expect(screen.getByText("150%")).toBeInTheDocument();
     expect(img.style.transform).toContain("scale(1.5)");
 
-    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    await user.click(screen.getByRole("button", { name: /Zoom out/ }));
     expect(screen.getByText("100%")).toBeInTheDocument();
   });
 });

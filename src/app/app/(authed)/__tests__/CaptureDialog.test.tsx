@@ -296,6 +296,8 @@ describe("CaptureDialog", () => {
     await waitFor(() => expect(screen.queryByTestId("photo-viewer")).toBeNull());
     expect(screen.queryByRole("button", { name: /View photo full screen/i })).toBeNull();
     expect(screen.getByRole("button", { name: /Upload file/i })).toBeInTheDocument();
+    // Focus lands on the button that replaced the photo, not on the page.
+    await waitFor(() => expect(screen.getByRole("button", { name: /Take photo/i })).toHaveFocus());
   });
 
   it("works out the VAT from the rate, and stops once the customer types it", async () => {

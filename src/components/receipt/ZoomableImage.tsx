@@ -170,7 +170,7 @@ export function ZoomableImage({ src, alt }: { src: string; alt: string }) {
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           style={{
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
-            transition: dragging ? "none" : "transform 160ms cubic-bezier(0.32, 0.72, 0, 1)",
+            transition: dragging ? "none" : "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
         />
       </div>
@@ -179,20 +179,21 @@ export function ZoomableImage({ src, alt }: { src: string; alt: string }) {
           type="button"
           onClick={() => zoomBy(1 / BUTTON_STEP)}
           disabled={view.scale <= MIN_SCALE}
-          aria-label="Zoom out"
-          className="flex size-11 items-center justify-center rounded-full border border-white/40 text-white outline-none disabled:opacity-40 focus-visible:ring-3 focus-visible:ring-white/60"
+          aria-label={`Zoom out (now ${Math.round(view.scale * 100)}%)`}
+          className="flex size-11 items-center justify-center rounded-[10px] border border-white/40 text-white outline-none disabled:opacity-40 focus-visible:ring-3 focus-visible:ring-white/60"
         >
           <Minus className="size-5" aria-hidden="true" />
         </button>
-        <span className="min-w-12 text-center text-[13px] font-medium text-white/80" aria-live="polite">
+        {/* Not live: a pinch would announce every step. */}
+        <span className="min-w-12 text-center text-[13px] font-medium text-white/80 tabular-nums">
           {Math.round(view.scale * 100)}%
         </span>
         <button
           type="button"
           onClick={() => zoomBy(BUTTON_STEP)}
           disabled={view.scale >= MAX_SCALE}
-          aria-label="Zoom in"
-          className="flex size-11 items-center justify-center rounded-full border border-white/40 text-white outline-none disabled:opacity-40 focus-visible:ring-3 focus-visible:ring-white/60"
+          aria-label={`Zoom in (now ${Math.round(view.scale * 100)}%)`}
+          className="flex size-11 items-center justify-center rounded-[10px] border border-white/40 text-white outline-none disabled:opacity-40 focus-visible:ring-3 focus-visible:ring-white/60"
         >
           <Plus className="size-5" aria-hidden="true" />
         </button>

@@ -14,12 +14,14 @@ export function PhotoViewer({
   onOpenChange,
   src,
   alt,
+  title = "Your photo",
   onDelete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   src: string;
   alt: string;
+  title?: string;
   onDelete?: () => void;
 }) {
   return (
@@ -27,13 +29,13 @@ export function PhotoViewer({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Popup
           data-testid="photo-viewer"
-          className="fixed inset-0 z-[70] flex flex-col bg-[var(--ink)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] text-white outline-none"
+          className="fixed inset-0 z-[70] flex flex-col bg-[var(--ink)] px-4 transition-opacity duration-200 data-starting-style:opacity-0 data-ending-style:opacity-0 pt-[max(12px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] text-white outline-none"
         >
           <div className="flex items-center justify-between gap-3 pb-3">
-            <DialogPrimitive.Title className="text-[15px] font-bold">Your photo</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="text-[15px] font-bold">{title}</DialogPrimitive.Title>
             <DialogPrimitive.Close
               aria-label="Close photo"
-              className="-mr-2 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-white/60"
+              className="-mr-2 flex size-11 items-center justify-center rounded-[10px] outline-none focus-visible:ring-3 focus-visible:ring-white/60"
             >
               <X className="size-6" aria-hidden="true" />
             </DialogPrimitive.Close>
