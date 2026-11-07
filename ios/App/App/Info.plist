@@ -63,5 +63,7 @@
 	<string>UnReceipt opens your photos so you can add a picture of a receipt.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 </dict>
 </plist>

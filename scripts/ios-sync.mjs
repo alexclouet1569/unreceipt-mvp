@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 
 const origin = (process.env.CAP_SERVER_URL || "https://app.unreceipt.com").replace(/\/+$/, "");
 const startUrl = `${origin}/app`;
-if (!/^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+if (!/^(https:\/\/[a-z0-9.-]+|http:\/\/(localhost|127\.0\.0\.1))(:\d+)?$/i.test(origin)) {
   console.error(`CAP_SERVER_URL must be https://… or http://localhost:<port>, got ${origin}`);
   process.exit(1);
 }

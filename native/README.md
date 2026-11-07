@@ -11,6 +11,8 @@ One app for both roles. It opens `app.unreceipt.com/app`, which sends accountant
 | `native/www/offline.html` | Shown when the site can't be reached. Bundled in the app, so it works with no connection |
 | `native/assets/` | The icon and splash source images, plus `render-icons.mjs`, which regenerates them |
 | `scripts/ios-sync.mjs` | `npm run ios:sync`: copies the config, the offline page and the plugins into `ios/` |
+| `ios/App/App/NavigationGuardPlugin.swift` | Our first native code. Keeps only app.unreceipt.com inside the app; every other page opens in Safari, because every page inside the app gets the native bridge |
+| `ios/App/App/AppViewController.swift` | Registers our own plugins (set as the screen's class in `Main.storyboard`) |
 
 The screens are the website, so a website deploy reaches the app without a new App Store review. Native code goes in `ios/` (Swift).
 
@@ -47,6 +49,8 @@ npm run ios:open
 
 `ios:open` opens Xcode. The first time, Xcode downloads the Capacitor Swift packages (top bar: "Resolving packages"). Wait until it finishes.
 
+After the first successful build, commit the file Xcode creates at `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`. It pins the exact Capacitor code, not just the version tag.
+
 ### In the Simulator (no Apple account needed)
 
 1. In Xcode's top bar, pick an iPhone simulator, e.g. "iPhone 16".
@@ -67,6 +71,8 @@ With a free account, the app stops opening after **7 days**. Press ▶ again to 
 
 **Debug builds use `com.unreceipt.app.dev` on purpose.** A free Personal Team registers whatever bundle ID you run. If it ever registered the real `com.unreceipt.app`, the paid developer account could later be told the ID "is not available". Release builds (TestFlight, App Store) use `com.unreceipt.app`.
 
+**The first build is the first time this Swift code meets a compiler.** It was written on Linux, where iOS code can't be compiled. If Xcode shows a red error, copy the message to Claude.
+
 ## Point the app at another server (development)
 
 ```bash
@@ -75,17 +81,18 @@ CAP_SERVER_URL=http://localhost:3000 npm run ios:sync
 
 The Simulator reaches the Mac's `localhost`, so this shows your local `npm run dev`. A real iPhone can't reach it; use an `https://` address there. Vercel previews are behind Vercel login, so they don't work in the app.
 
-**Before archiving for TestFlight, always run `npm run ios:sync` without `CAP_SERVER_URL`.** The script warns whenever the build points away from production.
+**Before archiving for TestFlight, run `npm run ios:sync` without `CAP_SERVER_URL`.** A Release build (Product → Archive) stops with an error otherwise.
 
 ## What to check on every build
 
 1. **Start:** the splash shows the brand icon on cream, then the site. No white flash, no blank screen.
-2. **Top and bottom edges:** the header sits below the status bar, and the + button sits above the home indicator, while scrolling too. If the header slides under the clock, tell Claude: it's the `contentInset` setting in `capacitor.config.ts`.
+2. **Top and bottom edges:** the header sits below the status bar, and the + button sits above the home indicator, while scrolling too. Open the capture sheet (+) and a dialog: today they stop at a cream band above the home indicator instead of reaching the edge. That's expected for now; tell Claude if anything else slides under the clock. It's the `contentInset` setting in `capacitor.config.ts`.
 3. **Sign in** with the 6-digit code. Close the app completely (swipe it away), reopen it, and check you're still signed in.
-4. **Links:** `/firm`, Settings and receipt details stay inside the app. The privacy page and other sites open in Safari.
+4. **Links:** `/firm`, Settings and receipt details stay inside the app. The privacy page, "Open Gmail" and other sites open in Safari. The receipt's PDF preview still shows inside the receipt.
 5. **Camera:** + → take a photo. iOS asks for camera access with UnReceipt's sentence, and the receipt is read.
-6. **Offline:** turn on Airplane mode and reopen the app. The "You're offline" screen shows. Turn Airplane mode off; it comes back by itself.
-7. **Prices:** no prices, "subscribe" or "free week" anywhere (PR #102 must be live on the server for this).
+6. **Offline:** turn on Airplane mode and reopen the app. The "Can't reach UnReceipt" screen shows. Turn Airplane mode off; it comes back by itself.
+7. **Dark mode:** switch the iPhone to dark mode. The app stays light, with a dark clock and battery on cream.
+8. **Prices:** no prices, "subscribe" or "free week" anywhere (PR #102 must be live on the server for this).
 
 Known gap: PDF and export downloads don't work inside the app yet. That's the next step (B4 in the plan).
 

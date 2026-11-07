@@ -21,12 +21,18 @@ export const APP_VERSION = "1.0.0";
 // The bare origin, no path: Capacitor keeps a link inside the app only when
 // it starts with this URL, so ".../app" would push /firm, /subscribe and
 // /auth/* out to Safari. The start page is set with appStartPath below.
-// That check is a plain string prefix, so https://app.unreceipt.com.evil.com
-// would also stay inside the app (with the native bridge): the site must
-// never redirect to a URL taken from a request (see safeNext() in
-// src/app/auth/callback/route.ts). A trailing slash would close this but
+// That check is a plain string prefix (https://app.unreceipt.com.evil.com
+// would pass it), so the app's own NavigationGuardPlugin
+// (ios/App/App/NavigationGuardPlugin.swift) runs first and keeps only this
+// exact host inside the app. A trailing slash here would also close it, but
 // breaks Capacitor's CORS header for app-local files, which the scanner needs.
-const serverUrl = process.env.CAP_SERVER_URL || "https://app.unreceipt.com";
+const serverUrl = (process.env.CAP_SERVER_URL || "https://app.unreceipt.com").replace(/\/+$/, "");
+// Checked here so every `npx cap …` command enforces it, not only
+// npm run ios:sync. Release builds are also refused by Xcode unless this is
+// production (build phase "Check production server (Release)").
+if (!/^(https:\/\/[a-z0-9.-]+|http:\/\/(localhost|127\.0\.0\.1))(:\d+)?$/i.test(serverUrl)) {
+  throw new Error(`CAP_SERVER_URL must be https://<host> or http://localhost:<port>, got ${serverUrl}`);
+}
 
 const config: CapacitorConfig = {
   appId: "com.unreceipt.app",
@@ -47,7 +53,11 @@ const config: CapacitorConfig = {
     // first paint, so there's no white flash.
     backgroundColor: "#FAFAF7",
     // Keep the website below the status bar and above the home indicator.
-    // The site doesn't use viewport-fit=cover, so iOS insets it instead.
+    // The site doesn't use viewport-fit=cover, so iOS insets it instead and
+    // the two bands show backgroundColor. To check on a notched iPhone: the
+    // capture sheet and dialog overlays stop at those bands. The fuller fix
+    // (viewport-fit=cover + "never" + env() padding on the headers) changes
+    // the website too, so it's a separate step.
     contentInset: "always",
     // Long-press link previews would open our own pages in a Safari sheet.
     allowsLinkPreview: false,
@@ -57,7 +67,8 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       // The website hides the splash once it has painted
-      // (src/app/app/_client-shell.tsx); this is the fallback if it never does.
+      // (src/app/_native-app-bridge.tsx, in the root layout); this is the
+      // fallback if it never does.
       launchAutoHide: true,
       launchShowDuration: 4000,
       launchFadeOutDuration: 200,
