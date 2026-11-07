@@ -27,7 +27,8 @@ Paste this at the start of a new Claude Code session:
 **Xcode window: "Missing package product 'splash-screen_CapacitorSplashScreen.CapacitorSplashScreen'"** (2026-11-07). Diagnosed on the founder's Mac (Xcode 27.2, Swift 6.4.2, Node 25):
 - `swift package resolve` in `ios/App/CapApp-SPM` and `xcodebuild -resolvePackageDependencies` both resolve all three packages without error.
 - `xcodebuild … -destination 'generic/platform=iOS Simulator' build` → **BUILD SUCCEEDED**, so the #106/#107 Swift compiles.
-- So the project is fine; only the Xcode window fails. Most likely the Simulator then still ran the old #103 build (both download layers missing → PDF full screen). Website side was confirmed live on Vercel (#108 in production).
+- So the project is fine; only the Xcode window fails.
+- **Root cause of the full-screen PDF (found 2026-11-07 from the `ios:run` log, no `[UnReceipt] native code loaded` line):** `SceneDelegate.swift` set `CAPBridgeViewController()` as the root screen, so `AppViewController` never ran and NavigationGuard, Downloads and the safety net were never registered, since #103. Fixed: `AppViewController()`, guarded by `src/lib/__tests__/ios-shell.test.ts`. (The earlier "old build" explanation was wrong.)
 
 **Workaround in place:** `npm run ios:run` (`scripts/ios-run.mjs`) builds with xcodebuild, installs over the old build and opens the app with its log in Terminal; `--clean` clears the package caches. Native code now logs `[UnReceipt] …` lines (downloads, safety net). Next: founder runs `npm run ios:run`, tests Download PDF, sends the `[UnReceipt]` lines. The Xcode window is still needed for a real iPhone and for TestFlight uploads; if it still fails after `--clean`, consider replacing `@capacitor/splash-screen` (the only local-path package) with an app-local splash plugin.
 

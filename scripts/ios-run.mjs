@@ -115,7 +115,11 @@ console.log("  Build succeeded.");
 
 step("Starting the simulator");
 if (device.state !== "Booted") run("xcrun", ["simctl", "boot", device.udid]);
-run("open", ["-a", "Simulator"]);
+// Simulator.app lives inside Xcode; `open -a Simulator` can't always find it.
+const simulatorApp = join(read("xcode-select", ["-p"]).trim(), "Applications/Simulator.app");
+if (!run("open", [simulatorApp], { stdio: "ignore" }) && !run("open", ["-a", "Simulator"])) {
+  console.log("  Couldn't open the Simulator window. The app still runs; open Simulator from Spotlight.");
+}
 run("xcrun", ["simctl", "bootstatus", device.udid, "-b"], { stdio: "ignore" });
 
 step("Installing this build (replaces the old one; you stay signed in)");
