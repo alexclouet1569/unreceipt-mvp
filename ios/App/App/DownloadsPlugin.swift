@@ -29,6 +29,34 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
         FileManager.default.temporaryDirectory.appendingPathComponent("downloads", isDirectory: true)
     }
 
+    /// One safety-net download at a time (main thread only): the user gets
+    /// no "Preparing" line on that path and may tap again.
+    private var safetyNetBusy = false
+
+    /// From WebViewDelegateProxy, on the main thread, when a file was about
+    /// to replace the page. A second one while the first runs is ignored.
+    func downloadFromPageLoad(_ url: URL) {
+        guard !safetyNetBusy else { return }
+        safetyNetBusy = true
+        download(url, filename: nil) { [weak self] _ in
+            DispatchQueue.main.async { self?.safetyNetBusy = false }
+        }
+    }
+
+    /// Removes download folders left by a share sheet the app was killed
+    /// under. Only folders older than 10 minutes, so a download still on its
+    /// way to the share sheet is never touched.
+    private static func removeStaleDownloads() {
+        let fm = FileManager.default
+        guard let folders = try? fm.contentsOfDirectory(
+            at: downloadsFolder, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        let cutoff = Date().addingTimeInterval(-600)
+        for folder in folders {
+            let created = (try? folder.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            if created < cutoff { try? fm.removeItem(at: folder) }
+        }
+    }
+
     /// Why a download didn't happen, with the code the website reads
     /// (src/app/_native-app-bridge.tsx: only DOWNLOAD_FAILED blames the
     /// connection).
@@ -85,8 +113,7 @@ public class DownloadsPlugin: CAPPlugin, CAPBridgedPlugin {
             ? { NavigationGuardPlugin.isSameSite($0, as: server) }
             : { Self.isStorage($0, host: storageHost) }
 
-        // A file left by a share sheet the app was killed under goes now.
-        try? FileManager.default.removeItem(at: Self.downloadsFolder)
+        Self.removeStaleDownloads()
 
         let start = { (cookies: [HTTPCookie]) in
             var request = URLRequest(url: url)

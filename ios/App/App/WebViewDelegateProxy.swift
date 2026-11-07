@@ -12,9 +12,16 @@ import WebKit
 ///    (src/app/_native-app-bridge.tsx); this is the safety net for when that
 ///    didn't run.
 /// 2. A load that was cancelled on purpose (by (1), or superseded by a newer
-///    tap) is not an error. Capacitor shows the offline page for every
-///    failed load, which would put "Can't reach UnReceipt" on screen for no
-///    reason.
+///    tap) is not an error while a page is on screen. Capacitor shows the
+///    offline page for every failed load, which would put "Can't reach
+///    UnReceipt" on screen for no reason.
+///
+/// Known side effect: Capacitor resets the bridge when a load starts
+/// (didStartProvisionalNavigation → bridge.reset(), which drops plugin
+/// listeners and saved calls), before anyone can know the load is a file.
+/// After (1) the page stays but its listeners are gone. Nothing registers
+/// listeners today; a plugin that does (scanner, push) must re-register them
+/// when the page becomes visible again.
 final class WebViewDelegateProxy: NSObject, WKNavigationDelegate {
     private let original: WKNavigationDelegate
     private let onDownload: (URL) -> Void
@@ -52,13 +59,20 @@ final class WebViewDelegateProxy: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        if Self.isDeliberateCancel(error) { return }
+        if Self.isDeliberateCancel(error) && Self.hasPage(webView) { return }
         original.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        if Self.isDeliberateCancel(error) { return }
+        if Self.isDeliberateCancel(error) && Self.hasPage(webView) { return }
         original.webView?(webView, didFail: navigation, withError: error)
+    }
+
+    /// A page is on screen. When the very first load is the one cancelled
+    /// (e.g. the start page redirected off-host), there is nothing to stay
+    /// on, so Capacitor's offline page must still show.
+    private static func hasPage(_ webView: WKWebView) -> Bool {
+        webView.backForwardList.currentItem != nil
     }
 
     /// Something to save, not a page: sent as an attachment, or a file type.

@@ -18,7 +18,7 @@ class AppViewController: CAPBridgeViewController {
         // button in the app) goes to the share sheet instead.
         if let webView = webView, let original = webView.navigationDelegate {
             let proxy = WebViewDelegateProxy(original: original) { [weak downloads] url in
-                downloads?.download(url, filename: nil) { _ in }
+                downloads?.downloadFromPageLoad(url)
             }
             webView.navigationDelegate = proxy
             delegateProxy = proxy
