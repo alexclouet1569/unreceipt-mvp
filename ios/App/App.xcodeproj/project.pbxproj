@@ -18,6 +18,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		7A1E5C022F0A4B0000D0A001 /* AppViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E5C012F0A4B0000D0A001 /* AppViewController.swift */; };
 		7A1E5C042F0A4B0000D0A001 /* NavigationGuardPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E5C032F0A4B0000D0A001 /* NavigationGuardPlugin.swift */; };
+		7A1E5C072F0A4B0000D0A001 /* DownloadsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E5C062F0A4B0000D0A001 /* DownloadsPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		7A1E5C012F0A4B0000D0A001 /* AppViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewController.swift; sourceTree = "<group>"; };
 		7A1E5C032F0A4B0000D0A001 /* NavigationGuardPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationGuardPlugin.swift; sourceTree = "<group>"; };
+		7A1E5C062F0A4B0000D0A001 /* DownloadsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsPlugin.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -73,6 +75,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				7A1E5C012F0A4B0000D0A001 /* AppViewController.swift */,
 				7A1E5C032F0A4B0000D0A001 /* NavigationGuardPlugin.swift */,
+				7A1E5C062F0A4B0000D0A001 /* DownloadsPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -192,6 +195,7 @@
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				7A1E5C022F0A4B0000D0A001 /* AppViewController.swift in Sources */,
 				7A1E5C042F0A4B0000D0A001 /* NavigationGuardPlugin.swift in Sources */,
+				7A1E5C072F0A4B0000D0A001 /* DownloadsPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
