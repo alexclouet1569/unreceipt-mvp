@@ -28,7 +28,8 @@ There is no AB yet, so there is no D-U-N-S number, and neither store will open a
 
 - iOS first, Android later (founder's decision).
 - B2, the iOS shell, is on `claude/ios-app-shell`, stacked on #102. It covers the Xcode project, the offline screen, the icon and splash, iPhone only, portrait, the permission texts and the encryption flag. How to run it: `native/README.md`.
-- Next: B4 (downloads), then B5 (scanner in Swift).
+- B4 (downloads): `DownloadsPlugin.swift` + `NativeAppBridge`, every `<a download>` opens the share sheet (2026-11-07).
+- Next: B5 (scanner in Swift).
 
 ## 0. Findings from the code that change the plan
 
