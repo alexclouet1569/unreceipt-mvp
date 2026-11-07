@@ -70,16 +70,24 @@ npm run ios:open
 
 After the first successful build, commit the file Xcode creates at `ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`. It pins the exact Capacitor code, not just the version tag.
 
-### On your iPhone (free Apple account)
+### On your iPhone (free Apple account): one command
 
-1. Xcode → Settings → Accounts → **+** → Apple Account, and sign in.
-2. In the left sidebar click **App** (the blue icon), then the **App** target → **Signing & Capabilities**.
-3. Tick **Automatically manage signing** and choose **Team: \<your name\> (Personal Team)**.
-4. Connect the iPhone with a cable and unlock it. On the phone, tap **Trust**. Turn on **Settings → Privacy & Security → Developer Mode** if asked; the phone restarts.
-5. Pick your iPhone in Xcode's top bar and press ▶.
-6. The first time, the phone refuses to open an app from an unknown developer. Go to **Settings → General → VPN & Device Management**, tap your Apple ID, then **Trust**. Press ▶ again.
+Once:
+1. Xcode → Settings → Accounts → **+** → Apple Account, and sign in. Close Settings. (Nothing else in Xcode is needed.)
+2. Connect the iPhone with a cable and unlock it. On the phone, tap **Trust** and enter its passcode.
+3. On the phone: **Settings → Privacy & Security → Developer Mode** → on. The phone restarts; unlock it and confirm. (The switch only appears once the phone has been connected to a Mac with Xcode.)
 
-With a free account, the app stops opening after **7 days**. Press ▶ again to reinstall it; your sign-in stays.
+Then, with Xcode closed:
+
+```bash
+npm run ios:run -- --iphone
+```
+
+It builds the app signed with your Personal Team, installs it on the phone and opens it, with the app's log in Terminal. The first time, iOS refuses to open an app from an unknown developer: on the phone, **Settings → General → VPN & Device Management** → your Apple ID → **Trust**, then run the command again. If you have more than one team in Xcode, it lists them; add `--team <ID>`.
+
+The Xcode window also works (target App → Signing & Capabilities → Team: your Personal Team, pick the iPhone in the top bar, ▶), as long as it doesn't report "Missing package product".
+
+With a free account, the app stops opening after **7 days**. Run the command again to reinstall it; your sign-in stays.
 
 **Debug builds use `com.unreceipt.app.dev` on purpose.** A free Personal Team registers whatever bundle ID you run. If it ever registered the real `com.unreceipt.app`, the paid developer account could later be told the ID "is not available". Release builds (TestFlight, App Store) use `com.unreceipt.app`.
 
