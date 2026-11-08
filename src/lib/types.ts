@@ -141,6 +141,11 @@ export interface Receipt {
   fx_source: "same" | "ecb" | "manual" | null;
 
   created_at: string;
+  /**
+   * Moves on every UPDATE only since the 2026-11-08 trigger; older rows
+   * still hold their insert time. Not an audit trail: use edited_at /
+   * edit_history for what changed and when.
+   */
   updated_at: string;
 }
 
