@@ -34,10 +34,10 @@ describe("SwipeToDelete", () => {
   it("reveals Delete on a left swipe, and deletes only when it's tapped", () => {
     const onDelete = vi.fn();
     render(<Row onDelete={onDelete} />);
-    expect(deleteButton()).toHaveAttribute("aria-hidden", "true");
+    expect(deleteButton()).toBeNull();
 
     swipe(screen.getByTestId("swipe-row"), -120);
-    expect(deleteButton()).toHaveAttribute("aria-hidden", "false");
+    expect(deleteButton()).not.toHaveAttribute("inert");
     expect(onDelete).not.toHaveBeenCalled();
 
     fireEvent.click(deleteButton());
@@ -50,7 +50,7 @@ describe("SwipeToDelete", () => {
     swipe(row, -30);
     swipe(row, -20, 200);
     swipe(row, -200, 0, "mouse");
-    expect(deleteButton()).toHaveAttribute("aria-hidden", "true");
+    expect(deleteButton()).toBeNull();
   });
 
   it("closes instead of opening the receipt when an open row is tapped", () => {
@@ -60,12 +60,12 @@ describe("SwipeToDelete", () => {
     // The click the browser may send at the end of the swipe is ignored.
     fireEvent.click(screen.getByRole("button", { name: "ICA" }));
     expect(onOpen).not.toHaveBeenCalled();
-    expect(deleteButton()).toHaveAttribute("aria-hidden", "false");
+    expect(deleteButton()).not.toHaveAttribute("inert");
 
     vi.advanceTimersByTime(500);
     fireEvent.click(screen.getByRole("button", { name: "ICA" }));
     expect(onOpen).not.toHaveBeenCalled();
-    expect(deleteButton()).toHaveAttribute("aria-hidden", "true");
+    expect(deleteButton()).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "ICA" }));
     expect(onOpen).toHaveBeenCalledTimes(1);

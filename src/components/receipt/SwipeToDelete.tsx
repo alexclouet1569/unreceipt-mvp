@@ -1,16 +1,19 @@
 "use client";
 
-import { useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 
 // Swipe a receipt card left to reveal "Delete", then tap it (DESIGN.md
 // "Swipe to delete"). Two deliberate gestures, as in iOS Mail: a swipe alone
-// never deletes. Touch and pen only, so a mouse click still just opens the
-// receipt; the detail view's own Delete stays the keyboard and desktop path.
+// never deletes, and the list offers Undo afterwards. Touch and pen only, so
+// a mouse click still just opens the receipt; keyboard and screen-reader
+// users delete from the detail view.
 
 const ACTION_WIDTH = 88;
 // Past this much movement the gesture is a swipe, not a tap or a scroll.
 const SLOP = 8;
+const ENTER = "cubic-bezier(0.32, 0.72, 0, 1)";
+const EXIT = "cubic-bezier(0.4, 0, 1, 1)";
 
 export function SwipeToDelete({
   open,
@@ -26,6 +29,7 @@ export function SwipeToDelete({
   label: string;
   children: ReactNode;
 }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const start = useRef<{ x: number; y: number; id: number } | null>(null);
   const swiping = useRef(false);
@@ -35,6 +39,24 @@ export function SwipeToDelete({
 
   const base = open ? -ACTION_WIDTH : 0;
   const offset = drag ?? base;
+  // The action exists only while the card is moved, so pressing a closed
+  // card (it scales down slightly) never shows a red edge behind it.
+  const revealed = open || offset < 0;
+
+  // An open row closes when the user touches anything else or scrolls.
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: Event) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) onOpenChange(false);
+    };
+    const scrolled = () => onOpenChange(false);
+    document.addEventListener("pointerdown", outside, true);
+    window.addEventListener("scroll", scrolled, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", outside, true);
+      window.removeEventListener("scroll", scrolled);
+    };
+  }, [open, onOpenChange]);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return;
@@ -75,25 +97,28 @@ export function SwipeToDelete({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[12px]">
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Delete receipt: ${label}`}
-        aria-hidden={!open}
-        tabIndex={open ? 0 : -1}
-        className="absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-1 bg-destructive text-[13px] font-semibold text-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        style={{ width: ACTION_WIDTH }}
-      >
-        <Trash2 className="size-5" aria-hidden="true" />
-        Delete
-      </button>
+    <div ref={wrapperRef} className="relative overflow-hidden rounded-[12px]">
+      {revealed ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={`Delete receipt: ${label}`}
+          inert={!open}
+          className="absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-1 bg-destructive text-[13px] font-semibold text-destructive-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-destructive-foreground"
+          style={{ width: ACTION_WIDTH }}
+        >
+          <Trash2 className="size-5" aria-hidden="true" />
+          Delete
+        </button>
+      ) : null}
       <div
         data-testid="swipe-row"
-        className="relative touch-pan-y"
+        className="relative"
         style={{
+          // Vertical scrolling and pinch-zoom stay with the page.
+          touchAction: "pan-y pinch-zoom",
           transform: `translateX(${offset}px)`,
-          transition: drag == null ? "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)" : "none",
+          transition: drag == null ? `transform 200ms ${open ? ENTER : EXIT}` : "none",
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -106,6 +131,14 @@ export function SwipeToDelete({
             e.preventDefault();
             e.stopPropagation();
             if (open && !fromSwipe) onOpenChange(false);
+          }
+        }}
+        onKeyDownCapture={(e) => {
+          // Enter / Space on an open card closes it rather than opening it.
+          if (open && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpenChange(false);
           }
         }}
       >

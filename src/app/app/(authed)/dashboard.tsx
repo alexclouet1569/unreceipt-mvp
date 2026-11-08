@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useMemo } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useMemo } from "react";
 import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,6 +45,9 @@ type DashboardProps = {
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
 
+// How long a swiped-away receipt can be brought back before it's deleted.
+const UNDO_MS = 5000;
+
 // How the list is sectioned: by the receipt's day, or by what it was for.
 type View = "date" | "category";
 
@@ -59,36 +62,91 @@ export function Dashboard({
 }: DashboardProps) {
   const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
-  // Swipe to delete: the row whose Delete button is showing, and receipts
-  // already gone from the list while the server deletes them.
+  // Swipe to delete: the row whose Delete button is showing, receipts
+  // already gone from the list, and the last one deleted, which can be
+  // brought back for UNDO_MS before the server deletes it for good.
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(new Set());
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Receipt | null>(null);
+  const pendingRef = useRef<{ receipt: Receipt; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const undoButtonRef = useRef<HTMLButtonElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const receipts = useMemo(
     () => (deletedIds.size ? allReceipts.filter((r) => !deletedIds.has(r.id)) : allReceipts),
     [allReceipts, deletedIds],
   );
 
-  // The row disappears at once; the server deletes the receipt and its files
-  // (same route as the detail view's Delete). On failure it comes back.
-  const deleteReceipt = async (receipt: Receipt) => {
+  const restore = useCallback((id: string) => {
+    setDeletedIds((ids) => {
+      const next = new Set(ids);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  // Sends the delete for the receipt waiting out its undo time, if any.
+  // keepalive lets it finish when the page is closing.
+  const commitDelete = useCallback(() => {
+    const pending = pendingRef.current;
+    if (!pending) return;
+    pendingRef.current = null;
+    clearTimeout(pending.timer);
+    setPendingDelete(null);
+    const { receipt } = pending;
+    fetch(`/api/receipts/${receipt.id}`, { method: "DELETE", keepalive: true })
+      .then((res) => {
+        if (!res.ok) throw new Error(`delete failed (HTTP ${res.status})`);
+        router.refresh();
+      })
+      .catch((err) => {
+        console.error("[/app] swipe delete failed", err);
+        restore(receipt.id);
+        setDeleteError(`Couldn't delete ${receipt.merchant_name ?? "this receipt"}. It's back in the list; try again in a moment.`);
+      });
+  }, [router, restore]);
+
+  // The row disappears at once; the server deletes it after UNDO_MS (same
+  // route as the detail view's Delete, so its stored files go too), or as
+  // soon as the app goes to the background or another receipt is deleted.
+  const deleteReceipt = (receipt: Receipt) => {
+    commitDelete();
+    const deleteHadFocus = document.activeElement?.closest?.("button[aria-label^='Delete receipt']") != null;
     setSwipedId(null);
     setDeleteError(null);
     setDeletedIds((ids) => new Set(ids).add(receipt.id));
-    try {
-      const res = await fetch(`/api/receipts/${receipt.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`delete failed (HTTP ${res.status})`);
-      router.refresh();
-    } catch (err) {
-      console.error("[/app] swipe delete failed", err);
-      setDeletedIds((ids) => {
-        const next = new Set(ids);
-        next.delete(receipt.id);
-        return next;
-      });
-      setDeleteError(`Couldn't delete ${receipt.merchant_name ?? "this receipt"}. Try again in a moment.`);
-    }
+    pendingRef.current = { receipt, timer: setTimeout(commitDelete, UNDO_MS) };
+    setPendingDelete(receipt);
+    // The focused Delete button is gone: keyboard and VoiceOver users land
+    // on Undo instead of the top of the page.
+    if (deleteHadFocus) requestAnimationFrame(() => undoButtonRef.current?.focus());
   };
+
+  const undoDelete = () => {
+    const pending = pendingRef.current;
+    if (!pending) return;
+    pendingRef.current = null;
+    clearTimeout(pending.timer);
+    setPendingDelete(null);
+    restore(pending.receipt.id);
+  };
+
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === "hidden") commitDelete();
+    };
+    document.addEventListener("visibilitychange", flush);
+    window.addEventListener("pagehide", commitDelete);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      window.removeEventListener("pagehide", commitDelete);
+      commitDelete();
+    };
+  }, [commitDelete]);
+
+  useEffect(() => {
+    if (deleteError) errorRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [deleteError]);
   // Once started, onboarding stays until finished — even after the first
   // receipt arrives mid-flow (step 2 → 3).
   const [onboardingStep, setOnboardingStep] = useState<FirstRunStep | null>(
@@ -101,7 +159,7 @@ export function Dashboard({
     void fetch("/api/profile/onboarded", { method: "POST" }).catch(() => {});
   };
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [chosenFilter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("date");
 
   const reviewCount = useMemo(
@@ -117,6 +175,13 @@ export function Dashboard({
       .map((key) => ({ key, count: counts.get(key)! }))
       .sort((a, b) => b.count - a.count);
   }, [receipts]);
+
+  // A category filter whose last receipt was deleted falls back to all.
+  const filter: Filter =
+    chosenFilter.startsWith("category:") &&
+    !receipts.some((r) => `category:${r.category}` === chosenFilter)
+      ? "all"
+      : chosenFilter;
 
   const visibleReceipts = useMemo(() => {
     if (filter === "review") {
@@ -320,6 +385,7 @@ export function Dashboard({
 
             {deleteError ? (
               <p
+                ref={errorRef}
                 role="alert"
                 className="mb-3 rounded-[10px] bg-[var(--attention-tint)] px-3 py-2 text-[14px] font-semibold text-[var(--attention-deep)]"
               >
@@ -383,6 +449,31 @@ export function Dashboard({
       {onboardingStep == null ? (
         <CaptureFab onClick={() => setCaptureOpen(true)} />
       ) : null}
+
+      {/* Always in the DOM so VoiceOver announces the change. */}
+      <div
+        role="status"
+        className={
+          pendingDelete
+            ? "fixed left-1/2 z-[60] flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-3 rounded-[12px] border border-[var(--hairline)] bg-card py-1.5 pr-1.5 pl-4 text-[14px] font-semibold text-[var(--ink)]"
+            : "sr-only"
+        }
+        style={pendingDelete ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)" } : undefined}
+      >
+        {pendingDelete ? (
+          <>
+            <span className="min-w-0 truncate">Deleted {pendingDelete.merchant_name ?? "receipt"}</span>
+            <button
+              ref={undoButtonRef}
+              type="button"
+              onClick={undoDelete}
+              className="h-11 shrink-0 rounded-[10px] px-3 font-bold text-[var(--brand-action)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Undo
+            </button>
+          </>
+        ) : null}
+      </div>
 
       <CaptureDialog
         open={captureOpen}

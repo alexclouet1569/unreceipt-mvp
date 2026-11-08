@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Receipt } from "@/lib/types";
 
@@ -199,8 +199,10 @@ describe("Dashboard period total", () => {
 });
 
 describe("Dashboard swipe to delete", () => {
+  beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     mocks.router.refresh.mockReset();
   });
@@ -213,7 +215,13 @@ describe("Dashboard swipe to delete", () => {
     return document.querySelector(`button[aria-label^="Delete receipt: ${merchant}"]`) as HTMLButtonElement;
   };
 
-  it("removes the receipt at once and deletes it on the server", async () => {
+  const flush = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+  };
+
+  it("removes the receipt at once, offers Undo, then deletes it on the server", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     vi.stubGlobal("fetch", fetchMock);
     renderDashboard();
@@ -221,8 +229,36 @@ describe("Dashboard swipe to delete", () => {
     fireEvent.click(swipeOpen("Tåg Tre"));
 
     expect(screen.queryByText("Tåg Tre")).toBeNull();
-    expect(fetchMock).toHaveBeenCalledWith("/api/receipts/c", { method: "DELETE" });
-    await waitFor(() => expect(mocks.router.refresh).toHaveBeenCalled());
+    expect(screen.getByRole("status")).toHaveTextContent("Deleted Tåg Tre");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await flush();
+    expect(fetchMock).toHaveBeenCalledWith("/api/receipts/c", { method: "DELETE", keepalive: true });
+    expect(mocks.router.refresh).toHaveBeenCalled();
+  });
+
+  it("brings the receipt back on Undo and never deletes it", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderDashboard();
+
+    fireEvent.click(swipeOpen("Tåg Tre"));
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+
+    expect(screen.getByText("Tåg Tre")).toBeInTheDocument();
+    await flush();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes right away when the app goes to the background", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDashboard();
+
+    fireEvent.click(swipeOpen("Tåg Tre"));
+    fireEvent(window, new Event("pagehide"));
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/receipts/c", { method: "DELETE", keepalive: true });
   });
 
   it("brings the receipt back and says so when the delete fails", async () => {
@@ -231,8 +267,9 @@ describe("Dashboard swipe to delete", () => {
     renderDashboard();
 
     fireEvent.click(swipeOpen("Tåg Tre"));
+    await flush();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't delete Tåg Tre");
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't delete Tåg Tre");
     expect(screen.getByText("Tåg Tre")).toBeInTheDocument();
   });
 });
