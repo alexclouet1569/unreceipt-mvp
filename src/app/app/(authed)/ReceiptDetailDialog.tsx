@@ -28,6 +28,11 @@ import {
   PAYMENT_METHOD_SUGGESTIONS,
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt, ReceiptItem } from "@/lib/types";
+import {
+  missingFieldsText,
+  missingRequiredFields,
+  type RequiredField,
+} from "@/lib/receipts/status";
 
 type ReceiptDetailDialogProps = {
   receipt: Receipt | null;
@@ -625,6 +630,31 @@ function ReceiptEditForm({
   const id = (field: string) => `edit-${receipt.id}-${field}`;
   const isEdit = mode === "edit";
 
+  // Completing: only what is actually empty is marked, in red, and the
+  // mark goes away as soon as it's filled in. A receipt can wait for review
+  // with nothing missing (read with low confidence, or from a sender we
+  // don't trust): then it only needs a confirmation.
+  const missingAtOpen = isEdit ? [] : missingRequiredFields(receipt);
+  const amountNow = form.amount.trim() === "" ? null : parseDecimal(form.amount);
+  const missingNow: RequiredField[] = isEdit
+    ? []
+    : missingRequiredFields({
+        merchant_name: form.merchant,
+        receipt_date: form.date || null,
+        total: amountNow != null && Number.isFinite(amountNow) ? amountNow : null,
+      });
+  const isMissing = (field: RequiredField) => missingNow.includes(field);
+  const missingLabel = (field: RequiredField, text: string) => (
+    <label
+      htmlFor={id(field === "total" ? "amount" : field === "purchased_at" ? "date" : "merchant")}
+      className={LABEL_CLASS}
+      style={isMissing(field) ? { color: "var(--negative)" } : undefined}
+    >
+      {text}
+      {isMissing(field) ? " · Missing" : ""}
+    </label>
+  );
+
   // Gentle consistency hint: when line items don't add up to the total,
   // say so (it may be right — discounts, deposits — so it never blocks).
   const itemsSum = form.items.reduce((sum, it) => {
@@ -642,11 +672,10 @@ function ReceiptEditForm({
     <form
       onSubmit={handleSubmit}
       className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]"
-      style={isEdit ? undefined : { background: "var(--attention-tint)" }}
       aria-label={isEdit ? "Edit receipt" : "Complete receipt"}
     >
       <p
-        className={isEdit ? "text-[var(--ink)]" : "text-[var(--attention-deep)]"}
+        className="text-[var(--ink)]"
         style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}
       >
         {isEdit ? "Edit receipt" : "Review needed"}
@@ -654,24 +683,36 @@ function ReceiptEditForm({
       <p
         className="text-[var(--ink-muted)]"
         style={{ fontSize: "13px", lineHeight: 1.5 }}
+        data-testid="review-reason"
       >
-        {isEdit
-          ? "Correct anything that was read wrong. The original file stays as it is, and the PDF will show which fields you changed."
-          : "Fill the missing fields below so this receipt becomes downloadable."}
+        {isEdit ? (
+          "Correct anything that was read wrong. The original file stays as it is, and the PDF will show which fields you changed."
+        ) : missingNow.length > 0 ? (
+          <>
+            <span className="font-semibold text-[var(--negative)]">
+              Missing: {missingFieldsText(missingNow)}.
+            </span>{" "}
+            Fill {missingNow.length === 1 ? "it" : "them"} in from the original to finish this receipt.
+          </>
+        ) : missingAtOpen.length > 0 ? (
+          "Everything is filled in. Check the fields, then complete the receipt."
+        ) : (
+          "Nothing is missing. The fields were read automatically and nobody has confirmed them yet: compare them with the original, then confirm."
+        )}
       </p>
 
       <div className="space-y-2">
-        <label htmlFor={id("merchant")} className={LABEL_CLASS}>
-          Merchant
-        </label>
+        {missingLabel("merchant", "Merchant")}
         <Input
           id={id("merchant")}
+          aria-invalid={isMissing("merchant") || undefined}
           // Opening Edit replaces the button that was pressed; start here.
           autoFocus={isEdit}
           className="h-11"
           value={form.merchant}
           onChange={(e) => update("merchant", e.target.value)}
-          placeholder="ICA Maxi"
+          // A store name here would read as already filled in.
+          placeholder="Name of the shop or company"
           maxLength={200}
           required
         />
@@ -679,11 +720,10 @@ function ReceiptEditForm({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-2">
-          <label htmlFor={id("amount")} className={LABEL_CLASS}>
-            Amount
-          </label>
+          {missingLabel("total", "Amount")}
           <Input
             id={id("amount")}
+            aria-invalid={isMissing("total") || undefined}
             type="number"
             step="0.01"
             min="0"
@@ -695,11 +735,10 @@ function ReceiptEditForm({
           />
         </div>
         <div className="space-y-2">
-          <label htmlFor={id("date")} className={LABEL_CLASS}>
-            Date
-          </label>
+          {missingLabel("purchased_at", "Date")}
           <Input
             id={id("date")}
+            aria-invalid={isMissing("purchased_at") || undefined}
             type="date"
             className="h-11"
             value={form.date}
@@ -933,7 +972,7 @@ function ReceiptEditForm({
       ) : (
         <Button type="submit" className="w-full h-11 gap-1.5" disabled={saving}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {saving ? "Saving…" : "Complete receipt"}
+          {saving ? "Saving…" : missingAtOpen.length === 0 ? "Confirm receipt" : "Complete receipt"}
         </Button>
       )}
     </form>

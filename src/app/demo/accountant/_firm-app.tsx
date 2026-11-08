@@ -11,7 +11,10 @@ import { buildReceiptsCsv } from "@/lib/export/csv";
 import { editMarker } from "@/lib/receipts/edits";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { formatDate } from "@/lib/receipt-format";
-import type { Receipt } from "@/lib/types";
+import type { BankTransaction, Receipt } from "@/lib/types";
+import { buildBankMonth } from "@/lib/bank/month";
+import { parseBankStatement } from "@/lib/bank/parse-statement";
+import { isNoReceiptReason } from "@/lib/bank/match";
 
 // Sample data and browser-side stand-ins for every route the firm portal
 // calls, for the public accountant tour (/demo/accountant). Nothing reaches
@@ -378,6 +381,47 @@ function makePdf(lines: string[]): string {
   return URL.createObjectURL(new Blob([out], { type: "application/pdf" }));
 }
 
+// ---- bank statement ---------------------------------------------------------
+
+// Hallonbergen's bank lines this month, as if the firm had imported the
+// CSV: most payments have a receipt, five don't (one of them is the
+// parking receipt still waiting for its amount), and a transfer is
+// already marked "no receipt needed".
+const initialBank = (): BankTransaction[] => {
+  let n = 0;
+  const line = (day: number, amount: number, description: string, over: Partial<BankTransaction> = {}): BankTransaction => ({
+    id: `demo-b-${String(++n).padStart(2, "0")}`,
+    organization_id: ORG_HB,
+    booked_on: inMonth(day).slice(0, 10),
+    amount,
+    currency: "SEK",
+    description,
+    linked_receipt_id: null,
+    no_receipt_reason: null,
+    decided_by: null,
+    decided_at: null,
+    reminded_at: null,
+    imported_by: STAFF_USER,
+    imported_at: hoursAgo(2),
+    ...over,
+  });
+  return [
+    line(2, -2486, "KORTKÖP BYGGMAX BARKARBY"),
+    line(2, -812, "CIRCLE K SOLLENTUNA"),
+    line(3, -245, "CLAS OHLSON SOLNA"),
+    line(3, -60, "EASYPARK SVERIGE"),
+    line(3, -282.11, "ADOBE *CREATIVE CLD"),
+    line(4, -1340, "RESTAURANG TRANAN STHLM"),
+    line(4, -3912.5, "BG 5051-6905 AHLSELL"),
+    line(5, -1249, "HORNBACH BARKARBY"),
+    line(5, 48500, "INSÄTTNING BRF HAGA 2"),
+    line(6, -655.4, "PREEM SOLLENTUNA"),
+    line(6, -1800, "SWISH ELEKTRO-JONSSON"),
+    line(6, -10000, "ÖVERFÖRING SPARKONTO", { no_receipt_reason: "transfer", decided_by: STAFF_USER, decided_at: hoursAgo(1) }),
+    line(7, -45, "MÅNADSAVGIFT FÖRETAGSPAKET"),
+  ];
+};
+
 // ---- helpers ----------------------------------------------------------------
 
 const json = (body: unknown, status = 200) =>
@@ -402,13 +446,14 @@ export function FirmApp({
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [members, setMembers] = useState<MemberView[]>(initialMembers);
+  const [bankLines, setBankLines] = useState<BankTransaction[]>(initialBank);
   const [notice, setNotice] = useState<string | null>(null);
 
   // Latest data for the fetch stub, which is installed once.
-  const state = useRef({ receipts, clients });
+  const state = useRef({ receipts, clients, bankLines });
   useEffect(() => {
-    state.current = { receipts, clients };
-  }, [receipts, clients]);
+    state.current = { receipts, clients, bankLines };
+  }, [receipts, clients, bankLines]);
 
   useEffect(() => {
     const realFetch = window.fetch;
@@ -474,6 +519,90 @@ export function FirmApp({
             { filename: `receipts-${month}.csv`, url: blob(list), bytes: list.length },
           ],
         });
+      }
+
+      // Bank statement: import, decide on a line, email the client, remove.
+      m = /^\/api\/firm\/clients\/([^/]+)\/bank\/import$/.exec(path);
+      if (m && method === "POST") {
+        const org = m[1];
+        const parsed = parseBankStatement(String(body.csv ?? ""));
+        if (!parsed.ok) return json({ error: parsed.error }, 422);
+        const existing = new Set(state.current.bankLines.filter((l) => l.organization_id === org).map((l) => `${l.booked_on}|${Number(l.amount).toFixed(2)}|${l.description}`));
+        const added: BankTransaction[] = [];
+        parsed.rows.forEach((r, i) => {
+          if (existing.has(`${r.bookedOn}|${r.amount.toFixed(2)}|${r.description}`)) return;
+          added.push({
+            id: `demo-imp-${Date.now()}-${i}`,
+            organization_id: org,
+            booked_on: r.bookedOn,
+            amount: r.amount,
+            currency: r.currency ?? "SEK",
+            description: r.description,
+            linked_receipt_id: null,
+            no_receipt_reason: null,
+            decided_by: null,
+            decided_at: null,
+            reminded_at: null,
+            imported_by: STAFF_USER,
+            imported_at: new Date().toISOString(),
+          });
+        });
+        setBankLines((prev) => [...prev, ...added]);
+        const days = parsed.rows.map((r) => r.bookedOn).sort();
+        return json({
+          ok: true,
+          lines: parsed.rows.length,
+          imported: added.length,
+          duplicates: parsed.rows.length - added.length,
+          skipped: parsed.skipped,
+          from: days[0],
+          to: days[days.length - 1],
+          months: [...new Set(days.map((d) => d.slice(0, 7)))],
+        });
+      }
+      m = /^\/api\/firm\/clients\/([^/]+)\/bank\/lines\/([^/]+)$/.exec(path);
+      if (m && method === "PATCH") {
+        const id = m[2];
+        if (body.action === "link" && state.current.bankLines.some((l) => l.id !== id && l.linked_receipt_id === body.receiptId)) {
+          return json({ error: "This receipt is already linked to another payment." }, 409);
+        }
+        setBankLines((prev) =>
+          prev.map((l) =>
+            l.id !== id
+              ? l
+              : {
+                  ...l,
+                  linked_receipt_id: body.action === "link" ? String(body.receiptId) : null,
+                  no_receipt_reason: body.action === "no_receipt" && isNoReceiptReason(body.reason) ? body.reason : null,
+                  decided_by: body.action === "clear" ? null : STAFF_USER,
+                  decided_at: body.action === "clear" ? null : new Date().toISOString(),
+                }
+          )
+        );
+        return json({ ok: true });
+      }
+      m = /^\/api\/firm\/clients\/([^/]+)\/bank\/remind$/.exec(path);
+      if (m && method === "POST") {
+        const org = m[1];
+        const view = buildBankMonth(
+          state.current.bankLines.filter((l) => l.organization_id === org),
+          state.current.receipts.filter((r) => r.organization_id === org),
+          String(body.month)
+        );
+        const ids = new Set(view.lines.filter((l) => l.state.kind === "missing").map((l) => l.id));
+        if (ids.size === 0) return json({ error: "Nothing is missing this month." }, 409);
+        const stamp = new Date().toISOString();
+        setBankLines((prev) => prev.map((l) => (ids.has(l.id) ? { ...l, reminded_at: stamp } : l)));
+        setNotice("In the real portal the client's owners get this list by email, with you as Reply-To. The demo sends nothing.");
+        return json({ ok: true, sent: 1, lines: ids.size, remindedAt: stamp });
+      }
+      m = /^\/api\/firm\/clients\/([^/]+)\/bank$/.exec(path);
+      if (m && method === "DELETE") {
+        const org = m[1];
+        const month = new URL(url, window.location.origin).searchParams.get("month") ?? "";
+        const removed = state.current.bankLines.filter((l) => l.organization_id === org && l.booked_on.startsWith(month)).length;
+        setBankLines((prev) => prev.filter((l) => !(l.organization_id === org && l.booked_on.startsWith(month))));
+        return json({ ok: true, removed });
       }
 
       // Mark as booked.
@@ -635,6 +764,11 @@ export function FirmApp({
         receipts={receipts
           .filter((r) => r.organization_id === openClient.organization_id && receiptMonth(r) === month)
           .sort((a, b) => (b.purchased_at ?? b.created_at).localeCompare(a.purchased_at ?? a.created_at))}
+        bank={buildBankMonth(
+          bankLines.filter((l) => l.organization_id === openClient.organization_id),
+          receipts.filter((r) => r.organization_id === openClient.organization_id),
+          month
+        )}
         hrefs={{
           back: hrefFor({ month }),
           month: (mm) => hrefFor({ view: "client", org: openClient.organization_id, month: mm }),

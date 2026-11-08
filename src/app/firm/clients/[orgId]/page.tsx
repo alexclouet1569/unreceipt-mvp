@@ -5,6 +5,7 @@ import type { Receipt } from "@/lib/types";
 import { ClientView } from "../../_views";
 import { notFound } from "next/navigation";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
+import { loadBankMonth } from "@/lib/bank/load";
 
 export const dynamic = "force-dynamic";
 
@@ -64,14 +65,18 @@ export default async function FirmClientPage({
     throw err;
   }
 
-  const loaded = await loadMonthReceipts(access.organizationId, month);
+  const [loaded, home] = await Promise.all([
+    loadMonthReceipts(access.organizationId, month),
+    homeCurrencyOf(access.organizationId),
+  ]);
   // The client's own currency next to foreign amounts (src/lib/fx.ts).
-  const receipts = await ensureHomeAmounts(loaded, await homeCurrencyOf(access.organizationId)).catch(
-    (err) => {
+  const [bank, receipts] = await Promise.all([
+    loadBankMonth(access.organizationId, month, home),
+    ensureHomeAmounts(loaded, home).catch((err) => {
       console.error("[/firm/clients/[orgId]] currency conversion failed", err);
       return loaded;
-    }
-  );
+    }),
+  ]);
 
   return (
     <ClientView
@@ -79,6 +84,7 @@ export default async function FirmClientPage({
       organizationId={access.organizationId}
       month={month}
       receipts={receipts}
+      bank={bank}
       hrefs={{
         back: `/firm/clients?month=${month}`,
         month: (m) => `/firm/clients/${access.organizationId}?month=${m}`,

@@ -334,6 +334,27 @@ export interface FirmClient {
   created_at: string;
 }
 
+// A line of a client company's bank statement, imported by its accounting
+// firm (2026-11-08). Whether it has a receipt is computed on read
+// (src/lib/bank/match.ts); only the firm's decisions are stored.
+export interface BankTransaction {
+  id: string;
+  organization_id: string;
+  // YYYY-MM-DD.
+  booked_on: string;
+  // Negative = money out. Postgres numeric may arrive as a string.
+  amount: number;
+  currency: string;
+  description: string;
+  linked_receipt_id: string | null;
+  no_receipt_reason: "bank_fee" | "transfer" | "tax" | "salary" | "loan" | "other" | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  reminded_at: string | null;
+  imported_by: string | null;
+  imported_at: string;
+}
+
 // VAT split per rate, stored on receipts.vat_lines as a JSON array (like
 // items). `net` is null when the receipt shows only the VAT amount.
 export interface VatLine {

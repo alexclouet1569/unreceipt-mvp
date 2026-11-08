@@ -266,4 +266,31 @@ describe("ReceiptDetailDialog (CQ2)", () => {
     );
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
+
+  it("marks only the empty fields, in red, and unmarks them once filled", async () => {
+    const user = userEvent.setup();
+    renderDialog({ status: "pending_review", total: null, receipt_date: null, merchant_name: "Parking" });
+
+    expect(screen.getByTestId("review-reason")).toHaveTextContent("Missing: amount and date.");
+    const amount = screen.getByLabelText(/Amount · Missing/);
+    expect(amount).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(/Date · Missing/)).toHaveAttribute("aria-invalid", "true");
+    // The merchant is there: not marked.
+    expect(screen.getByLabelText("Merchant")).not.toHaveAttribute("aria-invalid");
+    // No honey background on the whole panel any more.
+    expect(screen.getByRole("form", { name: "Complete receipt" })).not.toHaveStyle({ background: "var(--attention-tint)" });
+
+    await user.type(amount, "60");
+    expect(screen.getByTestId("review-reason")).toHaveTextContent("Missing: date.");
+    expect(screen.getByLabelText("Amount")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByRole("button", { name: "Complete receipt" })).toBeInTheDocument();
+  });
+
+  it("says nothing is missing when a complete receipt only waits for a confirmation", () => {
+    renderDialog({ status: "pending_review", parse_confidence: 0.7 });
+
+    expect(screen.getByTestId("review-reason")).toHaveTextContent("Nothing is missing.");
+    expect(screen.queryByText(/· Missing/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm receipt" })).toBeInTheDocument();
+  });
 });

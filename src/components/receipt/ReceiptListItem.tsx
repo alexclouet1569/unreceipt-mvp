@@ -8,6 +8,7 @@ import {
 } from "@/lib/receipt-format";
 import { MerchantLogo } from "@/components/receipt/MerchantLogo";
 import type { Receipt } from "@/lib/types";
+import { missingFieldsText, missingRequiredFields } from "@/lib/receipts/status";
 
 type ReceiptListItemProps = {
   receipt: Receipt;
@@ -23,6 +24,9 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
     receipt.currency,
   );
   const pending = receipt.status === "pending_review";
+  // What a person still has to fill in; nothing when the receipt only
+  // waits for a confirmation (read with low confidence, untrusted sender).
+  const missing = pending ? missingRequiredFields(receipt) : [];
   // A foreign receipt also shows its amount in the company's currency.
   const converted =
     receipt.home_total != null &&
@@ -109,15 +113,24 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
                 <span style={{ margin: "0 6px" }} aria-hidden="true">
                   ·
                 </span>
-                <span
-                  className="font-accent italic"
-                  style={{
-                    color: "var(--attention-mint)",
-                    fontWeight: 500,
-                  }}
-                >
-                  needs review
-                </span>
+                {missing.length > 0 ? (
+                  <span
+                    className="text-[var(--negative)]"
+                    style={{ fontWeight: 600 }}
+                  >
+                    missing {missingFieldsText(missing)}
+                  </span>
+                ) : (
+                  <span
+                    className="font-accent italic"
+                    style={{
+                      color: "var(--attention-mint)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    to confirm
+                  </span>
+                )}
               </>
             ) : null}
           </p>

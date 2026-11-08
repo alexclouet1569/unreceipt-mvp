@@ -447,6 +447,72 @@ export function firmClosedEmail(opts: { firmName: string; settingsUrl: string })
   };
 }
 
+// The accounting firm asks a client company for the receipts of bank
+// payments it has none for (/api/firm/clients/[orgId]/bank/remind). Lines
+// come from the client's own bank statement; at most MISSING_EMAIL_LINES
+// are listed, the rest counted.
+export const MISSING_EMAIL_LINES = 40;
+
+export function missingReceiptsEmail(opts: {
+  firmName: string;
+  clientName: string;
+  monthLabel: string;
+  lines: Array<{ day: string; description: string; amount: string }>;
+  total: string;
+  appUrl: string;
+}): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const n = opts.lines.length;
+  const title = `${n} receipt${n === 1 ? "" : "s"} missing for ${opts.monthLabel}`;
+  const intro = `${firm} is doing the bookkeeping for ${opts.clientName} and found ${n} payment${n === 1 ? "" : "s"} on the bank statement without a receipt (${opts.total} in total).`;
+  const how =
+    "Open UnReceipt and photograph each receipt, or forward the email it came in to your UnReceipt address. Each one is matched to its payment automatically.";
+  const shown = opts.lines.slice(0, MISSING_EMAIL_LINES);
+  const more = n - shown.length;
+  const cell = `font-family:${FONT};font-size:14px;line-height:1.4;color:${C.ink};padding:8px 0;border-bottom:1px solid ${C.hairline};`;
+  const table =
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">` +
+    shown
+      .map(
+        (l) =>
+          `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
+          `<td style="${cell}" valign="top">${esc(l.description || "(no text)")}</td>` +
+          `<td style="${cell}text-align:right;white-space:nowrap;padding-left:12px;font-family:Menlo,Consolas,monospace;" valign="top">${esc(l.amount)}</td></tr>`
+      )
+      .join("") +
+    `</table>` +
+    (more > 0 ? paragraph(esc(`…and ${more} more in UnReceipt.`)) : "");
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    table,
+    paragraph(esc(how)),
+    button("Add receipts", opts.appUrl),
+  ].join("\n");
+  return {
+    subject: `${title} — ${firm}`,
+    html: layout({
+      preheader: intro,
+      bodyHtml,
+      footerHtml: `${esc(firm)} sent this through UnReceipt. Reply to this email to answer them.`,
+    }),
+    text: [
+      title,
+      "",
+      intro,
+      "",
+      ...shown.map((l) => `${l.day}  ${l.description || "(no text)"}  ${l.amount}`),
+      ...(more > 0 ? [`…and ${more} more in UnReceipt.`] : []),
+      "",
+      how,
+      "",
+      `Add receipts: ${opts.appUrl}`,
+      "",
+      `${firm} sent this through UnReceipt. Reply to this email to answer them.`,
+    ].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {

@@ -27,6 +27,22 @@ export type ReceiptStatusInput = {
 
 export type RequiredField = "merchant" | "purchased_at" | "total";
 
+// How a missing field is named on screen ("Missing: amount, date").
+export const REQUIRED_FIELD_LABEL: Record<RequiredField, string> = {
+  merchant: "merchant",
+  total: "amount",
+  purchased_at: "date",
+};
+
+/** "amount and date", "merchant, amount and date". */
+export function missingFieldsText(fields: RequiredField[]): string {
+  // In the order the form shows them.
+  const order: RequiredField[] = ["merchant", "total", "purchased_at"];
+  const names = order.filter((f) => fields.includes(f)).map((f) => REQUIRED_FIELD_LABEL[f]);
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 export function computeReceiptStatus(input: ReceiptStatusInput): ReceiptStatus {
   return missingRequiredFields(input).length > 0 ||
     isLowConfidence(input.parse_confidence)

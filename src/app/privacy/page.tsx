@@ -56,6 +56,14 @@ export default function PrivacyPage() {
               notes, the last four digits of a payment card).
             </li>
             <li>
+              <strong>Bank statement lines, if your accounting firm imports
+              them.</strong> Date, amount and the bank&apos;s text of each
+              payment on the account statement your firm uploads, used only to
+              find payments that have no receipt yet. They belong to your
+              company&apos;s account and are deleted with it; your firm can
+              also remove them.
+            </li>
+            <li>
               <strong>Subscription status.</strong> Whether you&apos;re trialing,
               active, or canceled — synced from Stripe.
             </li>

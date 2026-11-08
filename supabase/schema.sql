@@ -1548,3 +1548,76 @@ CREATE TRIGGER receipts_set_updated_at
 -- Dropped after the CREATE, so a partial run never leaves the table
 -- without an updated_at trigger.
 DROP TRIGGER IF EXISTS receipts_updated_at ON public.receipts;
+
+-- =============================================================================
+-- 2026-11-08 — bank statements and missing receipts (firm portal)
+--
+-- The accounting firm imports a client company's bank statement (CSV from
+-- the internet bank, src/lib/bank/parse-statement.ts) on the client's page.
+-- Every money-out line is matched to a receipt on read
+-- (src/lib/bank/match.ts): matches are computed, not stored, so a receipt
+-- the client adds later matches by itself. Stored here are only the lines
+-- and the accountant's decisions: a receipt linked by hand
+-- (linked_receipt_id), "no receipt needed" (no_receipt_reason), and when
+-- the client was last emailed about the line (reminded_at).
+--
+-- Not the 2026-10 `transactions` table: that one is per user, unused since
+-- the first prototype, and deleting one of its rows would delete the
+-- receipt (receipts.transaction_id ON DELETE CASCADE). Here a bank line
+-- belongs to the organisation and never deletes a receipt; deleting a
+-- receipt only clears the link.
+--
+-- dedupe_key is a sha256 of day, amount, currency, description and the
+-- line's occurrence number in its file, so re-importing a file (or an
+-- overlapping one) adds nothing twice. decided_by / imported_by carry no
+-- FK, like receipts.booked_by: the audit value survives a staff account.
+--
+-- The client company's own data: cascades with the organisation (and so
+-- with the account, see deleteAccount()). Members of the organisation may
+-- read it; every write is server-only (the firm routes, service role).
+-- Idempotent.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.bank_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  booked_on DATE NOT NULL,
+  -- Negative = money out.
+  amount NUMERIC(14, 2) NOT NULL,
+  currency TEXT NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+  description TEXT NOT NULL DEFAULT '' CHECK (char_length(description) <= 300),
+  dedupe_key TEXT NOT NULL CHECK (char_length(dedupe_key) = 64),
+  linked_receipt_id UUID REFERENCES public.receipts(id) ON DELETE SET NULL,
+  no_receipt_reason TEXT CHECK (
+    no_receipt_reason IS NULL
+    OR no_receipt_reason IN ('bank_fee', 'transfer', 'tax', 'salary', 'loan', 'other')
+  ),
+  decided_by UUID,
+  decided_at TIMESTAMPTZ,
+  reminded_at TIMESTAMPTZ,
+  imported_by UUID,
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT bank_transactions_one_decision
+    CHECK (linked_receipt_id IS NULL OR no_receipt_reason IS NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bank_transactions_dedupe_unique
+  ON public.bank_transactions(organization_id, dedupe_key);
+CREATE INDEX IF NOT EXISTS bank_transactions_org_day_idx
+  ON public.bank_transactions(organization_id, booked_on);
+-- One receipt pays one bank line.
+CREATE UNIQUE INDEX IF NOT EXISTS bank_transactions_linked_receipt_unique
+  ON public.bank_transactions(linked_receipt_id) WHERE linked_receipt_id IS NOT NULL;
+
+ALTER TABLE public.bank_transactions ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.bank_transactions FROM anon, authenticated;
+
+DROP POLICY IF EXISTS "Users can view own bank transactions" ON public.bank_transactions;
+CREATE POLICY "Users can view own bank transactions"
+  ON public.bank_transactions FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = bank_transactions.organization_id
+         AND m.user_id = (select auth.uid())
+    )
+  );
