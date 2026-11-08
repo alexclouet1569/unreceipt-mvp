@@ -1,4 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
@@ -11,6 +12,7 @@ import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { recordReceiptUsage } from "@/lib/usage";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { isOwnStagedPath, STAGING_BUCKET, stagedType } from "@/lib/receipts/staging";
 import {
   MAX_AMOUNT,
   OrgNumberSchema,
@@ -66,22 +68,27 @@ const CaptureSchema = z
 
 
 export async function POST(request: NextRequest) {
+  // The form keeps arriving while the checks below run.
+  const formPromise = request.formData().then(
+    (form) => ({ form }),
+    () => ({ form: null }),
+  );
+
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  if (!(await hasProductAccess(user.id))) {
-    return subscriptionRequiredResponse();
-  }
-
-  const limited = await rateLimit("capture", user.id);
+  // Independent checks, run together.
+  const [access, limited] = await Promise.all([
+    hasProductAccess(user.id),
+    rateLimit("capture", user.id),
+  ]);
+  if (!access) return subscriptionRequiredResponse();
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
+  const { form } = await formPromise;
+  if (!form) {
     return NextResponse.json({ error: "invalid form data" }, { status: 400 });
   }
 
@@ -155,8 +162,15 @@ export async function POST(request: NextRequest) {
   const items = usableItems(itemsJson);
   const supabase = getSupabaseAdmin();
 
+  // Which company the receipt belongs to (the firm portal filters on it).
+  // Doesn't depend on the photo, so it runs while the photo is stored.
+  const organizationPromise = getOrCreateDefaultOrganization(user.id);
+  // An early return below must not leave its failure unhandled.
+  organizationPromise.catch(() => {});
+
   let uploadedPath: string | null = null;
   const image = form.get("image");
+  const stagedRaw = form.get("staged_image");
   // FormDataEntryValue is `string | File`; everything non-string is a file
   // entry (Blob with optional filename). Avoid `instanceof File` because
   // the global File can differ across runtimes (jsdom vs undici in tests).
@@ -191,6 +205,21 @@ export async function POST(request: NextRequest) {
       );
     }
     uploadedPath = path;
+  } else if (typeof stagedRaw === "string" && stagedRaw) {
+    // The photo /api/ocr stored while reading it (src/lib/receipts/
+    // staging.ts): only this user's own staged files, moved to the
+    // receipt's own path so the cleanup never touches it.
+    const type = stagedType(stagedRaw);
+    if (!isOwnStagedPath(user.id, stagedRaw) || !type) {
+      return NextResponse.json({ error: "invalid staged image" }, { status: 400 });
+    }
+    const path = `${user.id}/${crypto.randomUUID()}.${EXTENSION_BY_TYPE[type]}`;
+    const { error: moveError } = await supabase.storage.from(STAGING_BUCKET).move(stagedRaw, path);
+    if (moveError) {
+      // Gone (cleaned up, or never stored): the sheet sends the photo.
+      return NextResponse.json({ error: "staged image missing" }, { status: 409 });
+    }
+    uploadedPath = path;
   }
 
   // `purchased_at` is the canonical purchase timestamp introduced in step 3.
@@ -213,8 +242,7 @@ export async function POST(request: NextRequest) {
     parse_confidence: null,
   });
 
-  // Which company the receipt belongs to; the firm portal filters on it.
-  const organizationId = await getOrCreateDefaultOrganization(user.id);
+  const organizationId = await organizationPromise;
 
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")
@@ -264,10 +292,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await recordReceiptUsage({
-    userId: user.id,
-    receiptId: inserted.id,
-    source,
+  // Counted after the answer: the customer doesn't wait for the usage row
+  // or, above the allowance, the Stripe meter call. A failure is reported;
+  // the overage sweep retries what reached the meter step.
+  after(async () => {
+    try {
+      await recordReceiptUsage({ userId: user.id, receiptId: inserted.id, source });
+    } catch (err) {
+      console.error("[/api/capture] usage not recorded:", err instanceof Error ? err.message : "unknown");
+      Sentry.captureException(err, { tags: { area: "usage" } });
+    }
   });
 
   return NextResponse.json({ ok: true, id: inserted.id, receipt: inserted });
