@@ -247,12 +247,13 @@ describe("GET /api/receipts/[id]/pdf", () => {
     expect((await GET(buildRequest(), params)).status).toBe(401);
   }, 30_000);
 
-  it("renders again after an edit", async () => {
+  it("renders again after an edit, even though updated_at doesn't change", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
-    mocks.maybeSingle.mockResolvedValue({ data: fakeReceipt({ updated_at: "2026-11-08T10:00:00.000Z" }), error: null });
+    const same = "2026-11-08T10:00:00.000Z";
+    mocks.maybeSingle.mockResolvedValue({ data: fakeReceipt({ updated_at: same, total: 49 }), error: null });
     const before = new Uint8Array(await (await GET(buildRequest(), params)).arrayBuffer());
     mocks.maybeSingle.mockResolvedValue({
-      data: fakeReceipt({ updated_at: "2026-11-08T11:00:00.000Z", merchant_name: "Willys" }),
+      data: fakeReceipt({ updated_at: same, total: 59, edited_at: "2026-11-08T10:05:00.000Z" }),
       error: null,
     });
     const after = new Uint8Array(await (await GET(buildRequest(), params)).arrayBuffer());

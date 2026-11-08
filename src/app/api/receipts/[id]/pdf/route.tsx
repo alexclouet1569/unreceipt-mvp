@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
+import { createHash } from "node:crypto";
 import { getServerUser } from "@/lib/supabase-server";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { ReceiptPdf, pdfFilenameFor } from "@/components/receipt/ReceiptPdf";
@@ -18,12 +19,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Recently rendered PDFs, in this function instance's memory. The receipt
 // detail view asks for its PDF to be prepared (`?prepare=1`) when it opens,
 // so tapping Download a moment later skips the render (and, on a cold
-// instance, react-pdf's start-up). Keyed by the receipt's updated_at, so an
-// edit is never served stale; access is checked on every request, cached
-// or not. About 30-100 KB each.
+// instance, react-pdf's start-up). Keyed by a hash of the whole receipt row,
+// so any change to it (an edit, a re-read, VAT, a conversion) renders anew:
+// `updated_at` is not maintained on receipts and can't be the key. Access
+// is checked on every request, cached or not. About 30-100 KB each.
 const PDF_CACHE_MAX = 30;
 const pdfCache = new Map<string, Uint8Array>();
-const cacheKey = (r: Receipt) => `${r.id}:${r.updated_at}`;
+// Renders in progress, so a prepare and a download at the same moment
+// render once.
+const rendering = new Map<string, Promise<Uint8Array>>();
+const cacheKey = (r: Receipt) => createHash("sha256").update(JSON.stringify(r)).digest("hex");
 
 async function renderPdf(receipt: Receipt): Promise<Uint8Array> {
   const key = cacheKey(receipt);
@@ -34,10 +39,20 @@ async function renderPdf(receipt: Receipt): Promise<Uint8Array> {
     pdfCache.set(key, hit);
     return hit;
   }
-  const pdf = new Uint8Array(await renderToBuffer(<ReceiptPdf receipt={receipt} />));
-  pdfCache.set(key, pdf);
-  while (pdfCache.size > PDF_CACHE_MAX) pdfCache.delete(pdfCache.keys().next().value as string);
-  return pdf;
+  const inFlight = rendering.get(key);
+  if (inFlight) return inFlight;
+  const render = (async () => {
+    try {
+      const pdf = new Uint8Array(await renderToBuffer(<ReceiptPdf receipt={receipt} />));
+      pdfCache.set(key, pdf);
+      while (pdfCache.size > PDF_CACHE_MAX) pdfCache.delete(pdfCache.keys().next().value as string);
+      return pdf;
+    } finally {
+      rendering.delete(key);
+    }
+  })();
+  rendering.set(key, render);
+  return render;
 }
 
 export async function GET(
