@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
-import { DESCRIPTION, SHARE_DESCRIPTION, TITLE, landingJsonLd, marketingMetadata } from "@/lib/seo";
+import { DESCRIPTION, SHARE_DESCRIPTION, TITLE, jsonLdHtml, landingJsonLd, marketingMetadata } from "@/lib/seo";
 import { LandingPage } from "./_landing";
 
 // PILOT_MODE is read server-side here and passed down so the client
@@ -34,7 +34,7 @@ export default function Page() {
         type="application/ld+json"
         // Structured data for search engines and AI assistants; built from
         // the same plans and FAQ the page renders.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd(pilotMode)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(landingJsonLd(pilotMode)) }}
       />
       <LandingPage pilotMode={pilotMode} />
     </>

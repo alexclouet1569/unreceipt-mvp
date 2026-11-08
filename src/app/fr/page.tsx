@@ -4,6 +4,7 @@ import {
   FR_DESCRIPTION,
   FR_SHARE_DESCRIPTION,
   FR_TITLE,
+  jsonLdHtml,
   landingJsonLd,
   marketingMetadata,
 } from "@/lib/seo";
@@ -38,7 +39,7 @@ export default function Page() {
       <script
         type="application/ld+json"
         // Same structured data as `/`, in French.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd(pilotMode, "fr")) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(landingJsonLd(pilotMode, "fr")) }}
       />
       <HtmlLang lang="fr" />
       <LandingPage pilotMode={pilotMode} locale="fr" />

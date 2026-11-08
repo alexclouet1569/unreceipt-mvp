@@ -85,7 +85,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "How long do companies have to keep receipts?",
-      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year (the tax code's six years also becomes ten from 1 January 2027), and a paper invoice may only be destroyed if the scan is a compliant copy under article A102 B-2 of the tax procedures code (an untouched image in a sealed or signed, timestamped PDF). UnReceipt doesn't produce such copies yet, so in France keep your paper originals.",
+      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once, and again if the location changes. In France, the Commercial Code (article L123-22) requires traders and companies to keep them ten years from the end of the financial year (the tax code's six years also becomes ten for documents still within the six-year period on 1 January 2027), and a paper invoice may only be destroyed if the scan is a compliant copy under article A102 B-2 of the tax procedures code (an untouched image in a sealed or signed, timestamped PDF). UnReceipt doesn't produce such copies yet, so in France keep your paper originals.",
     },
     {
       q: "Can I cancel at any time?",
@@ -130,7 +130,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Behöver jag spara papperskvittot?",
-      a: "Nej, inte när kvittot är ordentligt digitaliserat. Sedan den 1 juli 2024 får du slänga papperskvittot när det har förts över till digital form, så länge överföringen inte innebär någon risk att uppgifterna ändras eller försvinner. Med UnReceipt behöver du bara: kontrollera att bilden är skarp och att hela kvittot syns innan du slänger det, anmäla skriftligen till Skatteverket att din räkenskapsinformation förvaras i Tyskland, där UnReceipt lagrar kvittona (en gång, och igen om platsen ändras), och ladda ner dina kvitton om du avslutar tjänsten.",
+      a: "Nej, inte när kvittot är ordentligt digitaliserat. Sedan den 1 juli 2024 får du slänga papperskvittot när det har förts över till digital form, så länge överföringen inte innebär någon risk att uppgifterna ändras eller försvinner. Med UnReceipt gör du så här: kontrollera i UnReceipt efter att du sparat att bilden är skarp och att hela kvittot syns innan du slänger det, anmäla skriftligen till Skatteverket att din räkenskapsinformation förvaras i Tyskland, där UnReceipt lagrar kvittona (en gång, och igen om platsen ändras), och ladda ner dina kvitton om du avslutar tjänsten.",
     },
     {
       q: "Kan jag avsluta när jag vill?",

@@ -21,7 +21,7 @@ import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
-import { audienceJsonLd } from "@/lib/seo";
+import { audienceJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { AUDIENCE_COPY, type AudienceId, type Cta, type IconName } from "./_audience-copy";
 import { HtmlLang } from "./_html-lang";
@@ -98,7 +98,7 @@ export function AudiencePage({
     <div className="min-h-screen bg-[#FAFAF7]">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
       {locale !== "en" ? <HtmlLang lang={locale} /> : null}
       <SiteHeader locale={locale} page={audience} pilotMode={pilotMode} />

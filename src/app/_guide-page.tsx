@@ -3,7 +3,7 @@ import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { getGuide, type GuidePageId } from "@/lib/guides";
 import type { Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
-import { guideJsonLd } from "@/lib/seo";
+import { guideJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { HtmlLang } from "./_html-lang";
 import { SITE_COPY } from "./_site-copy";
@@ -55,7 +55,7 @@ export function GuidePage({
 
   return (
     <div className="min-h-screen bg-[#FAFAF7]">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       {locale !== "en" ? <HtmlLang lang={locale} /> : null}
       <SiteHeader locale={locale} page={page} pilotMode={pilotMode} />
 

@@ -51,6 +51,14 @@ const OG_IMAGE = {
   alt: "UnReceipt — VAT-ready receipts for small businesses and their accountants.",
 };
 
+/**
+ * JSON-LD serialised for a <script> tag. `<` is escaped so no copy edit
+ * (a "</script>" in an FAQ answer) can ever close the tag early.
+ */
+export function jsonLdHtml(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
 /** Absolute URL of a marketing path. */
 export function absoluteUrl(path: string): string {
   return path === "/" ? SITE_URL : `${SITE_URL}${path}`;

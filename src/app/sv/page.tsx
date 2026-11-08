@@ -4,6 +4,7 @@ import {
   SV_DESCRIPTION,
   SV_SHARE_DESCRIPTION,
   SV_TITLE,
+  jsonLdHtml,
   landingJsonLd,
   marketingMetadata,
 } from "@/lib/seo";
@@ -40,7 +41,7 @@ export default function Page() {
       <script
         type="application/ld+json"
         // Same structured data as `/`, in Swedish with SEK offers.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd(pilotMode, "sv")) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(landingJsonLd(pilotMode, "sv")) }}
       />
       <HtmlLang lang="sv" />
       <LandingPage pilotMode={pilotMode} locale="sv" />

@@ -146,7 +146,7 @@ const retentionEn: Guide = {
         "Records must as a rule be kept in Sweden. Electronic records may be kept in another EU country if three conditions are met (chapter 7, section 3 a):",
       ],
       list: [
-        "the company notifies Skatteverket of where they are kept, and of every change — in writing, at the latest when storage abroad begins;",
+        "the company notifies Skatteverket of where they are kept, and of every change (Skatteverket advises doing so in writing, at the latest when storage abroad begins);",
         "Skatteverket and Tullverket can get immediate electronic access to them on request;",
         "they can be printed in Sweden right away.",
       ],
@@ -154,7 +154,7 @@ const retentionEn: Guide = {
     {
       heading: "France: ten years",
       body: [
-        "The Commercial Code says accounting documents and supporting documents (pièces justificatives) are kept for ten years (article L123-22), counted from the close of the financial year. Micro-entrepreneurs keep their registers and supporting documents for ten years too (article L123-28).",
+        "The Commercial Code says traders' and companies' accounting documents and supporting documents (pièces justificatives) are kept for ten years (article L123-22), in practice counted from the close of the financial year. Micro-entrepreneurs and other self-employed people are also bound by the tax period below.",
         "The tax code (Livre des procédures fiscales, article L102 B) currently asks for six years. Law no. 2026-534 of 25 June 2026 raises it to ten years for documents whose retention period ends after 1 January 2027 — so in practice, keep everything for ten years.",
         "A paper invoice may only be destroyed after scanning if the scan is a compliant copy under article A102 B-2: an identical reproduction with no image processing, kept as PDF with a server seal, digital fingerprint or electronic signature, and timestamped. Without that, keep the paper.",
       ],
@@ -162,7 +162,7 @@ const retentionEn: Guide = {
     {
       heading: "What this means if you use UnReceipt",
       body: [
-        "UnReceipt keeps each receipt's original file — the photo or the email — together with a PDF, and stores them in the EU, in Frankfurt, Germany. A Swedish company that keeps its receipts in UnReceipt therefore notifies Skatteverket once that its records are stored in Germany. UnReceipt cannot do this for you: each company notifies for itself.",
+        "UnReceipt keeps each receipt's photo as uploaded (large photos are reduced on the phone) or its email as received, and a PDF once the receipt is checked, and stores them in the EU, in Frankfurt, Germany. A Swedish company that keeps its receipts in UnReceipt therefore notifies Skatteverket that its records are stored in Germany, and again if that changes. UnReceipt cannot do this for you: each company notifies for itself.",
         "The duty to keep receipts stays with your company. You can download a ZIP for any month, year or everything at any time, and after you cancel your receipts stay available for 90 days so you can move them to your own archive or your accountant. UnReceipt doesn't produce the certified copy French law asks for, so in France keep your paper originals.",
       ],
     },
@@ -175,7 +175,7 @@ const retentionEn: Guide = {
     },
     {
       q: "Can a Swedish company keep its receipts in a cloud service in another EU country?",
-      a: "Yes, electronic records may be kept in another EU country if the company notifies Skatteverket in writing of where they are kept (at the latest when storage abroad begins), gives Skatteverket and Tullverket immediate electronic access on request, and can print them in Sweden right away (Bookkeeping Act, chapter 7, section 3 a).",
+      a: "Yes, electronic records may be kept in another EU country if the company notifies Skatteverket of where they are kept (Skatteverket advises in writing, at the latest when storage abroad begins), gives Skatteverket and Tullverket immediate electronic access on request, and can print them in Sweden right away (Bookkeeping Act, chapter 7, section 3 a).",
     },
     {
       q: "Can I throw away paper receipts after scanning them?",
@@ -189,7 +189,7 @@ const retentionEn: Guide = {
     "This guide explains the rules in general terms and isn't legal or tax advice. For your own situation, ask your accountant.",
   cta: {
     title: "Keep every receipt in one place",
-    lead: "Forward or snap your receipts; UnReceipt keeps the original and a PDF of each, ready for your accountant.",
+    lead: "Forward or snap your receipts; UnReceipt keeps each one with a PDF once checked, ready for your accountant.",
     secondaryLabel: "See the demo",
   },
   relatedTitle: "Read next",
@@ -243,13 +243,13 @@ const retentionSv: Guide = {
       heading: "Digitala kvitton och papperskvitton",
       body: [
         "Sedan den 1 juli 2024 får du slänga papperskvittot när det har förts över till digital form, så länge överföringen inte innebär någon risk för att uppgifterna ändras eller försvinner (7 kap. 6 §). Bevarandetiden gäller då den digitala kopian.",
-        "Räkenskapsinformationen ska som huvudregel förvaras i Sverige. Digital räkenskapsinformation får förvaras i ett annat EU-land om företaget anmäler förvaringsplatsen till Skatteverket — skriftligt och senast när förvaringen utomlands börjar — ger Skatteverket och Tullverket omedelbar elektronisk åtkomst på begäran och kan skriva ut informationen i Sverige direkt (7 kap. 3 a §).",
+        "Räkenskapsinformationen ska som huvudregel förvaras i Sverige. Digital räkenskapsinformation får förvaras i ett annat EU-land om företaget anmäler förvaringsplatsen och varje ändring till Skatteverket (Skatteverket rekommenderar skriftligt, senast när förvaringen utomlands börjar), ger Skatteverket och Tullverket omedelbar elektronisk åtkomst på begäran och kan skriva ut informationen i Sverige direkt (7 kap. 3 a §).",
       ],
     },
     {
       heading: "Så gör du med UnReceipt",
       body: [
-        "UnReceipt sparar varje kvittos originalfil — fotot eller mejlet — och en PDF, och lagrar dem inom EU, i Frankfurt i Tyskland. Använder ditt företag UnReceipt anmäler du därför en gång skriftligt till Skatteverket att räkenskapsinformationen förvaras i Tyskland. Det kan vi inte göra åt dig: varje företag anmäler själv.",
+        "UnReceipt sparar fotot som det laddades upp (stora foton förminskas i mobilen) eller mejlet som det kom, och en PDF när kvittot är kontrollerat, och lagrar dem inom EU, i Frankfurt i Tyskland. Använder ditt företag UnReceipt anmäler du därför till Skatteverket att räkenskapsinformationen förvaras i Tyskland, och igen om platsen ändras. Det kan vi inte göra åt dig: varje företag anmäler själv.",
         "Skyldigheten att spara kvittona ligger hos företaget. Du kan när som helst ladda ner en ZIP per månad, år eller allt, och om du avslutar finns kvittona kvar i 90 dagar så att du kan flytta dem till ditt eget arkiv eller din redovisningskonsult.",
       ],
     },
@@ -262,7 +262,7 @@ const retentionSv: Guide = {
     },
     {
       q: "Får man spara kvitton i molnet?",
-      a: "Ja. Digital räkenskapsinformation får förvaras i ett annat EU-land om du skriftligt anmäler förvaringsplatsen till Skatteverket senast när förvaringen börjar, ger Skatteverket och Tullverket omedelbar elektronisk åtkomst och kan skriva ut informationen i Sverige direkt (bokföringslagen 7 kap. 3 a §).",
+      a: "Ja. Digital räkenskapsinformation får förvaras i ett annat EU-land om du anmäler förvaringsplatsen till Skatteverket (helst skriftligt, senast när förvaringen börjar), ger Skatteverket och Tullverket omedelbar elektronisk åtkomst och kan skriva ut informationen i Sverige direkt (bokföringslagen 7 kap. 3 a §).",
     },
     {
       q: "Vad händer om jag inte sparar kvittona?",
@@ -276,7 +276,7 @@ const retentionSv: Guide = {
     "Guiden förklarar reglerna översiktligt och är inte juridisk rådgivning. Fråga din redovisningskonsult om din egen situation.",
   cta: {
     title: "Samla alla kvitton på ett ställe",
-    lead: "Fota eller vidarebefordra kvittona; UnReceipt sparar original och PDF för varje kvitto, redo för bokföringen.",
+    lead: "Fota eller vidarebefordra kvittona; UnReceipt sparar varje kvitto med en PDF när det är kontrollerat, redo för bokföringen.",
     secondaryLabel: "Se demon",
   },
   relatedTitle: "Läs mer",
@@ -325,13 +325,13 @@ const paperSv: Guide = {
       heading: "Glöm inte bevarandetiden och förvaringsplatsen",
       body: [
         "Den digitala kopian ska sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades (7 kap. 2 §).",
-        "Förvaras kopiorna i ett annat EU-land, till exempel hos en molntjänst, ska företaget skriftligt anmäla förvaringsplatsen till Skatteverket senast när förvaringen börjar, ge Skatteverket och Tullverket omedelbar elektronisk åtkomst och kunna skriva ut informationen i Sverige direkt (7 kap. 3 a §).",
+        "Förvaras kopiorna i ett annat EU-land, till exempel hos en molntjänst, ska företaget anmäla förvaringsplatsen och varje ändring till Skatteverket (Skatteverket rekommenderar skriftligt, senast när förvaringen börjar), ge Skatteverket och Tullverket omedelbar elektronisk åtkomst och kunna skriva ut informationen i Sverige direkt (7 kap. 3 a §).",
       ],
     },
     {
       heading: "Med UnReceipt",
       body: [
-        "Fota kvittot i appen, kontrollera att bilden är skarp och att hela kvittot syns, och spara. UnReceipt sparar bilden och en PDF för varje kvitto och lagrar dem inom EU, i Frankfurt i Tyskland, så du anmäler en gång skriftligt till Skatteverket att räkenskapsinformationen förvaras där. Avslutar du tjänsten laddar du ner dina kvitton — de finns kvar i 90 dagar.",
+        "Fota kvittot i appen och spara. Öppna sedan kvittot i UnReceipt och kontrollera att bilden är skarp och att hela kvittot syns — det är den sparade bilden som ska vara läsbar, och stora foton förminskas i mobilen innan de laddas upp. Först då slänger du papperet. UnReceipt lagrar kvittona inom EU, i Frankfurt i Tyskland, så du anmäler till Skatteverket att räkenskapsinformationen förvaras där, och igen om platsen ändras. Kopian ska finnas kvar hela bevarandetiden, även om du slutar använda tjänsten: ladda då ner dina kvitton — de finns kvar i 90 dagar efter att du avslutat.",
       ],
     },
   ],
@@ -343,7 +343,7 @@ const paperSv: Guide = {
     },
     {
       q: "Måste jag anmäla till Skatteverket?",
-      a: "Bara om den digitala räkenskapsinformationen förvaras i ett annat land än Sverige. Då ska företaget skriftligt anmäla var den förvaras, senast när förvaringen utomlands börjar, och anmäla varje ändring. Varje företag anmäler själv; en tjänsteleverantör kan inte göra det åt dig.",
+      a: "Ja, om den digitala räkenskapsinformationen förvaras i ett annat EU-land. Då ska företaget anmäla var den förvaras och varje ändring; Skatteverket rekommenderar att det görs skriftligt, senast när förvaringen utomlands börjar. Varje företag anmäler själv; en tjänsteleverantör kan inte göra det åt dig. Utanför EU krävs i regel tillstånd från Skatteverket.",
     },
     {
       q: "Räcker ett foto i mobilen?",
@@ -356,8 +356,8 @@ const paperSv: Guide = {
   disclaimer:
     "Guiden förklarar reglerna översiktligt och är inte juridisk rådgivning. Fråga din redovisningskonsult om din egen situation.",
   cta: {
-    title: "Fota kvittot, släng papperet",
-    lead: "UnReceipt läser av kvittot, sparar bilden och en PDF och kontrollerar varje kvitto inom 24 timmar.",
+    title: "Fota kvittot – släng papperet när bilden är kontrollerad",
+    lead: "UnReceipt läser av kvittot, sparar bilden och kontrollerar varje kvitto inom 24 timmar.",
     secondaryLabel: "Se demon",
   },
   relatedTitle: "Läs mer",
@@ -388,7 +388,7 @@ const retentionFr: Guide = {
     {
       heading: "Dix ans pour la comptabilité",
       body: [
-        "L’article L123-22 du Code de commerce dispose que « les documents comptables et les pièces justificatives sont conservés pendant dix ans ». Le délai court à partir de la clôture de l’exercice : pour un exercice clos le 31 décembre 2026, les justificatifs sont conservés jusqu’au 31 décembre 2036.",
+        "L’article L123-22 du Code de commerce dispose que « les documents comptables et les pièces justificatives sont conservés pendant dix ans ». En pratique, le délai court à partir de la clôture de l’exercice : pour un exercice clos le 31 décembre 2026, les justificatifs sont conservés jusqu’au 31 décembre 2036.",
       ],
     },
     {
@@ -401,14 +401,14 @@ const retentionFr: Guide = {
     {
       heading: "Micro-entrepreneurs et indépendants",
       body: [
-        "Le micro-entrepreneur tient un livre des recettes et, s’il vend des marchandises, des denrées à consommer sur place ou à emporter, ou fournit un logement, un registre des achats. Il conserve ces registres et ses pièces justificatives pendant dix ans à compter de la clôture de l’exercice (article L123-28 du Code de commerce).",
+        "Le micro-entrepreneur tient un livre des recettes et, s’il vend des marchandises, des denrées à consommer sur place ou à emporter, ou fournit un logement, un registre des achats (article L123-28 du Code de commerce). Il conserve ces registres et ses pièces justificatives : dix ans pour les commerçants (article L123-22), et au minimum le délai fiscal de l’article L102 B pour tous les indépendants, y compris en BNC. Le plus simple : tout garder dix ans.",
       ],
     },
     {
       heading: "Et la version numérique ?",
       body: [
         "Une facture papier ne peut être détruite après numérisation que si la copie est conforme à l’original en image et en contenu, selon l’article A102 B-2 du Livre des procédures fiscales : reproduction à l’identique sans traitement de l’image, PDF muni d’un cachet serveur, d’une empreinte numérique ou d’une signature électronique, et horodatage. Pour les autres justificatifs, comme les tickets de caisse, la prudence est la même : gardez l’original papier.",
-        "UnReceipt ne produit pas ce type de copie : utilisez-le pour lire, classer et transmettre vos justificatifs, et conservez vos originaux papier. Les reçus reçus par e-mail sont gardés tels qu’ils sont arrivés, avec un PDF, et hébergés dans l’UE, à Francfort.",
+        "UnReceipt ne produit pas ce type de copie : utilisez-le pour lire, classer et transmettre vos justificatifs, et conservez vos originaux papier. Les reçus reçus par e-mail sont en principe gardés tels qu’ils sont arrivés, avec un PDF une fois vérifiés, et hébergés dans l’UE, à Francfort. Les factures électroniques reçues via votre plateforme agréée restent à conserver sous leur forme d’origine : la copie transférée à UnReceipt ne les remplace pas.",
       ],
     },
   ],
@@ -482,13 +482,13 @@ const paperFr: Guide = {
     {
       heading: "Ce qui change en 2027",
       body: [
-        "À partir du 1er janvier 2027, le délai fiscal de conservation passe de six à dix ans (loi n° 2026-534, article 36), et un nouvel article L102 B bis exige l’authenticité de l’origine, l’intégrité du contenu et la lisibilité des factures pendant toute la durée de conservation.",
+        "À partir du 1er janvier 2027, le délai fiscal de conservation passe de six à dix ans pour les documents encore dans le délai de six ans à cette date (loi n° 2026-534, article 36).",
       ],
     },
     {
       heading: "Avec UnReceipt",
       body: [
-        "UnReceipt ne produit pas de copie conforme au sens de l’article A102 B-2. Utilisez-le pour lire, classer et transmettre vos reçus à votre expert-comptable, et conservez vos tickets et factures papier dix ans. Les reçus qui arrivent par e-mail sont gardés tels qu’ils sont arrivés, avec un PDF, et hébergés dans l’UE, à Francfort.",
+        "UnReceipt ne produit pas de copie conforme au sens de l’article A102 B-2. Utilisez-le pour lire, classer et transmettre vos reçus à votre expert-comptable, et conservez vos tickets et factures papier dix ans. Les reçus qui arrivent par e-mail sont en principe gardés tels qu’ils sont arrivés, avec un PDF une fois vérifiés, et hébergés dans l’UE, à Francfort. Les factures électroniques reçues via votre plateforme agréée restent à conserver sous leur forme d’origine.",
       ],
     },
   ],

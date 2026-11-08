@@ -12,7 +12,7 @@ import {
   pageLanguages,
   type MarketingPageId,
 } from "@/lib/marketing-pages";
-import { absoluteUrl, audienceJsonLd, guideJsonLd, marketingMetadata } from "@/lib/seo";
+import { absoluteUrl, audienceJsonLd, guideJsonLd, jsonLdHtml, marketingMetadata } from "@/lib/seo";
 
 const ids = Object.keys(MARKETING_PAGES) as MarketingPageId[];
 
@@ -184,5 +184,14 @@ describe("guides", () => {
     const paperSv = GUIDES.find((g) => g.page === "guidePaper" && g.locale === "sv")!;
     expect(paperSv.answer).toMatch(/^Ja/);
     expect(paperSv.sections.map((s) => s.body.join(" ")).join(" ")).toContain("Skatteverket");
+  });
+});
+
+describe("jsonLdHtml", () => {
+  it("can't close the script tag, and still parses to the same data", () => {
+    const data = { a: "</script><script>alert(1)</script>" };
+    const html = jsonLdHtml(data);
+    expect(html).not.toContain("<");
+    expect(JSON.parse(html)).toEqual(data);
   });
 });

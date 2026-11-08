@@ -173,7 +173,7 @@ const accountantsEn: AudienceCopy = {
       {
         icon: "calculator",
         title: "Account suggestions you control",
-        desc: "A suggested BAS account per receipt from its category, input VAT on 2640. Change it on any receipt and your choice wins.",
+        desc: "A suggested BAS account per receipt from its category (standard BAS defaults), with input VAT on 2640 where it's deductible Swedish VAT. Change it on any receipt and your choice wins.",
       },
       {
         icon: "check",
@@ -211,11 +211,11 @@ const accountantsEn: AudienceCopy = {
     },
     {
       q: "What is in the export?",
-      a: "One ZIP per client and period: a bookkeeping CSV with one line per receipt and VAT rate (date, merchant, seller's org. and VAT number, currency, net, VAT, a suggested BAS account and input-VAT account 2640), a receipts CSV, a PDF of every receipt and the original files. It's a semicolon-separated CSV with decimal commas. There are no direct integrations with bookkeeping programs yet.",
+      a: "One ZIP per client and period: a bookkeeping CSV with one line per receipt and VAT rate (date, merchant, seller's org. and VAT number, currency, net, VAT, a suggested BAS account from standard BAS defaults, and input-VAT account 2640 where the VAT is deductible Swedish input VAT), a receipts CSV, a PDF of every checked receipt and the original files. It's a semicolon-separated CSV with decimal commas. There are no direct integrations with bookkeeping programs yet.",
     },
     {
       q: "Who can see a client's receipts?",
-      a: "Only your firm's staff, and only for companies linked to your firm. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
+      a: "Besides the client itself and UnReceipt's concierge, who checks each receipt, only your firm's staff, and only for companies linked to your firm. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
     },
     {
       q: "Can I change the category or account of a receipt?",
@@ -331,7 +331,7 @@ const accountantsSv: AudienceCopy = {
       {
         icon: "calculator",
         title: "BAS-kontoförslag som du styr",
-        desc: "Ett förslag på BAS-konto per kvitto utifrån kategorin, ingående moms på 2640. Ändra kontot på vilket kvitto som helst så gäller ditt val.",
+        desc: "Ett förslag på BAS-konto per kvitto utifrån kategorin (standardkonton i BAS), och ingående moms på 2640 där svensk moms är avdragsgill. Ändra kontot på vilket kvitto som helst så gäller ditt val.",
       },
       {
         icon: "check",
@@ -370,11 +370,11 @@ const accountantsSv: AudienceCopy = {
     },
     {
       q: "Vad innehåller exporten?",
-      a: "En ZIP per klient och period: en bokföringsfil (CSV) med en rad per kvitto och momssats (datum, säljare, säljarens organisations- och momsregistreringsnummer, valuta, netto, moms, förslag på BAS-konto och konto 2640 för ingående moms), en kvittolista i CSV, en PDF för varje kvitto och originalfilerna. CSV-filen är semikolonseparerad med decimalkomma. Det finns inga direktintegrationer med bokföringsprogram än.",
+      a: "En ZIP per klient och period: en bokföringsfil (CSV) med en rad per kvitto och momssats (datum, säljare, säljarens organisations- och momsregistreringsnummer, valuta, netto, moms, förslag på BAS-konto utifrån standardkonton och konto 2640 för ingående moms där svensk moms är avdragsgill), en kvittolista i CSV, en PDF för varje kontrollerat kvitto och originalfilerna. CSV-filen är semikolonseparerad med decimalkomma. Det finns inga direktintegrationer med bokföringsprogram än.",
     },
     {
       q: "Vem kan se klientens kvitton?",
-      a: "Bara byråns personal, och bara för företag som är kopplade till byrån. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
+      a: "Förutom klienten själv och UnReceipts concierge, som kontrollerar varje kvitto, bara byråns personal, och bara för företag som är kopplade till byrån. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
     },
     {
       q: "Kan jag ändra kategori eller konto på ett kvitto?",
@@ -499,7 +499,7 @@ const accountantsFr: AudienceCopy = {
       {
         icon: "download",
         title: "L’original conservé",
-        desc: "Chaque reçu garde sa photo ou son e-mail d’origine et un PDF, dans l’export comme dans le portail.",
+        desc: "Chaque reçu garde la photo envoyée ou l’e-mail reçu, et un PDF une fois vérifié, dans l’export comme dans le portail.",
       },
       {
         icon: "layers",
@@ -532,7 +532,7 @@ const accountantsFr: AudienceCopy = {
     },
     {
       q: "Qui peut voir les reçus d’un client ?",
-      a: "Seuls les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
+      a: "Outre le client lui-même et l’équipe UnReceipt qui vérifie chaque reçu, seuls les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
     },
     {
       q: "UnReceipt remplace-t-il le ticket papier ?",
@@ -809,8 +809,8 @@ const freelancersSv: AudienceCopy = {
       },
       {
         icon: "book",
-        title: "Klart för sju år",
-        desc: "Kvittobild och PDF sparas för varje kvitto. Ladda ner en ZIP per månad, år eller allt, när du vill.",
+        title: "Ditt eget arkiv",
+        desc: "Kvittobild och PDF sparas för varje kvitto. Ladda ner en ZIP per månad, år eller allt när du vill. Bevarandeskyldigheten ligger hos firman, och om du avslutar finns kvittona kvar i 90 dagar.",
       },
       {
         icon: "clock",
@@ -987,7 +987,7 @@ const freelancersFr: AudienceCopy = {
     },
     {
       q: "Un micro-entrepreneur doit-il conserver ses justificatifs ?",
-      a: "Oui. Le micro-entrepreneur tient un livre des recettes (et un registre des achats s’il vend des marchandises, des denrées à consommer sur place ou à emporter, ou fournit un logement) et conserve ses registres et pièces justificatives dix ans à compter de la clôture de l’exercice (article L123-28 du Code de commerce).",
+      a: "Oui. Le micro-entrepreneur tient un livre des recettes (et un registre des achats s’il vend des marchandises, des denrées à consommer sur place ou à emporter, ou fournit un logement) et conserve ses registres et pièces justificatives\u00a0: dix ans pour les commerçants (article L123-22 du Code de commerce), et au minimum le délai fiscal de l’article L102 B du Livre des procédures fiscales pour tous (six ans, dix ans à partir de 2027). Le plus simple\u00a0: tout garder dix ans.",
     },
     {
       q: "Faut-il un expert-comptable pour utiliser UnReceipt ?",
