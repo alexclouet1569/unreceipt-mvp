@@ -61,6 +61,8 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
         "border border-[var(--hairline)]",
         "px-[14px] py-[12px]",
         "transition-transform duration-[120ms] ease-out",
+        // Inset, so a wrapper that clips (swipe to delete) can't hide it.
+        "outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--ring)]",
         interactive &&
           "cursor-pointer hover:border-[color-mix(in_srgb,var(--brand)_30%,var(--hairline))] active:scale-[0.985]",
       )}
