@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     const base64 = buf.toString("base64");
     if (request.nextUrl.searchParams.get("stream") === "1") {
-      return streamedResponse(base64, type as OcrMediaType);
+      return streamedResponse(base64, type as OcrMediaType, request.signal);
     }
     const result = await extractReceipt(base64, type as OcrMediaType);
     return NextResponse.json(result);
@@ -129,29 +129,52 @@ export async function POST(request: NextRequest) {
  * with the full answer, or one `error` line. The form fills in from the
  * first partial instead of waiting for the whole receipt.
  */
-function streamedResponse(base64: string, mediaType: OcrMediaType): Response {
+function streamedResponse(base64: string, mediaType: OcrMediaType, requestSignal: AbortSignal): Response {
   const encoder = new TextEncoder();
+  // The phone went away (sheet closed, app in the background, network
+  // lost): stop the model instead of paying for an answer nobody reads.
+  const abort = new AbortController();
+  const stop = () => abort.abort();
+  requestSignal.addEventListener("abort", stop, { once: true });
+  let closed = false;
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (line: object) => controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+      const send = (line: object) => {
+        if (!closed) controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+      };
       let lastSent = "";
       try {
-        const call = await extractReceiptStreaming(base64, mediaType, (textSoFar) => {
-          const fields = partialOcrFields(textSoFar);
-          const key = JSON.stringify(fields);
-          if (key !== lastSent && key !== "{}") {
-            lastSent = key;
-            send({ type: "partial", fields });
-          }
-        });
+        const call = await extractReceiptStreaming(
+          base64,
+          mediaType,
+          (textSoFar) => {
+            const fields = partialOcrFields(textSoFar);
+            const key = JSON.stringify(fields);
+            if (key !== lastSent && key !== "{}") {
+              lastSent = key;
+              send({ type: "partial", fields });
+            }
+          },
+          abort.signal,
+        );
         send({ type: "result", result: call.result });
       } catch (err) {
-        console.error("[/api/ocr] streamed extract failed:", err);
-        Sentry.captureException(err, { tags: { area: "ocr" } });
-        send({ type: "error", error: "couldn't read this receipt" });
+        if (!abort.signal.aborted) {
+          console.error("[/api/ocr] streamed extract failed:", err);
+          Sentry.captureException(err, { tags: { area: "ocr" } });
+          send({ type: "error", error: "couldn't read this receipt" });
+        }
       } finally {
-        controller.close();
+        requestSignal.removeEventListener("abort", stop);
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
       }
+    },
+    cancel() {
+      closed = true;
+      stop();
     },
   });
   return new Response(body, {

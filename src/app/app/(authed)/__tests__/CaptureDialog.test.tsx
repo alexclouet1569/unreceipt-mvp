@@ -234,6 +234,61 @@ describe("CaptureDialog", () => {
     expect(JSON.parse(fd.get("items") as string)).toEqual([{ label: "Mjölk", total_amount: 13.9 }]);
   });
 
+  const streamingOcr = () => {
+    const encoder = new TextEncoder();
+    let push: (line: object) => void = () => {};
+    let end: () => void = () => {};
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        push = (line) => controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+        end = () => controller.close();
+      },
+    });
+    mocks.fetch.mockImplementation((url: string) =>
+      String(url).startsWith("/api/ocr")
+        ? Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/x-ndjson" }),
+            body,
+          } as unknown as Response)
+        : Promise.resolve(okResponse()),
+    );
+    return { push: (line: object) => push(line), end: () => end() };
+  };
+
+  it("lets the full answer correct an early value the customer didn't touch", async () => {
+    const user = userEvent.setup();
+    const ocr = streamingOcr();
+    renderDialog();
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+
+    ocr.push({ type: "partial", fields: { merchant: "ICA", amount: 24.5 } });
+    expect(await screen.findByLabelText(/Total paid/i)).toHaveValue(24.5);
+    ocr.push({ type: "result", result: { merchant: "ICA", amount: 245.5 } });
+    ocr.end();
+
+    await screen.findByRole("button", { name: /Save receipt/i });
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(245.5);
+  });
+
+  it("takes back early values when the full answer is refused", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const ocr = streamingOcr();
+    renderDialog();
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+
+    ocr.push({ type: "partial", fields: { merchant: "ICA", amount: 245.5 } });
+    expect(await screen.findByLabelText(/Total paid/i)).toHaveValue(245.5);
+    ocr.push({ type: "error", error: "couldn't read this receipt" });
+    ocr.end();
+
+    expect(await screen.findByText(/couldn't read|We couldn/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/Merchant/i)).toHaveValue("");
+  });
+
   it("shows the digital receipt after saving, and closes on Done", async () => {
     const user = userEvent.setup();
     mocks.fetch.mockResolvedValue(

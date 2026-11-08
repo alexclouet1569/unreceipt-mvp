@@ -170,9 +170,11 @@ export async function extractReceiptCall(
 export async function extractReceiptStreaming(
   imageBase64: string,
   mediaType: OcrMediaType,
-  onText: (textSoFar: string) => void
+  onText: (textSoFar: string) => void,
+  signal?: AbortSignal
 ): Promise<OcrCall> {
-  const stream = getClient().messages.stream(ocrRequest(imageBase64, mediaType, {}));
+  // Aborting stops the model too: nobody pays for line items no one reads.
+  const stream = getClient().messages.stream(ocrRequest(imageBase64, mediaType, {}), { signal });
   let text = "";
   stream.on("text", (delta) => {
     text += delta;

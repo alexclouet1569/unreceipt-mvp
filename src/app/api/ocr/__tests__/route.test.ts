@@ -278,6 +278,25 @@ describe("POST /api/ocr?stream=1", () => {
     });
   });
 
+  it("stops the model when the phone goes away, and reports nothing", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "a@b.se" });
+    let modelSignal: AbortSignal | undefined;
+    mocks.extractReceiptStreaming.mockImplementation(
+      (_b64: string, _type: string, _onText: unknown, signal: AbortSignal) =>
+        new Promise((_resolve, reject) => {
+          modelSignal = signal;
+          signal.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    const sentry = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(streamRequest());
+    await res.body!.cancel();
+
+    expect(modelSignal?.aborted).toBe(true);
+    expect(sentry).not.toHaveBeenCalled();
+  });
+
   it("ends with an error line, without the model's text, when reading fails", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "a@b.se" });
     mocks.extractReceiptStreaming.mockRejectedValue(new Error("secret receipt text"));
