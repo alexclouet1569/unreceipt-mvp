@@ -91,6 +91,7 @@ import {
   fileBase,
   monthRange,
   parsePeriod,
+  readme,
 } from "@/lib/export/build-export";
 
 const row = (i: number, o: Record<string, unknown> = {}) => ({
@@ -146,6 +147,25 @@ describe("export helpers", () => {
 
   it("names files date_merchant_shortid", () => {
     expect(fileBase(row(1) as never)).toBe("2026-10-03_shop-1_00000001");
+  });
+
+  it("describes the SEK columns of bookkeeping.csv as they are", () => {
+    const now = new Date("2026-11-05T09:00:00Z");
+    // Lines are wrapped for a text editor; join them to match phrases.
+    const firm = readme("2026-10", 1, null, now, null, true).replace(/\s+/g, " ");
+    expect(firm).not.toContain("no conversion is done");
+    expect(firm).toContain("Total SEK is real kronor only");
+    expect(firm).toContain("Total SEK (ECB estimate)");
+    expect(firm).toContain("ESTIMATE, not what the bank charged");
+    expect(firm).toContain("A bank-statement amount always takes precedence");
+    expect(firm).toContain("Only EUR, USD, GBP, NOK, DKK, CHF and PLN get an estimate");
+    // A typed amount works for any currency, so nothing may promise a blank.
+    expect(firm).toContain("Total SEK blank until the bank-statement amount is typed in");
+    expect(firm).toContain("SUGGESTION");
+    // A customer's own export has no bookkeeping.csv, so no word of it.
+    const own = readme("2026-10", 1, null, now, null, false);
+    expect(own).not.toContain("bookkeeping.csv");
+    expect(own).not.toContain("ECB");
   });
 });
 

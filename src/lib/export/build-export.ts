@@ -206,7 +206,7 @@ async function collectReceipt(
   };
 }
 
-function readme(
+export function readme(
   label: string,
   receiptCount: number,
   partNo: number | null,
@@ -242,7 +242,19 @@ function readme(
           "              purchase. Representation gets 6072 and no VAT account: split it",
           "              yourself (300 kr per person). Foreign VAT has no account. A",
           "              blank VAT rate means the receipt printed none that could be read.",
-          "              Total SEK is blank for other currencies (no conversion is done).",
+          "              Total SEK is real kronor only: a SEK receipt's own total, or, for",
+          "              a foreign receipt, the amount your client typed in from the bank",
+          "              statement. Total SEK (ECB estimate) is a foreign receipt converted",
+          "              at the ECB reference rate of the purchase day (or the last banking",
+          "              day before it). It is an ESTIMATE, not what the bank charged. A",
+          "              bank-statement amount always takes precedence: it fills Total SEK",
+          "              and the estimate is left blank. It is dropped if the receipt's",
+          "              amount, currency or date is changed later. SEK rate is the rate",
+          "              used (for a bank-statement amount, the rate it implies); Rate",
+          "              source says which. Only EUR, USD, GBP, NOK, DKK, CHF and PLN get an",
+          "              estimate, for a company whose currency is SEK; other currencies,",
+          "              and receipts no ECB rate was found for, have Total SEK blank until",
+          "              the bank-statement amount is typed in.",
           "              Ready receipts included for the first time are stamped as",
           "              exported; a re-export never changes the stamp.",
         ]
