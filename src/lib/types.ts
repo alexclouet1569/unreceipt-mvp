@@ -141,6 +141,11 @@ export interface Receipt {
   fx_source: "same" | "ecb" | "manual" | null;
 
   created_at: string;
+  /**
+   * Moves on every UPDATE (receipts_set_updated_at, 2026-11-08 block;
+   * production had an equivalent hand-made trigger before). Not an audit
+   * trail: use edited_at / edit_history for what changed and when.
+   */
   updated_at: string;
 }
 
