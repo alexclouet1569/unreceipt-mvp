@@ -68,7 +68,7 @@ function loadSaved(): Saved {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
-    if (parsed && (parsed.provider === null || (parsed.provider && parsed.provider in CHAPTERS))) {
+    if (parsed && (parsed.provider === null || (parsed.provider && Object.hasOwn(CHAPTERS, parsed.provider)))) {
       return {
         provider: parsed.provider ?? null,
         step: Math.max(0, Number(parsed.step) || 0),
