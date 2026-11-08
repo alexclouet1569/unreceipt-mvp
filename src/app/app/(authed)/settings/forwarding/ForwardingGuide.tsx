@@ -1,7 +1,39 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { IntakeRow } from "@/components/IntakeRow";
 import { ForwardingWizard } from "./ForwardingWizard";
+import { HandForward } from "./guide/HandForward";
+import { guessMailLang, type MailLang } from "./guide/ui-labels";
+
+const LANG_KEY = "unreceipt.forwarding-lang";
+
+// The language the user's email shows its buttons in: their choice, else
+// the browser's language. Deferred so server and client render alike.
+function useMailLang(): [MailLang, (l: MailLang) => void] {
+  const [lang, setLang] = useState<MailLang>("en");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      let saved: string | null = null;
+      try {
+        saved = window.localStorage.getItem(LANG_KEY);
+      } catch {
+        /* storage unavailable */
+      }
+      setLang(saved === "en" || saved === "sv" || saved === "fr" ? saved : guessMailLang(navigator.languages));
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+  const choose = (l: MailLang) => {
+    setLang(l);
+    try {
+      window.localStorage.setItem(LANG_KEY, l);
+    } catch {
+      /* storage unavailable: the choice lasts for this visit */
+    }
+  };
+  return [lang, choose];
+}
 
 /**
  * The forwarding address page: what the address does, the step-by-step
@@ -18,6 +50,7 @@ export function ForwardingGuide({
   // The "Your email addresses" manager, rendered by the server page.
   ownAddresses?: React.ReactNode;
 }) {
+  const [lang, setLang] = useMailLang();
   return (
     <div className="space-y-8">
       <section aria-labelledby="what-heading">
@@ -66,7 +99,12 @@ export function ForwardingGuide({
           only forwards emails whose subject looks like a receipt, never your
           other mail.
         </p>
-        <ForwardingWizard forwardingEmail={forwardingEmail} accountEmail={accountEmail} />
+        <ForwardingWizard
+          forwardingEmail={forwardingEmail}
+          accountEmail={accountEmail}
+          lang={lang}
+          onLangChange={setLang}
+        />
       </section>
 
       {ownAddresses ? (
@@ -78,13 +116,7 @@ export function ForwardingGuide({
 
       <section aria-labelledby="hand-heading">
         <SectionLabel id="hand-heading">Forward by hand</SectionLabel>
-        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Works from any email app, on any phone: open the receipt email, tap
-          Forward and send it to your address. Save the address as a contact
-          called &ldquo;UnReceipt&rdquo; so it&apos;s two taps next time.
-          Forwarded by hand, a receipt waits under Review needed for a quick
-          check.
-        </p>
+        <HandForward forwardingEmail={forwardingEmail} lang={lang} />
       </section>
     </div>
   );

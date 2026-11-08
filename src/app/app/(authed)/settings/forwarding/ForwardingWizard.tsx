@@ -4,16 +4,27 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { ArrowLeft, Check, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
-import { RECEIPT_SUBJECT_WORDS, gmailFilterQuery, outlookSubjectWords } from "@/lib/forwarding-filters";
+import {
+  RECEIPT_SUBJECT_WORDS,
+  gmailFilterQuery,
+  icloudRuleWords,
+  outlookSubjectWords,
+} from "@/lib/forwarding-filters";
+import { ActionChecklist, ActionHint } from "./guide/ActionChecklist";
+import { CHAPTERS, clampPosition, type Extra, type Provider } from "./guide/actions";
+import { Picture } from "./guide/Scene";
+import { GMAIL_SCENES } from "./guide/scenes/gmail";
+import { GMAIL, MAIL_LANGS, say, type MailLang } from "./guide/ui-labels";
 
 /**
- * Step-by-step forwarding setup: pick your email provider, then one small
- * step per screen with the exact click path, a button that opens the right
- * settings page, and the things to paste. Gmail's confirmation code and the
- * test email are picked up live from /api/forwarding/status.
+ * Step-by-step forwarding setup: pick your email provider, then one chapter
+ * per screen, each a checklist of single actions with a drawn picture of
+ * that part of the provider's screen (guide/). Button names follow the
+ * language of the user's email. Gmail's confirmation code and the test
+ * email are picked up live from /api/forwarding/status.
  */
 
-type Provider = "gmail" | "outlook" | "other";
+export type { Provider } from "./guide/actions";
 
 type Status = {
   confirmation: {
@@ -26,25 +37,11 @@ type Status = {
   lastEmailAt: string | null;
 };
 
-type StepKind = "plain" | "code" | "test";
-
-type Step = {
-  title: string;
-  // The click path inside the provider's settings, shown as a trail.
-  path: string[];
-  kind?: StepKind;
-  body: (ctx: StepContext) => React.ReactNode;
-};
-
-type StepContext = {
-  forwardingEmail: string;
-  status: Status | null;
-};
-
 const GMAIL_FORWARDING_URL = "https://mail.google.com/mail/u/0/#settings/fwdandpop";
 const GMAIL_FILTERS_URL = "https://mail.google.com/mail/u/0/#settings/filters";
 const OUTLOOK_PERSONAL_RULES_URL = "https://outlook.live.com/mail/0/options/mail/rules";
 const OUTLOOK_WORK_RULES_URL = "https://outlook.office.com/mail/options/mail/rules";
+const ICLOUD_MAIL_URL = "https://www.icloud.com/mail";
 
 const POLL_MS = 4_000;
 const POLL_FOR_MS = 10 * 60 * 1000;
@@ -56,159 +53,26 @@ const nowMs = () => Date.now();
 const PROVIDERS: { id: Provider; label: string; hint: string }[] = [
   { id: "gmail", label: "Gmail", hint: "Gmail or Google Workspace" },
   { id: "outlook", label: "Outlook", hint: "Outlook.com, Hotmail or Microsoft 365" },
-  { id: "other", label: "Something else", hint: "iCloud, Yahoo, Proton and others" },
+  { id: "icloud", label: "iCloud Mail", hint: "@icloud.com, @me.com" },
+  { id: "paid", label: "Yahoo or Proton", hint: "Automatic forwarding needs a paid plan" },
+  { id: "other", label: "Something else", hint: "Any other email provider" },
 ];
 
-const STEPS: Record<Provider, Step[]> = {
-  gmail: [
-    {
-      title: "Add your UnReceipt address in Gmail",
-      path: ["Settings (gear)", "See all settings", "Forwarding and POP/IMAP", "Add a forwarding address", "Paste your address", "Next", "Proceed", "OK"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <OpenLink href={GMAIL_FORWARDING_URL}>Open Gmail forwarding settings</OpenLink>
-          <Hint>
-            Gmail may ask you to sign in again. That&apos;s normal. Wrong Gmail
-            account? Switch at the top right of Gmail, then follow the path
-            above.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Confirm your UnReceipt address",
-      path: [],
-      kind: "code",
-      body: ({ status }) => (
-        <>
-          <CodeBox status={status} />
-          <Hint>
-            Leave <Strong>Disable forwarding</Strong> selected: the next step
-            forwards receipts only, not all your mail.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Forward only receipts",
-      path: ["Filters and Blocked Addresses", "Create a new filter", "Has the words: paste", "Create filter", "Forward it to: your address", "Create filter"],
-      body: () => (
-        <>
-          <OpenLink href={GMAIL_FILTERS_URL}>Open Gmail filters</OpenLink>
-          <IntakeRow
-            callout="Paste into “Has the words”"
-            value={gmailFilterQuery()}
-            mono={false}
-            copyLabel="Copy Gmail filter"
-            breakWords
-            quiet
-          />
-          <Hint>Your address not in the “Forward it to” list? Go back one step and verify the code first.</Hint>
-        </>
-      ),
-    },
-    {
-      title: "Check that it works",
-      path: [],
-      kind: "test",
-      body: (ctx) => <TestBox {...ctx} />,
-    },
-  ],
-  outlook: [
-    {
-      title: "Open Outlook's rules",
-      path: ["Settings (gear, top right)", "Mail", "Rules", "+ Add new rule"],
-      body: () => (
-        <>
-          <div className="flex flex-wrap gap-2">
-            <OpenLink href={OUTLOOK_PERSONAL_RULES_URL}>Outlook.com (personal)</OpenLink>
-            <OpenLink href={OUTLOOK_WORK_RULES_URL}>Microsoft 365 (work)</OpenLink>
-          </div>
-          <Hint>The Outlook app can&apos;t make forwarding rules; use Outlook in a browser.</Hint>
-        </>
-      ),
-    },
-    {
-      title: "Choose which emails",
-      path: ["Name it “UnReceipt”", "Add a condition", "Subject includes"],
-      body: () => (
-        <>
-          <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            Add these words one at a time, pressing Enter after each. Tap a word
-            to copy it.
-          </p>
-          <WordChips words={outlookSubjectWords()} />
-        </>
-      ),
-    },
-    {
-      title: "Send them to UnReceipt",
-      path: ["Add an action", "Redirect to", "Paste your address", "Save"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <Hint>
-            Choose <Strong>Redirect to</Strong>, not “Forward to”: a redirect keeps
-            the original sender, so we can verify the receipt. Work accounts:
-            Microsoft 365 blocks forwarding outside the company by default. If you
-            get a bounce email, ask your IT admin to allow it.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Check that it works",
-      path: [],
-      kind: "test",
-      body: (ctx) => <TestBox {...ctx} />,
-    },
-  ],
-  other: [
-    {
-      title: "Find rules or filters",
-      path: ["Your email on the web", "Settings", "Rules or Filters", "New rule"],
-      body: () => <Hint>Most providers only offer rules in the browser version, not in the app.</Hint>,
-    },
-    {
-      title: "Make the rule",
-      path: ["When the subject contains…", "Forward or redirect to", "Your address"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Forward to" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            Subject words to match. If only one fits per rule, start with the
-            ones your receipts use most:
-          </p>
-          <WordChips words={[...RECEIPT_SUBJECT_WORDS]} />
-          <Hint>
-            If your provider sends a confirmation email to the address, it shows up
-            in UnReceipt under Review needed: open it and tap Original to read it.
-          </Hint>
-        </>
-      ),
-    },
-    {
-      title: "Check that it works",
-      path: [],
-      kind: "test",
-      body: (ctx) => <TestBox {...ctx} />,
-    },
-  ],
-};
+const providerLabel = (p: Provider | null) => PROVIDERS.find((x) => x.id === p)?.label ?? "";
 
 // `chosen`: the user picked (or went back to) the provider list themselves,
 // so it isn't replaced by the one guessed from their email.
-type Saved = { provider: Provider | null; step: number; done: boolean; chosen?: boolean };
+type Saved = { provider: Provider | null; step: number; action: number; done: boolean; chosen?: boolean };
 
 function loadSaved(): Saved {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
-    if (parsed && (parsed.provider === null || (parsed.provider && parsed.provider in STEPS))) {
+    if (parsed && (parsed.provider === null || (parsed.provider && parsed.provider in CHAPTERS))) {
       return {
         provider: parsed.provider ?? null,
         step: Math.max(0, Number(parsed.step) || 0),
+        action: Math.max(0, Number(parsed.action) || 0),
         done: Boolean(parsed.done),
         chosen: Boolean(parsed.chosen),
       };
@@ -216,7 +80,7 @@ function loadSaved(): Saved {
   } catch {
     /* storage unavailable: start fresh */
   }
-  return { provider: null, step: 0, done: false };
+  return { provider: null, step: 0, action: 0, done: false };
 }
 
 function save(state: Saved) {
@@ -240,22 +104,32 @@ export function providerForEmail(email: string | null | undefined): Provider | n
   const domain = email?.split("@")[1]?.trim().toLowerCase() ?? "";
   if (domain === "gmail.com" || domain === "googlemail.com") return "gmail";
   if (/^(outlook|hotmail|live|msn)\.[a-z.]{2,6}$/.test(domain)) return "outlook";
+  if (domain === "icloud.com" || domain === "me.com" || domain === "mac.com") return "icloud";
+  if (/^(yahoo|ymail|rocketmail)\.[a-z.]{2,6}$/.test(domain) || /^(proton\.me|protonmail\.(com|ch)|pm\.me)$/.test(domain)) {
+    return "paid";
+  }
   return null;
 }
 
 export function ForwardingWizard({
   forwardingEmail,
   accountEmail,
+  lang = "en",
+  onLangChange,
 }: {
   forwardingEmail: string;
-  // The sign-in email: picks Gmail or Outlook for the user on a first visit.
+  // The sign-in email: picks the user's provider on a first visit.
   accountEmail?: string | null;
+  // The language the user's email shows its buttons in.
+  lang?: MailLang;
+  onLangChange?: (lang: MailLang) => void;
 }) {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [step, setStep] = useState(0);
+  const [action, setAction] = useState(0);
   const [done, setDone] = useState(false);
   const [chosen, setChosen] = useState(false);
-  // Started on Gmail/Outlook because of the sign-in email (says so once).
+  // Started on a provider because of the sign-in email (says so once).
   const [guessedFromEmail, setGuessedFromEmail] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const onPhone = useSyncExternalStore(subscribeCoarse, isCoarse, () => false);
@@ -271,10 +145,13 @@ export function ForwardingWizard({
       // back to the choice).
       const fresh = saved.provider === null && saved.step === 0 && !saved.done && !saved.chosen;
       const guessed = fresh ? providerForEmail(accountEmail) : null;
-      setProvider(guessed ?? saved.provider);
+      const p = guessed ?? saved.provider;
+      const pos = p ? clampPosition(p, saved.step, saved.action) : { step: 0, action: 0 };
+      setProvider(p);
       setGuessedFromEmail(guessed != null);
       setChosen(Boolean(saved.chosen));
-      setStep(saved.step);
+      setStep(pos.step);
+      setAction(pos.action);
       setDone(saved.done);
       restored.current = true;
     }, 0);
@@ -284,13 +161,16 @@ export function ForwardingWizard({
   }, []);
 
   useEffect(() => {
-    if (restored.current) save({ provider, step, done, chosen });
-  }, [provider, step, done, chosen]);
+    if (restored.current) save({ provider, step, action, done, chosen });
+  }, [provider, step, action, done, chosen]);
 
-  const steps = provider ? STEPS[provider] : [];
-  const current = provider && !done ? steps[Math.min(step, steps.length - 1)] : null;
-  const watching =
-    (current?.kind === "code" && !status?.confirmation?.autoConfirmed) || current?.kind === "test";
+  const chapters = provider ? CHAPTERS[provider] : [];
+  const total = chapters.length;
+  const index = Math.min(step, Math.max(0, total - 1));
+  const chapter = provider && !done ? chapters[index] : null;
+  const actionIndex = chapter ? Math.min(action, chapter.actions.length - 1) : 0;
+  const autoConfirmed = Boolean(status?.confirmation?.autoConfirmed);
+  const watching = (chapter?.kind === "code" && !autoConfirmed) || chapter?.kind === "test";
 
   const refresh = useCallback(async () => {
     try {
@@ -321,10 +201,13 @@ export function ForwardingWizard({
     };
   }, [watching, refresh]);
 
-  const goTo = (next: number) => {
+  const focusTitle = () => requestAnimationFrame(() => titleRef.current?.focus());
+
+  const goToChapter = (next: number, toAction: "first" | "last" = "first") => {
     if (!provider) return;
     setStep(next);
-    requestAnimationFrame(() => titleRef.current?.focus());
+    setAction(toAction === "first" ? 0 : CHAPTERS[provider][next].actions.length - 1);
+    focusTitle();
   };
 
   const choose = (p: Provider) => {
@@ -333,7 +216,8 @@ export function ForwardingWizard({
     setProvider(p);
     setDone(false);
     setStep(0);
-    requestAnimationFrame(() => titleRef.current?.focus());
+    setAction(0);
+    focusTitle();
   };
 
   const restart = () => {
@@ -341,12 +225,37 @@ export function ForwardingWizard({
     setGuessedFromEmail(false);
     setProvider(null);
     setStep(0);
+    setAction(0);
     setDone(false);
-    requestAnimationFrame(() => titleRef.current?.focus());
+    focusTitle();
   };
 
-  const total = steps.length;
-  const index = Math.min(step, Math.max(0, total - 1));
+  const next = () => {
+    if (!chapter) return;
+    if (actionIndex < chapter.actions.length - 1) return setAction(actionIndex + 1);
+    if (index < total - 1) return goToChapter(index + 1);
+    setDone(true);
+    focusTitle();
+  };
+
+  const back = () => {
+    if (actionIndex > 0) return setAction(actionIndex - 1);
+    if (index > 0) return goToChapter(index - 1, "last");
+    restart();
+  };
+
+  const isLastAction = chapter ? actionIndex === chapter.actions.length - 1 : false;
+  const nextLabel =
+    index === total - 1 && isLastAction
+      ? "Done"
+      : chapter?.kind === "code" && actionIndex === 0 && status?.confirmation?.code && !autoConfirmed
+        ? "I've verified it"
+        : "Next";
+
+  const icloudWords = icloudRuleWords(lang);
+  const renderExtra = (extra: Extra) => (
+    <ExtraFor extra={extra} forwardingEmail={forwardingEmail} status={status} lang={lang} icloudWords={icloudWords} />
+  );
 
   return (
     <div
@@ -359,8 +268,8 @@ export function ForwardingWizard({
         <>
           <Title titleRef={titleRef}>Where do your receipts arrive?</Title>
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "12px" }}>
-            Pick your email and we&apos;ll walk you through it, one small step at
-            a time. About 3 minutes.
+            Pick your email and we&apos;ll walk you through it, one click at a
+            time, with a picture of each screen. About 3 minutes.
           </p>
           <ul role="list" className="space-y-2">
             {PROVIDERS.map((p) => (
@@ -389,11 +298,23 @@ export function ForwardingWizard({
         <>
           <div className="flex items-center gap-2" style={{ marginBottom: "8px" }}>
             <Check className="w-5 h-5 text-[var(--primary)]" aria-hidden="true" />
-            <Title titleRef={titleRef}>You&apos;re set</Title>
+            <Title titleRef={titleRef}>{provider === "paid" ? "Forward them by hand" : "You're set"}</Title>
           </div>
           <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "12px" }}>
-            New receipts in your {PROVIDERS.find((p) => p.id === provider)?.label} inbox now
-            arrive in UnReceipt by themselves. Older ones: forward them by hand.
+            {provider === "paid" ? (
+              <>
+                Open a receipt email, tap Forward and send it to your address.{" "}
+                <a href="#hand-heading" className="underline underline-offset-2 text-[var(--ink)]">
+                  See how
+                </a>
+                .
+              </>
+            ) : (
+              <>
+                New receipts in your {providerLabel(provider)} inbox now arrive in UnReceipt by themselves. Older ones:
+                forward them by hand.
+              </>
+            )}
           </p>
           <button
             type="button"
@@ -404,48 +325,52 @@ export function ForwardingWizard({
             Set up another inbox
           </button>
         </>
-      ) : current ? (
+      ) : chapter ? (
         <>
           <div className="flex items-center justify-between gap-2" style={{ marginBottom: "8px" }}>
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              {PROVIDERS.find((p) => p.id === provider)?.label} · Step {index + 1} of {total}
+              {providerLabel(provider)} · Step {index + 1} of {total}
             </p>
             <Dots total={total} index={index} />
           </div>
-          {guessedFromEmail && index === 0 ? (
+          {guessedFromEmail && index === 0 && actionIndex === 0 ? (
             <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5, marginBottom: "6px" }}>
-              Your sign-in email is {PROVIDERS.find((p) => p.id === provider)?.label}, so we started there.
-              About 3 minutes, one small step at a time.
+              Your sign-in email is {providerLabel(provider)}, so we started there.
+              About 3 minutes, one click at a time.
             </p>
           ) : null}
-          <Title titleRef={titleRef}>{current.title}</Title>
-          {current.path.length > 0 ? <PathTrail path={current.path} /> : null}
-          <div className="space-y-3" style={{ marginTop: "12px" }}>
-            {current.body({ forwardingEmail, status })}
+          <Title titleRef={titleRef}>{chapter.title}</Title>
+          {provider === "gmail" || provider === "outlook" || provider === "icloud" ? (
+            <LangSwitch provider={providerLabel(provider)} lang={lang} onChange={onLangChange} />
+          ) : null}
+          <div style={{ marginTop: "12px" }}>
+            <ActionChecklist
+              actions={chapter.actions}
+              current={actionIndex}
+              onSelect={setAction}
+              textContext={{ lang, autoConfirmed, firstWord: icloudWords[0] }}
+              sceneProps={{
+                lang,
+                address: forwardingEmail,
+                filterQuery: gmailFilterQuery(),
+                words: provider === "icloud" ? icloudWords : outlookSubjectWords(),
+              }}
+              renderExtra={renderExtra}
+            />
           </div>
 
-          <div className="flex items-center justify-between gap-2" style={{ marginTop: "20px" }}>
+          <div className="flex items-center justify-between gap-2" style={{ marginTop: "16px" }}>
             <button
               type="button"
-              onClick={() => (index === 0 ? restart() : goTo(index - 1))}
+              onClick={back}
               className="inline-flex items-center gap-1 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
               style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-              {index === 0 ? "Change email" : "Back"}
+              {index === 0 && actionIndex === 0 ? "Change email" : "Back"}
             </button>
-            <Button
-              type="button"
-              className="h-11 px-5"
-              onClick={() => {
-                if (index < total - 1) return goTo(index + 1);
-                setDone(true);
-                requestAnimationFrame(() => titleRef.current?.focus());
-              }}
-            >
-              {index === total - 1 ? "Done" : current.kind === "code" && status?.confirmation?.code && !status.confirmation.autoConfirmed
-                  ? "I've verified it"
-                  : "Next"}
+            <Button type="button" className="h-11 px-5" onClick={next}>
+              {nextLabel}
             </Button>
           </div>
         </>
@@ -454,23 +379,212 @@ export function ForwardingWizard({
   );
 }
 
-// "Settings (gear) › See all settings › Forwarding and POP/IMAP"
-function PathTrail({ path }: { path: string[] }) {
+function LangSwitch({ provider, lang, onChange }: { provider: string; lang: MailLang; onChange?: (l: MailLang) => void }) {
   return (
-    <ol role="list" aria-label="Where to click" className="flex flex-wrap items-center gap-1" style={{ marginTop: "8px" }}>
-      {path.map((p, i) => (
-        <li key={`${p}-${i}`} className="inline-flex items-center gap-1">
-          {/* Read-only labels, styled unlike the bordered buttons around them. */}
-          <span
-            className="text-[var(--ink)]"
-            style={{ background: "var(--surface)", borderRadius: "6px", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
+    <div className="flex flex-wrap items-center gap-2" style={{ marginTop: "8px" }}>
+      <span id="mail-lang-label" className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
+        My {provider} is in
+      </span>
+      <div role="group" aria-labelledby="mail-lang-label" className="inline-flex" style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "2px" }}>
+        {MAIL_LANGS.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            aria-pressed={lang === l.id}
+            onClick={() => onChange?.(l.id)}
+            className="transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+            style={{
+              minHeight: "40px",
+              padding: "0 10px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              background: lang === l.id ? "var(--surface)" : "transparent",
+              color: lang === l.id ? "var(--ink)" : "var(--ink-muted)",
+            }}
           >
-            {p}
-          </span>
-          {i < path.length - 1 ? <ChevronRight className="w-3.5 h-3.5 text-[var(--ink-faint)]" aria-hidden="true" /> : null}
-        </li>
-      ))}
-    </ol>
+            {l.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExtraFor({
+  extra,
+  forwardingEmail,
+  status,
+  lang,
+  icloudWords,
+}: {
+  extra: Extra;
+  forwardingEmail: string;
+  status: Status | null;
+  lang: MailLang;
+  icloudWords: string[];
+}) {
+  const address = (
+    <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
+  );
+  switch (extra) {
+    case "open-gmail-forwarding":
+      return (
+        <>
+          <OpenLink href={GMAIL_FORWARDING_URL}>Open Gmail forwarding settings</OpenLink>
+          <GmailFallback lang={lang} address={forwardingEmail} />
+        </>
+      );
+    case "open-gmail-filters":
+      return <OpenLink href={GMAIL_FILTERS_URL}>Open Gmail filters</OpenLink>;
+    case "copy-address":
+      return address;
+    case "copy-filter":
+      return (
+        <IntakeRow
+          callout={`Paste into “${say(GMAIL.hasTheWords, lang)}”`}
+          value={gmailFilterQuery()}
+          mono={false}
+          copyLabel="Copy Gmail filter"
+          breakWords
+          quiet
+        />
+      );
+    case "outlook-links":
+      return (
+        <div className="flex flex-wrap gap-2">
+          <OpenLink href={OUTLOOK_PERSONAL_RULES_URL}>Outlook.com (personal)</OpenLink>
+          <OpenLink href={OUTLOOK_WORK_RULES_URL}>Microsoft 365 (work)</OpenLink>
+        </div>
+      );
+    case "outlook-words":
+      return (
+        <>
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
+            Tap a word to copy it.
+          </p>
+          <WordChips words={outlookSubjectWords()} />
+        </>
+      );
+    case "icloud-open":
+      return <OpenLink href={ICLOUD_MAIL_URL}>Open iCloud Mail</OpenLink>;
+    case "icloud-words":
+      return <WordChips words={icloudWords.slice(1)} />;
+    case "other-words":
+      return (
+        <>
+          {address}
+          <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+            If only one word fits per rule, start with the ones your receipts use most:
+          </p>
+          <WordChips words={[...RECEIPT_SUBJECT_WORDS]} />
+        </>
+      );
+    case "paid-check":
+      return <PaidCheck forwardingEmail={forwardingEmail} />;
+    case "code":
+      return <CodeBox status={status} />;
+    case "test":
+      return <TestBox status={status} />;
+  }
+}
+
+// When the deep link doesn't land on the right tab (another signed-in
+// account, an old bookmark): the way there by hand, one picture per click.
+function GmailFallback({ lang, address }: { lang: MailLang; address: string }) {
+  const [open, setOpen] = useState(false);
+  const sceneProps = { lang, address, filterQuery: gmailFilterQuery(), words: [] };
+  const steps = [
+    { scene: GMAIL_SCENES["gmail-gear"], text: `Click ${say(GMAIL.settings, lang)} (the gear, top right)` },
+    { scene: GMAIL_SCENES["gmail-see-all"], text: `Click “${say(GMAIL.seeAllSettings, lang)}”` },
+    { scene: GMAIL_SCENES["gmail-tab"], text: `Click the “${say(GMAIL.forwardingTab, lang)}” tab` },
+  ];
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+        style={{ minHeight: "44px", fontSize: "13px", fontWeight: 500 }}
+      >
+        The button didn&apos;t open the right page?
+      </button>
+      {open ? (
+        <ol role="list" className="space-y-3" style={{ marginTop: "4px" }}>
+          {steps.map((s, i) => (
+            <li key={i} className="space-y-2">
+              <p className="text-[var(--ink)]" style={{ fontSize: "14px" }}>
+                {i + 1}. {s.text}
+              </p>
+              <Picture label={s.text} play={0}>
+                {s.scene(sceneProps)}
+              </Picture>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
+}
+
+// Yahoo forwards only on Yahoo Mail Plus, and then all mail; Proton only on
+// paid plans (their help pages, read 2026-11-08).
+function PaidCheck({ forwardingEmail }: { forwardingEmail: string }) {
+  const [which, setWhich] = useState<"yahoo" | "proton" | null>(null);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {(["yahoo", "proton"] as const).map((w) => (
+          <button
+            key={w}
+            type="button"
+            aria-pressed={which === w}
+            onClick={() => setWhich(w)}
+            className="text-[var(--ink)] hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+            style={{
+              border: which === w ? "1px solid var(--ink)" : "1px solid var(--hairline)",
+              borderRadius: "10px",
+              padding: "0 14px",
+              minHeight: "44px",
+              fontSize: "14px",
+              fontWeight: 600,
+              background: which === w ? "var(--surface)" : "var(--card)",
+            }}
+          >
+            {w === "yahoo" ? "Yahoo Mail" : "Proton Mail"}
+          </button>
+        ))}
+      </div>
+      {which === "yahoo" ? (
+        <ActionHint>
+          Yahoo only forwards on the paid Yahoo Mail Plus, and then it forwards all your mail, not just receipts. We
+          don&apos;t recommend it: every email that isn&apos;t a receipt would wait under Review needed.{" "}
+          <a href="#hand-heading" className="underline underline-offset-2 text-[var(--ink)]">
+            Forward receipts by hand
+          </a>{" "}
+          instead.
+        </ActionHint>
+      ) : which === "proton" ? (
+        <div className="space-y-3">
+          <ActionHint>
+            Free Proton plans can&apos;t forward automatically:{" "}
+            <a href="#hand-heading" className="underline underline-offset-2 text-[var(--ink)]">
+              forward receipts by hand
+            </a>
+            . On a paid plan, in Proton on the web:
+          </ActionHint>
+          <ol role="list" className="space-y-1 text-[var(--ink)]" style={{ fontSize: "14px", lineHeight: 1.5, paddingLeft: "4px" }}>
+            <li>1. Settings (gear) → <Strong>All settings</Strong></li>
+            <li>2. <Strong>Forward and auto-reply</Strong> → <Strong>Add forwarding rule</Strong></li>
+            <li>3. In <Strong>Forward to</Strong>, paste your address</li>
+            <li>4. <Strong>Add condition</Strong>: the subject contains <Strong>receipt</Strong> (add one per word)</li>
+            <li>5. <Strong>Save</Strong></li>
+          </ol>
+          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -510,11 +624,11 @@ function CodeBox({ status }: { status: Status | null }) {
           </p>
           {confirmation.code ? (
             <>
-              <Hint>
+              <ActionHint>
                 Gmail still says your UnReceipt address is unverified? Reload
                 Gmail. If it stays that way, type this code in Gmail&apos;s
                 Forwarding settings, in the box next to your UnReceipt address:
-              </Hint>
+              </ActionHint>
               <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
             </>
           ) : null}
@@ -537,19 +651,13 @@ function CodeBox({ status }: { status: Status | null }) {
           and we&apos;ll send it to you.
         </p>
       ) : (
-        <>
-          <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
-          <Hint>
-            In Gmail: paste it in the <Strong>Confirmation code</Strong> box,
-            then <Strong>Verify</Strong>.
-          </Hint>
-        </>
+        <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
       )}
     </div>
   );
 }
 
-function TestBox({ status }: StepContext) {
+function TestBox({ status }: { status: Status | null }) {
   const [since] = useState(nowMs);
   const arrived = status?.lastEmailAt != null && Date.parse(status.lastEmailAt) >= since - 5_000;
   return (
@@ -579,18 +687,18 @@ function TestBox({ status }: StepContext) {
           </p>
         )}
       </div>
-      <Hint>
+      <ActionHint>
         Is this inbox different from your sign-in email? Add it under{" "}
         <a href="#own-heading" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
           Your email addresses
         </a>{" "}
         so its receipts are verified automatically.
-      </Hint>
+      </ActionHint>
     </>
   );
 }
 
-function WordChips({ words }: { words: readonly string[] }) {
+export function WordChips({ words }: { words: readonly string[] }) {
   const [copied, setCopied] = useState<string | null>(null);
   const copy = async (w: string) => {
     try {
@@ -656,18 +764,27 @@ function PhoneNotice() {
         <Strong>Best done on a computer.</Strong> Gmail and Outlook only let you
         create forwarding rules in a browser, not in their phone apps.
       </p>
-      {/* Stays mounted (disabled once sent) so focus isn't lost. */}
-      <button
-        type="button"
-        onClick={send}
-        disabled={state === "sending" || state === "sent"}
-        className="inline-flex items-center gap-2 text-[var(--ink)] bg-card hover:bg-[var(--surface)] transition-colors duration-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
-        style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "0 14px", minHeight: "44px", fontSize: "14px", fontWeight: 600 }}
-      >
-        {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
-        {state === "sent" ? <Check className="w-4 h-4" aria-hidden="true" /> : null}
-        {state === "sent" ? "Sent" : "Email me this page"}
-      </button>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {/* Stays mounted (disabled once sent) so focus isn't lost. */}
+        <button
+          type="button"
+          onClick={send}
+          disabled={state === "sending" || state === "sent"}
+          className="inline-flex items-center gap-2 text-[var(--ink)] bg-card hover:bg-[var(--surface)] transition-colors duration-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+          style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "0 14px", minHeight: "44px", fontSize: "14px", fontWeight: 600 }}
+        >
+          {state === "sending" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
+          {state === "sent" ? <Check className="w-4 h-4" aria-hidden="true" /> : null}
+          {state === "sent" ? "Sent" : "Email me this page"}
+        </button>
+        <a
+          href="#hand-heading"
+          className="inline-flex items-center text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+          style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
+        >
+          Meanwhile, forward by hand ↓
+        </a>
+      </div>
       <p
         role="status"
         className={state === "error" ? "text-sm rounded-[10px] px-3 py-2 text-[var(--attention-deep)]" : "text-[var(--ink-muted)]"}
@@ -708,17 +825,6 @@ function Title({ children, titleRef }: { children: React.ReactNode; titleRef: Re
     >
       {children}
     </h3>
-  );
-}
-
-function Hint({ children }: { children: React.ReactNode }) {
-  return (
-    <p
-      className="text-[var(--ink-muted)]"
-      style={{ fontSize: "13px", lineHeight: 1.5, borderLeft: "2px solid var(--hairline)", paddingLeft: "12px" }}
-    >
-      {children}
-    </p>
   );
 }
 

@@ -73,6 +73,21 @@ export function gmailFilterQuery(
   return `subject:(${terms.join(" OR ")})`;
 }
 
+// iCloud Mail takes one word per rule, so its users get a few rules, not
+// thirty: the words that catch the most receipts in their email's
+// language (substring match, so "kvitto" also catches "kvitton" and
+// "bekräftelse" "orderbekräftelse"), plus English, which receipts from
+// international shops use.
+const ICLOUD_WORDS = {
+  en: ["receipt", "invoice", "order confirmation", "booking confirmation", "confirmed"],
+  sv: ["kvitto", "faktura", "bekräftelse", "receipt", "invoice"],
+  fr: ["reçu", "facture", "commande", "réservation", "receipt"],
+} as const satisfies Record<"en" | "sv" | "fr", readonly (typeof RECEIPT_SUBJECT_WORDS)[number][]>;
+
+export function icloudRuleWords(lang: "en" | "sv" | "fr"): string[] {
+  return [...ICLOUD_WORDS[lang]];
+}
+
 // Outlook's "Subject includes" matches substrings and takes one word at a
 // time, so drop every word that already contains a shorter one from the
 // list ("kvitton" contains "kvitto"): same matches, less typing.
