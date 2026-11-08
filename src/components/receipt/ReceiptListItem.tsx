@@ -103,36 +103,34 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
             className="text-[var(--ink-faint)] truncate min-w-0"
             style={{ fontSize: "13px", fontWeight: 500 }}
           >
-            {config.label}
-            <span style={{ margin: "0 6px" }} aria-hidden="true">
-              ·
-            </span>
-            {formatRelative(receipt.receipt_date)}
+            {/* First, so a narrow card truncates the date, not this. */}
             {pending ? (
               <>
-                <span style={{ margin: "0 6px" }} aria-hidden="true">
-                  ·
-                </span>
                 {missing.length > 0 ? (
                   <span
                     className="text-[var(--negative)]"
                     style={{ fontWeight: 600 }}
                   >
-                    missing {missingFieldsText(missing)}
+                    Missing {missingFieldsText(missing)}
                   </span>
                 ) : (
                   <span
-                    className="font-accent italic"
-                    style={{
-                      color: "var(--attention-mint)",
-                      fontWeight: 500,
-                    }}
+                    className="text-[var(--attention-deep)]"
+                    style={{ fontWeight: 600 }}
                   >
-                    to confirm
+                    To confirm
                   </span>
                 )}
+                <span style={{ margin: "0 6px" }} aria-hidden="true">
+                  ·
+                </span>
               </>
             ) : null}
+            {config.label}
+            <span style={{ margin: "0 6px" }} aria-hidden="true">
+              ·
+            </span>
+            {formatRelative(receipt.receipt_date)}
           </p>
           {converted ? (
           <p

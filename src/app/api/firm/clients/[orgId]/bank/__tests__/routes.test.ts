@@ -116,6 +116,16 @@ describe("POST bank/import", () => {
     expect(insert.args[1]).toEqual({ onConflict: "organization_id,dedupe_key", ignoreDuplicates: true });
   });
 
+  it("refuses an import that would take the company over the line ceiling", async () => {
+    mocks.answer.mockImplementation(() => ({ data: null, count: 49_999, error: null }));
+    const res = await importPost(req("/import", "POST", { csv: CSV }), orgParams);
+    expect(res.status).toBe(413);
+    expect(mocks.calls.some((c) => c.op === "upsert")).toBe(false);
+    // Limited per user and per company.
+    expect(mocks.rateLimit).toHaveBeenCalledWith("bankImport", "u-staff");
+    expect(mocks.rateLimit).toHaveBeenCalledWith("bankImportOrg", ORG);
+  });
+
   it("explains an unreadable file without writing anything", async () => {
     const res = await importPost(req("/import", "POST", { csv: "a;b\n1;2" }), orgParams);
     expect(res.status).toBe(422);

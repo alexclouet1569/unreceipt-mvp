@@ -73,6 +73,9 @@ export const RATE_LIMITS = {
     { limit: 30, windowSeconds: 60 * 60 },
     { limit: 200, windowSeconds: 24 * 60 * 60 },
   ],
+  // Per client company, on top of the per-user limit: one company's
+  // statements are a few files a month.
+  bankImportOrg: [{ limit: 20, windowSeconds: 24 * 60 * 60 }],
   // Per client company: the "missing receipts" email goes to its owners.
   // A couple a day covers a retry; more would be nagging.
   bankReminder: [{ limit: 3, windowSeconds: 24 * 60 * 60 }],

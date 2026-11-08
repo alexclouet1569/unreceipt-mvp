@@ -644,6 +644,9 @@ function ReceiptEditForm({
         total: amountNow != null && Number.isFinite(amountNow) ? amountNow : null,
       });
   const isMissing = (field: RequiredField) => missingNow.includes(field);
+  // The Input primitive's aria-invalid styles win over its focus ring; give
+  // a missing field its focus ring back.
+  const INVALID_FOCUS = "aria-invalid:focus-visible:border-ring aria-invalid:focus-visible:ring-ring/50";
   const missingLabel = (field: RequiredField, text: string) => (
     <label
       htmlFor={id(field === "total" ? "amount" : field === "purchased_at" ? "date" : "merchant")}
@@ -708,7 +711,7 @@ function ReceiptEditForm({
           aria-invalid={isMissing("merchant") || undefined}
           // Opening Edit replaces the button that was pressed; start here.
           autoFocus={isEdit}
-          className="h-11"
+          className={`h-11 ${INVALID_FOCUS}`}
           value={form.merchant}
           onChange={(e) => update("merchant", e.target.value)}
           // A store name here would read as already filled in.
@@ -730,7 +733,7 @@ function ReceiptEditForm({
             inputMode="decimal"
             value={form.amount}
             onChange={(e) => update("amount", e.target.value)}
-            className="h-11 font-mono tabular-nums"
+            className={`h-11 font-mono tabular-nums ${INVALID_FOCUS}`}
             required
           />
         </div>
@@ -740,7 +743,7 @@ function ReceiptEditForm({
             id={id("date")}
             aria-invalid={isMissing("purchased_at") || undefined}
             type="date"
-            className="h-11"
+            className={`h-11 ${INVALID_FOCUS}`}
             value={form.date}
             onChange={(e) => update("date", e.target.value)}
             required
@@ -972,7 +975,7 @@ function ReceiptEditForm({
       ) : (
         <Button type="submit" className="w-full h-11 gap-1.5" disabled={saving}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {saving ? "Saving…" : missingAtOpen.length === 0 ? "Confirm receipt" : "Complete receipt"}
+          {saving ? "Saving…" : missingAtOpen.length === 0 && missingNow.length === 0 ? "Confirm receipt" : "Complete receipt"}
         </Button>
       )}
     </form>

@@ -453,6 +453,14 @@ export function firmClosedEmail(opts: { firmName: string; settingsUrl: string })
 // are listed, the rest counted.
 export const MISSING_EMAIL_LINES = 40;
 
+// Bank text comes from a CSV the firm uploaded and goes out from our
+// domain: no web addresses in it, so it can't carry a link.
+export function bankTextForEmail(text: string): string {
+  return text
+    .replace(/\b(?:https?:\/\/|www\.)\S*/gi, "[link]")
+    .replace(/\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|se|fr|eu|info|xyz|app|link|ly|co|me)\/\S*/gi, "[link]");
+}
+
 export function missingReceiptsEmail(opts: {
   firmName: string;
   clientName: string;
@@ -467,7 +475,9 @@ export function missingReceiptsEmail(opts: {
   const intro = `${firm} is doing the bookkeeping for ${opts.clientName} and found ${n} payment${n === 1 ? "" : "s"} on the bank statement without a receipt (${opts.total} in total).`;
   const how =
     "Open UnReceipt and photograph each receipt, or forward the email it came in to your UnReceipt address. Each one is matched to its payment automatically.";
-  const shown = opts.lines.slice(0, MISSING_EMAIL_LINES);
+  const shown = opts.lines
+    .slice(0, MISSING_EMAIL_LINES)
+    .map((l) => ({ ...l, description: bankTextForEmail(l.description) }));
   const more = n - shown.length;
   const cell = `font-family:${FONT};font-size:14px;line-height:1.4;color:${C.ink};padding:8px 0;border-bottom:1px solid ${C.hairline};`;
   const table =

@@ -45,9 +45,25 @@ export async function loadBankMonth(
         `and(receipt_date.gte.${w.receiptFrom},receipt_date.lte.${w.receiptTo}),` +
           `and(receipt_date.is.null,purchased_at.gte.${tsFrom},purchased_at.lt.${tsTo})`
       )
+      .order("created_at", { ascending: false })
       .limit(MAX_RECEIPTS);
     if (receipts.error) throw new Error(`receipts read failed (${receipts.error.code})`);
     const loaded = (receipts.data ?? []) as Receipt[];
+    // A receipt the accountant linked by hand counts wherever its date is
+    // now, so a resolved payment is never reported missing again.
+    const have = new Set(loaded.map((r) => r.id));
+    const linked = [
+      ...new Set(transactions.map((t) => t.linked_receipt_id).filter((id): id is string => !!id && !have.has(id))),
+    ];
+    for (let i = 0; i < linked.length; i += 100) {
+      const more = await db
+        .from("receipts")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .in("id", linked.slice(i, i + 100));
+      if (more.error) throw new Error(`linked receipts read failed (${more.error.code})`);
+      loaded.push(...((more.data ?? []) as Receipt[]));
+    }
     // Foreign receipts need their amount in the bank's currency to match.
     const converted = await ensureHomeAmounts(loaded, homeCurrency).catch((err) => {
       console.error("[bank] currency conversion failed", err);

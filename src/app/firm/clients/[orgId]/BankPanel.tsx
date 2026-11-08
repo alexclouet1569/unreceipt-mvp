@@ -133,6 +133,9 @@ export function BankPanel({
         type="file"
         accept=".csv,.txt,text/csv,text/plain"
         className="sr-only"
+        // The visible button below is the control.
+        tabIndex={-1}
+        aria-hidden="true"
         id={`bank-file-${organizationId}`}
         onChange={(e) => onFile(e.target.files?.[0])}
       />
@@ -200,19 +203,21 @@ export function BankPanel({
         {bank !== null ? <div className="flex flex-wrap gap-2">{importButton(out.length === 0)}</div> : null}
       </div>
 
-      {notice ? (
-        <p
-          role={notice.tone === "problem" ? "alert" : "status"}
-          className={
-            notice.tone === "problem"
-              ? "rounded-md bg-[var(--attention-tint)] text-[var(--attention-deep)] px-3 py-2"
-              : "rounded-md bg-[var(--brand-tint)] text-[var(--ink)] px-3 py-2"
-          }
-          style={{ fontSize: "13px", lineHeight: 1.5 }}
-        >
-          {notice.text}
-        </p>
-      ) : null}
+      {/* Always mounted, so screen readers announce the text when it changes. */}
+      <div role="status" aria-live="polite">
+        {notice ? (
+          <p
+            className={
+              notice.tone === "problem"
+                ? "rounded-md bg-[var(--attention-tint)] text-[var(--attention-deep)] px-3 py-2"
+                : "rounded-md border border-[var(--hairline)] bg-card text-[var(--ink)] px-3 py-2"
+            }
+            style={{ fontSize: "13px", lineHeight: 1.5 }}
+          >
+            {notice.text}
+          </p>
+        ) : null}
+      </div>
 
       {missing.length > 0 && bank ? (
         <div className="space-y-2">
@@ -240,9 +245,6 @@ export function BankPanel({
                 </span>
                 <span className="flex-1 min-w-[10rem] text-[var(--ink)]" style={{ fontSize: "14px" }}>
                   {l.description || "(no text on the bank line)"}
-                  <span className="block font-semibold text-[var(--negative)]" style={{ fontSize: "12px" }}>
-                    No receipt
-                  </span>
                 </span>
                 <span className="font-mono tabular-nums text-[var(--negative)]" style={{ fontSize: "14px" }}>
                   {formatAmount(-l.amount, l.currency)}
@@ -252,7 +254,7 @@ export function BankPanel({
                 </label>
                 <select
                   id={`resolve-${l.id}`}
-                  className="h-11 rounded-md border bg-card px-3 text-base md:text-sm text-[var(--ink)] max-w-full"
+                  className="h-11 rounded-md border bg-card px-3 text-base md:text-sm text-[var(--ink)] max-w-full outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                   value=""
                   disabled={busy !== null}
                   onChange={(e) => decide(l, e.target.value)}

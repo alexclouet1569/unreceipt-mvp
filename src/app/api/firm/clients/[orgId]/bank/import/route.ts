@@ -22,6 +22,9 @@ export const maxDuration = 30;
 
 // A year of a busy company's card payments is well under 1 MB of CSV.
 export const MAX_CSV_CHARS = 2_000_000;
+// Years of a busy company's statements. A ceiling, so one account (a
+// company linked to its own "accountant" address) can't fill the database.
+export const MAX_LINES_PER_ORGANIZATION = 50_000;
 const CHUNK = 500;
 
 const BodySchema = z.object({
@@ -72,6 +75,14 @@ export async function POST(
     throw err;
   }
 
+  const orgLimited = await rateLimit("bankImportOrg", access.organizationId);
+  if (!orgLimited.ok) {
+    return NextResponse.json(
+      { error: "Too many imports for this client today. Try again tomorrow." },
+      { status: 429, headers: { "Retry-After": String(orgLimited.retryAfterSeconds) } }
+    );
+  }
+
   const statement = parseBankStatement(parsed.data.csv);
   if (!statement.ok) {
     return NextResponse.json({ error: statement.error }, { status: 422 });
@@ -91,8 +102,23 @@ export async function POST(
     imported_at: now,
   }));
 
-  let imported = 0;
   const db = getSupabaseAdmin();
+  const { count, error: countError } = await db
+    .from("bank_transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", access.organizationId);
+  if (countError) {
+    console.error("[/api/firm/clients/[orgId]/bank/import] count failed", countError.code);
+    return NextResponse.json({ error: "Couldn't save the bank lines. Try again." }, { status: 500 });
+  }
+  if ((count ?? 0) + rows.length > MAX_LINES_PER_ORGANIZATION) {
+    return NextResponse.json(
+      { error: `This client already has ${count} bank lines; the limit is ${MAX_LINES_PER_ORGANIZATION}. Remove old months first.` },
+      { status: 413 }
+    );
+  }
+
+  let imported = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const { data, error } = await db
       .from("bank_transactions")

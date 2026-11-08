@@ -20,7 +20,7 @@ describe("parseAmount", () => {
     expect(parseAmount(raw)).toBe(expected);
   });
 
-  it.each(["", "abc", "1.2.3,4.5", "Reserverat", "-"])("rejects %j", (raw) => {
+  it.each(["", "abc", "1.2.3,4.5", "Reserverat", "-", "123456789012,00"])("rejects %j", (raw) => {
     expect(parseAmount(raw)).toBeNull();
   });
 });

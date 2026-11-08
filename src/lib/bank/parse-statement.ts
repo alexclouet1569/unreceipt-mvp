@@ -30,6 +30,7 @@ export type ParseStatementResult =
 
 export const MAX_STATEMENT_ROWS = 5000;
 export const MAX_DESCRIPTION_LENGTH = 300;
+export const MAX_AMOUNT = 1e11;
 
 // Normalised header names (lowercase, no accents, no "(SEK)"), by priority.
 // The purchase day comes before the booking day: a card payment is booked
@@ -213,7 +214,9 @@ export function parseAmount(raw: string): number | null {
   }
   if ((normalized.match(/\./g) ?? []).length > 1) return null;
   const n = Number(normalized);
-  if (!Number.isFinite(n)) return null;
+  // NUMERIC(14,2) holds under 10^12; nothing on a company statement is
+  // near that, so a bigger number is a misread column, not an amount.
+  if (!Number.isFinite(n) || n >= MAX_AMOUNT) return null;
   const rounded = Math.round(n * 100) / 100;
   return negative ? -rounded : rounded;
 }
