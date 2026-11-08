@@ -258,3 +258,29 @@ describe("extractReceiptCall", () => {
   });
 });
 
+
+describe("partialOcrFields", () => {
+  it("reads only complete values from an answer still being written", async () => {
+    const { partialOcrFields } = await importOcr();
+    expect(partialOcrFields("The receipt is upside down.")).toEqual({});
+    expect(partialOcrFields('{"merchant":"IC')).toEqual({});
+    expect(partialOcrFields('{"merchant":"ICA","amount":49.')).toEqual({ merchant: "ICA" });
+    expect(partialOcrFields('{"merchant":"ICA","amount":49.5')).toEqual({ merchant: "ICA" });
+    expect(partialOcrFields('{"merchant":"ICA \\"Maxi\\"","amount":49.5,')).toEqual({
+      merchant: 'ICA "Maxi"',
+      amount: 49.5,
+    });
+  });
+
+  it("never takes an item's amount for the total", async () => {
+    const { partialOcrFields } = await importOcr();
+    expect(
+      partialOcrFields('{"merchant":"ICA","items":[{"label":"Mjölk","unit_amount":13.9,"total_amount":13.9},'),
+    ).toEqual({ merchant: "ICA" });
+  });
+
+  it("ignores prose before the JSON and reads not_a_receipt", async () => {
+    const { partialOcrFields } = await importOcr();
+    expect(partialOcrFields('Reading: "amount": 5,\n{"not_a_receipt": true}')).toEqual({ not_a_receipt: true });
+  });
+});

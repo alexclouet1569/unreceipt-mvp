@@ -43,7 +43,7 @@ import {
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
-import type { OcrItem, OcrResult, OcrVatLine } from "@/lib/ocr";
+import type { OcrItem, OcrPartialFields, OcrResult, OcrVatLine } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { PhotoViewer } from "@/components/receipt/PhotoViewer";
@@ -181,6 +181,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   const [sellerIds, setSellerIds] = useState<{ org: string | null; vat: string | null }>({ org: null, vat: null });
   const [vatLines, setVatLines] = useState<OcrVatLine[] | null>(null);
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
+  // True while the line items are still being read after the total and date
+  // are already on screen. Save waits for them (they belong on the receipt).
+  const [finishingOcr, setFinishingOcr] = useState(false);
 
   // Reset everything when the sheet closes so the next open is fresh.
   // Adjusted during render (React's "reset state when a prop changes"
@@ -211,6 +214,12 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // An OCR answer for a closed sheet is dropped (see ocrRunRef).
   useEffect(() => {
     if (!open) ocrRunRef.current += 1;
+  }, [open]);
+
+  // Opening the sheet wakes the reading service up, so the photo taken a
+  // few seconds later doesn't wait for a cold start. Best effort.
+  useEffect(() => {
+    if (open) void fetch("/api/ocr", { method: "GET", cache: "no-store" }).catch(() => {});
   }, [open]);
 
   useEffect(() => {
@@ -266,7 +275,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const res = await fetch("/api/ocr", { method: "POST", body: fd });
+      const res = await fetch("/api/ocr?stream=1", { method: "POST", body: fd });
       if (run !== ocrRunRef.current) return;
       if (!res.ok) {
         // Keep the server's reason (too large, wrong type, missing key…)
@@ -281,7 +290,24 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         );
         return;
       }
-      const data = (await res.json()) as OcrResult;
+      // Fields the form already took from an earlier partial answer: each
+      // field is filled once, so a value the customer changed in the
+      // meantime is never overwritten.
+      const applied = new Set<string>();
+      let shownEarly = false;
+      const data = await readOcrResponse(res, (fields) => {
+        if (run !== ocrRunRef.current || fields.not_a_receipt) return;
+        applyOcrFields(fields, applied);
+        // The total or the shop is enough to show the form; the line
+        // items keep arriving behind it.
+        if (!shownEarly && (isFiniteNumber(fields.amount) || typeof fields.merchant === "string")) {
+          shownEarly = true;
+          setTaxAuto(false);
+          setOcrFilled(true);
+          setFinishingOcr(true);
+          setStage("review");
+        }
+      });
       if (run !== ocrRunRef.current) return;
       if (data.not_a_receipt) {
         setOcrError(
@@ -303,52 +329,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         vat: typeof data.seller_vat_number === "string" ? data.seller_vat_number.trim().slice(0, 32) : null,
       });
       setVatLines(Array.isArray(data.vat_lines) && data.vat_lines.length > 0 ? data.vat_lines : null);
-      setForm((prev) => {
-        const next: FormState = { ...prev };
-        if (!prev.merchant && typeof data.merchant === "string") {
-          next.merchant = data.merchant;
-        }
-        if (!prev.amount && isFiniteNumber(data.amount)) {
-          next.amount = data.amount.toFixed(2);
-        }
-        if (!prev.taxAmount && isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) {
-          next.taxAmount = data.tax_amount.toFixed(2);
-        }
-        if (
-          !prev.taxRate &&
-          isFiniteNumber(data.tax_rate) &&
-          data.tax_rate >= 0 &&
-          data.tax_rate <= 100
-        ) {
-          next.taxRate = String(data.tax_rate);
-        }
-        if (
-          !prev.paymentMethod &&
-          typeof data.payment_method === "string" &&
-          data.payment_method.trim()
-        ) {
-          next.paymentMethod = data.payment_method.trim().slice(0, 50);
-        }
-        if (
-          typeof data.currency === "string" &&
-          (CURRENCY_OPTIONS as readonly string[]).includes(data.currency)
-        ) {
-          next.currency = data.currency as CurrencyCode;
-        }
-        if (
-          typeof data.receipt_date === "string" &&
-          /^\d{4}-\d{2}-\d{2}$/.test(data.receipt_date)
-        ) {
-          next.date = data.receipt_date;
-        }
-        if (
-          typeof data.category === "string" &&
-          (CATEGORY_KEYS as readonly string[]).includes(data.category)
-        ) {
-          next.category = data.category as CategoryKey;
-        }
-        return next;
-      });
+      applyOcrFields(data, applied);
       // The VAT printed on the receipt beats one we'd work out.
       setTaxAuto(false);
       setOcrFilled(true);
@@ -360,8 +341,63 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       console.error("[capture] ocr failed:", err);
       setOcrError(UNREADABLE_MESSAGE);
     } finally {
-      if (run === ocrRunRef.current) setStage("review");
+      if (run === ocrRunRef.current) {
+        setFinishingOcr(false);
+        setStage("review");
+      }
     }
+  };
+
+  // Fills the form from OCR fields, each field once (see `applied`). Which
+  // fields to take is decided here, outside the state update, which React
+  // may run twice and so must not change `applied`.
+  const applyOcrFields = (data: OcrPartialFields, applied: Set<string>) => {
+    const fresh = <K extends keyof OcrPartialFields>(key: K, valid: boolean) =>
+      valid && !applied.has(key) ? (applied.add(key), true) : false;
+    const merchant = fresh("merchant", typeof data.merchant === "string") ? data.merchant : undefined;
+    const amount = fresh("amount", isFiniteNumber(data.amount)) ? data.amount : undefined;
+    const taxAmount =
+      fresh("tax_amount", isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) ? data.tax_amount : undefined;
+    const taxRate =
+      fresh("tax_rate", isFiniteNumber(data.tax_rate) && data.tax_rate >= 0 && data.tax_rate <= 100)
+        ? data.tax_rate
+        : undefined;
+    const payment =
+      fresh("payment_method", typeof data.payment_method === "string" && !!data.payment_method.trim())
+        ? data.payment_method?.trim().slice(0, 50)
+        : undefined;
+    const currency =
+      fresh(
+        "currency",
+        typeof data.currency === "string" && (CURRENCY_OPTIONS as readonly string[]).includes(data.currency),
+      )
+        ? (data.currency as CurrencyCode)
+        : undefined;
+    const date =
+      fresh("receipt_date", typeof data.receipt_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.receipt_date))
+        ? data.receipt_date
+        : undefined;
+    const category =
+      fresh(
+        "category",
+        typeof data.category === "string" && (CATEGORY_KEYS as readonly string[]).includes(data.category),
+      )
+        ? (data.category as CategoryKey)
+        : undefined;
+
+    setForm((prev) => ({
+      ...prev,
+      // What the customer typed stays; the receipt's currency, date and
+      // category win over our defaults.
+      merchant: !prev.merchant && merchant ? merchant : prev.merchant,
+      amount: !prev.amount && amount != null ? amount.toFixed(2) : prev.amount,
+      taxAmount: !prev.taxAmount && taxAmount != null ? taxAmount.toFixed(2) : prev.taxAmount,
+      taxRate: !prev.taxRate && taxRate != null ? String(taxRate) : prev.taxRate,
+      paymentMethod: !prev.paymentMethod && payment ? payment : prev.paymentMethod,
+      currency: currency ?? prev.currency,
+      date: date ?? prev.date,
+      category: category ?? prev.category,
+    }));
   };
 
   const onPickFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -778,11 +814,17 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               ) : null}
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || finishingOcr}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                {saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {saving ? "Saving…" : saveError ? "Try again" : "Save receipt"}
+                {saving || finishingOcr ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                {saving
+                  ? "Saving…"
+                  : finishingOcr
+                    ? "Reading the line items…"
+                    : saveError
+                      ? "Try again"
+                      : "Save receipt"}
               </button>
             </div>
           </form>
@@ -1222,4 +1264,39 @@ function Notice({ children }: { children: ReactNode }) {
       <span>{children}</span>
     </p>
   );
+}
+
+/**
+ * /api/ocr's answer: streamed lines (`partial` fields as they are read, then
+ * `result` or `error`) from the real server, or one JSON object (the demo,
+ * older deployments). `onPartial` sees each partial; resolves with the full
+ * answer, throws when there isn't one.
+ */
+async function readOcrResponse(
+  res: Response,
+  onPartial: (fields: OcrPartialFields) => void,
+): Promise<OcrResult> {
+  if (!(res.headers?.get?.("content-type") ?? "").includes("application/x-ndjson") || !res.body) {
+    return (await res.json()) as OcrResult;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    buffered += decoder.decode(value, { stream: !done });
+    const lines = buffered.split("\n");
+    buffered = done ? "" : (lines.pop() ?? "");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const msg = JSON.parse(line) as
+        | { type: "partial"; fields: OcrPartialFields }
+        | { type: "result"; result: OcrResult }
+        | { type: "error"; error: string };
+      if (msg.type === "partial") onPartial(msg.fields);
+      else if (msg.type === "result") return msg.result;
+      else throw new Error(msg.error);
+    }
+    if (done) throw new Error("OCR stream ended without an answer");
+  }
 }

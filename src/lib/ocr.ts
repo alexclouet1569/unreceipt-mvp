@@ -158,8 +158,35 @@ export async function extractReceiptCall(
   mediaType: OcrMediaType,
   options: OcrOptions = {}
 ): Promise<OcrCall> {
-  const c = getClient();
-  const res = await c.messages.create({
+  const res = await getClient().messages.create(ocrRequest(imageBase64, mediaType, options));
+  return callFromMessage(res);
+}
+
+/**
+ * Same call, streamed: `onText` gets the answer so far as it is written, so
+ * /api/ocr can send the total and date before the line items are done
+ * (partialOcrFields). Resolves with the same result as extractReceiptCall.
+ */
+export async function extractReceiptStreaming(
+  imageBase64: string,
+  mediaType: OcrMediaType,
+  onText: (textSoFar: string) => void
+): Promise<OcrCall> {
+  const stream = getClient().messages.stream(ocrRequest(imageBase64, mediaType, {}));
+  let text = "";
+  stream.on("text", (delta) => {
+    text += delta;
+    onText(text);
+  });
+  return callFromMessage(await stream.finalMessage());
+}
+
+function ocrRequest(
+  imageBase64: string,
+  mediaType: OcrMediaType,
+  options: OcrOptions
+): Anthropic.MessageCreateParamsNonStreaming {
+  return {
     model: options.model ?? OCR_MODEL,
     // A long supermarket receipt (~30 item lines) plus the model's thinking
     // needs several thousand tokens; a cut-off answer breaks JSON.parse.
@@ -200,7 +227,10 @@ export async function extractReceiptCall(
         ],
       },
     ],
-  });
+  };
+}
+
+function callFromMessage(res: Anthropic.Message): OcrCall {
   const call = { model: res.model, usage: res.usage, stopReason: res.stop_reason };
 
   const textBlock = res.content.find((b) => b.type === "text");
@@ -217,6 +247,55 @@ export async function extractReceiptCall(
   // Don't echo the model's output: it's receipt content (merchant, address,
   // card digits, email text) and this message reaches logs and Sentry.
   throw new OcrOutputError(`OCR returned non-JSON (${raw.length} chars)`, call);
+}
+
+/** The form fields /api/ocr can send before the whole answer is written. */
+export type OcrPartialFields = Pick<
+  OcrResult,
+  | "merchant"
+  | "amount"
+  | "currency"
+  | "receipt_date"
+  | "category"
+  | "tax_amount"
+  | "tax_rate"
+  | "payment_method"
+  | "not_a_receipt"
+>;
+
+const PARTIAL_STRING_KEYS = ["merchant", "currency", "receipt_date", "category", "payment_method"] as const;
+const PARTIAL_NUMBER_KEYS = ["amount", "tax_amount", "tax_rate"] as const;
+
+/**
+ * The top-level fields already complete in an answer that is still being
+ * written. Only the JSON part counts (from the first `{"`), a string only
+ * once its closing quote is there and a number only once something follows
+ * it, so a value is never sent half-written. None of these key names is
+ * used inside items or VAT lines (`"amount"` is not `"unit_amount"`). The
+ * final answer from parseOcrJson() always has the last word.
+ */
+export function partialOcrFields(textSoFar: string): OcrPartialFields {
+  const start = textSoFar.indexOf('{"');
+  if (start === -1) return {};
+  const json = textSoFar.slice(start);
+  const fields: Record<string, unknown> = {};
+  for (const key of PARTIAL_STRING_KEYS) {
+    const m = json.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+    if (!m) continue;
+    try {
+      const value = JSON.parse(`"${m[1]}"`);
+      if (typeof value === "string" && value.trim()) fields[key] = value;
+    } catch {
+      // A broken escape: wait for the final answer.
+    }
+  }
+  for (const key of PARTIAL_NUMBER_KEYS) {
+    const m = json.match(new RegExp(`"${key}"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)\\s*[,}\\n\\r]`));
+    if (m) fields[key] = Number(m[1]);
+  }
+  const negative = json.match(/"not_a_receipt"\s*:\s*(true|false)/);
+  if (negative) fields.not_a_receipt = negative[1] === "true";
+  return fields as OcrPartialFields;
 }
 
 // Top-level keys of an answer; an object without any of them (an item
