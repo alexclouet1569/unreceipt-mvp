@@ -116,7 +116,7 @@ const words: SceneFn = ({ lang, words: list }) => (
           style={{ border: "1px solid var(--hairline)", borderRadius: 6, padding: "4px 6px", background: "var(--card)", minHeight: 28 }}
         >
           {list.slice(0, 3).map((w) => (
-            <span key={w} style={{ fontSize: 11, background: "var(--surface)", borderRadius: 4, padding: "1px 6px", color: "var(--ink)" }}>
+            <span key={w} style={{ fontSize: 12, background: "var(--surface)", borderRadius: 4, padding: "1px 6px", color: "var(--ink)" }}>
               {w} ×
             </span>
           ))}

@@ -15,6 +15,9 @@ type Register = (el: HTMLElement | null) => void;
 const TargetContext = createContext<Register | null>(null);
 // Changes on every replay, so the pulse restarts with the cursor.
 const PlayContext = createContext(0);
+// A still picture: no glide, no pulse (reduced motion, or several pictures
+// on screen at once).
+const StillContext = createContext(false);
 
 const EASE_IN = "cubic-bezier(0.32, 0.72, 0, 1)";
 
@@ -28,9 +31,11 @@ export function Picture({
   label,
   play,
   pointer = "mouse",
+  still = false,
   children,
 }: {
   label: string;
+  still?: boolean;
   // Bump to replay the cursor and the pulse.
   play: number;
   pointer?: "mouse" | "finger";
@@ -49,10 +54,12 @@ export function Picture({
     >
       <TargetContext.Provider value={register}>
         <PlayContext.Provider value={play}>
-          <div aria-hidden="true">{children}</div>
+          <StillContext.Provider value={still}>
+            <div aria-hidden="true">{children}</div>
+          </StillContext.Provider>
         </PlayContext.Provider>
       </TargetContext.Provider>
-      <Cursor boxRef={boxRef} target={target} play={play} pointer={pointer} />
+      <Cursor boxRef={boxRef} target={target} play={play} pointer={pointer} still={still} />
     </div>
   );
 }
@@ -62,11 +69,13 @@ function Cursor({
   target,
   play,
   pointer,
+  still: forceStill,
 }: {
   boxRef: React.RefObject<HTMLDivElement | null>;
   target: HTMLElement | null;
   play: number;
   pointer: "mouse" | "finger";
+  still: boolean;
 }) {
   // `still`: reduced motion, the cursor sits on the target.
   const [pos, setPos] = useState<{ x: number; y: number; moving: boolean; still: boolean } | null>(null);
@@ -89,7 +98,7 @@ function Cursor({
   }, [boxRef, target, pointer]);
 
   useLayoutEffect(() => {
-    const still = prefersReducedMotion();
+    const still = forceStill || prefersReducedMotion();
     let raf2 = 0;
     let done: ReturnType<typeof setTimeout> | undefined;
     // Frame 1 paints the start position, frame 2 starts the glide.
@@ -113,7 +122,7 @@ function Cursor({
       cancelAnimationFrame(raf2);
       if (done) clearTimeout(done);
     };
-  }, [measure, play]);
+  }, [measure, play, forceStill]);
 
   // Keep the cursor on its target when the picture resizes.
   useEffect(() => {
@@ -176,50 +185,53 @@ export function Mark({
 }) {
   const register = useContext(TargetContext);
   const play = useContext(PlayContext);
+  const still = useContext(StillContext);
   const ref = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     if (leave || !register) return;
     register(ref.current);
     return () => register(null);
   }, [register, leave]);
-  return (
-    <span
-      ref={ref}
-      data-mark={leave ? "leave" : "target"}
-      className={`${block ? "flex w-full" : "inline-flex"} relative`}
-      style={{
-        borderRadius: radius,
-        outline: leave ? "1.5px dashed var(--ink-faint)" : "2px solid var(--ring)",
-        outlineOffset: 2,
-      }}
-    >
-      {children}
-      {leave ? (
+  if (leave) {
+    // The tag sits in the flow beside the control, so a long label in
+    // Swedish or French wraps instead of pushing the tag out of the picture.
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2 min-w-0">
         <span
-          className="absolute whitespace-nowrap"
+          data-mark="leave"
+          className={`${block ? "flex w-full" : "inline-flex"} min-w-0`}
+          style={{ borderRadius: radius, outline: "1.5px dashed var(--ink-faint)", outlineOffset: 2 }}
+        >
+          {children}
+        </span>
+        <span
+          className="whitespace-nowrap"
           style={{
-            left: "100%",
-            marginLeft: 8,
-            top: "50%",
-            transform: "translateY(-50%)",
             background: "var(--card)",
             border: "1px solid var(--hairline)",
             borderRadius: 9999,
             padding: "0 6px",
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 600,
             color: "var(--ink-muted)",
-            lineHeight: "16px",
+            lineHeight: "18px",
           }}
         >
           Leave
         </span>
-      ) : (
-        <span
-          key={play}
-          className="guide-pulse absolute inset-0"
-          style={{ borderRadius: radius, pointerEvents: "none" }}
-        />
+      </span>
+    );
+  }
+  return (
+    <span
+      ref={ref}
+      data-mark="target"
+      className={`${block ? "flex w-full" : "inline-flex"} relative`}
+      style={{ borderRadius: radius, outline: "2px solid var(--ring)", outlineOffset: 2 }}
+    >
+      {children}
+      {still ? null : (
+        <span key={play} className="guide-pulse absolute inset-0" style={{ borderRadius: radius, pointerEvents: "none" }} />
       )}
     </span>
   );
@@ -241,7 +253,7 @@ export function BrowserFrame({ url, children }: { url: string; children: React.R
         </span>
         <span
           className="flex items-center gap-1 min-w-0 flex-1 bg-card"
-          style={{ border: "1px solid var(--hairline)", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "var(--ink-muted)" }}
+          style={{ border: "1px solid var(--hairline)", borderRadius: 6, padding: "2px 8px", fontSize: 12, color: "var(--ink-muted)" }}
         >
           <Lock className="shrink-0" style={{ width: 10, height: 10 }} />
           <span className="truncate">{url}</span>
@@ -258,7 +270,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
       className="bg-card mx-auto overflow-hidden"
       style={{ width: 232, maxWidth: "100%", border: "1px solid var(--hairline)", borderRadius: 26, padding: "8px 10px 12px" }}
     >
-      <div className="flex justify-between" style={{ fontSize: 10, fontWeight: 600, color: "var(--ink-muted)", padding: "0 6px 6px" }}>
+      <div className="flex justify-between" style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", padding: "0 6px 6px" }}>
         <span>9:41</span>
         <span className="block rounded-full" style={{ width: 54, height: 14, background: "var(--ink)" }} />
         <span>100%</span>

@@ -132,9 +132,19 @@ describe("ForwardingWizard", () => {
     await user.click(screen.getByRole("button", { name: "Français" }));
     expect(onLangChange).toHaveBeenCalledWith("fr");
 
+    // Screen readers say the button name the way the user's own screen does.
+    expect(screen.getAllByText("“Vidarebefordran och POP/IMAP”")[0]).toHaveAttribute("lang", "sv");
+
     cleanup();
     await setup("anna@gmail.com", "fr");
     expect(currentStep()).toHaveTextContent(`“${GMAIL.forwardingTab.fr}”`);
+  });
+
+  it("announces the new current step after Next", async () => {
+    saveAt("gmail", 0, 0);
+    const user = await setup();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Step 2 of 5: Click “Add a forwarding address”")).toHaveAttribute("aria-live", "polite");
   });
 
   it("shows Gmail's code as soon as it arrives", async () => {

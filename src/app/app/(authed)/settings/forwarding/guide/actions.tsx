@@ -48,7 +48,12 @@ export type Chapter = {
 
 /** A button or menu name, quoted and in the user's email language. */
 export function Q({ label, lang }: { label: UiLabel; lang: MailLang }) {
-  return <strong style={{ fontWeight: 600 }}>“{say(label, lang)}”</strong>;
+  // lang: a screen reader says it the way the user's own screen does.
+  return (
+    <strong lang={lang} style={{ fontWeight: 600 }}>
+      “{say(label, lang)}”
+    </strong>
+  );
 }
 
 const TEST: Chapter = {

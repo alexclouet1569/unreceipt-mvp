@@ -115,7 +115,7 @@ const repeat: SceneFn = ({ lang, words, address }) => (
       </Mark>
     </span>
     {words.map((w) => (
-      <span key={w} className="truncate" style={{ fontSize: 11, color: "var(--ink-muted)" }}>
+      <span key={w} className="truncate" style={{ fontSize: 12, color: "var(--ink-muted)" }}>
         “{w}” → {address}
       </span>
     ))}

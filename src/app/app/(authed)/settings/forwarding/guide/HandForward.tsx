@@ -93,7 +93,7 @@ export function HandForward({ forwardingEmail, lang }: { forwardingEmail: string
             className="text-[var(--ink)] hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
             style={{
               border: app === a.id ? "1px solid var(--ink)" : "1px solid var(--hairline)",
-              background: app === a.id ? "var(--surface)" : "var(--card)",
+              background: "var(--card)",
               borderRadius: "10px",
               padding: "0 12px",
               minHeight: "44px",

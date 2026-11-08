@@ -10,8 +10,8 @@ import {
   icloudRuleWords,
   outlookSubjectWords,
 } from "@/lib/forwarding-filters";
-import { ActionChecklist, ActionHint } from "./guide/ActionChecklist";
-import { CHAPTERS, clampPosition, type Extra, type Provider } from "./guide/actions";
+import { ActionChecklist, ActionHint, plainText } from "./guide/ActionChecklist";
+import { CHAPTERS, Q, clampPosition, type Extra, type Provider } from "./guide/actions";
 import { Picture } from "./guide/Scene";
 import { GMAIL_SCENES } from "./guide/scenes/gmail";
 import { GMAIL, MAIL_LANGS, say, type MailLang } from "./guide/ui-labels";
@@ -381,31 +381,35 @@ export function ForwardingWizard({
 
 function LangSwitch({ provider, lang, onChange }: { provider: string; lang: MailLang; onChange?: (l: MailLang) => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-2" style={{ marginTop: "8px" }}>
-      <span id="mail-lang-label" className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
+    <div style={{ marginTop: "8px" }}>
+      <p id="mail-lang-label" className="text-[var(--ink-muted)]" style={{ fontSize: "13px", marginBottom: "4px" }}>
         My {provider} is in
-      </span>
-      <div role="group" aria-labelledby="mail-lang-label" className="inline-flex" style={{ border: "1px solid var(--hairline)", borderRadius: "10px", padding: "2px" }}>
-        {MAIL_LANGS.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            aria-pressed={lang === l.id}
-            onClick={() => onChange?.(l.id)}
-            className="transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
-            style={{
-              minHeight: "40px",
-              padding: "0 10px",
-              borderRadius: "8px",
-              fontSize: "13px",
-              fontWeight: 600,
-              background: lang === l.id ? "var(--surface)" : "transparent",
-              color: lang === l.id ? "var(--ink)" : "var(--ink-muted)",
-            }}
-          >
-            {l.label}
-          </button>
-        ))}
+      </p>
+      {/* Same segmented control as the inbox's By date / By category. */}
+      <div
+        role="group"
+        aria-labelledby="mail-lang-label"
+        className="grid grid-cols-3 rounded-[10px] border border-[var(--hairline)] bg-[var(--surface)] p-1"
+      >
+        {MAIL_LANGS.map((l) => {
+          const active = lang === l.id;
+          return (
+            <button
+              key={l.id}
+              type="button"
+              lang={l.id}
+              aria-pressed={active}
+              onClick={() => onChange?.(l.id)}
+              className={
+                active
+                  ? "h-11 rounded-[6px] border border-[var(--hairline)] bg-card text-[14px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  : "h-11 rounded-[6px] border border-transparent text-[14px] font-semibold text-[var(--ink-muted)] outline-none hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              }
+            >
+              {l.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -495,9 +499,9 @@ function GmailFallback({ lang, address }: { lang: MailLang; address: string }) {
   const [open, setOpen] = useState(false);
   const sceneProps = { lang, address, filterQuery: gmailFilterQuery(), words: [] };
   const steps = [
-    { scene: GMAIL_SCENES["gmail-gear"], text: `Click ${say(GMAIL.settings, lang)} (the gear, top right)` },
-    { scene: GMAIL_SCENES["gmail-see-all"], text: `Click “${say(GMAIL.seeAllSettings, lang)}”` },
-    { scene: GMAIL_SCENES["gmail-tab"], text: `Click the “${say(GMAIL.forwardingTab, lang)}” tab` },
+    { scene: GMAIL_SCENES["gmail-gear"], text: <>Click <Q label={GMAIL.settings} lang={lang} /> (the gear, top right)</> },
+    { scene: GMAIL_SCENES["gmail-see-all"], text: <>Click <Q label={GMAIL.seeAllSettings} lang={lang} /></> },
+    { scene: GMAIL_SCENES["gmail-tab"], text: <>Click the <Q label={GMAIL.forwardingTab} lang={lang} /> tab</> },
   ];
   return (
     <div>
@@ -517,7 +521,8 @@ function GmailFallback({ lang, address }: { lang: MailLang; address: string }) {
               <p className="text-[var(--ink)]" style={{ fontSize: "14px" }}>
                 {i + 1}. {s.text}
               </p>
-              <Picture label={s.text} play={0}>
+              {/* Three at once: still, so nothing glides or pulses together. */}
+              <Picture label={plainText(s.text, { lang })} play={0} still>
                 {s.scene(sceneProps)}
               </Picture>
             </li>
@@ -549,7 +554,7 @@ function PaidCheck({ forwardingEmail }: { forwardingEmail: string }) {
               minHeight: "44px",
               fontSize: "14px",
               fontWeight: 600,
-              background: which === w ? "var(--surface)" : "var(--card)",
+              background: "var(--card)",
             }}
           >
             {w === "yahoo" ? "Yahoo Mail" : "Proton Mail"}
@@ -672,7 +677,7 @@ function TestBox({ status }: { status: Status | null }) {
             className="flex items-center gap-2 text-[var(--ink)]"
             style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px", fontWeight: 600 }}
           >
-            <Check className="w-4 h-4 text-[var(--primary)] shrink-0" aria-hidden="true" />
+            <Check className="w-4 h-4 text-[var(--ink)] shrink-0" aria-hidden="true" />
             It works: the test arrived in UnReceipt. You can delete it under
             Review needed; it doesn&apos;t count toward your plan.
           </p>

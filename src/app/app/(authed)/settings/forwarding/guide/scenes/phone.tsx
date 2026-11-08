@@ -19,7 +19,7 @@ function Inbox({ lang }: { lang: SceneProps["lang"] }) {
         <Mark radius={8} block>
           <span className="flex flex-col w-full" style={{ padding: "6px 6px", gap: 2 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>SJ</span>
-            <span className="truncate" style={{ fontSize: 11, color: "var(--ink)" }}>
+            <span className="truncate" style={{ fontSize: 12, color: "var(--ink)" }}>
               {lang === "sv" ? "Ditt kvitto" : lang === "fr" ? "Votre reçu" : "Your receipt"}
             </span>
           </span>
@@ -151,9 +151,9 @@ export const testArrived: SceneFn = () => (
         >
           <span className="flex flex-col">
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>Test receipt</span>
-            <span style={{ fontSize: 11, color: "var(--attention-deep)" }}>Review needed</span>
+            <span style={{ fontSize: 12, color: "var(--attention-deep)" }}>Review needed</span>
           </span>
-          <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>now</span>
+          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>now</span>
         </span>
       </Mark>
       <Lines widths={["70%", "55%"]} />

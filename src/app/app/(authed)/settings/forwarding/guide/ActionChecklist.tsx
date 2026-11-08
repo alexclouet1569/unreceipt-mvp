@@ -55,6 +55,11 @@ export function ActionChecklist({
         </div>
       ) : null}
 
+      {/* Next keeps focus on the button: say which step is current now. */}
+      <p className="sr-only" aria-live="polite">
+        {`Step ${index + 1} of ${actions.length}: ${label}`}
+      </p>
+
       <ol role="list" aria-label="Steps" className="space-y-1">
         {actions.map((a, i) => {
           const state = i < index ? "done" : i === index ? "current" : "todo";
