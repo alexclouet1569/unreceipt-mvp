@@ -101,7 +101,6 @@ type Ending =
 export type LandingCopy = {
   nav: {
     backToTop: string;
-    solutions: string;
     how: string;
     pricing: string;
     about: string;
@@ -113,7 +112,8 @@ export type LandingCopy = {
     closeMenu: string;
   };
   hero: {
-    badge: string;
+    /** The page's <h1>, shown as the small badge above the slogan: the search words. */
+    seoTitle: string;
     titleLine1: string;
     titleLine2: string;
     titleAccent: string;
@@ -124,6 +124,9 @@ export type LandingCopy = {
     /** `{price}` is replaced with the cheapest plan's price. */
     notePilot: string;
     notePaid: string;
+    /** Used instead while prices are hidden (src/lib/pricing-visibility.ts). */
+    notePilotNoPrice: string;
+    notePaidNoPrice: string;
   };
   phone: {
     verified: string;
@@ -169,28 +172,19 @@ export type LandingCopy = {
     notePilot: string;
     notePaid: string;
   };
-  about: { eyebrow: string; title: string; items: Three<Item> };
+  /** Who it's for: small businesses, freelancers, accounting firms (in that order). */
+  about: { eyebrow: string; title: string; more: string; items: Three<Item> };
   faq: { eyebrow: string; title: string };
   badges: Four<string>;
   ending: Ending;
-  footer: {
-    tagline: string;
-    product: string;
-    company: string;
-    contact: string;
-    privacy: string;
-    rights: string;
-    made: string;
-  };
 };
 
 const en: LandingCopy = {
   nav: {
     backToTop: "UnReceipt — back to top",
-    solutions: "Solutions",
     how: "How it Works",
     pricing: "Pricing",
-    about: "About",
+    about: "Who it's for",
     faq: "FAQ",
     signIn: "Sign in",
     ctaPilot: "Join the pilot",
@@ -199,16 +193,18 @@ const en: LandingCopy = {
     closeMenu: "Close menu",
   },
   hero: {
-    badge: "Paper is Past",
+    seoTitle: "Receipt app for small businesses, freelancers & accountants",
     titleLine1: "From Chaos",
     titleLine2: "to Clarity —",
     titleAccent: "Automatically.",
-    lead: "Built for Swedish SMBs who hate chasing receipts. Forward any receipt — email or photo — and get a VAT-ready record in your dashboard within 24 hours.",
+    lead: "Built for small businesses and freelancers who hate chasing receipts — and for the accountants who chase them. Forward any receipt, email or photo, and get a VAT-ready record within 24 hours.",
     ctaPilot: "Join the pilot",
     ctaPaid: "Start your free week",
     secondary: "See the demo",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
+    notePilotNoPrice: "Free during the pilot. No card needed.",
+    notePaidNoPrice: "First week free. Cancel anytime.",
   },
   phone: {
     verified: "Verified",
@@ -320,19 +316,20 @@ const en: LandingCopy = {
   },
   about: {
     eyebrow: "Who it's for",
-    title: "Built for Small Teams",
+    title: "One App for the Business and Its Accountant",
+    more: "Learn more",
     items: [
       {
-        title: "For Employees",
-        desc: "Forward the email or snap the paper receipt. No forms to fill in, nothing to remember at month-end.",
+        title: "Small Businesses",
+        desc: "Forward email receipts and snap paper ones. Whoever does the books finds them in one place, with merchant, category and VAT ready.",
       },
       {
-        title: "For Whoever Does the Books",
-        desc: "Every receipt in one place, with merchant, category and VAT ready to hand to your accountant.",
+        title: "Freelancers & Sole Traders",
+        desc: "Every receipt sorted as it arrives, ready for your tax return or your accountant. One flat monthly price.",
       },
       {
-        title: "For Owners",
-        desc: "See this month’s receipts and spending at a glance, without opening a spreadsheet.",
+        title: "Accounting Firms",
+        desc: "Every client's receipts read, checked and VAT-split in one portal, with a monthly export for your bookkeeping.",
       },
     ],
   },
@@ -356,21 +353,11 @@ const en: LandingCopy = {
     errorNetwork: "Couldn't reach us. Check your connection and try again.",
     skipPrefix: "In Sweden? Skip the list and",
   },
-  footer: {
-    tagline: "VAT-ready receipts for small businesses in Sweden. Paper is Past.",
-    product: "Product",
-    company: "Company",
-    contact: "Contact",
-    privacy: "Privacy",
-    rights: "All rights reserved.",
-    made: "Made with precision in Europe.",
-  },
 };
 
 const sv: LandingCopy = {
   nav: {
     backToTop: "UnReceipt — till toppen",
-    solutions: "Funktioner",
     how: "Så funkar det",
     pricing: "Priser",
     about: "För vem",
@@ -382,16 +369,18 @@ const sv: LandingCopy = {
     closeMenu: "Stäng menyn",
   },
   hero: {
-    badge: "Paper is Past",
+    seoTitle: "Kvittohantering för småföretag, enskild firma och redovisningsbyråer",
     titleLine1: "Från kaos",
     titleLine2: "till klarhet —",
     titleAccent: "automatiskt.",
-    lead: "Byggt för svenska småföretag som är trötta på att jaga kvitton. Skicka vilket kvitto som helst — mejl eller foto — och få ett kontrollerat underlag med momsen uppdelad i din översikt inom 24 timmar.",
+    lead: "Byggt för småföretag och enskilda firmor som är trötta på att jaga kvitton — och för redovisningsbyråerna som jagar dem. Skicka vilket kvitto som helst, mejl eller foto, och få ett kontrollerat underlag med momsen uppdelad inom 24 timmar.",
     ctaPilot: "Gå med i piloten",
     ctaPaid: "Prova gratis i en vecka",
     secondary: "Se demon",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
+    notePilotNoPrice: "Gratis under piloten. Inget kort behövs.",
+    notePaidNoPrice: "Första veckan gratis. Avsluta när du vill.",
   },
   phone: {
     verified: "Kontrollerat",
@@ -506,19 +495,20 @@ const sv: LandingCopy = {
   },
   about: {
     eyebrow: "För vem",
-    title: "Byggt för små team",
+    title: "En app för företaget och redovisningsbyrån",
+    more: "Läs mer",
     items: [
       {
-        title: "För anställda",
-        desc: "Vidarebefordra mejlet eller fota papperskvittot. Inga formulär att fylla i, inget att komma ihåg vid månadsskiftet.",
+        title: "Småföretag",
+        desc: "Vidarebefordra e-postkvitton och fota papperskvitton. Den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
       },
       {
-        title: "För den som sköter bokföringen",
-        desc: "Alla kvitton på ett ställe, med säljare, kategori och moms redo att lämna till din redovisningskonsult.",
+        title: "Enskild firma och frilansare",
+        desc: "Varje kvitto sorterat direkt, redo för deklarationen eller din redovisningskonsult. Ett fast månadspris.",
       },
       {
-        title: "För ägare",
-        desc: "Se månadens kvitton och utgifter i en snabb överblick, utan att öppna ett kalkylark.",
+        title: "Redovisningsbyråer",
+        desc: "Alla klienters kvitton avlästa, kontrollerade och med momsen uppdelad i en portal, med en månadsexport till bokföringen.",
       },
     ],
   },
@@ -536,21 +526,11 @@ const sv: LandingCopy = {
     leadPilot: "UnReceipt är gratis medan piloten pågår.",
     leadPaid: "Prova gratis i en vecka. Avsluta när du vill.",
   },
-  footer: {
-    tagline: "Kontrollerade kvitton för småföretag i Sverige. Paper is Past.",
-    product: "Produkt",
-    company: "Om oss",
-    contact: "Kontakt",
-    privacy: "Integritet",
-    rights: "Alla rättigheter förbehållna.",
-    made: "Utvecklat i Europa.",
-  },
 };
 
 const fr: LandingCopy = {
   nav: {
     backToTop: "UnReceipt — retour en haut",
-    solutions: "Fonctionnalités",
     how: "Comment ça marche",
     pricing: "Tarifs",
     about: "Pour qui",
@@ -562,16 +542,18 @@ const fr: LandingCopy = {
     closeMenu: "Fermer le menu",
   },
   hero: {
-    badge: "Le papier, c’est du passé",
+    seoTitle: "Gestion des justificatifs pour TPE, indépendants et experts-comptables",
     titleLine1: "Du chaos",
     titleLine2: "à la clarté —",
     titleAccent: "automatiquement.",
-    lead: "Conçu pour les petites entreprises qui en ont assez de courir après les justificatifs. Transférez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié, avec le montant et le taux de TVA relevés, dans votre tableau de bord sous 24 heures.",
+    lead: "Conçu pour les TPE et les indépendants qui en ont assez de courir après les justificatifs — et pour les experts-comptables qui les réclament. Transférez n’importe quel reçu, e-mail ou photo, et retrouvez-le vérifié, TVA relevée, sous 24 heures.",
     ctaPilot: "Rejoindre la phase pilote",
     ctaPaid: "Essayer gratuitement une semaine",
     secondary: "Voir la démo",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price}\u00a0HT par mois.",
     notePaid: "À partir de {price}\u00a0HT par mois après la semaine gratuite. Sans engagement.",
+    notePilotNoPrice: "Gratuit pendant la phase pilote. Sans carte bancaire.",
+    notePaidNoPrice: "Première semaine gratuite. Sans engagement.",
   },
   phone: {
     verified: "Vérifié",
@@ -686,19 +668,20 @@ const fr: LandingCopy = {
   },
   about: {
     eyebrow: "Pour qui",
-    title: "Conçu pour les petites équipes",
+    title: "Une application pour l’entreprise et son expert-comptable",
+    more: "En savoir plus",
     items: [
       {
-        title: "Pour les salariés",
-        desc: "Transférez l’e-mail ou photographiez le ticket. Aucun formulaire à remplir, rien à retenir en fin de mois.",
+        title: "TPE",
+        desc: "Transférez vos reçus par e-mail, photographiez vos tickets. Celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
       },
       {
-        title: "Pour qui tient la comptabilité",
-        desc: "Tous les reçus au même endroit, avec commerçant, catégorie et TVA, prêts à transmettre à votre expert-comptable.",
+        title: "Indépendants",
+        desc: "Chaque reçu classé dès son arrivée, prêt pour votre comptabilité ou votre expert-comptable. Un prix mensuel fixe.",
       },
       {
-        title: "Pour les dirigeants",
-        desc: "Les reçus et les dépenses du mois en un coup d’œil, sans ouvrir de tableur.",
+        title: "Experts-comptables",
+        desc: "Les reçus de tous vos clients lus, vérifiés et avec la TVA relevée dans un seul portail, avec un export mensuel pour la saisie.",
       },
     ],
   },
@@ -715,15 +698,6 @@ const fr: LandingCopy = {
     title: "Fini la chasse aux reçus",
     leadPilot: "UnReceipt est gratuit pendant la phase pilote.",
     leadPaid: "Essayez gratuitement pendant une semaine. Sans engagement.",
-  },
-  footer: {
-    tagline: "Des reçus vérifiés pour les petites entreprises. Le papier, c’est du passé.",
-    product: "Produit",
-    company: "Entreprise",
-    contact: "Contact",
-    privacy: "Confidentialité",
-    rights: "Tous droits réservés.",
-    made: "Développé en Europe.",
   },
 };
 

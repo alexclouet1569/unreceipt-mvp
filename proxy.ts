@@ -19,14 +19,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { isAdminEmail } from "@/lib/auth-admin";
+import { INDEXNOW_KEY } from "@/lib/indexnow";
+import { MARKETING_PATHS } from "@/lib/marketing-pages";
 
 const APEX_HOSTS = new Set(["unreceipt.com", "www.unreceipt.com"]);
 const APP_HOST = "app.unreceipt.com";
 
 // Paths that belong on the marketing host. Anything not in either
 // list is "neutral" (e.g. /api/health if we ever add one) and stays
-// wherever the request landed.
-const APEX_ONLY_EXACT = new Set(["/", "/sv", "/fr", "/privacy"]);
+// wherever the request landed. Every marketing page (landing pages,
+// audience pages, guides) comes from MARKETING_PAGES.
+const APEX_ONLY_EXACT = new Set([...MARKETING_PATHS, "/privacy"]);
 const APEX_ONLY_PREFIX = ["/api/waitlist"];
 
 // Paths that belong on the product host. Includes Stripe webhook,
@@ -68,7 +71,9 @@ const STATIC_PATHS = new Set([
   "/robots.txt",
   "/sitemap.xml",
   "/llms.txt",
+  "/llms-full.txt",
   "/opengraph-image",
+  `/${INDEXNOW_KEY}.txt`,
 ]);
 const STATIC_EXT_RE = /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?|css|js|map)$/i;
 

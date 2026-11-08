@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
   CheckCircle2,
-  Smartphone,
+  UserRound,
   Building2,
   Camera,
-  BarChart3,
+  Calculator,
   Menu,
   X,
   Mail,
@@ -28,10 +27,14 @@ import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
+import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
+import { SiteFooter } from "./_site-chrome";
+import { SITE_COPY } from "./_site-copy";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -181,13 +184,17 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   const fromPrice = planPriceLabel(PLANS[0], locale);
   const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
+  const accountantsPath = pagePath("accountants", locale);
   const navLinks = [
-    { label: t.nav.solutions, href: "#features" },
     { label: t.nav.how, href: "#how" },
-    { label: t.nav.pricing, href: "#pricing" },
+    ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
     { label: t.nav.about, href: "#about" },
+    { label: SITE_COPY[locale].nav.accountants, href: accountantsPath },
     { label: t.nav.faq, href: "#faq" },
   ];
+  // "Who it's for" cards link to each audience's own page; small
+  // businesses are this page, so theirs goes to how it works.
+  const audienceLinks = ["#how", pagePath("freelancers", locale), accountantsPath];
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -348,14 +355,16 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left — Copy */}
             <div>
+              {/* The h1 carries the words people search for; the slogan
+                  below keeps its size but is not the page's heading. */}
               <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
-                <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">{t.hero.badge}</span>
+                <Sparkles className="w-3.5 h-3.5 text-white shrink-0" aria-hidden="true" />
+                <h1 className="text-white/90 text-xs font-semibold tracking-wide uppercase">{t.hero.seoTitle}</h1>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
+              <p className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
                 {t.hero.titleLine1}<br />{t.hero.titleLine2}<br />
                 <span className="text-[#303568]">{t.hero.titleAccent}</span>
-              </h1>
+              </p>
               <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
                 {t.hero.lead}
               </p>
@@ -382,7 +391,11 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 </a>
               </div>
               <p className="text-white/80 text-sm mt-4">
-                {fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })}
+                {SHOW_PRICES
+                  ? fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })
+                  : pilotMode
+                    ? t.hero.notePilotNoPrice
+                    : t.hero.notePaidNoPrice}
               </p>
             </div>
 
@@ -609,12 +622,15 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
-
-      {/* ─── PRICING ─── */}
-      <Section id="pricing" className="py-20 px-4 sm:px-6">
-        <Pricing pilotMode={pilotMode} locale={locale} />
-      </Section>
+      {/* ─── PRICING ─── (hidden while SHOW_PRICES is off) */}
+      {SHOW_PRICES ? (
+        <>
+          <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
+          <Section id="pricing" className="py-20 px-4 sm:px-6">
+            <Pricing pilotMode={pilotMode} locale={locale} />
+          </Section>
+        </>
+      ) : null}
 
       <ReceiptRows locale={locale} rows={RECEIPT[locale].about} />
 
@@ -628,15 +644,23 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-10 md:gap-8">
-            {t.about.items.map((item, i) => ({ ...item, icon: [Smartphone, Building2, BarChart3][i] })).map((item) => (
+            {t.about.items.map((item, i) => ({ ...item, icon: [Building2, UserRound, Calculator][i], href: audienceLinks[i] })).map((item) => (
               <div key={item.title}>
                 <div className="w-14 h-14 rounded-2xl bg-[#27BE7B]/10 flex items-center justify-center mb-5">
                   <item.icon className="w-6 h-6 text-[#27BE7B]" />
                 </div>
                 <h3 className="font-bold text-[#303568] text-lg mb-3">{item.title}</h3>
-                <p className="text-sm text-[#303568]/70 leading-relaxed">
+                <p className="text-sm text-[#303568]/70 leading-relaxed mb-4">
                   {item.desc}
                 </p>
+                <a
+                  href={item.href}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1F9D63] hover:text-[#303568]"
+                >
+                  {t.about.more}
+                  <span className="sr-only">: {item.title}</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
               </div>
             ))}
           </div>
@@ -777,67 +801,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="bg-[#252850] py-12 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row items-start justify-between gap-10">
-            <div>
-              <Image
-                src="/logo-light.png"
-                alt="UnReceipt"
-                width={180}
-                height={50}
-                className="h-10 w-auto mb-4"
-              />
-              <p className="text-sm text-white/40 max-w-xs">
-                {t.footer.tagline}
-              </p>
-            </div>
-            <div className="flex gap-16">
-              <div>
-                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">{t.footer.product}</p>
-                <div className="flex flex-col">
-                  <a href="#features" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.solutions}</a>
-                  <a href="#pricing" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.pricing}</a>
-                  <a href="#how" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.how}</a>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">{t.footer.company}</p>
-                <div className="flex flex-col">
-                  <a href="#about" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.about}</a>
-                  <a href="#faq" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.nav.faq}</a>
-                  <a
-                    href={t.ending.kind === "waitlist" ? "#waitlist" : "mailto:support@unreceipt.com"}
-                    className="text-sm text-white/40 hover:text-white transition-colors py-2"
-                  >
-                    {t.footer.contact}
-                  </a>
-                  <a href="/privacy" className="text-sm text-white/40 hover:text-white transition-colors py-2">{t.footer.privacy}</a>
-                  {otherLocales.map((l) => (
-                    <a
-                      key={l}
-                      href={LOCALE_HOME[l]}
-                      hrefLang={l}
-                      lang={l}
-                      className="text-sm text-white/40 hover:text-white transition-colors py-2"
-                    >
-                      {LOCALE_NAME[l].label}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-white/10 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-white/30">
-              &copy; 2026 UnReceipt. {t.footer.rights}
-            </p>
-            <p className="text-xs text-white/30">
-              {t.footer.made}
-            </p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter locale={locale} />
 
       {/* ─── ANIMATIONS ─── */}
       <style jsx>{`
