@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/locale";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import {
   OVERAGE_PRICE,
   OVERAGE_PRICE_SEK,
@@ -51,10 +52,25 @@ function pricingAnswerFr(pilotMode: boolean): string {
   return `Un prix pour toute l’entreprise, sans frais par utilisateur\u00a0: ${plans}. Chaque reçu supplémentaire coûte ${formatEurFr(OVERAGE_PRICE)} HT. ${trial}`;
 }
 
-export function getFaq(pilotMode: boolean, locale: Locale = "en"): FaqItem[] {
-  if (locale === "sv") return faqSv(pilotMode);
-  if (locale === "fr") return faqFr(pilotMode);
-  return faqEn(pilotMode);
+/** The cost answer while prices are hidden (SHOW_PRICES off). */
+const PRICE_HIDDEN: Record<Locale, (pilotMode: boolean) => string> = {
+  en: (pilot) =>
+    `One monthly price per company account, sized by how many receipts you send each month. Accounting firms need no plan of their own. ${pilot ? "UnReceipt is free during the pilot." : "The first week is free; the plans are shown before you subscribe."}`,
+  sv: (pilot) =>
+    `Ett månadspris per företagskonto, efter hur många kvitton ni skickar i månaden. Redovisningsbyråer behöver ingen egen plan. ${pilot ? "UnReceipt är gratis under piloten." : "Första veckan är gratis; planerna visas innan du tecknar dig."}`,
+  fr: (pilot) =>
+    `Un prix mensuel par compte d’entreprise, selon le nombre de reçus envoyés chaque mois. Les cabinets comptables n’ont pas besoin d’abonnement propre. ${pilot ? "UnReceipt est gratuit pendant la phase pilote." : "La première semaine est gratuite\u00a0; les formules sont présentées avant l’abonnement."}`,
+};
+
+export function getFaq(
+  pilotMode: boolean,
+  locale: Locale = "en",
+  showPrices: boolean = SHOW_PRICES
+): FaqItem[] {
+  const faq = locale === "sv" ? faqSv(pilotMode) : locale === "fr" ? faqFr(pilotMode) : faqEn(pilotMode);
+  if (showPrices) return faq;
+  // The cost question is always third; keep the question, drop the prices.
+  return faq.map((item, i) => (i === 2 ? { q: item.q, a: PRICE_HIDDEN[locale](pilotMode) } : item));
 }
 
 function faqEn(pilotMode: boolean): FaqItem[] {

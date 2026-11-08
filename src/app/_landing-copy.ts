@@ -124,6 +124,9 @@ export type LandingCopy = {
     /** `{price}` is replaced with the cheapest plan's price. */
     notePilot: string;
     notePaid: string;
+    /** Used instead while prices are hidden (src/lib/pricing-visibility.ts). */
+    notePilotNoPrice: string;
+    notePaidNoPrice: string;
   };
   phone: {
     verified: string;
@@ -200,6 +203,8 @@ const en: LandingCopy = {
     secondary: "See the demo",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
+    notePilotNoPrice: "Free during the pilot. No card needed.",
+    notePaidNoPrice: "First week free. Cancel anytime.",
   },
   phone: {
     verified: "Verified",
@@ -316,11 +321,11 @@ const en: LandingCopy = {
     items: [
       {
         title: "Small Businesses",
-        desc: "Everyone forwards or snaps their own receipts. Whoever does the books finds them in one place, with merchant, category and VAT ready.",
+        desc: "Forward email receipts and snap paper ones. Whoever does the books finds them in one place, with merchant, category and VAT ready.",
       },
       {
         title: "Freelancers & Sole Traders",
-        desc: "Every receipt sorted as it arrives, ready for your tax return or your accountant. One flat monthly price, no per-user fees.",
+        desc: "Every receipt sorted as it arrives, ready for your tax return or your accountant. One flat monthly price.",
       },
       {
         title: "Accounting Firms",
@@ -374,6 +379,8 @@ const sv: LandingCopy = {
     secondary: "Se demon",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
+    notePilotNoPrice: "Gratis under piloten. Inget kort behövs.",
+    notePaidNoPrice: "Första veckan gratis. Avsluta när du vill.",
   },
   phone: {
     verified: "Kontrollerat",
@@ -493,11 +500,11 @@ const sv: LandingCopy = {
     items: [
       {
         title: "Småföretag",
-        desc: "Alla vidarebefordrar eller fotar sina egna kvitton. Den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
+        desc: "Vidarebefordra e-postkvitton och fota papperskvitton. Den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
       },
       {
         title: "Enskild firma och frilansare",
-        desc: "Varje kvitto sorterat direkt, redo för deklarationen eller din redovisningskonsult. Ett fast månadspris, inga avgifter per användare.",
+        desc: "Varje kvitto sorterat direkt, redo för deklarationen eller din redovisningskonsult. Ett fast månadspris.",
       },
       {
         title: "Redovisningsbyråer",
@@ -545,6 +552,8 @@ const fr: LandingCopy = {
     secondary: "Voir la démo",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price}\u00a0HT par mois.",
     notePaid: "À partir de {price}\u00a0HT par mois après la semaine gratuite. Sans engagement.",
+    notePilotNoPrice: "Gratuit pendant la phase pilote. Sans carte bancaire.",
+    notePaidNoPrice: "Première semaine gratuite. Sans engagement.",
   },
   phone: {
     verified: "Vérifié",
@@ -663,12 +672,12 @@ const fr: LandingCopy = {
     more: "En savoir plus",
     items: [
       {
-        title: "TPE et PME",
-        desc: "Chacun transfère ou photographie ses propres reçus. Celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
+        title: "TPE",
+        desc: "Transférez vos reçus par e-mail, photographiez vos tickets. Celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
       },
       {
         title: "Indépendants",
-        desc: "Chaque reçu classé dès son arrivée, prêt pour votre comptabilité ou votre expert-comptable. Un prix mensuel fixe, sans frais par utilisateur.",
+        desc: "Chaque reçu classé dès son arrivée, prêt pour votre comptabilité ou votre expert-comptable. Un prix mensuel fixe.",
       },
       {
         title: "Experts-comptables",

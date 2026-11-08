@@ -195,3 +195,72 @@ describe("jsonLdHtml", () => {
     expect(JSON.parse(html)).toEqual(data);
   });
 });
+
+describe("AI search visibility", () => {
+  it("names the AI crawlers in robots.txt and keeps the product out", async () => {
+    const { default: robots, AI_CRAWLERS } = await import("@/app/robots");
+    const rules = [robots().rules].flat();
+    const ai = rules.find((r) => Array.isArray(r.userAgent))!;
+    for (const bot of ["OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "PerplexityBot", "Google-Extended", "bingbot"]) {
+      expect(AI_CRAWLERS).toContain(bot);
+    }
+    expect(ai.allow).toBe("/");
+    for (const r of rules) expect(r.disallow).toEqual(expect.arrayContaining(["/app", "/api/", "/admin", "/firm"]));
+  });
+
+  it("serves the IndexNow key file that the proxy lets through", async () => {
+    const { INDEXNOW_KEY } = await import("@/lib/indexnow");
+    expect(INDEXNOW_KEY).toMatch(/^[0-9a-f]{32}$/);
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync(join(process.cwd(), "public", `${INDEXNOW_KEY}.txt`), "utf8")).toBe(INDEXNOW_KEY);
+    expect(readFileSync(join(process.cwd(), "proxy.ts"), "utf8")).toContain("`/${INDEXNOW_KEY}.txt`");
+  });
+
+  it("puts every fact sheet, FAQ and guide into /llms-full.txt", async () => {
+    const { GET } = await import("@/app/llms-full.txt/route");
+    const { getAbout } = await import("@/lib/about");
+    const text = await GET().text();
+    for (const locale of LOCALES) {
+      expect(text).toContain(getAbout(locale, false).summary);
+      expect(text).toContain(AUDIENCE_COPY.accountants[locale].faq[0].a);
+    }
+    for (const g of GUIDES) expect(text).toContain(g.answer);
+    expect(text).not.toMatch(/undefined|\{\w+\}/);
+  });
+
+  it("states the limits on every fact sheet", async () => {
+    const { getAbout } = await import("@/lib/about");
+    for (const locale of LOCALES) expect(getAbout(locale, true).limits.length).toBeGreaterThan(2);
+  });
+
+  it("shows no plan price anywhere public while SHOW_PRICES is off", async () => {
+    const { SHOW_PRICES } = await import("@/lib/pricing-visibility");
+    if (SHOW_PRICES) return;
+    const { getAbout } = await import("@/lib/about");
+    const { getFaq } = await import("@/lib/faq");
+    const { landingJsonLd } = await import("@/lib/seo");
+    const { GET: llms } = await import("@/app/llms.txt/route");
+    const { GET: llmsFull } = await import("@/app/llms-full.txt/route");
+    const { PLANS, OVERAGE_PRICE, formatPrice, formatEurFr, formatSek, OVERAGE_PRICE_SEK } = await import("@/lib/plans");
+    const amounts = [
+      ...PLANS.flatMap((p) => [formatPrice(p.price), formatEurFr(p.price), formatSek(p.priceSek), p.price.toFixed(2)]),
+      formatPrice(OVERAGE_PRICE),
+      formatEurFr(OVERAGE_PRICE),
+      formatSek(OVERAGE_PRICE_SEK),
+    ];
+    const texts = [await llms().text(), await llmsFull().text()];
+    for (const locale of LOCALES) {
+      for (const pilot of [true, false]) {
+        texts.push(JSON.stringify(getAbout(locale, pilot)));
+        texts.push(JSON.stringify(getFaq(pilot, locale)));
+        texts.push(JSON.stringify(landingJsonLd(pilot, locale)));
+        texts.push(JSON.stringify(AUDIENCE_COPY.freelancers[locale]).replace(/"note(Pilot|Paid)":"[^"]*"/g, ""));
+      }
+    }
+    // Whole amounts only: "29,99 €" inside a sample receipt's "129,99 €" is not a plan price.
+    const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const text of texts) {
+      for (const amount of amounts) expect(text, amount).not.toMatch(new RegExp(`(^|[^0-9,.])${esc(amount)}`));
+    }
+  });
+});

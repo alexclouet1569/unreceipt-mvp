@@ -21,6 +21,7 @@ import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { audienceJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { AUDIENCE_COPY, type AudienceId, type Cta, type IconName } from "./_audience-copy";
@@ -140,7 +141,10 @@ export function AudiencePage({
                 </a>
               </div>
               <p className="text-white/85 text-sm mt-4">
-                {fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price })}
+                {SHOW_PRICES
+                  ? fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price })
+                  : ((pilotMode ? t.hero.notePilotNoPrice : t.hero.notePaidNoPrice) ??
+                    (pilotMode ? t.hero.notePilot : t.hero.notePaid))}
               </p>
             </div>
 

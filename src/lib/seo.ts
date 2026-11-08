@@ -3,6 +3,7 @@ import { getFaq, type FaqItem } from "@/lib/faq";
 import { LOCALE_HOME, type Locale } from "@/lib/locale";
 import { MARKETING_PAGES, pageLanguages, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
 import { PLANS } from "@/lib/plans";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 
 /**
  * Search-engine and AI-assistant facing facts about UnReceipt. Every claim
@@ -125,6 +126,12 @@ const OFFER_TEXT: Record<Locale, (receipts: number) => string> = {
   fr: (n) => `Jusqu’à ${n} reçus par mois pour toute l’entreprise`,
 };
 
+const PILOT_OFFER: Record<Locale, string> = {
+  en: "Free during the pilot",
+  sv: "Gratis under piloten",
+  fr: "Gratuit pendant la phase pilote",
+};
+
 const PAGE_DESCRIPTION: Record<Locale, string> = {
   en: DESCRIPTION,
   sv: SV_DESCRIPTION,
@@ -193,7 +200,7 @@ function breadcrumbNode(locale: Locale, trail: { name: string; path: string }[])
 }
 
 /** JSON-LD for a landing page: organization, site, product and FAQ. */
-export function landingJsonLd(pilotMode: boolean, locale: Locale = "en") {
+export function landingJsonLd(pilotMode: boolean, locale: Locale = "en", showPrices: boolean = SHOW_PRICES) {
   const pageUrl = absoluteUrl(LOCALE_HOME[locale]);
   return {
     "@context": "https://schema.org",
@@ -213,16 +220,22 @@ export function landingJsonLd(pilotMode: boolean, locale: Locale = "en") {
         publisher: { "@id": ORGANIZATION_ID },
         audience: AUDIENCES.map((audienceType) => ({ "@type": "BusinessAudience", audienceType })),
         featureList: FEATURES[locale],
+        // Prices hidden (pricing-visibility.ts): only the pilot's free
+        // offer, which is computed from PILOT_MODE so it can't go stale.
         // Swedish visitors see SEK; English and French visitors see EUR.
-        offers: PLANS.map((plan) => ({
+        ...(!showPrices
+          ? pilotMode
+            ? { offers: { "@type": "Offer", price: "0", priceCurrency: locale === "sv" ? "SEK" : "EUR", description: PILOT_OFFER[locale] } }
+            : {}
+          : { offers: PLANS.map((plan) => ({
           "@type": "Offer",
           name: plan.name,
           price: (locale === "sv" ? plan.priceSek : plan.price).toFixed(2),
           priceCurrency: locale === "sv" ? "SEK" : "EUR",
           description: OFFER_TEXT[locale](plan.receipts),
-        })),
+        })) }),
       },
-      faqNode(pageUrl, locale, getFaq(pilotMode, locale)),
+      faqNode(pageUrl, locale, getFaq(pilotMode, locale, showPrices)),
     ],
   };
 }
@@ -289,6 +302,48 @@ export function audienceJsonLd(opts: {
       },
       breadcrumbNode(opts.locale, [{ name: opts.breadcrumb, path }]),
       faqNode(url, opts.locale, opts.faq),
+    ],
+  };
+}
+
+/**
+ * JSON-LD for the "About UnReceipt" fact sheet: an AboutPage whose main
+ * entity is the organisation, with the product and the facts as Q&A.
+ */
+export function aboutJsonLd(opts: {
+  locale: Locale;
+  name: string;
+  description: string;
+  breadcrumb: string;
+  summary: string;
+  asOf: string;
+  facts: { label: string; value: string }[];
+}) {
+  const path = pagePath("about", opts.locale);
+  const url = absoluteUrl(path);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      { ...organizationNode(), description: opts.summary },
+      websiteNode(),
+      {
+        "@type": "AboutPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: opts.name,
+        description: opts.description,
+        inLanguage: opts.locale,
+        isPartOf: { "@id": WEBSITE_ID },
+        mainEntity: { "@id": ORGANIZATION_ID },
+        about: { "@id": SOFTWARE_ID },
+        dateModified: opts.asOf,
+      },
+      breadcrumbNode(opts.locale, [{ name: opts.breadcrumb, path }]),
+      faqNode(
+        url,
+        opts.locale,
+        opts.facts.map((f) => ({ q: f.label, a: f.value }))
+      ),
     ],
   };
 }

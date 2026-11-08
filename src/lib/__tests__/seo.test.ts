@@ -6,7 +6,7 @@ import { LANDING_COPY, fill } from "@/app/_landing-copy";
 
 describe("landing FAQ + structured data", () => {
   it("prices every plan in the pricing answer, from plans.ts", () => {
-    const pricing = getFaq(false).find((i) => i.q.includes("cost"))!;
+    const pricing = getFaq(false, "en", true).find((i) => i.q.includes("cost"))!;
     for (const plan of PLANS) {
       expect(pricing.a).toContain(`${plan.name} ${formatPrice(plan.price)}/month`);
       expect(pricing.a).toContain(`up to ${plan.receipts} receipts`);
@@ -15,23 +15,23 @@ describe("landing FAQ + structured data", () => {
 
   it("says free pilot vs. free first week depending on PILOT_MODE", () => {
     const answer = (pilot: boolean) =>
-      getFaq(pilot).find((i) => i.q.includes("cost"))!.a;
+      getFaq(pilot, "en", true).find((i) => i.q.includes("cost"))!.a;
     expect(answer(true)).toMatch(/free during the pilot/i);
     expect(answer(false)).toMatch(/first week is free/i);
   });
 
   it("FAQPage JSON-LD mirrors the visible FAQ exactly", () => {
-    const graph = landingJsonLd(true)["@graph"];
+    const graph = landingJsonLd(true, "en", true)["@graph"];
     const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
       mainEntity: { name: string; acceptedAnswer: { text: string } }[];
     };
     expect(faqPage.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
-      getFaq(true).map((i) => [i.q, i.a])
+      getFaq(true, "en", true).map((i) => [i.q, i.a])
     );
   });
 
   it("lists one EUR offer per plan", () => {
-    const app = landingJsonLd(false)["@graph"].find(
+    const app = landingJsonLd(false, "en", true)["@graph"].find(
       (n) => n["@type"] === "SoftwareApplication"
     ) as { offers: { price: string; priceCurrency: string }[] };
     expect(app.offers.map((o) => o.price)).toEqual(PLANS.map((p) => p.price.toFixed(2)));
@@ -41,13 +41,13 @@ describe("landing FAQ + structured data", () => {
 
 describe("Swedish landing (/sv)", () => {
   it("prices every plan in kronor in the Swedish pricing answer", () => {
-    const pricing = getFaq(false, "sv").find((i) => i.q === "Vad kostar UnReceipt?")!;
+    const pricing = getFaq(false, "sv", true).find((i) => i.q === "Vad kostar UnReceipt?")!;
     for (const plan of PLANS) {
       expect(pricing.a).toContain(`${plan.name} ${formatSek(plan.priceSek)}/mån`);
       expect(pricing.a).toContain(`upp till ${plan.receipts} kvitton`);
     }
     expect(pricing.a).not.toContain("€");
-    expect(getFaq(true, "sv").find((i) => i.q === "Vad kostar UnReceipt?")!.a).toMatch(
+    expect(getFaq(true, "sv", true).find((i) => i.q === "Vad kostar UnReceipt?")!.a).toMatch(
       /gratis under piloten/i
     );
   });
@@ -59,12 +59,12 @@ describe("Swedish landing (/sv)", () => {
   });
 
   it("FAQPage JSON-LD mirrors the Swedish FAQ and offers SEK prices", () => {
-    const graph = landingJsonLd(true, "sv")["@graph"];
+    const graph = landingJsonLd(true, "sv", true)["@graph"];
     const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
       mainEntity: { name: string; acceptedAnswer: { text: string } }[];
     };
     expect(faqPage.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
-      getFaq(true, "sv").map((i) => [i.q, i.a])
+      getFaq(true, "sv", true).map((i) => [i.q, i.a])
     );
     const app = graph.find((n) => n["@type"] === "SoftwareApplication") as {
       offers: { price: string; priceCurrency: string }[];
@@ -104,7 +104,7 @@ describe("landing copy", () => {
 });
 
 describe("French landing (/fr)", () => {
-  const faq = (pilot: boolean) => getFaq(pilot, "fr");
+  const faq = (pilot: boolean) => getFaq(pilot, "fr", true);
 
   it("prices every plan in euros, written the French way", () => {
     const pricing = faq(false).find((i) => i.q.startsWith("Combien coûte"))!;
@@ -126,7 +126,7 @@ describe("French landing (/fr)", () => {
   });
 
   it("FAQPage JSON-LD mirrors the French FAQ and offers EUR prices", () => {
-    const graph = landingJsonLd(true, "fr")["@graph"];
+    const graph = landingJsonLd(true, "fr", true)["@graph"];
     const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
       url: string;
       mainEntity: { name: string; acceptedAnswer: { text: string } }[];

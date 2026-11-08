@@ -21,6 +21,7 @@ export type MarketingPageId =
   | "home"
   | "accountants"
   | "freelancers"
+  | "about"
   | "guideRetention"
   | "guidePaper";
 
@@ -50,6 +51,12 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
     translated: true,
     lastModified: "2026-11-08",
     priority: 0.9,
+  },
+  about: {
+    paths: { en: "/about", sv: "/sv/om-unreceipt", fr: "/fr/a-propos" },
+    translated: true,
+    lastModified: "2026-11-08",
+    priority: 0.8,
   },
   guideRetention: {
     paths: {

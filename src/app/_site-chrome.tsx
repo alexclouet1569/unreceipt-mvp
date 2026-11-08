@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
 import { MARKETING_PAGES, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
 
@@ -39,7 +40,7 @@ export function SiteHeader({
   const cta = pilotMode ? t.ctaPilot : t.ctaPaid;
   const links = [
     { label: t.how, href: `${home}#how` },
-    { label: t.pricing, href: `${home}#pricing` },
+    ...(SHOW_PRICES ? [{ label: t.pricing, href: `${home}#pricing` }] : []),
     { label: t.accountants, href: pagePath("accountants", locale) },
     { label: t.freelancers, href: pagePath("freelancers", locale) },
   ];
@@ -147,7 +148,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
       title: t.footer.product,
       links: [
         { label: t.nav.how, href: `${home}#how` },
-        { label: t.nav.pricing, href: `${home}#pricing` },
+        ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: `${home}#pricing` }] : []),
         { label: t.footer.demo, href: appUrl("/demo") },
         { label: t.footer.faq, href: `${home}#faq` },
       ],
@@ -172,6 +173,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
     {
       title: t.footer.company,
       links: [
+        { label: t.footer.about, href: pagePath("about", locale) },
         { label: t.footer.contact, href: "mailto:support@unreceipt.com" },
         { label: t.footer.privacy, href: "/privacy" },
         ...others.map((l) => ({ label: LOCALE_NAME[l].label, href: LOCALE_HOME[l], lang: l })),

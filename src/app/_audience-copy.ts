@@ -1,7 +1,6 @@
 import type { FaqItem } from "@/lib/faq";
 import type { Locale } from "@/lib/locale";
 import type { MarketingPageId } from "@/lib/marketing-pages";
-import { PLANS } from "@/lib/plans";
 
 /**
  * Words for the audience pages: accounting firms (/accountants,
@@ -11,7 +10,7 @@ import { PLANS } from "@/lib/plans";
  * Every claim must be true of the product today (see AGENTS.md "Firm portal
  * auth", "Currency", "Exports"). No testimonials, logos or numbers we can't
  * back. Prices come from plans.ts; `{price}` is filled with the cheapest
- * plan in the page's currency.
+ * plan in the page's currency, and only while SHOW_PRICES is on.
  *
  * The FAQ answers here are also the page's FAQPage structured data and go
  * into /llms.txt, so they must read well on their own.
@@ -57,6 +56,9 @@ export type AudienceCopy = {
     secondaryLabel: string;
     notePilot: string;
     notePaid: string;
+    /** Used instead while prices are hidden (src/lib/pricing-visibility.ts). */
+    notePilotNoPrice?: string;
+    notePaidNoPrice?: string;
   };
   panel: { title: string; caption: string; rows: Four<{ label: string; value: string; done: boolean }> };
   compare: { eyebrow: string; title: string; oldTitle: string; old: Four<string>; newTitle: string; new: Four<string> };
@@ -75,8 +77,6 @@ export type AudienceCopy = {
   };
   contactSubject: string;
 };
-
-const light = PLANS[0];
 
 // ─── Accounting firms ────────────────────────────────────────────────
 
@@ -183,7 +183,7 @@ const accountantsEn: AudienceCopy = {
       {
         icon: "globe",
         title: "Foreign currencies handled",
-        desc: "A foreign receipt keeps its own amount and gets the home amount from the ECB rate of the purchase day, or the amount from the bank statement.",
+        desc: "A receipt in EUR, USD, GBP, NOK, DKK, CHF or PLN keeps its own amount and gets an estimated kronor amount from the ECB rate of the purchase day, or the amount from the bank statement.",
       },
       {
         icon: "layers",
@@ -341,7 +341,7 @@ const accountantsSv: AudienceCopy = {
       {
         icon: "globe",
         title: "Utländsk valuta klar",
-        desc: "Ett utländskt kvitto behåller sitt belopp och får beloppet i kronor från ECB:s referenskurs för köpdagen, eller beloppet från kontoutdraget.",
+        desc: "Ett kvitto i EUR, USD, GBP, NOK, DKK, CHF eller PLN behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen, eller beloppet från kontoutdraget.",
       },
       {
         icon: "layers",
@@ -494,7 +494,7 @@ const accountantsFr: AudienceCopy = {
       {
         icon: "globe",
         title: "Les devises gérées",
-        desc: "Un reçu en devise garde son montant et reçoit le montant en euros au taux de référence BCE du jour de l’achat, ou celui du relevé bancaire.",
+        desc: "Un reçu en SEK, USD, GBP, NOK, DKK, CHF ou PLN garde son montant et reçoit un montant estimé en euros au taux de référence BCE du jour de l’achat, ou celui du relevé bancaire.",
       },
       {
         icon: "download",
@@ -583,6 +583,8 @@ const freelancersEn: AudienceCopy = {
     secondaryLabel: "See the demo",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
+    notePilotNoPrice: "Free during the pilot. No card needed.",
+    notePaidNoPrice: "First week free. Cancel anytime.",
   },
   panel: {
     title: "This month",
@@ -653,7 +655,7 @@ const freelancersEn: AudienceCopy = {
       {
         icon: "globe",
         title: "Foreign currencies",
-        desc: "A receipt in dollars or euros keeps its amount and gets your home amount from the ECB rate of the purchase day.",
+        desc: "A receipt in dollars, euros or pounds keeps its amount and gets an estimated home amount from the ECB rate of the purchase day.",
       },
       {
         icon: "download",
@@ -663,7 +665,7 @@ const freelancersEn: AudienceCopy = {
       {
         icon: "clock",
         title: "One flat price",
-        desc: `The ${light.name} plan covers ${light.receipts} receipts a month for the whole business. No per-user fees, no bank connection.`,
+        desc: "One monthly price for your business, sized by how many receipts you send. No bank connection, no new card.",
       },
     ],
   },
@@ -678,7 +680,7 @@ const freelancersEn: AudienceCopy = {
   faq: [
     {
       q: "Is UnReceipt made for one-person businesses?",
-      a: `Yes. The ${light.name} plan is made for freelancers and businesses of 1–3 people: up to ${light.receipts} receipts a month for the whole company, with no per-user fees.`,
+      a: "Yes. UnReceipt is built for one-person businesses: one account with its own receipt address, every receipt in one place, and a monthly price sized by how many receipts you send.",
     },
     {
       q: "Do I need an accountant to use UnReceipt?",
@@ -735,6 +737,8 @@ const freelancersSv: AudienceCopy = {
     secondaryLabel: "Se demon",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
+    notePilotNoPrice: "Gratis under piloten. Inget kort behövs.",
+    notePaidNoPrice: "Första veckan gratis. Avsluta när du vill.",
   },
   panel: {
     title: "Den här månaden",
@@ -815,7 +819,7 @@ const freelancersSv: AudienceCopy = {
       {
         icon: "clock",
         title: "Ett fast pris",
-        desc: `${light.name} täcker ${light.receipts} kvitton i månaden för hela firman. Inga avgifter per användare, ingen bankkoppling.`,
+        desc: "Ett månadspris för firman, efter hur många kvitton du skickar. Ingen bankkoppling, inget nytt kort.",
       },
     ],
   },
@@ -831,7 +835,7 @@ const freelancersSv: AudienceCopy = {
   faq: [
     {
       q: "Passar UnReceipt för en enskild firma?",
-      a: `Ja. ${light.name}-planen är gjord för frilansare och företag med 1–3 personer: upp till ${light.receipts} kvitton i månaden för hela företaget, utan avgifter per användare.`,
+      a: "Ja. UnReceipt är byggt för enmansföretag: ett konto med en egen kvittoadress, alla kvitton på ett ställe och ett månadspris efter hur många kvitton du skickar.",
     },
     {
       q: "Måste en enskild firma spara kvitton?",
@@ -887,6 +891,8 @@ const freelancersFr: AudienceCopy = {
     secondaryLabel: "Voir la démo",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price} HT par mois.",
     notePaid: "À partir de {price} HT par mois après la semaine gratuite. Sans engagement.",
+    notePilotNoPrice: "Gratuit pendant la phase pilote. Sans carte bancaire.",
+    notePaidNoPrice: "Première semaine gratuite. Sans engagement.",
   },
   panel: {
     title: "Ce mois-ci",
@@ -967,7 +973,7 @@ const freelancersFr: AudienceCopy = {
       {
         icon: "clock",
         title: "Un prix fixe",
-        desc: `La formule ${light.name} couvre ${light.receipts} reçus par mois pour toute l’activité. Sans frais par utilisateur, sans connexion bancaire.`,
+        desc: "Un prix mensuel pour votre activité, selon le nombre de reçus envoyés. Sans connexion bancaire, sans nouvelle carte.",
       },
     ],
   },
@@ -983,7 +989,7 @@ const freelancersFr: AudienceCopy = {
   faq: [
     {
       q: "UnReceipt convient-il à un micro-entrepreneur ?",
-      a: `Oui. La formule ${light.name} est pensée pour les indépendants et les entreprises de 1 à 3 personnes : jusqu’à ${light.receipts} reçus par mois pour toute l’entreprise, sans frais par utilisateur.`,
+      a: "Oui. UnReceipt est pensé pour les entreprises d’une personne : un compte avec sa propre adresse de réception, tous les reçus au même endroit, et un prix mensuel selon le nombre de reçus envoyés.",
     },
     {
       q: "Un micro-entrepreneur doit-il conserver ses justificatifs ?",

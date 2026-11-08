@@ -19,6 +19,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { isAdminEmail } from "@/lib/auth-admin";
+import { INDEXNOW_KEY } from "@/lib/indexnow";
 import { MARKETING_PATHS } from "@/lib/marketing-pages";
 
 const APEX_HOSTS = new Set(["unreceipt.com", "www.unreceipt.com"]);
@@ -70,7 +71,9 @@ const STATIC_PATHS = new Set([
   "/robots.txt",
   "/sitemap.xml",
   "/llms.txt",
+  "/llms-full.txt",
   "/opengraph-image",
+  `/${INDEXNOW_KEY}.txt`,
 ]);
 const STATIC_EXT_RE = /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?|css|js|map)$/i;
 

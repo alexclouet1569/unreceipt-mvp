@@ -29,6 +29,7 @@ import { getFaq } from "@/lib/faq";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
@@ -186,7 +187,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   const accountantsPath = pagePath("accountants", locale);
   const navLinks = [
     { label: t.nav.how, href: "#how" },
-    { label: t.nav.pricing, href: "#pricing" },
+    ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
     { label: t.nav.about, href: "#about" },
     { label: SITE_COPY[locale].nav.accountants, href: accountantsPath },
     { label: t.nav.faq, href: "#faq" },
@@ -390,7 +391,11 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 </a>
               </div>
               <p className="text-white/80 text-sm mt-4">
-                {fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })}
+                {SHOW_PRICES
+                  ? fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })
+                  : pilotMode
+                    ? t.hero.notePilotNoPrice
+                    : t.hero.notePaidNoPrice}
               </p>
             </div>
 
@@ -617,12 +622,15 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
-
-      {/* ─── PRICING ─── */}
-      <Section id="pricing" className="py-20 px-4 sm:px-6">
-        <Pricing pilotMode={pilotMode} locale={locale} />
-      </Section>
+      {/* ─── PRICING ─── (hidden while SHOW_PRICES is off) */}
+      {SHOW_PRICES ? (
+        <>
+          <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
+          <Section id="pricing" className="py-20 px-4 sm:px-6">
+            <Pricing pilotMode={pilotMode} locale={locale} />
+          </Section>
+        </>
+      ) : null}
 
       <ReceiptRows locale={locale} rows={RECEIPT[locale].about} />
 
