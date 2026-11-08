@@ -28,7 +28,18 @@ export type ForwardingConfirmation = {
   code: string | null;
   // The Gmail account asking to forward, if it could be read.
   forAddress: string | null;
+  // True only when forAddress is exactly the address at the end of Gmail's
+  // subject ("… Receive Mail from x@y"). Only then may it be acted on: the
+  // body fallback can read just the start of a crafted long address.
+  forAddressExact: boolean;
+  // Gmail's own confirmation link (mail-settings.google.com/mail/vf-…).
+  // Kept in memory for confirmForwarding() only: never stored, never shown.
+  confirmUrl: string | null;
 };
+
+// "https://mail-settings.google.com/mail/vf-%5B…%5D-…" up to the first
+// character that can't be in it.
+const CONFIRM_URL = /https:\/\/mail-settings\.google\.com\/mail\/vf-[A-Za-z0-9%._~\-]{10,600}/;
 
 // "Gmail Team <forwarding-noreply@google.com>" → "forwarding-noreply@google.com"
 function bareAddress(from: string): string {
@@ -62,19 +73,25 @@ function cleanAddress(candidate: string | undefined): string | null {
   return lower.startsWith("receipts+") ? null : lower;
 }
 
-function findForAddress(subject: string, text: string): string | null {
+// A whole address in running text: not part of a longer one on either side.
+const WHOLE_EMAIL = /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}(?![A-Za-z0-9.-])/g;
+
+function findForAddress(subject: string, text: string): { address: string | null; exact: boolean } {
   // Subject ends "… Receive Mail from someone@gmail.com"; the body starts
   // "someone@gmail.com has requested to automatically forward mail …".
   const fromSubject = subject.match(/\bfrom\s+(\S{1,254})\s*$/i)?.[1];
   if (fromSubject) {
     const match = fromSubject.match(EMAIL);
-    if (match?.[0] === fromSubject) return cleanAddress(match[0]);
+    if (match?.[0] === fromSubject) {
+      const address = cleanAddress(match[0]);
+      return { address, exact: address !== null };
+    }
   }
-  for (const match of text.matchAll(EMAIL)) {
+  for (const match of text.matchAll(WHOLE_EMAIL)) {
     const address = cleanAddress(match[0]);
-    if (address) return address;
+    if (address) return { address, exact: false };
   }
-  return null;
+  return { address: null, exact: false };
 }
 
 export function parseForwardingConfirmation(input: {
@@ -88,9 +105,12 @@ export function parseForwardingConfirmation(input: {
   if (input.dmarc !== "pass") return null;
   const subject = input.subject.slice(0, MAX_SUBJECT);
   const text = (input.text ?? "").slice(0, MAX_TEXT);
+  const forAddress = findForAddress(subject, text);
   return {
     provider: "gmail",
     code: findCode(subject, text),
-    forAddress: findForAddress(subject, text),
+    forAddress: forAddress.address,
+    forAddressExact: forAddress.exact,
+    confirmUrl: text.match(CONFIRM_URL)?.[0] ?? null,
   };
 }

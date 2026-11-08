@@ -54,6 +54,7 @@ export default async function ForwardingPage() {
         {forwardingEmail ? (
           <ForwardingGuide
             forwardingEmail={forwardingEmail}
+            accountEmail={user.email ?? null}
             ownAddresses={
               <OwnAddresses
                 accountEmail={user.email ?? null}

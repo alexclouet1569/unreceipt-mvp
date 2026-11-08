@@ -238,6 +238,8 @@ export interface EmailForwardingConfirmation {
   code: string | null;
   for_address: string | null;
   received_at: string;
+  // Set when /api/intake/email confirmed the request itself (2026-11-08).
+  auto_confirmed_at: string | null;
 }
 
 // An address the user declared as their own (public.user_email_addresses):
