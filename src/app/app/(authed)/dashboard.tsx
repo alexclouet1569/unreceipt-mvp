@@ -3,10 +3,12 @@
 import { useEffect, useId, useState, useMemo } from "react";
 import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronDown, Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
+import { SwipeToDelete } from "@/components/receipt/SwipeToDelete";
 import { FilterChip } from "@/components/receipt/FilterChip";
 import { CaptureFab } from "@/components/CaptureFab";
 import { IntakeRow } from "@/components/IntakeRow";
@@ -48,14 +50,45 @@ type View = "date" | "category";
 
 export function Dashboard({
   userEmail,
-  receipts,
+  receipts: allReceipts,
   forwardingEmail,
   intakeSmsNumber,
   showOnboarding = false,
   accountantInvites = [],
   homeCurrency,
 }: DashboardProps) {
+  const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
+  // Swipe to delete: the row whose Delete button is showing, and receipts
+  // already gone from the list while the server deletes them.
+  const [swipedId, setSwipedId] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(new Set());
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const receipts = useMemo(
+    () => (deletedIds.size ? allReceipts.filter((r) => !deletedIds.has(r.id)) : allReceipts),
+    [allReceipts, deletedIds],
+  );
+
+  // The row disappears at once; the server deletes the receipt and its files
+  // (same route as the detail view's Delete). On failure it comes back.
+  const deleteReceipt = async (receipt: Receipt) => {
+    setSwipedId(null);
+    setDeleteError(null);
+    setDeletedIds((ids) => new Set(ids).add(receipt.id));
+    try {
+      const res = await fetch(`/api/receipts/${receipt.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`delete failed (HTTP ${res.status})`);
+      router.refresh();
+    } catch (err) {
+      console.error("[/app] swipe delete failed", err);
+      setDeletedIds((ids) => {
+        const next = new Set(ids);
+        next.delete(receipt.id);
+        return next;
+      });
+      setDeleteError(`Couldn't delete ${receipt.merchant_name ?? "this receipt"}. Try again in a moment.`);
+    }
+  };
   // Once started, onboarding stays until finished — even after the first
   // receipt arrives mid-flow (step 2 → 3).
   const [onboardingStep, setOnboardingStep] = useState<FirstRunStep | null>(
@@ -285,6 +318,15 @@ export function Dashboard({
                 : null}
             </div>
 
+            {deleteError ? (
+              <p
+                role="alert"
+                className="mb-3 rounded-[10px] bg-[var(--attention-tint)] px-3 py-2 text-[14px] font-semibold text-[var(--attention-deep)]"
+              >
+                {deleteError}
+              </p>
+            ) : null}
+
             {filter === "review" && visibleReceipts.length === 0 ? (
               <p
                 className="text-[var(--ink-muted)] py-8 text-center"
@@ -321,11 +363,15 @@ export function Dashboard({
                 </h2>
                 <div className="space-y-2">
                   {items.map((r) => (
-                    <ReceiptListItem
+                    <SwipeToDelete
                       key={r.id}
-                      receipt={r}
-                      onClick={() => setOpenReceipt(r)}
-                    />
+                      open={swipedId === r.id}
+                      onOpenChange={(o) => setSwipedId(o ? r.id : null)}
+                      onDelete={() => void deleteReceipt(r)}
+                      label={`${r.merchant_name ?? "Unknown merchant"}, ${formatAmount(r.total, r.currency)}`}
+                    >
+                      <ReceiptListItem receipt={r} onClick={() => setOpenReceipt(r)} />
+                    </SwipeToDelete>
                   ))}
                 </div>
               </section>

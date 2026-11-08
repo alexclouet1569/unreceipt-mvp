@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Receipt } from "@/lib/types";
 
@@ -195,5 +195,44 @@ describe("Dashboard period total", () => {
     await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).selectOptions(select, "all");
     expect(totalCard().textContent).toMatch(/1[ ,.]?562/);
     expect(totalCard().textContent).toMatch(/All time/);
+  });
+});
+
+describe("Dashboard swipe to delete", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    mocks.router.refresh.mockReset();
+  });
+
+  const swipeOpen = (merchant: string) => {
+    const row = screen.getByText(merchant).closest('[data-testid="swipe-row"]') as Element;
+    for (const [type, x] of [["pointerDown", 300], ["pointerMove", 240], ["pointerMove", 170], ["pointerUp", 170]] as const) {
+      fireEvent[type](row, { pointerId: 1, pointerType: "touch", clientX: x, clientY: 100 });
+    }
+    return document.querySelector(`button[aria-label^="Delete receipt: ${merchant}"]`) as HTMLButtonElement;
+  };
+
+  it("removes the receipt at once and deletes it on the server", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDashboard();
+
+    fireEvent.click(swipeOpen("Tåg Tre"));
+
+    expect(screen.queryByText("Tåg Tre")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith("/api/receipts/c", { method: "DELETE" });
+    await waitFor(() => expect(mocks.router.refresh).toHaveBeenCalled());
+  });
+
+  it("brings the receipt back and says so when the delete fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderDashboard();
+
+    fireEvent.click(swipeOpen("Tåg Tre"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't delete Tåg Tre");
+    expect(screen.getByText("Tåg Tre")).toBeInTheDocument();
   });
 });

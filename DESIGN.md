@@ -231,6 +231,10 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 - **Fallback.** If the photo can't be read, the same form shows with the photo still attached, an attention notice ("We couldn't read this photo…") and the title "Fill in the details". Manual entry uses the title "Enter manually" and a back button to stage 1.
 - Placeholders describe the field ("Shop or company", "Card, Swish, cash…"); they never look like example data. No red asterisks: required fields are enforced on save.
 
+### Swipe to delete
+
+`src/components/receipt/SwipeToDelete.tsx`, around each receipt card on `/app`. Swipe a card left (touch or pen) and it slides to reveal an 88px **Delete** action on `--destructive` with white text and a trash icon (4.9:1); tapping it deletes. A swipe alone never deletes. Past the button the card follows at half speed; let go beyond half the button and it stays open, otherwise it slides back (200ms). One row open at a time; tapping an open card closes it. The card disappears at once and the server deletes it in the background; if that fails it comes back with an attention notice above the list. Mouse and keyboard users delete from the receipt's detail view, as before.
+
 ### Photo viewer
 
 `src/components/receipt/PhotoViewer.tsx` + `ZoomableImage.tsx`. Opens when the photo thumbnail in the capture sheet, or the photo in a saved receipt's **Original** tab, is tapped, so the details can be checked against the photo.
@@ -302,6 +306,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-16 | **Capture becomes a photo-first bottom sheet** (choose → reading → check and save), with edit-in-place rows instead of stacked input boxes, VAT worked out from the rate, and the receipt's own currency. iOS date inputs drop their native chrome (`globals.css`) so they no longer spill into the next column. | The centred dialog put nine boxes before the photo, overlapped on iPhone, scrolled its close button away and used placeholders that looked like real data. Reading the photo is the product; the form is the fallback. |
 | 2026-10-16 | **Digital receipt redesign + "Receipt saved" step.** `ReceiptDetailCard` becomes a paper receipt (perforated top, torn bottom, dotted leaders, verified stamp) and is shown right after saving as well as in the detail view. VAT moves from the mint panel to leader lines under the total. Store logos for a hand-checked list of merchants, served through our own cached endpoint. Inbox gains By date / By category grouping and category chips. | The founder wanted a receipt that feels like the one on the landing page, visible the moment it's created. Logos only where we're sure of the match: a wrong logo on an accounting record is worse than initials. The footer no longer says "Awaiting verification" on receipts nobody else will verify. |
 | 2026-11-07 | **Photo viewer**: tap a receipt photo (capture sheet, Original tab) to see it full screen on `--ink`, pinch / double-tap / ± to zoom; "Delete photo" in the capture sheet only. | The founder wanted to check the read values against the photo; a 64px thumbnail can't show the small print. The original of a saved receipt is evidence, so it can't be deleted from the viewer. |
+| 2026-11-08 | **Swipe left to delete a receipt** on `/app`: reveals a red Delete action, tapping it deletes; the row disappears immediately and returns if the server refuses. | The founder wanted the iOS-native way to remove a receipt from the list. Two gestures (swipe, then tap) keep a stray swipe from deleting an accounting record. |
 
 ---
 
