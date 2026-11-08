@@ -139,11 +139,11 @@ const ok: SceneFn = ({ lang }) => (
   </BrowserFrame>
 );
 
-function VerifyBlock({ lang, address, step }: { lang: SceneProps["lang"]; address: string; step: "verify" | "leave" }) {
+function VerifyBlock({ lang, step }: { lang: SceneProps["lang"]; step: "verify" | "leave" }) {
   return (
     <ForwardingSection lang={lang}>
       <Radio label={say(GMAIL.disableForwarding, lang)} checked leave={step === "leave"} />
-      <Radio label={<span className="truncate">{say(GMAIL.forwardCopy, lang)} {address}</span>} />
+      <Radio label={`${say(GMAIL.forwardCopy, lang)} …`} />
       <span className="flex flex-wrap items-center gap-2" style={{ marginTop: 4 }}>
         <Field value="593 872 831" wide={false} />
         <Btn target={step === "verify"}>{say(GMAIL.verify, lang)}</Btn>
@@ -152,8 +152,8 @@ function VerifyBlock({ lang, address, step }: { lang: SceneProps["lang"]; addres
   );
 }
 
-const verify: SceneFn = ({ lang, address }) => <VerifyBlock lang={lang} address={address} step="verify" />;
-const leave: SceneFn = ({ lang, address }) => <VerifyBlock lang={lang} address={address} step="leave" />;
+const verify: SceneFn = ({ lang }) => <VerifyBlock lang={lang} step="verify" />;
+const leave: SceneFn = ({ lang }) => <VerifyBlock lang={lang} step="leave" />;
 
 const filtersTab: SceneFn = ({ lang }) => (
   <BrowserFrame url={FILTERS_URL}>
@@ -190,9 +190,9 @@ function SearchOptions({
     <BrowserFrame url={FILTERS_URL}>
       <Win>
         <div className="flex flex-col gap-2">
-          <Field label={say(GMAIL.from, lang)} />
-          <Field label={say(GMAIL.subject, lang)} />
-          <Field label={say(GMAIL.hasTheWords, lang)} value={query} placeholder=" " target={highlight === "words"} />
+          <Field label={say(GMAIL.from, lang)} labelWidth={86} />
+          <Field label={say(GMAIL.subject, lang)} labelWidth={86} />
+          <Field label={say(GMAIL.hasTheWords, lang)} labelWidth={86} value={query} placeholder=" " target={highlight === "words"} />
         </div>
         <div className="flex justify-end items-center gap-3" style={{ marginTop: 10 }}>
           <Btn link target={highlight === "create"}>

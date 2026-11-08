@@ -79,10 +79,14 @@ function Cursor({
     const t = target.getBoundingClientRect();
     return {
       start: { x: b.width - 28, y: b.height - 28 },
-      // A little right of centre and below, like a hand on a mouse.
-      end: { x: t.left - b.left + Math.min(t.width * 0.6, t.width - 8), y: t.top - b.top + t.height * 0.55 },
+      end:
+        pointer === "finger"
+          ? // On the lower-right edge, so the fingertip doesn't hide the word.
+            { x: t.right - b.left - 4, y: t.bottom - b.top - 2 }
+          : // A little right of centre and below, like a hand on a mouse.
+            { x: t.left - b.left + Math.min(t.width * 0.6, t.width - 8), y: t.top - b.top + t.height * 0.55 },
     };
-  }, [boxRef, target]);
+  }, [boxRef, target, pointer]);
 
   useLayoutEffect(() => {
     const still = prefersReducedMotion();
@@ -182,7 +186,7 @@ export function Mark({
     <span
       ref={ref}
       data-mark={leave ? "leave" : "target"}
-      className={`${block ? "flex" : "inline-flex"} relative`}
+      className={`${block ? "flex w-full" : "inline-flex"} relative`}
       style={{
         borderRadius: radius,
         outline: leave ? "1.5px dashed var(--ink-faint)" : "2px solid var(--ring)",
@@ -192,10 +196,12 @@ export function Mark({
       {children}
       {leave ? (
         <span
-          className="absolute"
+          className="absolute whitespace-nowrap"
           style={{
-            right: -4,
-            top: -10,
+            left: "100%",
+            marginLeft: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
             background: "var(--card)",
             border: "1px solid var(--hairline)",
             borderRadius: 9999,
@@ -320,8 +326,9 @@ export function Field({
   value,
   placeholder,
   wide = true,
+  labelWidth,
   ...m
-}: { label?: string; value?: string; placeholder?: string; wide?: boolean } & Markable) {
+}: { label?: string; value?: string; placeholder?: string; wide?: boolean; labelWidth?: number } & Markable) {
   const box = (
     <span
       className={`${wide ? "flex w-full" : "inline-flex"} items-center min-w-0`}
@@ -341,7 +348,7 @@ export function Field({
   return (
     <span className={`${wide ? "flex" : "inline-flex"} items-center gap-2 min-w-0`}>
       {label ? (
-        <span className="shrink-0" style={{ fontSize: 12, color: "var(--ink-muted)", minWidth: 0 }}>
+        <span className="shrink-0" style={{ fontSize: 12, color: "var(--ink-muted)", width: labelWidth }}>
           {label}
         </span>
       ) : null}
@@ -367,7 +374,7 @@ export function Tabs({ items, active, target }: { items: string[]; active: numbe
             {t}
           </span>
         );
-        return <span key={t}>{marked(node, { target: i === target }, 4)}</span>;
+        return <span key={i}>{marked(node, { target: i === target }, 4)}</span>;
       })}
     </div>
   );
@@ -375,7 +382,7 @@ export function Tabs({ items, active, target }: { items: string[]; active: numbe
 
 export function Check({ label, checked = false, ...m }: { label: React.ReactNode; checked?: boolean } & Markable) {
   const node = (
-    <span className="inline-flex items-center gap-2" style={{ fontSize: 12, color: "var(--ink)", padding: "1px 2px" }}>
+    <span className="inline-flex items-center gap-2 min-w-0" style={{ fontSize: 12, color: "var(--ink)", padding: "1px 2px", overflowWrap: "anywhere" }}>
       <span
         className="inline-flex items-center justify-center shrink-0"
         style={{
@@ -399,7 +406,7 @@ export function Check({ label, checked = false, ...m }: { label: React.ReactNode
 
 export function Radio({ label, checked = false, ...m }: { label: React.ReactNode; checked?: boolean } & Markable) {
   const node = (
-    <span className="inline-flex items-center gap-2" style={{ fontSize: 12, color: "var(--ink)", padding: "1px 2px" }}>
+    <span className="inline-flex items-center gap-2 min-w-0" style={{ fontSize: 12, color: "var(--ink)", padding: "1px 2px", overflowWrap: "anywhere" }}>
       <span
         className="inline-flex items-center justify-center shrink-0 rounded-full"
         style={{ width: 13, height: 13, border: "1px solid var(--ink-faint)", background: "var(--card)" }}
