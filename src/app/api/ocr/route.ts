@@ -8,6 +8,8 @@ import {
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
 import { countPdfPages, MAX_PDF_PAGES } from "@/lib/receipts/pdf-pages";
+import { STAGING_BUCKET, stagedPathFor } from "@/lib/receipts/staging";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   extractReceipt,
   extractReceiptStreaming,
@@ -106,7 +108,21 @@ export async function POST(request: NextRequest) {
 
     const base64 = buf.toString("base64");
     if (request.nextUrl.searchParams.get("stream") === "1") {
-      return streamedResponse(base64, type as OcrMediaType, request.signal);
+      // Stored while the model reads it, so Save doesn't upload it again
+      // (src/lib/receipts/staging.ts). Best effort: without it, Save sends
+      // the photo as before.
+      const stage = async (): Promise<string | null> => {
+        const path = stagedPathFor(user.id, type);
+        const { error } = await getSupabaseAdmin()
+          .storage.from(STAGING_BUCKET)
+          .upload(path, buf, { contentType: type, upsert: false, cacheControl: "3600" });
+        if (error) {
+          console.error("[/api/ocr] staging failed:", error.message);
+          return null;
+        }
+        return path;
+      };
+      return streamedResponse(base64, type as OcrMediaType, request.signal, stage);
     }
     const result = await extractReceipt(base64, type as OcrMediaType);
     return NextResponse.json(result);
@@ -129,7 +145,12 @@ export async function POST(request: NextRequest) {
  * with the full answer, or one `error` line. The form fills in from the
  * first partial instead of waiting for the whole receipt.
  */
-function streamedResponse(base64: string, mediaType: OcrMediaType, requestSignal: AbortSignal): Response {
+function streamedResponse(
+  base64: string,
+  mediaType: OcrMediaType,
+  requestSignal: AbortSignal,
+  stage: () => Promise<string | null>,
+): Response {
   const encoder = new TextEncoder();
   // The phone went away (sheet closed, app in the background, network
   // lost): stop the model instead of paying for an answer nobody reads.
@@ -143,6 +164,7 @@ function streamedResponse(base64: string, mediaType: OcrMediaType, requestSignal
         if (!closed) controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
       };
       let lastSent = "";
+      const staged = stage().catch(() => null);
       try {
         const call = await extractReceiptStreaming(
           base64,
@@ -157,8 +179,15 @@ function streamedResponse(base64: string, mediaType: OcrMediaType, requestSignal
           },
           abort.signal,
         );
+        // Before the result: the sheet stops reading at the result line.
+        const path = await staged;
+        if (path) send({ type: "staged", path });
         send({ type: "result", result: call.result });
       } catch (err) {
+        // Nobody will save this photo: don't keep the stored copy.
+        void staged.then((path) => {
+          if (path) void getSupabaseAdmin().storage.from(STAGING_BUCKET).remove([path]).catch(() => {});
+        });
         if (!abort.signal.aborted) {
           console.error("[/api/ocr] streamed extract failed:", err);
           Sentry.captureException(err, { tags: { area: "ocr" } });

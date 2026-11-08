@@ -90,7 +90,13 @@ describe("ReceiptDetailDialog (CQ2)", () => {
   beforeEach(() => {
     mocks.router.refresh.mockReset();
     mocks.fetch.mockReset();
-    vi.stubGlobal("fetch", mocks.fetch);
+    // The PDF "prepare" request the dialog sends on open is answered here,
+    // so the tests only see the calls they're about.
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+      String(url).endsWith("/pdf?prepare=1")
+        ? Promise.resolve({ ok: true, status: 204 } as Response)
+        : mocks.fetch(url, init),
+    );
   });
 
   afterEach(() => {

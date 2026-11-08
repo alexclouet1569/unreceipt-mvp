@@ -272,6 +272,33 @@ describe("CaptureDialog", () => {
     expect(screen.getByLabelText(/Total paid/i)).toHaveValue(245.5);
   });
 
+  it("saves with the server's stored copy of the photo, and sends the photo if it's gone", async () => {
+    const user = userEvent.setup();
+    const ocr = streamingOcr();
+    renderDialog();
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+    ocr.push({ type: "staged", path: "u1/staged/abc.jpg" });
+    ocr.push({ type: "result", result: { merchant: "ICA", amount: 49 } });
+    ocr.end();
+    await screen.findByRole("button", { name: /Save receipt/i });
+
+    const captures: FormData[] = [];
+    mocks.fetch.mockImplementation((url: string, init?: RequestInit) => {
+      if (url !== "/api/capture") return Promise.resolve(okResponse());
+      captures.push(init!.body as FormData);
+      return Promise.resolve(
+        captures.length === 1 ? errorResponse(409, { error: "staged image missing" }) : okResponse(),
+      );
+    });
+    await user.click(screen.getByRole("button", { name: /Save receipt/i }));
+
+    await waitFor(() => expect(captures).toHaveLength(2));
+    expect(captures[0].get("staged_image")).toBe("u1/staged/abc.jpg");
+    expect(captures[0].get("image")).toBeNull();
+    expect(captures[1].get("staged_image")).toBeNull();
+    expect((captures[1].get("image") as File).name).toBe("r.jpg");
+  });
+
   it("takes back early values when the full answer is refused", async () => {
     const user = userEvent.setup();
     vi.spyOn(console, "error").mockImplementation(() => {});

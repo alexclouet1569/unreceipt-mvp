@@ -234,6 +234,9 @@ export async function homeFieldsFor(r: Receipt, home: string, budget: FetchBudge
 export async function ensureHomeAmounts(rows: Receipt[], home: string): Promise<Receipt[]> {
   const budget: FetchBudget = new Set();
   const out: Receipt[] = [];
+  // The saves don't change what's returned: they run together at the end
+  // instead of one after the other inside the loop.
+  const saves: PromiseLike<void>[] = [];
   for (const r of rows) {
     if (!needsConversion(r, home)) {
       out.push(r);
@@ -251,10 +254,14 @@ export async function ensureHomeAmounts(rows: Receipt[], home: string): Promise<
       .eq("total", r.total as number)
       .eq("currency", r.currency);
     write = r.home_total == null ? write.is("home_total", null) : write.eq("home_total", r.home_total);
-    const { error } = await write;
-    if (error) console.error("[fx] save failed", error.code);
+    saves.push(
+      write.then(({ error }) => {
+        if (error) console.error("[fx] save failed", error.code);
+      }),
+    );
     out.push({ ...r, ...fields });
   }
+  await Promise.all(saves);
   return out;
 }
 

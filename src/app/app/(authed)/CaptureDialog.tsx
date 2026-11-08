@@ -151,6 +151,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   const ocrRunRef = useRef(0);
   // Cancels the reading in flight, so the server stops the model too.
   const ocrAbortRef = useRef<AbortController | null>(null);
+  // The server's stored copy of the photo being read (see /api/ocr), and
+  // which file it belongs to.
+  const stagedRef = useRef<{ file: File; path: string } | null>(null);
   // The Save button unmounts when the receipt is saved; focus moves here.
   const doneButtonRef = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState<Stage>("choose");
@@ -284,6 +287,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     ocrAbortRef.current?.abort();
     const abort = new AbortController();
     ocrAbortRef.current = abort;
+    stagedRef.current = null;
     setStage("reading");
     setOcrError(null);
     setOcrFilled(false);
@@ -307,7 +311,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         return;
       }
       let shownEarly = false;
-      const data = await readOcrResponse(res, (fields) => {
+      const onStaged = (path: string) => {
+        if (run === ocrRunRef.current) stagedRef.current = { file, path };
+      };
+      const data = await readOcrResponse(res, onStaged, (fields) => {
         if (run !== ocrRunRef.current || fields.not_a_receipt) return;
         applyOcrFields(fields, applied);
         // The total or the shop is enough to show the form; the line
@@ -473,7 +480,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     setSaveError(null);
     setSaving(true);
 
-    try {
+    // The photo is already on the server when /api/ocr stored it while
+    // reading it: Save then sends its reference instead of the photo.
+    const staged = imageFile && stagedRef.current?.file === imageFile ? stagedRef.current.path : null;
+    const buildForm = (useStaged: boolean) => {
       const fd = new FormData();
       fd.append("merchant", form.merchant.trim());
       fd.append("amount", String(form.amount));
@@ -490,7 +500,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         fd.append("payment_method", form.paymentMethod.trim());
       }
       if (form.notes.trim()) fd.append("notes", form.notes.trim());
-      if (imageFile) fd.append("image", imageFile);
+      if (imageFile) {
+        if (useStaged && staged) fd.append("staged_image", staged);
+        else fd.append("image", imageFile);
+      }
       if (items && items.length > 0) {
         fd.append("items", JSON.stringify(items));
       }
@@ -499,11 +512,17 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (includeVat && vatLines && vatLines.length > 0) {
         fd.append("vat_lines", JSON.stringify(vatLines));
       }
+      return fd;
+    };
 
-      const res = await fetch("/api/capture", {
-        method: "POST",
-        body: fd,
-      });
+    try {
+      let res = await fetch("/api/capture", { method: "POST", body: buildForm(Boolean(staged)) });
+      // The stored copy is gone (cleaned up, or never finished): send the
+      // photo itself.
+      if (staged && res.status === 409) {
+        stagedRef.current = null;
+        res = await fetch("/api/capture", { method: "POST", body: buildForm(false) });
+      }
 
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as {
@@ -1302,6 +1321,7 @@ type OcrApplied = Map<keyof FormState, string>;
  */
 async function readOcrResponse(
   res: Response,
+  onStaged: (path: string) => void,
   onPartial: (fields: OcrPartialFields) => void,
 ): Promise<OcrResult> {
   if (!(res.headers?.get?.("content-type") ?? "").includes("application/x-ndjson") || !res.body) {
@@ -1319,9 +1339,11 @@ async function readOcrResponse(
       if (!line.trim()) continue;
       const msg = JSON.parse(line) as
         | { type: "partial"; fields: OcrPartialFields }
+        | { type: "staged"; path: string }
         | { type: "result"; result: OcrResult }
         | { type: "error"; error: string };
       if (msg.type === "partial") onPartial(msg.fields);
+      else if (msg.type === "staged") onStaged(msg.path);
       else if (msg.type === "result") return msg.result;
       else throw new Error(msg.error);
     }

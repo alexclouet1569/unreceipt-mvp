@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -74,6 +74,18 @@ export function ReceiptDetailDialog({
 
   const open = receipt !== null;
   const pending = receipt?.status === "pending_review";
+
+  // Ask the server to render this receipt's PDF now, so Download a moment
+  // later is served from its cache instead of waiting for the render.
+  // Best effort; the owner's and the firm's PDF are the same document.
+  // Keyed on the whole row (updated_at isn't maintained): an edited receipt
+  // is prepared again.
+  const receiptId = receipt?.id;
+  const receiptVersion = useMemo(() => (receipt ? JSON.stringify(receipt) : ""), [receipt]);
+  useEffect(() => {
+    if (!receiptId || pending) return;
+    void fetch(`/api/receipts/${receiptId}/pdf?prepare=1`, { cache: "no-store" }).catch(() => {});
+  }, [receiptId, receiptVersion, pending]);
   // Manual rows are user-typed and have no source artifact — hide the
   // Original tab entirely. Every other intake path stores a raw
   // artifact (paper photo, email .eml, SMS .txt) we can show.

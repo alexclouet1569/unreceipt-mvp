@@ -2,13 +2,15 @@
 // EXPORT_TTL_HOURS. Their signed links expired long before; the ZIPs are
 // copies of data we keep anyway, so there's no reason to hold them.
 // Also deletes Gmail forwarding confirmation codes older than 7 days
-// (src/lib/forwarding-confirmation-cleanup.ts).
+// (src/lib/forwarding-confirmation-cleanup.ts), and capture-sheet photos
+// stored while being read but never saved (src/lib/receipts/staging.ts).
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { cleanupExports } from "@/lib/export/cleanup";
 import { cleanupForwardingConfirmations } from "@/lib/forwarding-confirmation-cleanup";
+import { cleanupStagedPhotos } from "@/lib/receipts/staging";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,12 +28,21 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] confirmation cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "forwarding-confirmation-cleanup" } });
   }
+  // Exports first: they are copies of receipt data promised gone after 24 h.
+  let exportResult: Awaited<ReturnType<typeof cleanupExports>> | null = null;
   try {
-    const result = await cleanupExports();
-    return NextResponse.json({ ...result, forwardingConfirmationsDeleted });
+    exportResult = await cleanupExports();
   } catch (err) {
     console.error("[cron/cleanup-exports] failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "export-cleanup" } });
-    return NextResponse.json({ error: "failed" }, { status: 500 });
   }
+  let stagedPhotosDeleted: number | null = null;
+  try {
+    stagedPhotosDeleted = (await cleanupStagedPhotos()).removed;
+  } catch (err) {
+    console.error("[cron/cleanup-exports] staged photo cleanup failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "staged-photo-cleanup" } });
+  }
+  if (!exportResult) return NextResponse.json({ error: "failed" }, { status: 500 });
+  return NextResponse.json({ ...exportResult, forwardingConfirmationsDeleted, stagedPhotosDeleted });
 }

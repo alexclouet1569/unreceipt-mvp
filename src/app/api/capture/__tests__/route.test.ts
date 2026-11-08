@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   upload: vi.fn(),
   remove: vi.fn(),
+  move: vi.fn(),
   insert: vi.fn(),
   single: vi.fn(),
 }));
@@ -40,6 +41,7 @@ vi.mock("@/lib/supabase-admin", () => ({
       from: () => ({
         upload: mocks.upload,
         remove: mocks.remove,
+        move: mocks.move,
       }),
     },
     from: () => ({
@@ -53,6 +55,15 @@ vi.mock("@/lib/supabase-admin", () => ({
       },
     }),
   }),
+}));
+
+// after() needs a real request; here the task runs at once and is awaited.
+const afterTasks = vi.hoisted(() => [] as Promise<unknown>[]);
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    afterTasks.push(Promise.resolve().then(task));
+  },
 }));
 
 import { POST } from "@/app/api/capture/route";
@@ -97,6 +108,7 @@ describe("POST /api/capture", () => {
     mocks.getServerUser.mockReset();
     mocks.upload.mockReset().mockResolvedValue({ error: null });
     mocks.remove.mockReset().mockResolvedValue({ error: null });
+    mocks.move.mockReset().mockResolvedValue({ error: null });
     mocks.insert.mockReset();
     mocks.single
       .mockReset()
@@ -429,5 +441,51 @@ describe("POST /api/capture — bookkeeping fields", () => {
     );
     expect(res.status).toBe(200);
     expect(mocks.insert.mock.calls[0][0]).toMatchObject({ vat_lines: null });
+  });
+});
+
+describe("POST /api/capture with a staged photo", () => {
+  const STAGED = `${USER_ID}/staged/22222222-2222-4222-8222-222222222222.jpg`;
+
+  beforeEach(() => {
+    mocks.getServerUser.mockReset().mockResolvedValue({ id: USER_ID });
+    mocks.upload.mockReset();
+    mocks.move.mockReset().mockResolvedValue({ error: null });
+    mocks.insert.mockReset();
+    mocks.single.mockReset().mockResolvedValue({ data: { id: "rec-1" }, error: null });
+  });
+
+  it("moves the photo /api/ocr stored instead of uploading it again", async () => {
+    const res = await POST(buildRequest(buildFormData({ staged_image: STAGED })));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upload).not.toHaveBeenCalled();
+    const [from, to] = mocks.move.mock.calls[0];
+    expect(from).toBe(STAGED);
+    expect(to).toMatch(new RegExp(`^${USER_ID}/[0-9a-f-]{36}\\.jpg$`));
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({ image_url: to, source: "paper" });
+  });
+
+  it("refuses another user's staged photo, or any other path", async () => {
+    for (const path of [
+      "33333333-3333-4333-8333-333333333333/staged/22222222-2222-4222-8222-222222222222.jpg",
+      `${USER_ID}/staged/../other.jpg`,
+      `${USER_ID}/22222222-2222-4222-8222-222222222222.jpg`,
+      `${USER_ID}/staged/22222222-2222-4222-8222-222222222222.exe`,
+    ]) {
+      const res = await POST(buildRequest(buildFormData({ staged_image: path })));
+      expect(res.status).toBe(400);
+    }
+    expect(mocks.move).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 when the staged photo is gone, so the sheet sends the photo", async () => {
+    mocks.move.mockResolvedValue({ error: { message: "Object not found" } });
+
+    const res = await POST(buildRequest(buildFormData({ staged_image: STAGED })));
+
+    expect(res.status).toBe(409);
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 });

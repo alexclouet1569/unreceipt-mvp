@@ -63,6 +63,15 @@ vi.mock("@/lib/receipts/access", async (importOriginal) => {
   };
 });
 
+// after() needs a real request; here the task runs at once and is collected.
+const afterTasks = vi.hoisted(() => [] as Promise<unknown>[]);
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: () => unknown) => {
+    afterTasks.push(Promise.resolve().then(task));
+  },
+}));
+
 import { GET } from "@/app/api/receipts/[id]/pdf/route";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
@@ -212,5 +221,42 @@ describe("GET /api/receipts/[id]/pdf", () => {
     expect(head).toBe("%PDF-");
     // Sanity: a real PDF has at least a few KB once fonts embed.
     expect(buf.byteLength).toBeGreaterThan(1024);
+  }, 30_000);
+
+  it("prepares the PDF in advance and then serves the same document; a check still runs each time", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    mocks.maybeSingle.mockResolvedValue({
+      data: fakeReceipt({ updated_at: "2026-11-08T09:00:00.000Z" }),
+      error: null,
+    });
+
+    const prepared = await GET(
+      new NextRequest(`http://localhost:3000/api/receipts/${RECEIPT_ID}/pdf?prepare=1`),
+      params,
+    );
+    expect(prepared.status).toBe(204);
+    await Promise.all(afterTasks);
+
+    const first = new Uint8Array(await (await GET(buildRequest(), params)).arrayBuffer());
+    const second = new Uint8Array(await (await GET(buildRequest(), params)).arrayBuffer());
+    expect(new TextDecoder().decode(first.slice(0, 5))).toBe("%PDF-");
+    expect(second).toEqual(first);
+
+    // Someone without access gets nothing, cached or not.
+    mocks.getServerUser.mockResolvedValue(null);
+    expect((await GET(buildRequest(), params)).status).toBe(401);
+  }, 30_000);
+
+  it("renders again after an edit, even though updated_at doesn't change", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID });
+    const same = "2026-11-08T10:00:00.000Z";
+    mocks.maybeSingle.mockResolvedValue({ data: fakeReceipt({ updated_at: same, total: 49 }), error: null });
+    const before = new Uint8Array(await (await GET(buildRequest(), params)).arrayBuffer());
+    mocks.maybeSingle.mockResolvedValue({
+      data: fakeReceipt({ updated_at: same, total: 59, edited_at: "2026-11-08T10:05:00.000Z" }),
+      error: null,
+    });
+    const after = new Uint8Array(await (await GET(buildRequest(), params)).arrayBuffer());
+    expect(after).not.toEqual(before);
   }, 30_000);
 });
