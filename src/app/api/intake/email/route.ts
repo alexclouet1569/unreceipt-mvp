@@ -47,6 +47,7 @@ import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
+import { confirmGmailForwarding, isOwnInbox } from "@/lib/forwarding-autoconfirm";
 import { buildForwardingAddress } from "@/lib/email-alias";
 import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
 import { loadOwnerAddresses } from "@/lib/owner-addresses";
@@ -271,18 +272,36 @@ export async function POST(request: NextRequest) {
     dmarc,
   });
   if (confirmation) {
-    const { error: confirmationError } = await supabase
-      .from("email_forwarding_confirmations")
-      .upsert(
-        {
-          user_id: userId,
-          provider: confirmation.provider,
-          code: confirmation.code,
-          for_address: confirmation.forAddress,
-          received_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
+    // The user's own Gmail asked to forward here: confirm it for them, so
+    // the setup guide skips the code (src/lib/forwarding-autoconfirm.ts).
+    let autoConfirmedAt: string | null = null;
+    if (confirmation.confirmUrl && confirmation.forAddress) {
+      const owner = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
+      if (isOwnInbox(confirmation.forAddress, owner.personal)) {
+        if (await confirmGmailForwarding(confirmation.confirmUrl)) {
+          autoConfirmedAt = new Date().toISOString();
+        } else {
+          console.warn("[intake/email] gmail forwarding auto-confirm failed");
+        }
+      }
+    }
+    const row = {
+      user_id: userId,
+      provider: confirmation.provider,
+      code: confirmation.code,
+      for_address: confirmation.forAddress,
+      received_at: new Date().toISOString(),
+    };
+    const save = (withAuto: boolean) =>
+      supabase
+        .from("email_forwarding_confirmations")
+        .upsert(withAuto ? { ...row, auto_confirmed_at: autoConfirmedAt } : row, { onConflict: "user_id" });
+    let { error: confirmationError } = await save(true);
+    // The 2026-11-08 column isn't there yet (schema.sql not applied): keep
+    // the code, which is all the guide needs.
+    if (confirmationError?.code === "PGRST204" || confirmationError?.code === "42703") {
+      ({ error: confirmationError } = await save(false));
+    }
     if (confirmationError) {
       console.error("[intake/email] forwarding confirmation save failed", confirmationError);
       Sentry.captureException(new Error("forwarding confirmation save failed"), {

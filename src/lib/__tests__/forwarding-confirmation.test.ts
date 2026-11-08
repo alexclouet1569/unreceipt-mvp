@@ -21,7 +21,7 @@ describe("parseForwardingConfirmation", () => {
           "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna.svensson@gmail.com",
         text: BODY,
       }),
-    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com" });
+    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", confirmUrl: null });
   });
 
   it("falls back to the body when the subject is localised and has no code", () => {
@@ -32,7 +32,7 @@ describe("parseForwardingConfirmation", () => {
         subject: "Bekräftelse av vidarebefordran i Gmail",
         text: "anna.svensson@gmail.com har begärt …\nBekräftelsekod: 593872831\n",
       }),
-    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com" });
+    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", confirmUrl: null });
   });
 
   it("still recognises the email when no code can be read", () => {
@@ -43,7 +43,7 @@ describe("parseForwardingConfirmation", () => {
         subject: "Gmail Forwarding Confirmation",
         text: null,
       }),
-    ).toEqual({ provider: "gmail", code: null, forAddress: null });
+    ).toEqual({ provider: "gmail", code: null, forAddress: null, confirmUrl: null });
   });
 
   it("ignores every other sender", () => {
@@ -138,7 +138,7 @@ describe("sender check", () => {
       subject: "Gmail Forwarding Confirmation",
       text: "receipts+abc@in.unreceipt.com\nTel: 0812345678\nanna@gmail.com har begärt …\nBekräftelsekod: 593872831",
     });
-    expect(result).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna@gmail.com" });
+    expect(result).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna@gmail.com", confirmUrl: null });
   });
 
   it("stays fast on a hostile 60 KB subject", () => {
@@ -150,5 +150,31 @@ describe("sender check", () => {
       text: "@".repeat(60_000),
     });
     expect(Date.now() - started).toBeLessThan(500);
+  });
+});
+
+describe("Gmail auto-confirmation", () => {
+  it("reads Gmail's confirmation link, and only that host", async () => {
+    const { parseForwardingConfirmation } = await import("@/lib/forwarding-confirmation");
+    const parsed = parseForwardingConfirmation({
+      from: "forwarding-noreply@google.com",
+      dmarc: "pass",
+      subject: "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna@gmail.com",
+      text: "Click https://evil.example/mail/vf-aaaaaaaaaaaa or https://mail-settings.google.com/mail/vf-%5BAB%5D-tokentokentoken now",
+    });
+    expect(parsed?.confirmUrl).toBe("https://mail-settings.google.com/mail/vf-%5BAB%5D-tokentokentoken");
+  });
+
+  it("posts only to Gmail's own confirmation path", async () => {
+    const { gmailConfirmEndpoint, isOwnInbox } = await import("@/lib/forwarding-autoconfirm");
+    expect(gmailConfirmEndpoint("https://mail-settings.google.com/mail/vf-%5BAB%5D-tokentokentoken")).toBe(
+      "https://mail.google.com/mail/vf-%5BAB%5D-tokentokentoken",
+    );
+    expect(gmailConfirmEndpoint("https://mail-settings.google.com.evil.com/mail/vf-tokentokentoken")).toBeNull();
+    expect(gmailConfirmEndpoint("https://mail-settings.google.com/mail/vf-token/../../x")).toBeNull();
+    expect(gmailConfirmEndpoint("http://mail-settings.google.com/mail/vf-tokentokentoken")).toBeNull();
+    expect(isOwnInbox("Anna@Gmail.com", ["anna@gmail.com"])).toBe(true);
+    expect(isOwnInbox("anna@gmail.com", ["anna@acme.se"])).toBe(false);
+    expect(isOwnInbox(null, ["anna@gmail.com"])).toBe(false);
   });
 });

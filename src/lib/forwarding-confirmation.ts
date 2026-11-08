@@ -28,7 +28,14 @@ export type ForwardingConfirmation = {
   code: string | null;
   // The Gmail account asking to forward, if it could be read.
   forAddress: string | null;
+  // Gmail's own confirmation link (mail-settings.google.com/mail/vf-…).
+  // Kept in memory for confirmForwarding() only: never stored, never shown.
+  confirmUrl: string | null;
 };
+
+// "https://mail-settings.google.com/mail/vf-%5B…%5D-…" up to the first
+// character that can't be in it.
+const CONFIRM_URL = /https:\/\/mail-settings\.google\.com\/mail\/vf-[A-Za-z0-9%._~\-]{10,600}/;
 
 // "Gmail Team <forwarding-noreply@google.com>" → "forwarding-noreply@google.com"
 function bareAddress(from: string): string {
@@ -92,5 +99,6 @@ export function parseForwardingConfirmation(input: {
     provider: "gmail",
     code: findCode(subject, text),
     forAddress: findForAddress(subject, text),
+    confirmUrl: text.match(CONFIRM_URL)?.[0] ?? null,
   };
 }

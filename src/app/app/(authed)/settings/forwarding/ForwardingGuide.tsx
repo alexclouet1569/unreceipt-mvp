@@ -10,9 +10,11 @@ import { ForwardingWizard } from "./ForwardingWizard";
  */
 export function ForwardingGuide({
   forwardingEmail,
+  accountEmail,
   ownAddresses,
 }: {
   forwardingEmail: string;
+  accountEmail?: string | null;
   // The "Your email addresses" manager, rendered by the server page.
   ownAddresses?: React.ReactNode;
 }) {
@@ -64,7 +66,7 @@ export function ForwardingGuide({
           only forwards emails whose subject looks like a receipt, never your
           other mail.
         </p>
-        <ForwardingWizard forwardingEmail={forwardingEmail} />
+        <ForwardingWizard forwardingEmail={forwardingEmail} accountEmail={accountEmail} />
       </section>
 
       {ownAddresses ? (

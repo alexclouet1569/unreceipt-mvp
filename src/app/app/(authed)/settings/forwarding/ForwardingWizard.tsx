@@ -16,7 +16,13 @@ import { RECEIPT_SUBJECT_WORDS, gmailFilterQuery, outlookSubjectWords } from "@/
 type Provider = "gmail" | "outlook" | "other";
 
 type Status = {
-  confirmation: { code: string | null; forAddress: string | null; receivedAt: string } | null;
+  confirmation: {
+    code: string | null;
+    forAddress: string | null;
+    receivedAt: string;
+    // We confirmed the request for the user (their own Gmail asked).
+    autoConfirmed?: boolean;
+  } | null;
   lastEmailAt: string | null;
 };
 
@@ -56,38 +62,29 @@ const PROVIDERS: { id: Provider; label: string; hint: string }[] = [
 const STEPS: Record<Provider, Step[]> = {
   gmail: [
     {
-      title: "Open Gmail's forwarding settings",
-      path: ["Settings (gear)", "See all settings", "Forwarding and POP/IMAP"],
-      body: () => (
+      title: "Add your UnReceipt address in Gmail",
+      path: ["Forwarding and POP/IMAP", "Add a forwarding address", "Paste", "Next", "Proceed", "OK"],
+      body: ({ forwardingEmail }) => (
         <>
+          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
           <OpenLink href={GMAIL_FORWARDING_URL}>Open Gmail forwarding settings</OpenLink>
           <Hint>
-            Opened the wrong Gmail account? Switch accounts at the top right of
-            Gmail, or follow the path above.
+            Gmail may ask you to sign in again. That&apos;s normal. Wrong Gmail
+            account? Switch at the top right of Gmail.
           </Hint>
         </>
       ),
     },
     {
-      title: "Add your UnReceipt address",
-      path: ["Add a forwarding address", "Paste your address", "Next", "Proceed", "OK"],
-      body: ({ forwardingEmail }) => (
-        <>
-          <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
-          <Hint>Gmail may ask you to sign in again. That&apos;s normal.</Hint>
-        </>
-      ),
-    },
-    {
-      title: "Type in the code Gmail sent us",
-      path: ["Confirmation code box", "Paste the code", "Verify"],
+      title: "Confirm it",
+      path: [],
       kind: "code",
       body: ({ status }) => (
         <>
           <CodeBox status={status} />
           <Hint>
-            Leave <Strong>Disable forwarding</Strong> selected afterwards: the
-            next step forwards receipts only, not all your mail.
+            Leave <Strong>Disable forwarding</Strong> selected: the next step
+            forwards receipts only, not all your mail.
           </Hint>
         </>
       ),
@@ -230,7 +227,22 @@ function subscribeCoarse(cb: () => void) {
 }
 const isCoarse = () => window.matchMedia("(pointer: coarse)").matches;
 
-export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string }) {
+/** The provider an address most likely uses, from its domain. */
+export function providerForEmail(email: string | null | undefined): Provider | null {
+  const domain = email?.split("@")[1]?.trim().toLowerCase() ?? "";
+  if (domain === "gmail.com" || domain === "googlemail.com") return "gmail";
+  if (/^(outlook|hotmail|live|msn)\.[a-z.]{2,6}$/.test(domain)) return "outlook";
+  return null;
+}
+
+export function ForwardingWizard({
+  forwardingEmail,
+  accountEmail,
+}: {
+  forwardingEmail: string;
+  // The sign-in email: picks Gmail or Outlook for the user on a first visit.
+  accountEmail?: string | null;
+}) {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
@@ -244,12 +256,17 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
   useEffect(() => {
     const t = setTimeout(() => {
       const saved = loadSaved();
-      setProvider(saved.provider);
+      // First visit: start on the user's own provider ("Change email" goes
+      // back to the choice).
+      const fresh = saved.provider === null && saved.step === 0 && !saved.done;
+      setProvider(fresh ? providerForEmail(accountEmail) : saved.provider);
       setStep(saved.step);
       setDone(saved.done);
       restored.current = true;
     }, 0);
     return () => clearTimeout(t);
+    // Restores once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -401,7 +418,9 @@ export function ForwardingWizard({ forwardingEmail }: { forwardingEmail: string 
                 requestAnimationFrame(() => titleRef.current?.focus());
               }}
             >
-              {index === total - 1 ? "Done" : current.kind === "code" && status?.confirmation?.code ? "I've verified it" : "Next"}
+              {index === total - 1 ? "Done" : current.kind === "code" && status?.confirmation?.code && !status.confirmation.autoConfirmed
+                  ? "I've verified it"
+                  : "Next"}
             </Button>
           </div>
         </>
@@ -450,7 +469,29 @@ function CodeBox({ status }: { status: Status | null }) {
   const confirmation = status?.confirmation ?? null;
   return (
     <div role="status">
-      {!confirmation ? (
+      {confirmation?.autoConfirmed ? (
+        <div className="space-y-3">
+          <p className="flex items-start gap-2 text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+            <Check className="mt-0.5 w-5 h-5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+            Gmail asked for permission and we confirmed it for you. Nothing to type.
+          </p>
+          {confirmation.code ? (
+            <Hint>
+              Gmail still shows the address as unverified? Reload Gmail; if it
+              stays, type this code in the box next to it:{" "}
+              <Strong>{confirmation.code}</Strong>
+            </Hint>
+          ) : null}
+        </div>
+      ) : !confirmation ? (
+        <p
+          className="flex items-center gap-2 text-[var(--ink-muted)]"
+          style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
+        >
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+          Waiting for Gmail&apos;s email… This updates by itself.
+        </p>
+      ) : !confirmation.code ? (
         <p
           className="flex items-center gap-2 text-[var(--ink-muted)]"
           style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
@@ -468,7 +509,13 @@ function CodeBox({ status }: { status: Status | null }) {
           and we&apos;ll send it to you.
         </p>
       ) : (
-        <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
+        <>
+          <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
+          <Hint>
+            In Gmail: paste it in the <Strong>Confirmation code</Strong> box,
+            then <Strong>Verify</Strong>.
+          </Hint>
+        </>
       )}
     </div>
   );

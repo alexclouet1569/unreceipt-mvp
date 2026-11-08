@@ -7,7 +7,10 @@ import { gmailFilterQuery, outlookSubjectWords } from "@/lib/forwarding-filters"
 
 const ADDRESS = "receipts+abc12345mn@in.unreceipt.com";
 const fetchMock = vi.fn();
-let status = { confirmation: null as null | { code: string | null; forAddress: string | null; receivedAt: string }, lastEmailAt: null as string | null };
+let status = {
+  confirmation: null as null | { code: string | null; forAddress: string | null; receivedAt: string; autoConfirmed?: boolean },
+  lastEmailAt: null as string | null,
+};
 
 function mockMatchMedia(coarse: boolean) {
   vi.stubGlobal("matchMedia", (q: string) => ({
@@ -18,9 +21,9 @@ function mockMatchMedia(coarse: boolean) {
   }));
 }
 
-const setup = async () => {
+const setup = async (accountEmail?: string) => {
   const user = userEvent.setup();
-  render(<ForwardingWizard forwardingEmail={ADDRESS} />);
+  render(<ForwardingWizard forwardingEmail={ADDRESS} accountEmail={accountEmail} />);
   // Let the deferred restore from localStorage run.
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0));
@@ -55,14 +58,13 @@ describe("ForwardingWizard", () => {
     const user = await setup();
     await user.click(screen.getByRole("button", { name: /Gmail/ }));
 
-    expect(screen.getByText("Gmail · Step 1 of 5")).toBeInTheDocument();
+    expect(screen.getByText("Gmail · Step 1 of 4")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Where to click" })).toHaveTextContent("Forwarding and POP/IMAP");
     expect(screen.getByRole("link", { name: /Open Gmail forwarding settings/ })).toHaveAttribute(
       "href",
       "https://mail.google.com/mail/u/0/#settings/fwdandpop",
     );
-
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    // The address to paste is on the same step as the link.
     expect(screen.getByText(ADDRESS)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -74,11 +76,36 @@ describe("ForwardingWizard", () => {
 
   it("shows Gmail's code as soon as it arrives", async () => {
     status = { confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt: new Date().toISOString() }, lastEmailAt: null };
-    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 2, done: false }));
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
     await setup();
     expect(await screen.findByText("593872831")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "I've verified it" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/forwarding/status", { cache: "no-store" });
+  });
+
+  it("says when we confirmed Gmail's request, keeping the code as a fallback", async () => {
+    status = {
+      confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt: new Date().toISOString(), autoConfirmed: true },
+      lastEmailAt: null,
+    };
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
+    await setup();
+    expect(await screen.findByText(/we confirmed it for you/)).toBeInTheDocument();
+    expect(screen.getByText("593872831")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+  });
+
+  it("starts on the user's own provider, picked from their email", async () => {
+    await setup("anna@gmail.com");
+    expect(screen.getByText("Gmail · Step 1 of 4")).toBeInTheDocument();
+    cleanup();
+    window.localStorage.clear();
+    await setup("anna@hotmail.se");
+    expect(screen.getByText(/Outlook · Step 1 of/)).toBeInTheDocument();
+    cleanup();
+    window.localStorage.clear();
+    await setup("anna@acme.se");
+    expect(screen.getByRole("heading", { name: "Where do your receipts arrive?" })).toBeInTheDocument();
   });
 
   it("confirms when the test email arrives, then finishes", async () => {

@@ -58,7 +58,7 @@ describe("/api/forwarding/status", () => {
     mocks.latest = { data: { created_at: "2026-10-16T12:00:00Z" }, error: null };
     const body = await (await GET()).json();
     expect(body).toEqual({
-      confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt },
+      confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt, autoConfirmed: false },
       lastEmailAt: "2026-10-16T12:00:00Z",
     });
     expect(mocks.eqs.filter(([c]) => c === "user_id").every(([, v]) => v === mocks.user?.id)).toBe(true);

@@ -1491,3 +1491,17 @@ CREATE TABLE IF NOT EXISTS public.fx_rates (
 -- Server-only cache: RLS on, no policies, no client grants.
 ALTER TABLE public.fx_rates ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.fx_rates FROM anon, authenticated;
+
+-- =============================================================================
+-- 2026-11-08 — Gmail forwarding confirmed for the user
+--
+-- When Gmail's "confirm this forwarding address" email names one of the
+-- user's own inboxes, /api/intake/email confirms the request itself
+-- (src/lib/forwarding-autoconfirm.ts) and records when here, so the setup
+-- guide can skip "type the code". The code stays as a fallback. Written by
+-- the service role only, like the rest of the table. The app works before
+-- this block is applied (it retries the save without the column).
+-- =============================================================================
+
+ALTER TABLE public.email_forwarding_confirmations
+  ADD COLUMN IF NOT EXISTS auto_confirmed_at TIMESTAMPTZ;

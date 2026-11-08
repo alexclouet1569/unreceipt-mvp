@@ -414,9 +414,11 @@ describe("POST /api/intake/email", () => {
     expect(mocks.fetchReceivedEmail).not.toHaveBeenCalled();
   });
 
-  function gmailConfirmation(dmarc: string | null) {
+  const CONFIRM_LINK = "https://mail-settings.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456";
+
+  function gmailConfirmation(dmarc: string | null, text = "anna@gmail.com has requested to automatically forward mail …") {
     mocks.fetchReceivedEmail.mockResolvedValue({
-      text: "anna@gmail.com has requested to automatically forward mail …",
+      text,
       html: null,
       headers: {},
       messageId: "<confirm-1@google.com>",
@@ -449,6 +451,60 @@ describe("POST /api/intake/email", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.receiptsInsert).not.toHaveBeenCalled();
     expect(usageMock).not.toHaveBeenCalled();
+  });
+
+  describe("confirming the user's own Gmail for them", () => {
+    const linkText = `anna@gmail.com has requested to automatically forward mail to your email address.\nTo allow anna@gmail.com to automatically forward mail to your address, please click the link below to confirm the request:\n\n${CONFIRM_LINK}\n\nConfirmation code: 593872831`;
+    const googleFetch = vi.fn();
+    beforeEach(() => {
+      googleFetch.mockReset().mockResolvedValue({ status: 200 });
+      vi.stubGlobal("fetch", googleFetch);
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("posts Gmail's link on mail.google.com and records it", async () => {
+      const body = gmailConfirmation("pass", linkText);
+
+      expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+
+      expect(googleFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = googleFetch.mock.calls[0];
+      expect(url).toBe("https://mail.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456");
+      expect(init).toMatchObject({ method: "POST", redirect: "manual" });
+      expect(mocks.upsert).toHaveBeenCalledWith(
+        "email_forwarding_confirmations",
+        expect.objectContaining({ code: "593872831", auto_confirmed_at: expect.any(String) }),
+        { onConflict: "user_id" },
+      );
+    });
+
+    it("never confirms a Gmail account that isn't one of the user's inboxes", async () => {
+      ownerAddressesMock.mockResolvedValueOnce({ personal: ["someone.else@gmail.com"], alias: "x" });
+      const body = gmailConfirmation("pass", linkText);
+
+      expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+
+      expect(googleFetch).not.toHaveBeenCalled();
+      expect(mocks.upsert).toHaveBeenCalledWith(
+        "email_forwarding_confirmations",
+        expect.objectContaining({ code: "593872831", auto_confirmed_at: null }),
+        { onConflict: "user_id" },
+      );
+    });
+
+    it("keeps the code when Gmail refuses, and saves without the new column where it doesn't exist yet", async () => {
+      googleFetch.mockResolvedValue({ status: 403 });
+      mocks.upsert
+        .mockResolvedValueOnce({ error: { code: "PGRST204", message: "column not found" } })
+        .mockResolvedValueOnce({ error: null });
+      const body = gmailConfirmation("pass", linkText);
+
+      expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+
+      expect(mocks.upsert).toHaveBeenCalledTimes(2);
+      expect(mocks.upsert.mock.calls[1][1]).not.toHaveProperty("auto_confirmed_at");
+      expect(mocks.upsert.mock.calls[1][1]).toMatchObject({ code: "593872831" });
+    });
   });
 
   it("files a forged Gmail confirmation (DMARC fail) as an ordinary email", async () => {
