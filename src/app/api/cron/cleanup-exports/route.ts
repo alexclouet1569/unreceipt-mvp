@@ -28,6 +28,14 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] confirmation cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "forwarding-confirmation-cleanup" } });
   }
+  // Exports first: they are copies of receipt data promised gone after 24 h.
+  let exportResult: Awaited<ReturnType<typeof cleanupExports>> | null = null;
+  try {
+    exportResult = await cleanupExports();
+  } catch (err) {
+    console.error("[cron/cleanup-exports] failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "export-cleanup" } });
+  }
   let stagedPhotosDeleted: number | null = null;
   try {
     stagedPhotosDeleted = (await cleanupStagedPhotos()).removed;
@@ -35,12 +43,6 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] staged photo cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "staged-photo-cleanup" } });
   }
-  try {
-    const result = await cleanupExports();
-    return NextResponse.json({ ...result, forwardingConfirmationsDeleted, stagedPhotosDeleted });
-  } catch (err) {
-    console.error("[cron/cleanup-exports] failed", err instanceof Error ? err.message : "unknown");
-    Sentry.captureException(err, { tags: { area: "export-cleanup" } });
-    return NextResponse.json({ error: "failed" }, { status: 500 });
-  }
+  if (!exportResult) return NextResponse.json({ error: "failed" }, { status: 500 });
+  return NextResponse.json({ ...exportResult, forwardingConfirmationsDeleted, stagedPhotosDeleted });
 }

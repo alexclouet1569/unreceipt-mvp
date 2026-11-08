@@ -26,7 +26,9 @@ export function stagedPathFor(userId: string, type: AllowedUploadType): string {
  */
 export function isOwnStagedPath(userId: string, path: string): boolean {
   if (!new RegExp(`^${UUID}$`, "i").test(userId)) return false;
-  return new RegExp(`^${userId}/${STAGED_DIR}/${UUID}\\.(${EXTENSIONS})$`, "i").test(path);
+  // The user part matches exactly (storage names are case-sensitive).
+  const prefix = `${userId}/${STAGED_DIR}/`;
+  return path.startsWith(prefix) && new RegExp(`^${UUID}\\.(${EXTENSIONS})$`).test(path.slice(prefix.length));
 }
 
 /** The upload type of a staged path, from its extension. */

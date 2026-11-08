@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/nextjs";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
@@ -293,16 +292,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Counted after the answer: the customer doesn't wait for the usage row
-  // or, above the allowance, the Stripe meter call. A failure is reported;
-  // the overage sweep retries what reached the meter step.
-  after(async () => {
-    try {
-      await recordReceiptUsage({ userId: user.id, receiptId: inserted.id, source });
-    } catch (err) {
-      console.error("[/api/capture] usage not recorded:", err instanceof Error ? err.message : "unknown");
-      Sentry.captureException(err, { tags: { area: "usage" } });
-    }
-  });
+  // or, above the allowance, the Stripe meter call. recordReceiptUsage
+  // reports its own failures and is idempotent per receipt.
+  after(() => recordReceiptUsage({ userId: user.id, receiptId: inserted.id, source }));
 
   return NextResponse.json({ ok: true, id: inserted.id, receipt: inserted });
 }

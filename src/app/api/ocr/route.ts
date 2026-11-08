@@ -184,6 +184,10 @@ function streamedResponse(
         if (path) send({ type: "staged", path });
         send({ type: "result", result: call.result });
       } catch (err) {
+        // Nobody will save this photo: don't keep the stored copy.
+        void staged.then((path) => {
+          if (path) void getSupabaseAdmin().storage.from(STAGING_BUCKET).remove([path]).catch(() => {});
+        });
         if (!abort.signal.aborted) {
           console.error("[/api/ocr] streamed extract failed:", err);
           Sentry.captureException(err, { tags: { area: "ocr" } });
