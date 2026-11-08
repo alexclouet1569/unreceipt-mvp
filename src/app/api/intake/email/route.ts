@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
     // The user's own Gmail asked to forward here: confirm it for them, so
     // the setup guide skips the code (src/lib/forwarding-autoconfirm.ts).
     let autoConfirmedAt: string | null = null;
-    if (confirmation.confirmUrl && confirmation.forAddress) {
+    if (confirmation.confirmUrl && confirmation.forAddress && confirmation.forAddressExact) {
       const owner = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
       if (isOwnInbox(confirmation.forAddress, owner.personal)) {
         if (await confirmGmailForwarding(confirmation.confirmUrl)) {

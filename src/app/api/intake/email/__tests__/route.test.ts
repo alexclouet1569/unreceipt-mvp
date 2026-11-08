@@ -478,6 +478,25 @@ describe("POST /api/intake/email", () => {
       );
     });
 
+    it("never confirms when the requester was only read from the body", async () => {
+      mocks.fetchReceivedEmail.mockResolvedValueOnce({
+        text: linkText,
+        html: null,
+        headers: {},
+        messageId: "<confirm-2@google.com>",
+        rawEml: null,
+        authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
+      });
+      const body = metadataOnlyPayload({
+        from: "Gmail Team <forwarding-noreply@google.com>",
+        // No exact "from <address>" at the end of the subject.
+        subject: "(#593872831) Gmail Forwarding Confirmation",
+      });
+
+      expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+      expect(googleFetch).not.toHaveBeenCalled();
+    });
+
     it("never confirms a Gmail account that isn't one of the user's inboxes", async () => {
       ownerAddressesMock.mockResolvedValueOnce({ personal: ["someone.else@gmail.com"], alias: "x" });
       const body = gmailConfirmation("pass", linkText);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 
 const BODY = `anna.svensson@gmail.com has requested to automatically forward mail to your email
@@ -21,7 +21,7 @@ describe("parseForwardingConfirmation", () => {
           "(#593872831) Gmail Forwarding Confirmation - Receive Mail from anna.svensson@gmail.com",
         text: BODY,
       }),
-    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", confirmUrl: null });
+    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", forAddressExact: true, confirmUrl: null });
   });
 
   it("falls back to the body when the subject is localised and has no code", () => {
@@ -32,7 +32,7 @@ describe("parseForwardingConfirmation", () => {
         subject: "Bekräftelse av vidarebefordran i Gmail",
         text: "anna.svensson@gmail.com har begärt …\nBekräftelsekod: 593872831\n",
       }),
-    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", confirmUrl: null });
+    ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", forAddressExact: false, confirmUrl: null });
   });
 
   it("still recognises the email when no code can be read", () => {
@@ -43,7 +43,7 @@ describe("parseForwardingConfirmation", () => {
         subject: "Gmail Forwarding Confirmation",
         text: null,
       }),
-    ).toEqual({ provider: "gmail", code: null, forAddress: null, confirmUrl: null });
+    ).toEqual({ provider: "gmail", code: null, forAddress: null, forAddressExact: false, confirmUrl: null });
   });
 
   it("ignores every other sender", () => {
@@ -138,7 +138,7 @@ describe("sender check", () => {
       subject: "Gmail Forwarding Confirmation",
       text: "receipts+abc@in.unreceipt.com\nTel: 0812345678\nanna@gmail.com har begärt …\nBekräftelsekod: 593872831",
     });
-    expect(result).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna@gmail.com", confirmUrl: null });
+    expect(result).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna@gmail.com", forAddressExact: false, confirmUrl: null });
   });
 
   it("stays fast on a hostile 60 KB subject", () => {
@@ -176,5 +176,40 @@ describe("Gmail auto-confirmation", () => {
     expect(isOwnInbox("Anna@Gmail.com", ["anna@gmail.com"])).toBe(true);
     expect(isOwnInbox("anna@gmail.com", ["anna@acme.se"])).toBe(false);
     expect(isOwnInbox(null, ["anna@gmail.com"])).toBe(false);
+  });
+});
+
+describe("Gmail auto-confirmation, hostile addresses", () => {
+  it("never treats the start of a long crafted address as the requester", async () => {
+    const { parseForwardingConfirmation } = await import("@/lib/forwarding-confirmation");
+    const label = "0" + "a".repeat(62);
+    const crafted = `anna@acme.se.${label}.${label}.${label}.evil.com`;
+    const parsed = parseForwardingConfirmation({
+      from: "forwarding-noreply@google.com",
+      dmarc: "pass",
+      subject: `(#593872831) Gmail Forwarding Confirmation - Receive Mail from ${crafted}`,
+      text: `${crafted} has requested to automatically forward mail to your email address.`,
+    });
+    expect(parsed?.forAddressExact).toBe(false);
+    expect(parsed?.forAddress).not.toBe("anna@acme.se");
+  });
+
+  it("matches the same Gmail mailbox written with dots or a +tag", async () => {
+    const { isOwnInbox } = await import("@/lib/forwarding-autoconfirm");
+    expect(isOwnInbox("anna.svensson@gmail.com", ["annasvensson@gmail.com"])).toBe(true);
+    expect(isOwnInbox("anna.svensson+x@googlemail.com", ["annasvensson@gmail.com"])).toBe(true);
+    expect(isOwnInbox("anna.svensson@acme.se", ["annasvensson@acme.se"])).toBe(false);
+  });
+
+  it("counts only a 2xx answer from Google as confirmed", async () => {
+    const { confirmGmailForwarding } = await import("@/lib/forwarding-autoconfirm");
+    const link = "https://mail-settings.google.com/mail/vf-%5BAB%5D-tokentokentoken";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockResolvedValueOnce({ status: 302 });
+    expect(await confirmGmailForwarding(link)).toBe(false);
+    fetchMock.mockResolvedValueOnce({ status: 200 });
+    expect(await confirmGmailForwarding(link)).toBe(true);
+    vi.unstubAllGlobals();
   });
 });
