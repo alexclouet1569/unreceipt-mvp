@@ -4,9 +4,8 @@ import {
   FR_DESCRIPTION,
   FR_SHARE_DESCRIPTION,
   FR_TITLE,
-  LANDING_LANGUAGES,
-  SITE_URL,
   landingJsonLd,
+  marketingMetadata,
 } from "@/lib/seo";
 import { HtmlLang } from "../_html-lang";
 import { LandingPage } from "../_landing";
@@ -14,32 +13,23 @@ import { LandingPage } from "../_landing";
 // French landing page. Same layout as `/`, French copy, prices in EUR.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: { absolute: FR_TITLE },
+export const metadata: Metadata = marketingMetadata({
+  page: "home",
+  locale: "fr",
+  title: FR_TITLE,
   description: FR_DESCRIPTION,
+  shareTitle: "UnReceipt — Du chaos à la clarté",
+  shareDescription: FR_SHARE_DESCRIPTION,
   keywords: [
     "gestion des reçus",
     "gestion des justificatifs",
-    "photo tickets de caisse",
-    "reçus TVA petite entreprise",
-    "classement des justificatifs",
     "application reçus entreprise",
+    "photo tickets de caisse",
+    "justificatifs expert-comptable",
+    "reçus TVA petite entreprise",
+    "justificatifs auto-entrepreneur",
   ],
-  alternates: { canonical: "/fr", languages: LANDING_LANGUAGES },
-  openGraph: {
-    type: "website",
-    locale: "fr_FR",
-    url: `${SITE_URL}/fr`,
-    siteName: "UnReceipt",
-    title: "UnReceipt — Du chaos à la clarté",
-    description: FR_SHARE_DESCRIPTION,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "UnReceipt — Du chaos à la clarté",
-    description: FR_SHARE_DESCRIPTION,
-  },
-};
+});
 
 export default function Page() {
   const pilotMode = isPilotMode();

@@ -61,7 +61,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is a receipt service for small businesses. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
+      a: "UnReceipt is a receipt service for small businesses, freelancers and their accounting firms. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
@@ -80,8 +80,12 @@ function faqEn(pilotMode: boolean): FaqItem[] {
       a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
     },
     {
+      q: "Can my accountant see my receipts?",
+      a: "Yes. Invite your accountant from Settings in the app; once they accept with their work email, they see your company's receipts in UnReceipt's accounting-firm portal, can complete and check them, and export each month for the bookkeeping. You can also download a ZIP for any month and send it yourself.",
+    },
+    {
       q: "How long do companies have to keep receipts?",
-      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals.",
+      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year (the tax code's six years also becomes ten from 1 January 2027), and a paper invoice may only be destroyed if the scan is a compliant copy under article A102 B-2 of the tax procedures code (an untouched image in a sealed or signed, timestamped PDF). UnReceipt doesn't produce such copies yet, so in France keep your paper originals.",
     },
     {
       q: "Can I cancel at any time?",
@@ -115,6 +119,10 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     {
       q: "Vem kontrollerar mina kvitton?",
       a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som kontrollerat.",
+    },
+    {
+      q: "Kan min redovisningsbyrå se mina kvitton?",
+      a: "Ja. Bjud in din redovisningskonsult under Settings i appen; när hen accepterar med sin jobbmejl ser byrån ditt företags kvitton i UnReceipts byråportal, kan komplettera och kontrollera dem och exportera varje månad till bokföringen, med förslag på BAS-konto. Du kan också ladda ner en ZIP för valfri månad och skicka den själv.",
     },
     {
       q: "Hur länge måste företag spara kvitton?",
@@ -158,12 +166,16 @@ function faqFr(pilotMode: boolean): FaqItem[] {
       a: "Chaque reçu est lu automatiquement, puis vérifié par notre équipe sous 24 heures avant d’être marqué comme vérifié.",
     },
     {
+      q: "Mon expert-comptable peut-il voir mes reçus\u00a0?",
+      a: "Oui. Invitez votre expert-comptable depuis les réglages de l’application (Settings)\u00a0; une fois qu’il accepte avec son e-mail professionnel, il voit les reçus de votre entreprise dans le portail cabinet d’UnReceipt, peut les compléter et les vérifier, et exporter chaque mois pour la saisie. Vous pouvez aussi télécharger un ZIP pour n’importe quel mois et l’envoyer vous-même.",
+    },
+    {
       q: "Combien de temps faut-il conserver les justificatifs\u00a0?",
-      a: "Dix ans à compter de la clôture de l’exercice pour les pièces justificatives comptables des commerçants (article L123-22 du Code de commerce). Pour l’administration fiscale, les documents doivent être conservés au moins six ans (article L102 B du Livre des procédures fiscales). Cette obligation reste celle de votre entreprise\u00a0: téléchargez vos reçus si vous quittez UnReceipt.",
+      a: "Dix ans à compter de la clôture de l’exercice pour les pièces justificatives comptables des commerçants (article L123-22 du Code de commerce). Pour l’administration fiscale, le délai est aujourd’hui de six ans (article L102 B du Livre des procédures fiscales) et passe à dix ans pour les documents dont la conservation expire après le 1er janvier 2027 (loi n° 2026-534 du 25 juin 2026). Cette obligation reste celle de votre entreprise\u00a0: téléchargez vos reçus si vous quittez UnReceipt.",
     },
     {
       q: "Puis-je jeter le ticket papier après l’avoir photographié\u00a0?",
-      a: "Non. En France, un original papier ne peut être détruit après numérisation que si la copie est une copie fiable\u00a0: reproduction à l’identique de l’image et du contenu, sans retouche, au format PDF, avec cachet serveur ou signature électronique et horodatage (pour les factures, article A102 B-2 du Livre des procédures fiscales). UnReceipt ne produit pas ce type de copie\u00a0: conservez vos tickets et factures papier.",
+      a: "Non. En France, une facture papier ne peut être détruite après numérisation que si la copie est conforme à l’original en image et en contenu (article A102 B-2 du Livre des procédures fiscales)\u00a0: reproduction à l’identique, sans traitement de l’image, au format PDF, avec cachet serveur, empreinte numérique ou signature électronique, et horodatage. UnReceipt ne produit pas ce type de copie\u00a0: conservez vos tickets et factures papier.",
     },
     {
       q: "Puis-je résilier à tout moment\u00a0?",

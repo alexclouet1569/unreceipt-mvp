@@ -4,7 +4,7 @@ import { Manrope, Figtree, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL } from "@/lib/seo";
+import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL, TITLE } from "@/lib/seo";
 import "./globals.css";
 import { NativeAppBridge } from "./_native-app-bridge";
 
@@ -38,20 +38,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "UnReceipt — VAT-Ready Receipts for Small Businesses in Sweden",
+    default: TITLE,
     template: "%s | UnReceipt",
   },
   description: DESCRIPTION,
   metadataBase: new URL(SITE_URL),
   keywords: [
     "receipt management",
+    "receipt app for small business",
+    "receipt software for accountants",
     "VAT receipts",
-    "expense receipts small business",
-    "receipt inbox",
     "receipt scanning app",
-    "kvitton företag",
     "kvittohantering",
-    "moms kvitto",
+    "gestion des justificatifs",
   ],
   authors: [{ name: "UnReceipt" }],
   creator: "UnReceipt",
@@ -67,7 +66,7 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "UnReceipt — VAT-ready receipts for small businesses. From Chaos to Clarity.",
+        alt: "UnReceipt — VAT-ready receipts for small businesses and their accountants.",
       },
     ],
   },

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
-import { LANDING_LANGUAGES, landingJsonLd } from "@/lib/seo";
+import { DESCRIPTION, SHARE_DESCRIPTION, TITLE, landingJsonLd, marketingMetadata } from "@/lib/seo";
 import { LandingPage } from "./_landing";
 
 // PILOT_MODE is read server-side here and passed down so the client
@@ -8,9 +8,23 @@ import { LandingPage } from "./_landing";
 // flips with one redeploy without invalidating a static cache.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/", languages: LANDING_LANGUAGES },
-};
+export const metadata: Metadata = marketingMetadata({
+  page: "home",
+  locale: "en",
+  title: TITLE,
+  description: DESCRIPTION,
+  shareTitle: "UnReceipt — From Chaos to Clarity",
+  shareDescription: SHARE_DESCRIPTION,
+  keywords: [
+    "receipt management app",
+    "receipt app for small business",
+    "receipt software for accountants",
+    "VAT receipts",
+    "expense receipts small business",
+    "receipt scanner app",
+    "receipt app Sweden",
+  ],
+});
 
 export default function Page() {
   const pilotMode = isPilotMode();
