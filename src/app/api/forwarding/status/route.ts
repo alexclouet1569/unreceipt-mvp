@@ -19,7 +19,9 @@ export async function GET() {
   const [confirmation, latestEmail] = await Promise.all([
     db
       .from("email_forwarding_confirmations")
-      .select("code, for_address, received_at")
+      // "*" rather than a column list: auto_confirmed_at (2026-11-08) may
+      // not exist yet where schema.sql wasn't re-applied.
+      .select("*")
       .eq("user_id", user.id)
       .maybeSingle(),
     db
@@ -39,12 +41,22 @@ export async function GET() {
     return NextResponse.json({ error: "load failed" }, { status: 500 });
   }
 
-  const row = confirmation.data as { code: string | null; for_address: string | null; received_at: string } | null;
+  const row = confirmation.data as {
+    code: string | null;
+    for_address: string | null;
+    received_at: string;
+    auto_confirmed_at?: string | null;
+  } | null;
   const fresh = row && Date.now() - Date.parse(row.received_at) <= CONFIRMATION_MAX_AGE_MS;
   return NextResponse.json(
     {
       confirmation: fresh
-        ? { code: row.code, forAddress: row.for_address, receivedAt: row.received_at }
+        ? {
+            code: row.code,
+            forAddress: row.for_address,
+            receivedAt: row.received_at,
+            autoConfirmed: Boolean(row.auto_confirmed_at),
+          }
         : null,
       lastEmailAt: (latestEmail.data as { created_at: string } | null)?.created_at ?? null,
     },
