@@ -63,20 +63,21 @@ const STEPS: Record<Provider, Step[]> = {
   gmail: [
     {
       title: "Add your UnReceipt address in Gmail",
-      path: ["Forwarding and POP/IMAP", "Add a forwarding address", "Paste", "Next", "Proceed", "OK"],
+      path: ["Settings (gear)", "See all settings", "Forwarding and POP/IMAP", "Add a forwarding address", "Paste your address", "Next", "Proceed", "OK"],
       body: ({ forwardingEmail }) => (
         <>
           <IntakeRow callout="Your UnReceipt address" value={forwardingEmail} mono copyLabel="Copy forwarding address" quiet />
           <OpenLink href={GMAIL_FORWARDING_URL}>Open Gmail forwarding settings</OpenLink>
           <Hint>
             Gmail may ask you to sign in again. That&apos;s normal. Wrong Gmail
-            account? Switch at the top right of Gmail.
+            account? Switch at the top right of Gmail, then follow the path
+            above.
           </Hint>
         </>
       ),
     },
     {
-      title: "Confirm it",
+      title: "Confirm your UnReceipt address",
       path: [],
       kind: "code",
       body: ({ status }) => (
@@ -196,14 +197,21 @@ const STEPS: Record<Provider, Step[]> = {
   ],
 };
 
-type Saved = { provider: Provider | null; step: number; done: boolean };
+// `chosen`: the user picked (or went back to) the provider list themselves,
+// so it isn't replaced by the one guessed from their email.
+type Saved = { provider: Provider | null; step: number; done: boolean; chosen?: boolean };
 
 function loadSaved(): Saved {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
     if (parsed && (parsed.provider === null || (parsed.provider && parsed.provider in STEPS))) {
-      return { provider: parsed.provider ?? null, step: Math.max(0, Number(parsed.step) || 0), done: Boolean(parsed.done) };
+      return {
+        provider: parsed.provider ?? null,
+        step: Math.max(0, Number(parsed.step) || 0),
+        done: Boolean(parsed.done),
+        chosen: Boolean(parsed.chosen),
+      };
     }
   } catch {
     /* storage unavailable: start fresh */
@@ -246,6 +254,9 @@ export function ForwardingWizard({
   const [provider, setProvider] = useState<Provider | null>(null);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
+  const [chosen, setChosen] = useState(false);
+  // Started on Gmail/Outlook because of the sign-in email (says so once).
+  const [guessedFromEmail, setGuessedFromEmail] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const onPhone = useSyncExternalStore(subscribeCoarse, isCoarse, () => false);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -258,8 +269,11 @@ export function ForwardingWizard({
       const saved = loadSaved();
       // First visit: start on the user's own provider ("Change email" goes
       // back to the choice).
-      const fresh = saved.provider === null && saved.step === 0 && !saved.done;
-      setProvider(fresh ? providerForEmail(accountEmail) : saved.provider);
+      const fresh = saved.provider === null && saved.step === 0 && !saved.done && !saved.chosen;
+      const guessed = fresh ? providerForEmail(accountEmail) : null;
+      setProvider(guessed ?? saved.provider);
+      setGuessedFromEmail(guessed != null);
+      setChosen(Boolean(saved.chosen));
       setStep(saved.step);
       setDone(saved.done);
       restored.current = true;
@@ -270,12 +284,13 @@ export function ForwardingWizard({
   }, []);
 
   useEffect(() => {
-    if (restored.current) save({ provider, step, done });
-  }, [provider, step, done]);
+    if (restored.current) save({ provider, step, done, chosen });
+  }, [provider, step, done, chosen]);
 
   const steps = provider ? STEPS[provider] : [];
   const current = provider && !done ? steps[Math.min(step, steps.length - 1)] : null;
-  const watching = current?.kind === "code" || current?.kind === "test";
+  const watching =
+    (current?.kind === "code" && !status?.confirmation?.autoConfirmed) || current?.kind === "test";
 
   const refresh = useCallback(async () => {
     try {
@@ -313,6 +328,8 @@ export function ForwardingWizard({
   };
 
   const choose = (p: Provider) => {
+    setChosen(true);
+    setGuessedFromEmail(false);
     setProvider(p);
     setDone(false);
     setStep(0);
@@ -320,6 +337,8 @@ export function ForwardingWizard({
   };
 
   const restart = () => {
+    setChosen(true);
+    setGuessedFromEmail(false);
     setProvider(null);
     setStep(0);
     setDone(false);
@@ -393,6 +412,12 @@ export function ForwardingWizard({
             </p>
             <Dots total={total} index={index} />
           </div>
+          {guessedFromEmail && index === 0 ? (
+            <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5, marginBottom: "6px" }}>
+              Your sign-in email is {PROVIDERS.find((p) => p.id === provider)?.label}, so we started there.
+              About 3 minutes, one small step at a time.
+            </p>
+          ) : null}
           <Title titleRef={titleRef}>{current.title}</Title>
           {current.path.length > 0 ? <PathTrail path={current.path} /> : null}
           <div className="space-y-3" style={{ marginTop: "12px" }}>
@@ -472,15 +497,26 @@ function CodeBox({ status }: { status: Status | null }) {
       {confirmation?.autoConfirmed ? (
         <div className="space-y-3">
           <p className="flex items-start gap-2 text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            <Check className="mt-0.5 w-5 h-5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
-            Gmail asked for permission and we confirmed it for you. Nothing to type.
+            <Check className="mt-0.5 w-5 h-5 shrink-0 text-[var(--ink)]" aria-hidden="true" />
+            <span>
+              Done. Gmail asked us to approve forwarding
+              {confirmation.forAddress ? (
+                <>
+                  {" "}from <Strong>{confirmation.forAddress}</Strong>
+                </>
+              ) : null}
+              , and we approved it for you. Nothing to type.
+            </span>
           </p>
           {confirmation.code ? (
-            <Hint>
-              Gmail still shows the address as unverified? Reload Gmail; if it
-              stays, type this code in the box next to it:{" "}
-              <Strong>{confirmation.code}</Strong>
-            </Hint>
+            <>
+              <Hint>
+                Gmail still says your UnReceipt address is unverified? Reload
+                Gmail. If it stays that way, type this code in Gmail&apos;s
+                Forwarding settings, in the box next to your UnReceipt address:
+              </Hint>
+              <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
+            </>
           ) : null}
         </div>
       ) : !confirmation ? (
@@ -490,14 +526,6 @@ function CodeBox({ status }: { status: Status | null }) {
         >
           <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
           Waiting for Gmail&apos;s email… This updates by itself.
-        </p>
-      ) : !confirmation.code ? (
-        <p
-          className="flex items-center gap-2 text-[var(--ink-muted)]"
-          style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
-        >
-          <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
-          Waiting for Gmail&apos;s email… The code appears here by itself.
         </p>
       ) : !confirmation.code ? (
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>

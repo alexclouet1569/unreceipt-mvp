@@ -90,9 +90,27 @@ describe("ForwardingWizard", () => {
     };
     window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
     await setup();
-    expect(await screen.findByText(/we confirmed it for you/)).toBeInTheDocument();
+    expect(await screen.findByText(/we approved it for you/)).toBeInTheDocument();
+    expect(screen.getByText("anna@gmail.com")).toBeInTheDocument();
     expect(screen.getByText("593872831")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+  });
+
+  it("says when Gmail's email came but its code couldn't be read", async () => {
+    status = { confirmation: { code: null, forAddress: null, receivedAt: new Date().toISOString() }, lastEmailAt: null };
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
+    await setup();
+    expect(await screen.findByText(/couldn.t read the code/)).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for Gmail/)).toBeNull();
+  });
+
+  it("remembers going back to the list instead of guessing again", async () => {
+    const user = await setup("anna@gmail.com");
+    expect(screen.getByText(/Your sign-in email is Gmail/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Change email" }));
+    cleanup();
+    await setup("anna@gmail.com");
+    expect(screen.getByRole("heading", { name: "Where do your receipts arrive?" })).toBeInTheDocument();
   });
 
   it("starts on the user's own provider, picked from their email", async () => {
