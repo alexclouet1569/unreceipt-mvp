@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   extractReceipt: vi.fn(),
+  extractReceiptStreaming: vi.fn(),
 }));
 
 const productAccessMock = vi.hoisted(() => vi.fn(async () => true));
@@ -26,11 +27,18 @@ vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
 }));
 
-vi.mock("@/lib/ocr", () => ({
+vi.mock("@/lib/ocr", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ocr")>()),
   extractReceipt: mocks.extractReceipt,
+  extractReceiptStreaming: mocks.extractReceiptStreaming,
 }));
 
-import { POST } from "@/app/api/ocr/route";
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: vi.fn(),
+}));
+
+import { GET, POST } from "@/app/api/ocr/route";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -224,5 +232,97 @@ describe("POST /api/ocr", () => {
     const body = await res.json();
     expect(body.error).toBe("couldn't read this receipt");
     expect(JSON.stringify(body)).not.toContain("anthropic down");
+  });
+});
+
+describe("POST /api/ocr?stream=1", () => {
+  beforeEach(() => {
+    mocks.getServerUser.mockReset();
+    mocks.extractReceiptStreaming.mockReset();
+  });
+
+  const streamRequest = () => {
+    const fd = new FormData();
+    fd.append("image", imageBlob(), "r.jpg");
+    return new NextRequest("http://localhost:3000/api/ocr?stream=1", { method: "POST", body: fd });
+  };
+  const lines = async (res: Response) =>
+    (await res.text())
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+
+  it("sends the total and date as soon as they're written, then the full answer", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "a@b.se" });
+    mocks.extractReceiptStreaming.mockImplementation(async (_b64, _type, onText) => {
+      onText('{"merchant":"ICA","amo');
+      onText('{"merchant":"ICA","amount":245.5,"currency":"SEK","receipt_date":"2026-11-01","items":[{"label":"Mjölk","total_amount":13.9');
+      onText('{"merchant":"ICA","amount":245.5,"currency":"SEK","receipt_date":"2026-11-01","items":[{"label":"Mjölk","total_amount":13.9}]}');
+      return { result: { merchant: "ICA", amount: 245.5, items: [{ label: "Mjölk", total_amount: 13.9 }] } };
+    });
+
+    const res = await POST(streamRequest());
+
+    expect(res.headers.get("content-type")).toContain("application/x-ndjson");
+    const out = await lines(res);
+    expect(out[0]).toEqual({ type: "partial", fields: { merchant: "ICA" } });
+    expect(out[1]).toEqual({
+      type: "partial",
+      fields: { merchant: "ICA", currency: "SEK", receipt_date: "2026-11-01", amount: 245.5 },
+    });
+    // No partial line repeats an unchanged set of fields.
+    expect(out).toHaveLength(3);
+    expect(out[2]).toEqual({
+      type: "result",
+      result: { merchant: "ICA", amount: 245.5, items: [{ label: "Mjölk", total_amount: 13.9 }] },
+    });
+  });
+
+  it("stops the model when the phone goes away, and reports nothing", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "a@b.se" });
+    let modelSignal: AbortSignal | undefined;
+    mocks.extractReceiptStreaming.mockImplementation(
+      (_b64: string, _type: string, _onText: unknown, signal: AbortSignal) =>
+        new Promise((_resolve, reject) => {
+          modelSignal = signal;
+          signal.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    const sentry = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await POST(streamRequest());
+    await res.body!.cancel();
+
+    expect(modelSignal?.aborted).toBe(true);
+    expect(sentry).not.toHaveBeenCalled();
+  });
+
+  it("ends with an error line, without the model's text, when reading fails", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "a@b.se" });
+    mocks.extractReceiptStreaming.mockRejectedValue(new Error("secret receipt text"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const out = await lines(await POST(streamRequest()));
+
+    expect(out).toEqual([{ type: "error", error: "couldn't read this receipt" }]);
+  });
+});
+
+describe("GET /api/ocr (warm-up)", () => {
+  beforeEach(() => {
+    mocks.getServerUser.mockReset();
+    mocks.extractReceipt.mockReset();
+  });
+
+  it("answers signed-in users with 204 and calls no model", async () => {
+    mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "a@b.se" });
+    const res = await GET();
+    expect(res.status).toBe(204);
+    expect(mocks.extractReceipt).not.toHaveBeenCalled();
+  });
+
+  it("refuses everyone else", async () => {
+    mocks.getServerUser.mockResolvedValue(null);
+    expect((await GET()).status).toBe(401);
   });
 });

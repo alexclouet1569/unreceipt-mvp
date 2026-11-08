@@ -70,7 +70,13 @@ describe("CaptureDialog", () => {
   beforeEach(() => {
     mocks.router.refresh.mockReset();
     mocks.fetch.mockReset();
-    vi.stubGlobal("fetch", mocks.fetch);
+    // The warm-up request the sheet sends when it opens is answered here,
+    // so the tests only see the calls they're about.
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+      init?.method === "GET" && url === "/api/ocr"
+        ? Promise.resolve({ ok: true, status: 204 } as Response)
+        : mocks.fetch(url, init),
+    );
   });
 
   afterEach(() => {
@@ -130,7 +136,7 @@ describe("CaptureDialog", () => {
       releaseOcr = resolve;
     });
     mocks.fetch.mockImplementation((url: string) =>
-      url === "/api/ocr"
+      String(url).startsWith("/api/ocr")
         ? ocrDeferred.then(() => okResponse(OCR_RESULT))
         : Promise.resolve(okResponse()),
     );
@@ -158,7 +164,7 @@ describe("CaptureDialog", () => {
     expect(screen.getByText("196.00 kr")).toBeInTheDocument();
     expect(screen.getByText(/Read from your photo/i)).toBeInTheDocument();
 
-    const ocrCall = mocks.fetch.mock.calls.find(([url]) => url === "/api/ocr") as
+    const ocrCall = mocks.fetch.mock.calls.find(([url]) => String(url).startsWith("/api/ocr")) as
       | [string, RequestInit]
       | undefined;
     expect((ocrCall![1].body as FormData).get("image")).toBeInstanceOf(File);
@@ -170,6 +176,117 @@ describe("CaptureDialog", () => {
     expect(fd.get("currency")).toBe("SEK");
     expect(fd.get("tax_amount")).toBe("49.00");
     expect(fd.get("tax_rate")).toBe("25");
+  });
+
+  it("shows the total and date as soon as they're read, and saves once the line items are in", async () => {
+    const user = userEvent.setup();
+    const encoder = new TextEncoder();
+    let push: ((line: object) => void) | null = null;
+    let end: (() => void) | null = null;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        push = (line) => controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+        end = () => controller.close();
+      },
+    });
+    mocks.fetch.mockImplementation((url: string) =>
+      String(url).startsWith("/api/ocr")
+        ? Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/x-ndjson; charset=utf-8" }),
+            body,
+          } as unknown as Response)
+        : Promise.resolve(okResponse()),
+    );
+    renderDialog();
+    await user.upload(uploadInput(), new File(["fake"], "ica.jpg", { type: "image/jpeg" }));
+
+    push!({ type: "partial", fields: { merchant: "ICA", amount: 245.5, receipt_date: "2026-11-01" } });
+
+    expect(await screen.findByRole("heading", { name: /Check and save/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(245.5);
+    expect(screen.getByLabelText(/^Date$/i)).toHaveValue("2026-11-01");
+    const save = screen.getByRole("button", { name: /Reading the line items/i });
+    expect(save).toBeDisabled();
+
+    // The customer corrects the shop name while the items are still coming.
+    await user.clear(screen.getByLabelText(/Merchant/i));
+    await user.type(screen.getByLabelText(/Merchant/i), "ICA Maxi");
+
+    push!({
+      type: "result",
+      result: {
+        merchant: "ICA",
+        amount: 245.5,
+        receipt_date: "2026-11-01",
+        currency: "SEK",
+        items: [{ label: "Mjölk", total_amount: 13.9 }],
+      },
+    });
+    end!();
+
+    const ready = await screen.findByRole("button", { name: /Save receipt/i });
+    expect(screen.getByLabelText(/Merchant/i)).toHaveValue("ICA Maxi");
+    await user.click(ready);
+    const fd = captureCall()![1].body as FormData;
+    expect(fd.get("merchant")).toBe("ICA Maxi");
+    expect(JSON.parse(fd.get("items") as string)).toEqual([{ label: "Mjölk", total_amount: 13.9 }]);
+  });
+
+  const streamingOcr = () => {
+    const encoder = new TextEncoder();
+    let push: (line: object) => void = () => {};
+    let end: () => void = () => {};
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        push = (line) => controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
+        end = () => controller.close();
+      },
+    });
+    mocks.fetch.mockImplementation((url: string) =>
+      String(url).startsWith("/api/ocr")
+        ? Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/x-ndjson" }),
+            body,
+          } as unknown as Response)
+        : Promise.resolve(okResponse()),
+    );
+    return { push: (line: object) => push(line), end: () => end() };
+  };
+
+  it("lets the full answer correct an early value the customer didn't touch", async () => {
+    const user = userEvent.setup();
+    const ocr = streamingOcr();
+    renderDialog();
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+
+    ocr.push({ type: "partial", fields: { merchant: "ICA", amount: 24.5 } });
+    expect(await screen.findByLabelText(/Total paid/i)).toHaveValue(24.5);
+    ocr.push({ type: "result", result: { merchant: "ICA", amount: 245.5 } });
+    ocr.end();
+
+    await screen.findByRole("button", { name: /Save receipt/i });
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(245.5);
+  });
+
+  it("takes back early values when the full answer is refused", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const ocr = streamingOcr();
+    renderDialog();
+    await user.upload(uploadInput(), new File(["fake"], "r.jpg", { type: "image/jpeg" }));
+
+    ocr.push({ type: "partial", fields: { merchant: "ICA", amount: 245.5 } });
+    expect(await screen.findByLabelText(/Total paid/i)).toHaveValue(245.5);
+    ocr.push({ type: "error", error: "couldn't read this receipt" });
+    ocr.end();
+
+    expect(await screen.findByText(/couldn't read|We couldn/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/Merchant/i)).toHaveValue("");
   });
 
   it("shows the digital receipt after saving, and closes on Done", async () => {
@@ -246,7 +363,7 @@ describe("CaptureDialog", () => {
   it("explains an OCR server failure and keeps the photo for a manual save", async () => {
     const user = userEvent.setup();
     mocks.fetch.mockImplementation((url: string) =>
-      url === "/api/ocr"
+      String(url).startsWith("/api/ocr")
         ? Promise.resolve(errorResponse(500, { error: "OCR is not configured" }))
         : Promise.resolve(okResponse()),
     );
@@ -330,7 +447,7 @@ describe("CaptureDialog", () => {
   it("hides VAT and saves none when Include VAT is off, and remembers the choice", async () => {
     const user = userEvent.setup();
     mocks.fetch.mockImplementation((url: string) =>
-      Promise.resolve(okResponse(url === "/api/ocr" ? OCR_RESULT : { ok: true, id: "rec-1" })),
+      Promise.resolve(okResponse(String(url).startsWith("/api/ocr") ? OCR_RESULT : { ok: true, id: "rec-1" })),
     );
     renderDialog();
 
@@ -504,7 +621,7 @@ describe("CaptureDialog", () => {
     mocks.fetch.mockImplementation((url: string) =>
       Promise.resolve(
         okResponse(
-          url === "/api/ocr"
+          String(url).startsWith("/api/ocr")
             ? {
                 ...OCR_RESULT,
                 tax_amount: 31,

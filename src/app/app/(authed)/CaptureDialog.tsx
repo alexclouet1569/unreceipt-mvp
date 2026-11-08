@@ -43,7 +43,7 @@ import {
   type CategoryKey,
   type CurrencyCode,
 } from "@/lib/receipt-format";
-import type { OcrItem, OcrResult, OcrVatLine } from "@/lib/ocr";
+import type { OcrItem, OcrPartialFields, OcrResult, OcrVatLine } from "@/lib/ocr";
 import type { Receipt } from "@/lib/types";
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { PhotoViewer } from "@/components/receipt/PhotoViewer";
@@ -149,6 +149,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // Bumped whenever the photo is dropped or the sheet closes, so an OCR
   // answer that arrives late can't fill a form it no longer belongs to.
   const ocrRunRef = useRef(0);
+  // Cancels the reading in flight, so the server stops the model too.
+  const ocrAbortRef = useRef<AbortController | null>(null);
   // The Save button unmounts when the receipt is saved; focus moves here.
   const doneButtonRef = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState<Stage>("choose");
@@ -181,6 +183,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   const [sellerIds, setSellerIds] = useState<{ org: string | null; vat: string | null }>({ org: null, vat: null });
   const [vatLines, setVatLines] = useState<OcrVatLine[] | null>(null);
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
+  // True while the line items are still being read after the total and date
+  // are already on screen. Save waits for them (they belong on the receipt).
+  const [finishingOcr, setFinishingOcr] = useState(false);
 
   // Reset everything when the sheet closes so the next open is fresh.
   // Adjusted during render (React's "reset state when a prop changes"
@@ -210,7 +215,23 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
 
   // An OCR answer for a closed sheet is dropped (see ocrRunRef).
   useEffect(() => {
-    if (!open) ocrRunRef.current += 1;
+    if (!open) {
+      ocrRunRef.current += 1;
+      ocrAbortRef.current?.abort();
+    }
+  }, [open]);
+
+  // The form as last rendered, for deciding which OCR values may still
+  // replace what's on screen (see applyOcrFields).
+  const formRef = useRef(form);
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
+
+  // Opening the sheet wakes the reading service up, so the photo taken a
+  // few seconds later doesn't wait for a cold start. Best effort.
+  useEffect(() => {
+    if (open) void fetch("/api/ocr", { method: "GET", cache: "no-store" }).catch(() => {});
   }, [open]);
 
   useEffect(() => {
@@ -260,13 +281,17 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
 
   const runOcr = async (file: File) => {
     const run = ++ocrRunRef.current;
+    ocrAbortRef.current?.abort();
+    const abort = new AbortController();
+    ocrAbortRef.current = abort;
     setStage("reading");
     setOcrError(null);
     setOcrFilled(false);
+    const applied: OcrApplied = new Map();
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const res = await fetch("/api/ocr", { method: "POST", body: fd });
+      const res = await fetch("/api/ocr?stream=1", { method: "POST", body: fd, signal: abort.signal });
       if (run !== ocrRunRef.current) return;
       if (!res.ok) {
         // Keep the server's reason (too large, wrong type, missing key…)
@@ -281,9 +306,23 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         );
         return;
       }
-      const data = (await res.json()) as OcrResult;
+      let shownEarly = false;
+      const data = await readOcrResponse(res, (fields) => {
+        if (run !== ocrRunRef.current || fields.not_a_receipt) return;
+        applyOcrFields(fields, applied);
+        // The total or the shop is enough to show the form; the line
+        // items keep arriving behind it.
+        if (!shownEarly && (isFiniteNumber(fields.amount) || typeof fields.merchant === "string")) {
+          shownEarly = true;
+          setTaxAuto(false);
+          setOcrFilled(true);
+          setFinishingOcr(true);
+          setStage("review");
+        }
+      });
       if (run !== ocrRunRef.current) return;
       if (data.not_a_receipt) {
+        withdrawOcrFields(applied);
         setOcrError(
           "This doesn't look like a receipt. Try a clearer photo, or fill in the details below."
         );
@@ -292,6 +331,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       const readSomething =
         typeof data.merchant === "string" || isFiniteNumber(data.amount);
       if (!readSomething) {
+        withdrawOcrFields(applied);
         setOcrError(UNREADABLE_MESSAGE);
         return;
       }
@@ -303,52 +343,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
         vat: typeof data.seller_vat_number === "string" ? data.seller_vat_number.trim().slice(0, 32) : null,
       });
       setVatLines(Array.isArray(data.vat_lines) && data.vat_lines.length > 0 ? data.vat_lines : null);
-      setForm((prev) => {
-        const next: FormState = { ...prev };
-        if (!prev.merchant && typeof data.merchant === "string") {
-          next.merchant = data.merchant;
-        }
-        if (!prev.amount && isFiniteNumber(data.amount)) {
-          next.amount = data.amount.toFixed(2);
-        }
-        if (!prev.taxAmount && isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) {
-          next.taxAmount = data.tax_amount.toFixed(2);
-        }
-        if (
-          !prev.taxRate &&
-          isFiniteNumber(data.tax_rate) &&
-          data.tax_rate >= 0 &&
-          data.tax_rate <= 100
-        ) {
-          next.taxRate = String(data.tax_rate);
-        }
-        if (
-          !prev.paymentMethod &&
-          typeof data.payment_method === "string" &&
-          data.payment_method.trim()
-        ) {
-          next.paymentMethod = data.payment_method.trim().slice(0, 50);
-        }
-        if (
-          typeof data.currency === "string" &&
-          (CURRENCY_OPTIONS as readonly string[]).includes(data.currency)
-        ) {
-          next.currency = data.currency as CurrencyCode;
-        }
-        if (
-          typeof data.receipt_date === "string" &&
-          /^\d{4}-\d{2}-\d{2}$/.test(data.receipt_date)
-        ) {
-          next.date = data.receipt_date;
-        }
-        if (
-          typeof data.category === "string" &&
-          (CATEGORY_KEYS as readonly string[]).includes(data.category)
-        ) {
-          next.category = data.category as CategoryKey;
-        }
-        return next;
-      });
+      applyOcrFields(data, applied);
       // The VAT printed on the receipt beats one we'd work out.
       setTaxAuto(false);
       setOcrFilled(true);
@@ -358,10 +353,75 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     } catch (err) {
       if (run !== ocrRunRef.current) return;
       console.error("[capture] ocr failed:", err);
+      // Fields shown early came from an answer the server then refused.
+      withdrawOcrFields(applied);
       setOcrError(UNREADABLE_MESSAGE);
     } finally {
-      if (run === ocrRunRef.current) setStage("review");
+      if (run === ocrRunRef.current) {
+        setFinishingOcr(false);
+        setStage("review");
+      }
     }
+  };
+
+  // Fills the form from OCR fields. `applied` holds the values this photo
+  // put in the form: a field still showing that value may be corrected by
+  // a later (fuller) answer; a field the customer changed is left alone.
+  // Decided from the last rendered form, outside the state update (which
+  // React may run twice).
+  const applyOcrFields = (data: OcrPartialFields, applied: OcrApplied) => {
+    const current = formRef.current;
+    const patch: Partial<Record<keyof FormState, string>> = {};
+    // Merchant, amounts and payment fill only an empty field; currency,
+    // date and category replace our defaults.
+    const offer = (field: keyof FormState, value: string | undefined, onlyIfEmpty: boolean) => {
+      if (value == null) return;
+      const ours = applied.get(field);
+      const mayWrite = ours !== undefined ? current[field] === ours : !onlyIfEmpty || current[field] === "";
+      if (mayWrite && current[field] !== value) patch[field] = value;
+      if (mayWrite) applied.set(field, value);
+    };
+    if (typeof data.merchant === "string" && data.merchant.trim()) offer("merchant", data.merchant, true);
+    if (isFiniteNumber(data.amount)) offer("amount", data.amount.toFixed(2), true);
+    if (isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) offer("taxAmount", data.tax_amount.toFixed(2), true);
+    if (isFiniteNumber(data.tax_rate) && data.tax_rate >= 0 && data.tax_rate <= 100) {
+      offer("taxRate", String(data.tax_rate), true);
+    }
+    if (typeof data.payment_method === "string" && data.payment_method.trim()) {
+      offer("paymentMethod", data.payment_method.trim().slice(0, 50), true);
+    }
+    if (typeof data.currency === "string" && (CURRENCY_OPTIONS as readonly string[]).includes(data.currency)) {
+      offer("currency", data.currency, false);
+    }
+    if (typeof data.receipt_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.receipt_date)) {
+      offer("date", data.receipt_date, false);
+    }
+    if (typeof data.category === "string" && (CATEGORY_KEYS as readonly string[]).includes(data.category)) {
+      offer("category", data.category, false);
+    }
+    if (Object.keys(patch).length > 0) {
+      // Two fragments can arrive before React renders: the next one must
+      // see this one's values.
+      formRef.current = { ...current, ...patch } as FormState;
+      setForm((prev) => ({ ...prev, ...patch }) as FormState);
+    }
+  };
+
+  // Takes back what `applied` put in the form, where the customer hasn't
+  // changed it since: the answer those values came from was refused.
+  const withdrawOcrFields = (applied: OcrApplied) => {
+    const current = formRef.current;
+    const blank = blankForm();
+    const patch: Partial<FormState> = {};
+    for (const [field, value] of applied) {
+      if (current[field] === value) Object.assign(patch, { [field]: blank[field] });
+    }
+    applied.clear();
+    if (Object.keys(patch).length > 0) {
+      formRef.current = { ...current, ...patch };
+      setForm((prev) => ({ ...prev, ...patch }));
+    }
+    setOcrFilled(false);
   };
 
   const onPickFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -400,6 +460,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
 
   const removeImage = () => {
     ocrRunRef.current += 1;
+    ocrAbortRef.current?.abort();
     setImageFile(null);
     setImagePreview(null);
     setOcrError(null);
@@ -778,11 +839,17 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               ) : null}
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || finishingOcr}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                {saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {saving ? "Saving…" : saveError ? "Try again" : "Save receipt"}
+                {saving || finishingOcr ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                {saving
+                  ? "Saving…"
+                  : finishingOcr
+                    ? "Reading the line items…"
+                    : saveError
+                      ? "Try again"
+                      : "Save receipt"}
               </button>
             </div>
           </form>
@@ -1222,4 +1289,42 @@ function Notice({ children }: { children: ReactNode }) {
       <span>{children}</span>
     </p>
   );
+}
+
+/** Form fields an OCR answer filled in, with the value it put there. */
+type OcrApplied = Map<keyof FormState, string>;
+
+/**
+ * /api/ocr's answer: streamed lines (`partial` fields as they are read, then
+ * `result` or `error`) from the real server, or one JSON object (the demo,
+ * older deployments). `onPartial` sees each partial; resolves with the full
+ * answer, throws when there isn't one.
+ */
+async function readOcrResponse(
+  res: Response,
+  onPartial: (fields: OcrPartialFields) => void,
+): Promise<OcrResult> {
+  if (!(res.headers?.get?.("content-type") ?? "").includes("application/x-ndjson") || !res.body) {
+    return (await res.json()) as OcrResult;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    buffered += decoder.decode(value, { stream: !done });
+    const lines = buffered.split("\n");
+    buffered = done ? "" : (lines.pop() ?? "");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const msg = JSON.parse(line) as
+        | { type: "partial"; fields: OcrPartialFields }
+        | { type: "result"; result: OcrResult }
+        | { type: "error"; error: string };
+      if (msg.type === "partial") onPartial(msg.fields);
+      else if (msg.type === "result") return msg.result;
+      else throw new Error(msg.error);
+    }
+    if (done) throw new Error("OCR stream ended without an answer");
+  }
 }
