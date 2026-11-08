@@ -1,6 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { renderToStream } from "@react-pdf/renderer";
-import type { Readable } from "node:stream";
+import { after, NextResponse, type NextRequest } from "next/server";
+import { renderToBuffer } from "@react-pdf/renderer";
 import { getServerUser } from "@/lib/supabase-server";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { ReceiptPdf, pdfFilenameFor } from "@/components/receipt/ReceiptPdf";
@@ -16,8 +15,33 @@ export const maxDuration = 30;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Recently rendered PDFs, in this function instance's memory. The receipt
+// detail view asks for its PDF to be prepared (`?prepare=1`) when it opens,
+// so tapping Download a moment later skips the render (and, on a cold
+// instance, react-pdf's start-up). Keyed by the receipt's updated_at, so an
+// edit is never served stale; access is checked on every request, cached
+// or not. About 30-100 KB each.
+const PDF_CACHE_MAX = 30;
+const pdfCache = new Map<string, Uint8Array>();
+const cacheKey = (r: Receipt) => `${r.id}:${r.updated_at}`;
+
+async function renderPdf(receipt: Receipt): Promise<Uint8Array> {
+  const key = cacheKey(receipt);
+  const hit = pdfCache.get(key);
+  if (hit) {
+    // Most recently used goes last.
+    pdfCache.delete(key);
+    pdfCache.set(key, hit);
+    return hit;
+  }
+  const pdf = new Uint8Array(await renderToBuffer(<ReceiptPdf receipt={receipt} />));
+  pdfCache.set(key, pdf);
+  while (pdfCache.size > PDF_CACHE_MAX) pdfCache.delete(pdfCache.keys().next().value as string);
+  return pdf;
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const user = await getServerUser();
@@ -67,37 +91,29 @@ export async function GET(
     );
   }
 
-  let nodeStream: Readable;
+  // Prepare only: render into the cache after answering.
+  if (request.nextUrl.searchParams.get("prepare") === "1") {
+    after(() =>
+      renderPdf(receipt).catch((err) => console.error("[api/receipts/:id/pdf] prepare failed", err)),
+    );
+    return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  }
+
+  let pdf: Uint8Array;
   try {
-    nodeStream = (await renderToStream(<ReceiptPdf receipt={receipt} />)) as Readable;
+    pdf = await renderPdf(receipt);
   } catch (err) {
     console.error("[api/receipts/:id/pdf] render failed", err);
     return NextResponse.json({ error: "render failed" }, { status: 500 });
   }
 
-  // Convert Node Readable into a Web ReadableStream so the Next.js Node
-  // runtime can stream it back without buffering the whole PDF in memory.
-  const webStream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      nodeStream.on("data", (chunk: Buffer | string) => {
-        controller.enqueue(
-          typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk
-        );
-      });
-      nodeStream.on("end", () => controller.close());
-      nodeStream.on("error", (err) => controller.error(err));
-    },
-    cancel() {
-      nodeStream.destroy();
-    },
-  });
-
   const filename = pdfFilenameFor(receipt);
-  return new Response(webStream, {
+  return new Response(pdf as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "private, no-store",
+      "Content-Length": String(pdf.byteLength),
     },
   });
 }

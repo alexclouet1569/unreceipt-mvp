@@ -102,16 +102,22 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     redirect("/app/login");
   }
 
-  // Firm staff with no company of their own belong on the firm portal.
-  // Checked before the gate and before any lazy mint below, so an accountant
-  // never gets a phantom company or a subscribe prompt.
-  if (await getFirmMembership(user.id)) {
-    if (!(await hasAnyMembership(user.id))) redirect("/firm");
-  }
-
   const { session_id } = await searchParams;
   const sessionId = session_id ?? null;
-  const result = await checkSubscriptionGate(user.id, sessionId);
+  // Everything the page reads, at once rather than one query after the
+  // other. All reads: nothing is created until the checks below pass.
+  const [firmMembership, result, loadedReceipts, onboarded, accountantInvites] = await Promise.all([
+    getFirmMembership(user.id),
+    checkSubscriptionGate(user.id, sessionId),
+    loadReceiptsForUser(user.id),
+    loadOnboarded(user.id),
+    loadPendingInvites(user),
+  ]);
+
+  // Firm staff with no company of their own belong on the firm portal.
+  // Checked before the gate's answer and before any lazy mint below, so an
+  // accountant never gets a phantom company or a subscribe prompt.
+  if (firmMembership && !(await hasAnyMembership(user.id))) redirect("/firm");
 
   if (result.kind === "redirect_subscribe") {
     redirect("/subscribe");
@@ -132,11 +138,6 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   }
 
   const userEmail = user.email ?? "";
-  const [loadedReceipts, onboarded, accountantInvites] = await Promise.all([
-    loadReceiptsForUser(user.id),
-    loadOnboarded(user.id),
-    loadPendingInvites(user),
-  ]);
   const showOnboarding = !onboarded && loadedReceipts.length === 0;
 
   // Mint (or fetch) the user's forwarding alias. This is the live MX

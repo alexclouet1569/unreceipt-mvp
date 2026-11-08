@@ -208,6 +208,7 @@ export function CompanyTour({ step }: { step: number }) {
   const [notice, closeNotice] = useDemoLinkGuard();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
+  const dropReceipt = useRef((id: string) => setReceipts((prev) => prev.filter((r) => r.id !== id)));
 
   useEffect(() => {
     const realFetch = window.fetch;
@@ -243,6 +244,12 @@ export function CompanyTour({ step }: { step: number }) {
         });
         addReceipt.current(receipt);
         return json({ ok: true, id: receipt.id, receipt });
+      }
+      // Swipe to delete: gone from the tour's list, nothing deleted anywhere.
+      const deleted = /^\/api\/receipts\/([^/]+)$/.exec(path);
+      if (deleted && init?.method === "DELETE") {
+        dropReceipt.current(deleted[1]);
+        return json({ ok: true });
       }
       // Nothing else reaches the real API from the demo; the receipt
       // viewer reads this as "no original".
