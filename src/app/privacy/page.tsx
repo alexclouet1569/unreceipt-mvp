@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-10-15";
+const LAST_UPDATED = "2026-11-08";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -57,11 +57,12 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Bank statement lines, if your accounting firm imports
-              them.</strong> Date, amount and the bank&apos;s text of each
-              payment on the account statement your firm uploads, used only to
-              find payments that have no receipt yet. They belong to your
-              company&apos;s account and are deleted with it; your firm can
-              also remove them.
+              them.</strong> Date, amount, currency and the bank&apos;s text
+              of each payment out on the account statement your firm uploads
+              (incoming payments are not kept), with who imported them and
+              your firm&apos;s decisions on them (a receipt linked by hand,
+              &ldquo;no receipt needed&rdquo;, when you were asked for a
+              receipt). Used only to find payments that have no receipt yet.
             </li>
             <li>
               <strong>Subscription status.</strong> Whether you&apos;re trialing,
@@ -122,7 +123,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Resend</strong> — sending our emails (welcome emails,
-              sign-in links) and receiving the receipts you forward to your
+              sign-in links, the list of payments without a receipt your
+              accounting firm asks you about) and receiving the receipts you forward to your
               UnReceipt address.
             </li>
             <li>
@@ -161,6 +163,13 @@ export default function PrivacyPage() {
               our providers&apos; backups disappear when those backups
               expire. Billing records that we must keep for our own accounts
               (invoices, via Stripe) are kept as the law requires.
+            </li>
+            <li>
+              <strong>Bank statement lines:</strong> while your company is
+              linked to the accounting firm that imported them. They are
+              deleted when either of you ends the link, when the firm closes
+              its account, when the firm removes them, and with your
+              account.
             </li>
             <li>
               <strong>Your bookkeeping obligation:</strong> under Swedish

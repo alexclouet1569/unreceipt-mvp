@@ -37,9 +37,9 @@ describe("month helpers", () => {
   it("knows the month's days and the window matching needs", () => {
     expect(monthDays("2026-02")).toEqual({ first: "2026-02-01", last: "2026-02-28" });
     expect(bankWindow("2026-11")).toEqual({
-      txFrom: "2026-09-17",
+      txFrom: "2026-09-14",
       txTo: "2027-01-14",
-      receiptFrom: "2026-08-03",
+      receiptFrom: "2026-07-31",
       receiptTo: "2027-01-17",
     });
   });
@@ -74,6 +74,8 @@ describe("buildBankMonth", () => {
     expect(view.lines.map((l) => l.id)).toEqual(["ok", "miss1", "miss2", "fee", "in"]);
     expect(view.lines[0]).toMatchObject({ state: { kind: "matched", receiptId: "r-ok" }, receipt: { merchant: "Shop" } });
     expect(view.counts).toEqual({ out: 4, matched: 1, missing: 2, noReceipt: 1, moneyIn: 1 });
+    // The receipt without an amount may be one of the missing ones.
+    expect(view.incompleteReceipts).toBe(1);
     expect(view.missingTotals).toEqual([{ currency: "SEK", amount: 1904.5 }]);
     expect(view.lastRemindedAt).toBe("2026-11-20T08:00:00Z");
     // A receipt without an amount can't be linked to a payment.

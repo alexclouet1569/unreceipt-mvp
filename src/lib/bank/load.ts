@@ -64,10 +64,22 @@ export async function loadBankMonth(
       if (more.error) throw new Error(`linked receipts read failed (${more.error.code})`);
       loaded.push(...((more.data ?? []) as Receipt[]));
     }
+    // A receipt linked by hand to a line outside this window is taken: it
+    // must not be matched (or offered) again here.
+    const elsewhere = await db
+      .from("bank_transactions")
+      .select("linked_receipt_id")
+      .eq("organization_id", organizationId)
+      .not("linked_receipt_id", "is", null)
+      .or(`booked_on.lt.${w.txFrom},booked_on.gt.${w.txTo}`)
+      .limit(MAX_LINES);
+    if (elsewhere.error) throw new Error(`linked lines read failed (${elsewhere.error.code})`);
+    const taken = new Set((elsewhere.data ?? []).map((r) => r.linked_receipt_id as string));
+    const free = loaded.filter((r) => !taken.has(r.id));
     // Foreign receipts need their amount in the bank's currency to match.
-    const converted = await ensureHomeAmounts(loaded, homeCurrency).catch((err) => {
+    const converted = await ensureHomeAmounts(free, homeCurrency).catch((err) => {
       console.error("[bank] currency conversion failed", err);
-      return loaded;
+      return free;
     });
     return buildBankMonth(transactions, converted, month);
   } catch (err) {

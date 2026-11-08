@@ -3,6 +3,8 @@
 // belong to one of the caller's organisations and be active, or be a
 // client-sent invite still waiting.
 
+import { deleteBankLines } from "@/lib/bank/cleanup";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { isSameHost } from "@/lib/same-origin";
@@ -49,12 +51,17 @@ export async function DELETE(request: NextRequest) {
     .eq("id", parsed.data.linkId)
     .in("organization_id", organizationIds)
     .or("status.eq.active,and(status.eq.invited,direction.eq.client)")
-    .select("id")
+    .select("id, organization_id")
     .maybeSingle();
   if (error) {
     console.error("[/api/accountant/link] revoke failed", error.code);
     return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  // The firm's bank check ends with the link (src/lib/bank/cleanup.ts).
+  if (typeof data.organization_id === "string") {
+    const lines = await deleteBankLines(db, [data.organization_id]);
+    if (!lines.ok) Sentry.captureMessage("bank lines kept after link end", { level: "warning", tags: { area: "bank-cleanup" } });
+  }
   return NextResponse.json({ ok: true });
 }

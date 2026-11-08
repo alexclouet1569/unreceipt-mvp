@@ -347,7 +347,7 @@ export interface BankTransaction {
   currency: string;
   description: string;
   linked_receipt_id: string | null;
-  no_receipt_reason: "bank_fee" | "transfer" | "tax" | "salary" | "loan" | "other" | null;
+  no_receipt_reason: "bank_fee" | "transfer" | "tax" | "salary" | "loan" | "invoice_elsewhere" | "other" | null;
   decided_by: string | null;
   decided_at: string | null;
   reminded_at: string | null;

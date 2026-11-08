@@ -8,9 +8,10 @@
 //
 // Automatic rule, money out only:
 //   * same amount to the öre in the line's currency (the receipt's total,
-//     or its home_total when the receipt was in another currency: within
-//     FX_TOLERANCE for an ECB estimate because card issuers add a markup,
-//     exact for an amount typed from the bank statement);
+//     or its home_total when the receipt was in another currency: from
+//     FX_BELOW under to FX_ABOVE over an ECB estimate, because card issuers
+//     add a markup and never a discount; exact for an amount typed from the
+//     bank statement);
 //   * the bank line dated from DAYS_BEFORE days before the receipt to
 //     DAYS_AFTER days after it (card payments are booked a few days later,
 //     invoices are paid weeks later);
@@ -19,15 +20,22 @@
 // A receipt without an amount or a date never matches; it is still to be
 // completed (review needed).
 
-export type NoReceiptReason = "bank_fee" | "transfer" | "tax" | "salary" | "loan" | "other";
+// Every payment needs a verifikation (BFL 5 kap. 6 §); "no receipt" means
+// another document is it: the bank statement for a fee, the tax account
+// statement, the payroll, the lender's notice, an invoice booked in the
+// firm's own system. A municipal or other authority invoice is NOT
+// covered by "tax": it carries VAT and needs the invoice. The labels say
+// which document stands in.
+export type NoReceiptReason = "bank_fee" | "transfer" | "tax" | "salary" | "loan" | "invoice_elsewhere" | "other";
 
 export const NO_RECEIPT_REASONS: Array<{ key: NoReceiptReason; label: string }> = [
-  { key: "bank_fee", label: "Bank fee" },
+  { key: "bank_fee", label: "Bank fee (the statement is the verifikation)" },
   { key: "transfer", label: "Transfer between own accounts" },
-  { key: "tax", label: "Tax or public authority" },
-  { key: "salary", label: "Salary" },
-  { key: "loan", label: "Loan or interest" },
-  { key: "other", label: "Other, no receipt needed" },
+  { key: "tax", label: "Skatteverket tax account" },
+  { key: "salary", label: "Salary (payroll is the verifikation)" },
+  { key: "loan", label: "Loan or interest (lender's notice)" },
+  { key: "invoice_elsewhere", label: "Supplier invoice booked outside UnReceipt" },
+  { key: "other", label: "Another document is the verifikation" },
 ];
 
 export function isNoReceiptReason(v: unknown): v is NoReceiptReason {
@@ -63,7 +71,8 @@ export type TransactionState =
 
 export const DAYS_BEFORE = 3;
 export const DAYS_AFTER = 45;
-export const FX_TOLERANCE = 0.03;
+export const FX_ABOVE = 0.03;
+export const FX_BELOW = 0.01;
 
 const dayNumber = (day: string) => Date.parse(`${day}T00:00:00Z`) / 86_400_000;
 
@@ -107,7 +116,7 @@ export function pairScore(tx: MatchTransaction, r: MatchReceipt): number | null 
   if (!amt) return null;
   const paid = -tx.amount;
   if (amt.estimate) {
-    if (Math.abs(paid - amt.amount) > Math.abs(amt.amount) * FX_TOLERANCE) return null;
+    if (paid > amt.amount * (1 + FX_ABOVE) || paid < amt.amount * (1 - FX_BELOW)) return null;
   } else if (Math.abs(paid - amt.amount) > 0.005) {
     return null;
   }

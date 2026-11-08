@@ -700,7 +700,7 @@ function ReceiptEditForm({
         ) : missingAtOpen.length > 0 ? (
           "Everything is filled in. Check the fields, then complete the receipt."
         ) : (
-          "Nothing is missing. The fields were read automatically and nobody has confirmed them yet: compare them with the original, then confirm."
+          "Merchant, amount and date are filled in. They were read automatically and nobody has confirmed them yet: compare them with the original, then confirm."
         )}
       </p>
 

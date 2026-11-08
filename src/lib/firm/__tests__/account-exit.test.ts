@@ -66,6 +66,10 @@ function fakeSupabase(db: Db, failOn: string | null = null) {
         filters.push((r) => r[col] !== val);
         return q;
       },
+      in: (col: string, vals: unknown[]) => {
+        filters.push((r) => vals.includes(r[col]));
+        return q;
+      },
       not: (col: string) => {
         filters.push((r) => r[col] !== null && r[col] !== undefined);
         return q;
@@ -172,16 +176,32 @@ describe("applyFirmExit", () => {
   it("close deletes the firm with its members, invites and client links, and touches no other firm", async () => {
     const db = baseDb([member("me", ME, "admin", "2026-11-01T09:00:00Z"), member("pending", null, "staff", null)]);
     db.firms.push({ id: "other-firm", name: "Other" });
-    db.firm_clients.push({ id: "other-client", firm_id: "other-firm", status: "active" });
+    db.firm_clients.push({ id: "other-client", firm_id: "other-firm", organization_id: "org-other", status: "active" });
+    // Bank lines this firm imported for its clients end with it; another
+    // firm's client keeps its own.
+    db.bank_transactions = [
+      { id: "b0", organization_id: "org-0" },
+      { id: "b1", organization_id: "org-1" },
+      { id: "b-other", organization_id: "org-other" },
+    ];
     const supabase = fakeSupabase(db);
 
     await applyFirmExit(supabase, await planFirmExit(supabase, ME));
 
+    expect(db.bank_transactions.map((b) => b.id)).toEqual(["b-other"]);
     expect(db.firms.map((f) => f.id)).toEqual(["other-firm"]);
     expect(db.firm_members).toEqual([]);
     expect(db.firm_clients.map((c) => c.id)).toEqual(["other-client"]);
     // A retry after a later failure finds nothing left to do.
     expect(await planFirmExit(supabase, ME)).toEqual({ kind: "none" });
+  });
+
+  it("close stops before deleting the firm when its bank lines can't be removed", async () => {
+    const db = baseDb([member("me", ME, "admin", "2026-11-01T09:00:00Z")]);
+    db.bank_transactions = [{ id: "b0", organization_id: "org-0" }];
+    const plan = await planFirmExit(fakeSupabase(db), ME);
+    await expect(applyFirmExit(fakeSupabase(db, "delete:bank_transactions"), plan)).rejects.toThrow();
+    expect(db.firms.map((f) => f.id)).toEqual([FIRM]);
   });
 
   it("handover promotes only the successor, and a retry then reads stays", async () => {

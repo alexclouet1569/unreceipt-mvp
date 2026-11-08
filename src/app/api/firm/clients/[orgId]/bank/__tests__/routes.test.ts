@@ -104,11 +104,13 @@ describe("POST bank/import", () => {
     mocks.answer.mockReturnValue({ data: [{ id: "a" }, { id: "b" }], error: null });
     const res = await importPost(req("/import", "POST", { csv: CSV }), orgParams);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ imported: 2, duplicates: 1, lines: 3, from: "2026-11-03", to: "2026-11-04", months: ["2026-11"] });
+    // The incoming payment is not kept.
+    expect(await res.json()).toMatchObject({ imported: 2, duplicates: 0, lines: 2, moneyIn: 1, from: "2026-11-03", to: "2026-11-03", months: ["2026-11"] });
     const insert = mocks.calls.find((c) => c.op === "upsert")!;
     expect(insert.table).toBe("bank_transactions");
     const rows = insert.args[0] as Array<Record<string, unknown>>;
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => Number(r.amount) < 0)).toBe(true);
     expect(rows.every((r) => r.organization_id === ORG && r.currency === "SEK" && r.imported_by === "u-staff")).toBe(true);
     expect(rows.every((r) => /^[0-9a-f]{64}$/.test(String(r.dedupe_key)))).toBe(true);
     // Two identical lines on one day stay two lines.
@@ -124,6 +126,12 @@ describe("POST bank/import", () => {
     // Limited per user and per company.
     expect(mocks.rateLimit).toHaveBeenCalledWith("bankImport", "u-staff");
     expect(mocks.rateLimit).toHaveBeenCalledWith("bankImportOrg", ORG);
+  });
+
+  it("refuses a file with only money in", async () => {
+    const res = await importPost(req("/import", "POST", { csv: "Datum;Text;Belopp\n2026-11-04;KUND AB;500,00\n" }), orgParams);
+    expect(res.status).toBe(422);
+    expect(mocks.calls).toHaveLength(0);
   });
 
   it("explains an unreadable file without writing anything", async () => {

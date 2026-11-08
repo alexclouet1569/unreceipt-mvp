@@ -414,7 +414,6 @@ const initialBank = (): BankTransaction[] => {
     line(4, -1340, "RESTAURANG TRANAN STHLM"),
     line(4, -3912.5, "BG 5051-6905 AHLSELL"),
     line(5, -1249, "HORNBACH BARKARBY"),
-    line(5, 48500, "INSÄTTNING BRF HAGA 2"),
     line(6, -655.4, "PREEM SOLLENTUNA"),
     line(6, -1800, "SWISH ELEKTRO-JONSSON"),
     line(6, -10000, "ÖVERFÖRING SPARKONTO", { no_receipt_reason: "transfer", decided_by: STAFF_USER, decided_at: hoursAgo(1) }),
@@ -525,8 +524,10 @@ export function FirmApp({
       m = /^\/api\/firm\/clients\/([^/]+)\/bank\/import$/.exec(path);
       if (m && method === "POST") {
         const org = m[1];
-        const parsed = parseBankStatement(String(body.csv ?? ""));
-        if (!parsed.ok) return json({ error: parsed.error }, 422);
+        const statement = parseBankStatement(String(body.csv ?? ""));
+        if (!statement.ok) return json({ error: statement.error }, 422);
+        const parsed = { ...statement, rows: statement.rows.filter((r) => r.amount < 0) };
+        if (parsed.rows.length === 0) return json({ error: "This file has no payments out, only money in." }, 422);
         const existing = new Set(state.current.bankLines.filter((l) => l.organization_id === org).map((l) => `${l.booked_on}|${Number(l.amount).toFixed(2)}|${l.description}`));
         const added: BankTransaction[] = [];
         parsed.rows.forEach((r, i) => {
@@ -554,6 +555,7 @@ export function FirmApp({
           lines: parsed.rows.length,
           imported: added.length,
           duplicates: parsed.rows.length - added.length,
+          moneyIn: statement.rows.length - parsed.rows.length,
           skipped: parsed.skipped,
           from: days[0],
           to: days[days.length - 1],

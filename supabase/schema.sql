@@ -1565,7 +1565,9 @@ DROP TRIGGER IF EXISTS receipts_updated_at ON public.receipts;
 -- the first prototype, and deleting one of its rows would delete the
 -- receipt (receipts.transaction_id ON DELETE CASCADE). Here a bank line
 -- belongs to the organisation and never deletes a receipt; deleting a
--- receipt only clears the link.
+-- receipt only clears the link. Only money out is stored (incoming lines
+-- carry customers' names and aren't checked). The lines end with the firm
+-- link (src/lib/bank/cleanup.ts: either side revoking, or the firm closing).
 --
 -- dedupe_key is a sha256 of day, amount, currency, description and the
 -- line's occurrence number in its file, so re-importing a file (or an
@@ -1588,10 +1590,7 @@ CREATE TABLE IF NOT EXISTS public.bank_transactions (
   description TEXT NOT NULL DEFAULT '' CHECK (char_length(description) <= 300),
   dedupe_key TEXT NOT NULL CHECK (char_length(dedupe_key) = 64),
   linked_receipt_id UUID REFERENCES public.receipts(id) ON DELETE SET NULL,
-  no_receipt_reason TEXT CHECK (
-    no_receipt_reason IS NULL
-    OR no_receipt_reason IN ('bank_fee', 'transfer', 'tax', 'salary', 'loan', 'other')
-  ),
+  no_receipt_reason TEXT,
   decided_by UUID,
   decided_at TIMESTAMPTZ,
   reminded_at TIMESTAMPTZ,
@@ -1600,6 +1599,16 @@ CREATE TABLE IF NOT EXISTS public.bank_transactions (
   CONSTRAINT bank_transactions_one_decision
     CHECK (linked_receipt_id IS NULL OR no_receipt_reason IS NULL)
 );
+
+-- Which document stands in for a receipt (src/lib/bank/match.ts). Named and
+-- re-created so the list can grow without rewriting the table.
+ALTER TABLE public.bank_transactions
+  DROP CONSTRAINT IF EXISTS bank_transactions_no_receipt_reason_check;
+ALTER TABLE public.bank_transactions
+  ADD CONSTRAINT bank_transactions_no_receipt_reason_check CHECK (
+    no_receipt_reason IS NULL
+    OR no_receipt_reason IN ('bank_fee', 'transfer', 'tax', 'salary', 'loan', 'invoice_elsewhere', 'other')
+  );
 
 CREATE UNIQUE INDEX IF NOT EXISTS bank_transactions_dedupe_unique
   ON public.bank_transactions(organization_id, dedupe_key);

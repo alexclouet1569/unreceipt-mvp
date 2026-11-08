@@ -36,6 +36,9 @@ export type BankMonthView = {
   // Receipts no bank line uses yet, dated near the month: what "Link a
   // receipt" offers.
   linkCandidates: LinkCandidate[];
+  // Receipts of the month still without an amount: they can't be matched
+  // until completed, so one of them may be a "missing" receipt.
+  incompleteReceipts: number;
 };
 
 /** YYYY-MM-DD of a receipt: the date printed on it, else the purchase time in Stockholm. */
@@ -78,7 +81,7 @@ export function bankWindow(month: string): {
   receiptTo: string;
 } {
   const { first, last } = monthDays(month);
-  const txFrom = addDays(first, -DAYS_AFTER);
+  const txFrom = addDays(first, -DAYS_AFTER - DAYS_BEFORE);
   const txTo = addDays(last, DAYS_AFTER);
   return { txFrom, txTo, receiptFrom: addDays(txFrom, -DAYS_AFTER), receiptTo: addDays(txTo, DAYS_BEFORE) };
 }
@@ -166,8 +169,13 @@ export function buildBankMonth(transactions: BankTransaction[], receipts: Receip
     .map((r) => ({ id: r.id, merchant: r.merchant, day: r.day, total: r.total as number, currency: r.currency }))
     .sort((a, b) => (b.day ?? "").localeCompare(a.day ?? "") || a.id.localeCompare(b.id));
 
+  const incompleteReceipts = matchReceipts.filter(
+    (r) => r.total == null && r.day !== null && r.day >= first && r.day <= last
+  ).length;
+
   return {
     month,
+    incompleteReceipts,
     lines,
     counts,
     missingTotals: [...missingByCurrency.entries()]

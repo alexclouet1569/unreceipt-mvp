@@ -472,9 +472,9 @@ export function missingReceiptsEmail(opts: {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const n = opts.lines.length;
   const title = `${n} receipt${n === 1 ? "" : "s"} missing for ${opts.monthLabel}`;
-  const intro = `${firm} is doing the bookkeeping for ${opts.clientName} and found ${n} payment${n === 1 ? "" : "s"} on the bank statement without a receipt (${opts.total} in total).`;
+  const intro = `${firm} is doing the bookkeeping for ${opts.clientName} and couldn't match ${n} payment${n === 1 ? "" : "s"} on the bank statement to a receipt (${opts.total} in total).`;
   const how =
-    "Open UnReceipt and photograph each receipt, or forward the email it came in to your UnReceipt address. Each one is matched to its payment automatically.";
+    "Already sent one? Check Review needed in UnReceipt first: a receipt without an amount can't be matched until it's completed. Otherwise photograph the receipt, or forward the email it came in to your UnReceipt address. UnReceipt matches most receipts to their payment by itself; your accountant links the rest.";
   const shown = opts.lines
     .slice(0, MISSING_EMAIL_LINES)
     .map((l) => ({ ...l, description: bankTextForEmail(l.description) }));

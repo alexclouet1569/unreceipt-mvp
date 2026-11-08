@@ -75,6 +75,8 @@ export function BankPanel({
         const period = body.from && body.to ? ` (${dayLabel(String(body.from))} – ${dayLabel(String(body.to))})` : "";
         const parts = [`Imported ${imported} line${imported === 1 ? "" : "s"}${period}.`];
         if (duplicates > 0) parts.push(`${duplicates} ${duplicates === 1 ? "was" : "were"} already there.`);
+        const moneyIn = Number(body.moneyIn ?? 0);
+        if (moneyIn > 0) parts.push(`${moneyIn} incoming payment${moneyIn === 1 ? " was" : "s were"} left out: only money out is checked.`);
         if (months.length > 0 && !months.includes(month)) {
           parts.push(`None is dated in ${label}: use the arrows above to open ${monthLabel(months[0])}.`);
         }
@@ -195,7 +197,9 @@ export function BankPanel({
                   )
                 </span>
               ) : (
-                <span className="font-semibold text-[var(--brand-action)]">nothing missing</span>
+                <span className="font-semibold text-[var(--brand-action)]">
+                  every payment out has a receipt or a decision
+                </span>
               )}
             </p>
           )}
@@ -237,6 +241,13 @@ export function BankPanel({
               </Button>
             </div>
           </div>
+          {bank.incompleteReceipts > 0 ? (
+            <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+              {bank.incompleteReceipts === 1
+                ? "1 receipt of this month has no amount yet, so it can't be matched. Complete it under Review needed first: it may pay one of these."
+                : `${bank.incompleteReceipts} receipts of this month have no amount yet, so they can't be matched. Complete them under Review needed first: they may pay some of these.`}
+            </p>
+          ) : null}
           <ul className="divide-y divide-[var(--hairline)] rounded-[12px] border border-[var(--hairline)]">
             {missing.map((l) => (
               <li key={l.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2" data-testid="bank-missing-line">
@@ -269,7 +280,7 @@ export function BankPanel({
                       ))}
                     </optgroup>
                   ) : null}
-                  <optgroup label="No receipt needed">
+                  <optgroup label="No receipt: another document is the verifikation">
                     {NO_RECEIPT_REASONS.map((r) => (
                       <option key={r.key} value={`none:${r.key}`}>
                         {r.label}

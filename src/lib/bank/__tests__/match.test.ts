@@ -42,6 +42,14 @@ describe("pairScore", () => {
     expect(pairScore(tx({ amount: 812 }), rc({}))).toBeNull();
   });
 
+  it("allows up to 3% over an ECB estimate (card markup) but only 1% under", () => {
+    const foreign = rc({ total: 10, currency: "EUR", homeTotal: 100, homeCurrency: "SEK", fxSource: "ecb" });
+    expect(pairScore(tx({ amount: -103 }), foreign)).not.toBeNull();
+    expect(pairScore(tx({ amount: -103.01 }), foreign)).toBeNull();
+    expect(pairScore(tx({ amount: -99 }), foreign)).not.toBeNull();
+    expect(pairScore(tx({ amount: -98.99 }), foreign)).toBeNull();
+  });
+
   it("allows a card markup on an ECB estimate, not on an amount typed from the bank", () => {
     const foreign = rc({ total: 24.19, currency: "EUR", homeTotal: 277.02, homeCurrency: "SEK", fxSource: "ecb", merchant: "Adobe" });
     expect(pairScore(tx({ amount: -282.5, description: "ADOBE *CREATIVE" }), foreign)).not.toBeNull();

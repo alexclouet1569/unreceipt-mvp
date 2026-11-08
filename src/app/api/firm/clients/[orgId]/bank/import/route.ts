@@ -88,10 +88,17 @@ export async function POST(
     return NextResponse.json({ error: statement.error }, { status: 422 });
   }
 
+  // Only money out is checked against receipts; incoming lines carry
+  // customers' names and are not kept (data minimisation).
+  const out = statement.rows.filter((r) => r.amount < 0);
+  const moneyIn = statement.rows.length - out.length;
+  if (out.length === 0) {
+    return NextResponse.json({ error: "This file has no payments out, only money in." }, { status: 422 });
+  }
   const home = await homeCurrencyOf(access.organizationId);
-  const keys = dedupeSources(statement.rows, home);
+  const keys = dedupeSources(out, home);
   const now = new Date().toISOString();
-  const rows = statement.rows.map((r, i) => ({
+  const rows = out.map((r, i) => ({
     organization_id: access.organizationId,
     booked_on: r.bookedOn,
     amount: r.amount,
@@ -135,12 +142,13 @@ export async function POST(
     imported += (data ?? []).length;
   }
 
-  const days = statement.rows.map((r) => r.bookedOn).sort();
+  const days = out.map((r) => r.bookedOn).sort();
   return NextResponse.json({
     ok: true,
-    lines: statement.rows.length,
+    lines: out.length,
     imported,
-    duplicates: statement.rows.length - imported,
+    duplicates: out.length - imported,
+    moneyIn,
     skipped: statement.skipped,
     from: days[0],
     to: days[days.length - 1],

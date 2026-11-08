@@ -289,7 +289,7 @@ describe("ReceiptDetailDialog (CQ2)", () => {
   it("says nothing is missing when a complete receipt only waits for a confirmation", () => {
     renderDialog({ status: "pending_review", parse_confidence: 0.7 });
 
-    expect(screen.getByTestId("review-reason")).toHaveTextContent("Nothing is missing.");
+    expect(screen.getByTestId("review-reason")).toHaveTextContent("Merchant, amount and date are filled in.");
     expect(screen.queryByText(/· Missing/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm receipt" })).toBeInTheDocument();
   });
