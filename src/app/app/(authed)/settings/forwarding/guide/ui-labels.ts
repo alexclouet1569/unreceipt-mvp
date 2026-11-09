@@ -3,17 +3,27 @@
 // them in its steps and draws them in its pictures, so a Swedish or French
 // user sees the words their own screen shows.
 //
-// Sources (read 2026-11-08):
-//   Gmail   support.google.com/mail/answer/10957 and /6579, hl=en|sv|fr
-//   Outlook support.microsoft.com "Manage email messages by using rules in
-//           Outlook", en-us|sv-se|fr-fr
+// Sources (read 2026-11-08, re-checked 2026-11-09):
+//   Gmail   support.google.com/mail/answer/10957 (forwarding), /6579
+//           (filters) and /90559 (screen-reader guide, which names the
+//           buttons), hl=en|sv|fr; Swedish and French tutorials quoting the
+//           real screens (pctidningen.se, manual.umu.se, windows8facile.fr,
+//           posteo.de/fr, pcastuces.com); Workspace answer 9282734 (fr)
+//   Outlook support.microsoft.com sv-se|fr-fr "Manage email messages by
+//           using rules in Outlook" and "Use rules to automatically forward
+//           messages"; Microsoft Q&A threads; letsignit.com/fr
 //   iCloud  support.apple.com/guide/icloud mm6b1a3f8a and mm6b1a3960,
 //           en-us|sv-se|fr-fr
+//   Phones  support.apple.com iPhone guide iph3caef30a, iph742b6abb1 and
+//           104971; Gmail app answer 15162918; Microsoft "switch between
+//           reply all, reply, forward", sv-se|fr-fr
 // Google's and Microsoft's Swedish and French pages say they may be machine
-// translated. `verified: false` marks labels no official page states; they
-// are our best reading of the product and need checking on a real screen
-// in that language. When Gmail or Outlook renames something, change it
-// here: steps and pictures both read from this file.
+// translated, so a label counts as verified only when the help page and an
+// independent page quoting the real screen agree. `verified: false` marks
+// the rest: our best reading, still to check on a real screen in that
+// language (the comment says which language is the doubtful one). When
+// Gmail or Outlook renames something, change it here: steps and pictures
+// both read from this file.
 
 export type MailLang = "en" | "sv" | "fr";
 
@@ -23,7 +33,7 @@ export const MAIL_LANGS: { id: MailLang; label: string }[] = [
   { id: "fr", label: "Français" },
 ];
 
-export const LABELS_LAST_CHECKED = "2026-11-08";
+export const LABELS_LAST_CHECKED = "2026-11-09";
 
 export type UiLabel = { en: string; sv: string; fr: string; verified: boolean };
 
@@ -38,6 +48,7 @@ export const GMAIL = {
     "Lägg till en adress för vidarebefordran",
     "Ajouter une adresse de transfert",
   ),
+  // The word is confirmed; the colon isn't.
   forwardingSection: l("Forwarding:", "Vidarebefordran:", "Transfert :", false),
   next: l("Next", "Nästa", "Suivant"),
   cancel: l("Cancel", "Avbryt", "Annuler", false),
@@ -50,31 +61,43 @@ export const GMAIL = {
     "Vidarebefordra en kopia av inkommande e-post till",
     "Transférer une copie des messages reçus à",
   ),
+  // FR confirmed ("Valider", next to the "Code de confirmation" box); SV not.
   verify: l("Verify", "Verifiera", "Valider", false),
   filtersTab: l("Filters and Blocked Addresses", "Filter och blockerade adresser", "Filtres et adresses bloquées"),
+  // SV confirmed from a screenshot; FR only from Google community experts.
   createNewFilter: l("Create a new filter", "Skapa ett nytt filter", "Créer un filtre", false),
-  from: l("From", "Från", "De", false),
-  subject: l("Subject", "Ämne", "Objet", false),
-  hasTheWords: l("Has the words", "Innehåller orden", "Contient les mots", false),
+  from: l("From", "Från", "De"),
+  subject: l("Subject", "Ämne", "Objet"),
+  hasTheWords: l("Has the words", "Innehåller orden", "Contient les mots"),
   createFilter: l("Create filter", "Skapa filter", "Créer un filtre"),
   search: l("Search", "Sök", "Rechercher"),
-  forwardIt: l("Forward it", "Vidarebefordra", "Transférer"),
-  skipInbox: l("Skip the Inbox", "Hoppa över inkorgen", "Ignorer la boîte de réception", false),
-  markAsRead: l("Mark as read", "Markera som läst", "Marquer comme lu", false),
-  starIt: l("Star it", "Stjärnmärk", "Activer le suivi", false),
+  // The filter checkbox. FR tutorials quote "Transférer à :"; no source
+  // shows a "till" after the Swedish one.
+  forwardIt: l("Forward it to", "Vidarebefordra", "Transférer à", false),
+  skipInbox: l(
+    "Skip the Inbox (Archive it)",
+    "Hoppa över inkorgen (arkivera det)",
+    "Ne pas afficher dans la boîte de réception (Archiver)",
+  ),
+  markAsRead: l("Mark as read", "Markera som läst", "Marquer comme lu"),
+  // SV "Stjärnmärk den" from Google's help; one screenshot reads differently.
+  starIt: l("Star it", "Stjärnmärk den", "Activer le suivi", false),
 } as const;
 
 export const OUTLOOK = {
   settings: l("Settings", "Inställningar", "Paramètres"),
-  mail: l("Mail", "E-post", "Courrier", false),
-  rules: l("Rules", "Regler", "Règles", false),
+  mail: l("Mail", "E-post", "Courrier"),
+  rules: l("Rules", "Regler", "Règles"),
   addNewRule: l("Add new rule", "Lägg till ny regel", "Ajouter une nouvelle règle"),
-  name: l("Name your rule", "Ge regeln ett namn", "Nommer votre règle", false),
+  // FR confirmed; SV from Microsoft's help and a Q&A answer only.
+  name: l("Name your rule", "Namnge regeln", "Nommez votre règle", false),
   addCondition: l("Add a condition", "Lägg till ett villkor", "Ajouter une condition"),
-  subjectIncludes: l("Subject includes", "Ämnet innehåller", "L'objet contient", false),
+  // Both best supported, neither seen on a screen: Microsoft's own pages
+  // also use "Ämnet omfattar" and "La matière comprend" (machine translated).
+  subjectIncludes: l("Subject includes", "Ämnet innehåller", "L'objet inclut", false),
   addAction: l("Add an action", "Lägg till en åtgärd", "Ajouter une action"),
-  redirectTo: l("Redirect to", "Omdirigera till", "Rediriger vers", false),
-  forwardTo: l("Forward to", "Vidarebefordra till", "Transférer à", false),
+  redirectTo: l("Redirect to", "Omdirigera till", "Rediriger vers"),
+  forwardTo: l("Forward to", "Vidarebefordra till", "Transférer vers"),
   save: l("Save", "Spara", "Enregistrer"),
 } as const;
 
@@ -85,16 +108,20 @@ export const ICLOUD = {
   add: l("Add", "Lägg till", "Ajouter"),
   message: l("Message", "Meddelande", "Message"),
   action: l("Action", "Åtgärd", "Action"),
-  subjectContains: l("has a subject containing", "har ett ämne som innehåller", "a un objet contenant", false),
-  forwardTo: l("Forward to an email address", "Vidarebefordra till en e-postadress", "Transférer à une adresse e-mail", false),
+  // Apple's guides don't name these menu items in any language. The English
+  // ones come from write-ups of the earlier iCloud.com, where the action was
+  // "Forward to"; the Swedish and French ones are our translations.
+  subjectContains: l("has subject containing", "har ett ämne som innehåller", "a un objet contenant", false),
+  forwardTo: l("Forward to", "Vidarebefordra till", "Transférer à", false),
 } as const;
 
 // The phone apps follow the phone's language.
 export const PHONE = {
   forward: l("Forward", "Vidarebefordra", "Transférer"),
-  to: l("To:", "Till:", "À :", false),
-  reply: l("Reply", "Svara", "Répondre", false),
-  inbox: l("Inbox", "Inkorg", "Boîte de réception", false),
+  to: l("To:", "Till:", "À :"),
+  reply: l("Reply", "Svara", "Répondre"),
+  // French iPhone Mail names the mailbox "Réception".
+  inbox: l("Inbox", "Inkorg", "Réception"),
 } as const;
 
 export function say(label: UiLabel, lang: MailLang): string {
