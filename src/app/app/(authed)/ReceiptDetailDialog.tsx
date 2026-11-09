@@ -78,8 +78,8 @@ export function ReceiptDetailDialog({
   // Ask the server to render this receipt's PDF now, so Download a moment
   // later is served from its cache instead of waiting for the render.
   // Best effort; the owner's and the firm's PDF are the same document.
-  // Keyed on the whole row (updated_at isn't maintained): an edited receipt
-  // is prepared again.
+  // Keyed on the whole row, like the server's cache: an edited receipt is
+  // prepared again.
   const receiptId = receipt?.id;
   const receiptVersion = useMemo(() => (receipt ? JSON.stringify(receipt) : ""), [receipt]);
   useEffect(() => {

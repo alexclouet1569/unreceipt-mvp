@@ -20,8 +20,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // detail view asks for its PDF to be prepared (`?prepare=1`) when it opens,
 // so tapping Download a moment later skips the render (and, on a cold
 // instance, react-pdf's start-up). Keyed by a hash of the whole receipt row,
-// so any change to it (an edit, a re-read, VAT, a conversion) renders anew:
-// `updated_at` is not maintained on receipts and can't be the key. Access
+// so any change to it (an edit, a re-read, VAT, a conversion) renders anew.
+// Not keyed on `updated_at`: the row hash stays right whatever triggers
+// the database has (see the 2026-11-08 block in supabase/schema.sql). Access
 // is checked on every request, cached or not. About 30-100 KB each.
 const PDF_CACHE_MAX = 30;
 const pdfCache = new Map<string, Uint8Array>();

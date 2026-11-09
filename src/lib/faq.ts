@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/locale";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import {
   OVERAGE_PRICE,
   OVERAGE_PRICE_SEK,
@@ -51,17 +52,32 @@ function pricingAnswerFr(pilotMode: boolean): string {
   return `Un prix pour toute l’entreprise, sans frais par utilisateur\u00a0: ${plans}. Chaque reçu supplémentaire coûte ${formatEurFr(OVERAGE_PRICE)} HT. ${trial}`;
 }
 
-export function getFaq(pilotMode: boolean, locale: Locale = "en"): FaqItem[] {
-  if (locale === "sv") return faqSv(pilotMode);
-  if (locale === "fr") return faqFr(pilotMode);
-  return faqEn(pilotMode);
+/** The cost answer while prices are hidden (SHOW_PRICES off). */
+const PRICE_HIDDEN: Record<Locale, (pilotMode: boolean) => string> = {
+  en: (pilot) =>
+    `One monthly price per company account, sized by how many receipts you send each month. Accounting firms need no plan of their own. ${pilot ? "UnReceipt is free during the pilot." : "The first week is free; the plans are shown before you subscribe."}`,
+  sv: (pilot) =>
+    `Ett månadspris per företagskonto, efter hur många kvitton ni skickar i månaden. Redovisningsbyråer behöver ingen egen plan. ${pilot ? "UnReceipt är gratis under piloten." : "Första veckan är gratis; planerna visas innan du tecknar dig."}`,
+  fr: (pilot) =>
+    `Un prix mensuel par compte d’entreprise, selon le nombre de reçus envoyés chaque mois. Les cabinets comptables n’ont pas besoin d’abonnement propre. ${pilot ? "UnReceipt est gratuit pendant la phase pilote." : "La première semaine est gratuite\u00a0; les formules sont présentées avant l’abonnement."}`,
+};
+
+export function getFaq(
+  pilotMode: boolean,
+  locale: Locale = "en",
+  showPrices: boolean = SHOW_PRICES
+): FaqItem[] {
+  const faq = locale === "sv" ? faqSv(pilotMode) : locale === "fr" ? faqFr(pilotMode) : faqEn(pilotMode);
+  if (showPrices) return faq;
+  // The cost question is always third; keep the question, drop the prices.
+  return faq.map((item, i) => (i === 2 ? { q: item.q, a: PRICE_HIDDEN[locale](pilotMode) } : item));
 }
 
 function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is a receipt service for small businesses. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
+      a: "UnReceipt is a receipt service for small businesses, freelancers and their accounting firms. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
@@ -80,8 +96,12 @@ function faqEn(pilotMode: boolean): FaqItem[] {
       a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
     },
     {
+      q: "Can my accountant see my receipts?",
+      a: "Yes. Invite your accountant from Settings in the app; once they accept with their work email, they see your company's receipts in UnReceipt's accounting-firm portal, can complete and check them, and export each month for the bookkeeping. You can also download a ZIP for any month and send it yourself.",
+    },
+    {
       q: "How long do companies have to keep receipts?",
-      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once. In France, the Commercial Code (article L123-22) requires ten years from the end of the financial year, and a paper original may only be destroyed if the scan is a certified copy (electronic seal or signature and a timestamp). UnReceipt doesn't produce certified copies yet, so in France keep your paper originals.",
+      a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once, and again if the location changes. In France, the Commercial Code (article L123-22) requires traders and companies to keep them ten years from the end of the financial year (the tax code's six years also becomes ten for documents still within the six-year period on 1 January 2027), and a paper invoice may only be destroyed if the scan is a compliant copy under article A102 B-2 of the tax procedures code (an untouched image in a sealed or signed, timestamped PDF). UnReceipt doesn't produce such copies yet, so in France keep your paper originals.",
     },
     {
       q: "Can I cancel at any time?",
@@ -117,12 +137,16 @@ function faqSv(pilotMode: boolean): FaqItem[] {
       a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som kontrollerat.",
     },
     {
+      q: "Kan min redovisningsbyrå se mina kvitton?",
+      a: "Ja. Bjud in din redovisningskonsult under Settings i appen; när hen accepterar med sin jobbmejl ser byrån ditt företags kvitton i UnReceipts byråportal, kan komplettera och kontrollera dem och exportera varje månad till bokföringen, med förslag på BAS-konto. Du kan också ladda ner en ZIP för valfri månad och skicka den själv.",
+    },
+    {
       q: "Hur länge måste företag spara kvitton?",
       a: "Enligt bokföringslagen ska kvitton och annan räkenskapsinformation sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades. Skyldigheten ligger hos företaget, så ladda ner dina kvitton om du avslutar UnReceipt.",
     },
     {
       q: "Behöver jag spara papperskvittot?",
-      a: "Nej, inte när kvittot är ordentligt digitaliserat. Sedan den 1 juli 2024 får du slänga papperskvittot när det har förts över till digital form, så länge överföringen inte innebär någon risk att uppgifterna ändras eller försvinner. Med UnReceipt behöver du bara: kontrollera att bilden är skarp och att hela kvittot syns innan du slänger det, anmäla skriftligen till Skatteverket att din räkenskapsinformation förvaras i Tyskland, där UnReceipt lagrar kvittona (en gång, och igen om platsen ändras), och ladda ner dina kvitton om du avslutar tjänsten.",
+      a: "Nej, inte när kvittot är ordentligt digitaliserat. Sedan den 1 juli 2024 får du slänga papperskvittot när det har förts över till digital form, så länge överföringen inte innebär någon risk att uppgifterna ändras eller försvinner. Med UnReceipt gör du så här: kontrollera i UnReceipt efter att du sparat att bilden är skarp och att hela kvittot syns innan du slänger det, anmäla skriftligen till Skatteverket att din räkenskapsinformation förvaras i Tyskland, där UnReceipt lagrar kvittona (en gång, och igen om platsen ändras), och ladda ner dina kvitton om du avslutar tjänsten.",
     },
     {
       q: "Kan jag avsluta när jag vill?",
@@ -158,12 +182,16 @@ function faqFr(pilotMode: boolean): FaqItem[] {
       a: "Chaque reçu est lu automatiquement, puis vérifié par notre équipe sous 24 heures avant d’être marqué comme vérifié.",
     },
     {
+      q: "Mon expert-comptable peut-il voir mes reçus\u00a0?",
+      a: "Oui. Invitez votre expert-comptable depuis les réglages de l’application (Settings)\u00a0; une fois qu’il accepte avec son e-mail professionnel, il voit les reçus de votre entreprise dans le portail cabinet d’UnReceipt, peut les compléter et les vérifier, et exporter chaque mois pour la saisie. Vous pouvez aussi télécharger un ZIP pour n’importe quel mois et l’envoyer vous-même.",
+    },
+    {
       q: "Combien de temps faut-il conserver les justificatifs\u00a0?",
-      a: "Dix ans à compter de la clôture de l’exercice pour les pièces justificatives comptables des commerçants (article L123-22 du Code de commerce). Pour l’administration fiscale, les documents doivent être conservés au moins six ans (article L102 B du Livre des procédures fiscales). Cette obligation reste celle de votre entreprise\u00a0: téléchargez vos reçus si vous quittez UnReceipt.",
+      a: "Dix ans à compter de la clôture de l’exercice pour les pièces justificatives comptables des commerçants (article L123-22 du Code de commerce). Pour l’administration fiscale, le délai est aujourd’hui de six ans (article L102 B du Livre des procédures fiscales) et passe à dix ans pour les documents dont la conservation expire après le 1er janvier 2027 (loi n° 2026-534 du 25 juin 2026). Cette obligation reste celle de votre entreprise\u00a0: téléchargez vos reçus si vous quittez UnReceipt.",
     },
     {
       q: "Puis-je jeter le ticket papier après l’avoir photographié\u00a0?",
-      a: "Non. En France, un original papier ne peut être détruit après numérisation que si la copie est une copie fiable\u00a0: reproduction à l’identique de l’image et du contenu, sans retouche, au format PDF, avec cachet serveur ou signature électronique et horodatage (pour les factures, article A102 B-2 du Livre des procédures fiscales). UnReceipt ne produit pas ce type de copie\u00a0: conservez vos tickets et factures papier.",
+      a: "Non. En France, une facture papier ne peut être détruite après numérisation que si la copie est conforme à l’original en image et en contenu (article A102 B-2 du Livre des procédures fiscales)\u00a0: reproduction à l’identique, sans traitement de l’image, au format PDF, avec cachet serveur, empreinte numérique ou signature électronique, et horodatage. UnReceipt ne produit pas ce type de copie\u00a0: conservez vos tickets et factures papier.",
     },
     {
       q: "Puis-je résilier à tout moment\u00a0?",
