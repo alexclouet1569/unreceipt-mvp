@@ -1,6 +1,8 @@
 # UnReceipt — Store apps plan (App Store + Google Play, one app for both roles)
 
 **Date:** 2026-11-06
+
+> **2026-11-09:** the iOS client app is now a native Expo app, not this Capacitor wrapper: see `docs/plans/unreceipt-ios-native-plan.md`. The store rules and account notes below still apply.
 **Goal:** one app, "UnReceipt", on the App Store and Google Play. It wraps `app.unreceipt.com` with Capacitor. Clients land on `/app` and accountants on `/firm`.
 **Starting point:** no Apple or Google developer accounts, no D-U-N-S request yet. You have a Mac. `PILOT_MODE` is on, so no payments.
 
