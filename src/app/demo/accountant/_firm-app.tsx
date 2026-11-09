@@ -783,6 +783,7 @@ export function FirmApp({
           .sort((a, b) => (b.purchased_at ?? b.created_at).localeCompare(a.purchased_at ?? a.created_at))}
         reminders={{
           weekly: !weeklyOff.has(openClient.organization_id),
+          clientOptedOut: false,
           lastSentAt: openClient.organization_id === ORG_HB ? inMonth(2) : null,
         }}
         bank={buildBankMonth(

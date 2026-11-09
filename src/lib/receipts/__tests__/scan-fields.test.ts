@@ -11,10 +11,28 @@ describe("scanFields", () => {
     expect(f.parse_confidence).toBeLessThan(0.75);
   });
 
-  it("keeps what was read when something is missing", () => {
-    const f = scanFields({ merchant: "EasyPark", amount: undefined, receipt_date: "2026-11-03", currency: "XYZ", confidence: 0.9 }, "SEK")!;
-    expect(f).toMatchObject({ merchant_name: "EasyPark", total: null, receipt_date: "2026-11-03", currency: "SEK", category: "other" });
+  it("keeps what was read when something is missing, VAT and seller ids included", () => {
+    const f = scanFields(
+      { merchant: "EasyPark", amount: 60, currency: "SEK", tax_amount: 12, tax_rate: 25, seller_org_number: "556677-8899", confidence: 0.9 },
+      "SEK"
+    )!;
+    expect(f).toMatchObject({ merchant_name: "EasyPark", total: 60, receipt_date: null, tax_amount: 12, tax_rate: 25, seller_org_number: "556677-8899" });
     expect(f.parse_confidence).toBeLessThan(0.75);
+  });
+
+  it("never turns a currency it can't handle into the company's: the amount is left to fill in", () => {
+    // 500 DKK must not become 500 SEK.
+    expect(scanFields({ merchant: "Netto", amount: 500, currency: "DKK", receipt_date: "2026-11-03" }, "SEK")).toMatchObject({
+      total: null,
+      currency: "SEK",
+      tax_amount: null,
+    });
+    expect(scanFields({ merchant: "Netto", amount: 500, receipt_date: "2026-11-03" }, "SEK")!.total).toBeNull();
+  });
+
+  it("strips anything that could be a card number from the payment method", () => {
+    expect(scanFields({ merchant: "X", payment_method: "Visa 4111 1111 1111 1111" }, "SEK")!.payment_method).toBe("Visa •••");
+    expect(scanFields({ merchant: "X", payment_method: "Mastercard ****1234" }, "SEK")!.payment_method).toBe("Mastercard ****1234");
   });
 
   it("saves nothing for a picture that isn't a receipt", () => {
@@ -33,5 +51,18 @@ describe("looksLikeSameReceipt", () => {
     expect(looksLikeSameReceipt(a, { ...a, total: 813 })).toBe(false);
     expect(looksLikeSameReceipt(a, { ...a, receipt_date: "2026-11-02" })).toBe(false);
     expect(looksLikeSameReceipt({ ...a, merchant_name: null }, { ...a, merchant_name: null })).toBe(false);
+  });
+});
+
+describe("pdfPageCount", () => {
+  it("counts pages stored in compressed object streams, and refuses what it can't open", async () => {
+    const { PDFDocument } = await import("pdf-lib");
+    const { countPdfPages, pdfPageCount } = await import("../pdf-pages");
+    const doc = await PDFDocument.create();
+    for (let i = 0; i < 20; i++) doc.addPage([200, 300]);
+    const bytes = Buffer.from(await doc.save({ useObjectStreams: true }));
+    expect(countPdfPages(bytes)).toBe(0);
+    expect(await pdfPageCount(bytes)).toBe(20);
+    expect(await pdfPageCount(Buffer.from("not a pdf"))).toBeNull();
   });
 });

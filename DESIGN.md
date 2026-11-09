@@ -235,8 +235,13 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 ### Several at once (`BatchCapture`)
 
 - Third button on the capture sheet's first screen, secondary style: **Several at once (photos or a scan)**. It opens the photo library with multiple selection (photos and PDFs); the sheet title becomes "Several receipts".
-- One row per photo or scanned page: a 32px status mark (spinner while reading, `--brand-action` check when saved, `--attention` dot when skipped or failed), the merchant in Manrope 700 / 15, then `Missing amount` (`--negative`, 600) or `To confirm` (`--attention-deep`, 600), and the amount in Geist Mono on the right. Rows are hairline-divided, no cards.
-- A live status line on top ("Reading 3 of 12", then "11 receipts saved") with one sentence on what happens next. Footer: **Photo** and **Add more** (secondary, side by side), **Try again (n)** when something failed or the rate limit paused the queue, and **Done** (primary), disabled while files are being read, because closing the sheet stops the ones not yet sent.
+- A multi-page PDF first shows a row asking "Is each page a receipt, or is the file one receipt?" with two 44px buttons, **Each page is a receipt** and **One receipt** (white, hairline). The status block says a scanned PDF is kept whole as the original.
+- One row per photo or scanned page: a 32px status mark (spinner while reading, `--brand-action` check when saved, `--attention` dot when skipped or failed), the merchant in Manrope 700 / 15, then `Missing amount` (`--negative`, 600) or `To confirm` (`--attention-deep`, 600), and the amount in `amount-row` (Geist Mono 14/400) on the right. Rows are hairline-divided, no cards.
+- A live status line on top ("Reading 3 of 12", then "11 receipts saved") with one sentence on what happens next. Footer: **Photo** and **Add more** (secondary, side by side), **Try again (n)** when something failed or the rate limit paused the queue, and **Done** (primary), disabled while files are being read, because closing the sheet stops the ones not yet sent; closing the sheet another way then asks first. The status block scrolls on its own (at most 40% of the sheet) so Done never leaves the screen. Focus moves to the status line when the batch opens. The choose panel's viewfinder shrinks to 190px so all four options fit on small phones.
+
+### Switch (`src/components/Switch.tsx`)
+
+The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when on and `--ink-faint` when off (so a screen's primary action stays its one green), white 20px thumb, colour 100ms, thumb 200ms on the entrance curve. Labelled by the visible title (`aria-labelledby`) and described by the line under it. While saving it stays focusable (`aria-disabled`) and ignores presses. Used for Include VAT, the firm's weekly reminder per client, and the client's own weekly-reminder opt-out.
 
 ### Swipe to delete
 

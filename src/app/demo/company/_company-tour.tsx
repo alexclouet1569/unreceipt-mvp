@@ -1,5 +1,6 @@
 "use client";
 
+import { inspectPdf } from "@/lib/receipts/pdf-inspect";
 import { useEffect, useRef, useState } from "react";
 import { Dashboard } from "@/app/app/(authed)/dashboard";
 import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
@@ -9,7 +10,7 @@ import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from ".
 
 // Public guided tour for a client company: the real receipts screen and
 // capture sheet with sample receipts, then the accountant's invite.
-// Nothing is saved: /api/ocr, /api/capture, /api/capture/scan and /api/accountant/respond are
+// Nothing is saved: /api/ocr, /api/capture, /api/capture/scan(/original) and /api/accountant/respond are
 // answered in the browser, every other /api call gets a 404.
 
 const STEPS: TourStep[] = [
@@ -248,6 +249,13 @@ export function CompanyTour({ step }: { step: number }) {
       }
       // "Several at once": every file reads as the sample receipt, waiting
       // for a confirmation like the real thing.
+      // A split scan is "stored" first; nothing leaves the browser.
+      if (path === "/api/capture/scan/original") {
+        const fd = init?.body instanceof FormData ? init.body : new FormData();
+        const file = fd.get("file");
+        const shape = file instanceof File ? await inspectPdf(new Uint8Array(await file.arrayBuffer())) : null;
+        return json({ ok: true, scan: "demo/scans/scan.pdf", pages: shape?.pages ?? 2 });
+      }
       if (path === "/api/capture/scan") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
         // A few different shops; one photo too blurry to read the total.

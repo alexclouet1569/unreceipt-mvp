@@ -102,7 +102,8 @@ export async function POST(
   let sent = 0;
   for (const userId of [...new Set((owners ?? []).map((o) => o.user_id as string))]) {
     const { data: userRes } = await db.auth.admin.getUserById(userId);
-    const to = userRes?.user?.email;
+    // Confirmed addresses only: the email carries bank text.
+    const to = userRes?.user?.email_confirmed_at ? userRes.user.email : null;
     if (!to) continue;
     const result = await sendEmail({ to, ...content, replyTo, tag: "missing_receipts" });
     if (result.ok) sent++;

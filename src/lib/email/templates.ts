@@ -406,7 +406,7 @@ export function clientRequestEmail(opts: { clientName: string; url: string }): E
 export function linkConfirmationEmail(opts: { firmName: string; settingsUrl: string }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const title = `${firm} now sees your receipts`;
-  const intro = `From now on, ${firm} sees all your receipts and does your bookkeeping. If you didn't agree to this, stop sharing in Settings.`;
+  const intro = `From now on, ${firm} sees all your receipts and does your bookkeeping. On Mondays they may send you a reminder of missing receipts; you can turn it off in Settings. If you didn't agree to this, stop sharing in Settings.`;
   const bodyHtml = [
     `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
     paragraph(esc(intro)),
@@ -536,16 +536,21 @@ export function weeklyReminderEmail(opts: {
   clientName: string;
   payments: Array<{ day: string; description: string; amount: string }>;
   receipts: Array<{ day: string; merchant: string; missing: string }>;
+  // Receipts read automatically, waiting only for a confirmation.
+  toConfirm: number;
   appUrl: string;
+  settingsUrl: string;
 }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const p = opts.payments.length;
   const r = opts.receipts.length;
+  const c = opts.toConfirm;
   const parts = [
     p > 0 ? `${p} receipt${p === 1 ? "" : "s"} for bank payments` : null,
     r > 0 ? `${r} receipt${r === 1 ? "" : "s"} to complete` : null,
+    c > 0 ? `${c} to confirm` : null,
   ].filter(Boolean);
-  const title = `${firm} is waiting for ${parts.join(" and ")}`;
+  const title = `${firm} is waiting for ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]}`;
   const intro = `${firm} does the bookkeeping for ${opts.clientName}. Here is what they still need. It takes a minute in UnReceipt.`;
   const cell = `font-family:${FONT};font-size:14px;line-height:1.4;color:${C.ink};padding:8px 0;border-bottom:1px solid ${C.hairline};`;
   const heading = (t: string) =>
@@ -593,7 +598,7 @@ export function weeklyReminderEmail(opts: {
         shownReceipts.map(
           (l) =>
             `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
-            `<td style="${cell}" valign="top">${esc(l.merchant)}</td>` +
+            `<td style="${cell}" valign="top">${esc(bankTextForEmail(l.merchant))}</td>` +
             `<td style="${cell}text-align:right;padding-left:12px;color:${C.negative};" valign="top">${esc(`missing ${l.missing}`)}</td></tr>`
         )
       ),
@@ -602,17 +607,27 @@ export function weeklyReminderEmail(opts: {
     );
     text.push(
       "Receipts to complete:",
-      ...shownReceipts.map((l) => `  ${l.day}  ${l.merchant}  missing ${l.missing}`),
+      ...shownReceipts.map((l) => `  ${l.day}  ${bankTextForEmail(l.merchant)}  missing ${l.missing}`),
       ...(moreReceipts > 0 ? [`  …and ${moreReceipts} more in UnReceipt.`] : []),
       ""
     );
   }
+  if (c > 0) {
+    const line = `${c} receipt${c === 1 ? " was" : "s were"} read automatically and ${c === 1 ? "waits" : "wait"} for your confirmation under Review needed: compare with the photo and confirm.`;
+    html.push(heading("Receipts to confirm"), paragraph(esc(line)));
+    text.push("Receipts to confirm:", `  ${line}`, "");
+  }
   html.push(button("Open UnReceipt", opts.appUrl));
-  const footer = `${firm} sends this reminder every Monday through UnReceipt while something is missing. Reply to this email to reach them.`;
-  text.push(`Open UnReceipt: ${opts.appUrl}`, "", footer);
+  const footer = `${firm} sends this reminder on Mondays through UnReceipt while something is missing. Reply to this email to reach them.`;
+  const stop = "To stop these weekly emails: Settings, Your accountant.";
+  text.push(`Open UnReceipt: ${opts.appUrl}`, "", footer, `${stop} ${opts.settingsUrl}`);
   return {
     subject: title,
-    html: layout({ preheader: intro, bodyHtml: html.join("\n"), footerHtml: esc(footer) }),
+    html: layout({
+      preheader: intro,
+      bodyHtml: html.join("\n"),
+      footerHtml: `${esc(footer)}<br><a href="${esc(opts.settingsUrl)}" style="color:${C.inkFaint};">${esc(stop)}</a>`,
+    }),
     text: text.join("\n"),
   };
 }
@@ -627,7 +642,7 @@ export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }):
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;">` +
     step(1, "Sign in", "Use this email address; we send you a sign-in link or a code.") +
     step(2, "Invite a client", "Clients → Add client: their name and email. They get an invitation and connect in a minute.") +
-    step(3, "Watch receipts arrive", "Each client's month fills up as they photograph or forward receipts. Every Monday they get a reminder of what's missing.") +
+    step(3, "Watch receipts arrive", "Each client's month fills up as they photograph or forward receipts. On Mondays they get a reminder of what's missing.") +
     `</table>`;
   const bodyHtml = [
     `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
@@ -646,7 +661,7 @@ export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }):
       "",
       "1. Sign in with this email address.",
       "2. Clients → Add client: their name and email.",
-      "3. Each client's month fills up as they photograph or forward receipts. Every Monday they get a reminder of what's missing.",
+      "3. Each client's month fills up as they photograph or forward receipts. On Mondays they get a reminder of what's missing.",
       "",
       `Open the firm portal: ${opts.signInUrl}`,
       "",

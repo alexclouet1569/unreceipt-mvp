@@ -1644,6 +1644,11 @@ CREATE POLICY "Users can view own bank transactions"
 --                       client's page (/api/firm/clients/[orgId]/reminders).
 --                       On by default: the firm invited the client to be
 --                       chased for receipts.
+--   firm_clients.reminders_opted_out_at — the client's own "no weekly
+--                       reminders" (Settings → Your accountant, PATCH
+--                       /api/accountant/link). Only the client sets or clears
+--                       it; the weekly job needs the firm's switch on AND
+--                       this NULL (GDPR art. 21 objection, review 2026-11-09).
 --   client_reminders  — one row per email run, weekly or sent by hand
 --                       (/bank/remind). The unique index on (organization_id,
 --                       week) for weekly rows is the claim that makes a
@@ -1656,7 +1661,8 @@ CREATE POLICY "Users can view own bank transactions"
 -- =============================================================================
 
 ALTER TABLE public.firm_clients
-  ADD COLUMN IF NOT EXISTS weekly_reminder BOOLEAN NOT NULL DEFAULT true;
+  ADD COLUMN IF NOT EXISTS weekly_reminder BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS reminders_opted_out_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS public.client_reminders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

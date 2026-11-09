@@ -61,6 +61,9 @@ export type MatchReceipt = {
   homeCurrency: string | null;
   fxSource: "same" | "ecb" | "manual" | null;
   merchant: string | null;
+  // Still in Review needed: it matches, but nobody has confirmed it yet,
+  // so the firm sees "receipt to confirm" rather than a settled payment.
+  pending?: boolean;
 };
 
 export type TransactionState =

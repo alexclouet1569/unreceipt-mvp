@@ -65,6 +65,11 @@ export default function PrivacyPage() {
               receipt). Used only to find payments that have no receipt yet.
             </li>
             <li>
+              <strong>Reminders your accounting firm sends you.</strong> When
+              each reminder was sent and how many items it listed (not the
+              items themselves), so you and your firm can see what was asked.
+            </li>
+            <li>
               <strong>Subscription status.</strong> Whether you&apos;re trialing,
               active, or canceled — synced from Stripe.
             </li>
@@ -89,6 +94,18 @@ export default function PrivacyPage() {
               model, which returns the structured fields. Anthropic processes
               it on our behalf and does not use it to train its models. Legal
               basis: contract performance.
+            </li>
+            <li>
+              <strong>To work with your accounting firm</strong>, if you
+              connect one — your firm sees your receipts, can import your
+              bank statement to find payments without a receipt, and can
+              have us email you a list of what is missing, by hand or on
+              Mondays. Legal basis: contract performance (you asked us to
+              share with your firm) and, for the Monday reminders, the
+              legitimate interest of your company and its accountant in
+              complete bookkeeping. You can object at any time by turning
+              the weekly reminder off in Settings → Your accountant; stopping
+              the sharing ends all of it.
             </li>
             <li>
               <strong>To bill you</strong> — Stripe handles the actual
@@ -165,8 +182,9 @@ export default function PrivacyPage() {
               (invoices, via Stripe) are kept as the law requires.
             </li>
             <li>
-              <strong>Bank statement lines:</strong> while your company is
-              linked to the accounting firm that imported them. They are
+              <strong>Bank statement lines and the reminder log:</strong> while
+              your company is linked to the accounting firm that imported
+              them or sent the reminders. They are
               deleted when either of you ends the link, when the firm closes
               its account, when the firm removes them, and with your
               account.

@@ -16,7 +16,9 @@ vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     auth: {
       admin: {
-        getUserById: async (id: string) => ({ data: { user: { email: `${id}@client.se` } } }),
+        getUserById: async (id: string) => ({
+          data: { user: { email: `${id}@client.se`, email_confirmed_at: id === "owner-unconfirmed" ? null : "2026-01-01" } },
+        }),
       },
     },
     from: (table: string) => {
@@ -58,6 +60,7 @@ vi.mock("@/lib/supabase-admin", () => ({
         in: (c: string, v: unknown[]) => (filters.push((r) => v.includes(r[c])), q),
         gte: () => q,
         not: (c: string) => (filters.push((r) => r[c] != null), q),
+        is: (c: string, v: unknown) => (filters.push((r) => (r[c] ?? null) === v), q),
         order: () => q,
         limit: () => q,
         single: async () => {
@@ -101,11 +104,15 @@ beforeEach(() => {
       { firm_id: "firm-1", organization_id: "org-a", client_name: "Acme AB", status: "active", weekly_reminder: true, firms: { name: "Byrån AB" } },
       { firm_id: "firm-1", organization_id: "org-off", client_name: "Off AB", status: "active", weekly_reminder: false, firms: { name: "Byrån AB" } },
       { firm_id: "firm-1", organization_id: "org-quiet", client_name: "Quiet AB", status: "active", weekly_reminder: true, firms: { name: "Byrån AB" } },
+      // The client said no: the firm's switch doesn't matter.
+      { firm_id: "firm-1", organization_id: "org-optout", client_name: "No AB", status: "active", weekly_reminder: true, reminders_opted_out_at: "2026-11-10T08:00:00Z", firms: { name: "Byrån AB" } },
     ],
     firm_members: [{ firm_id: "firm-1", email: "anna@byran.se", role: "admin", user_id: "u-anna" }],
     memberships: [
       { organization_id: "org-a", user_id: "owner-a", role: "owner" },
       { organization_id: "org-quiet", user_id: "owner-q", role: "owner" },
+      { organization_id: "org-a", user_id: "owner-unconfirmed", role: "owner" },
+      { organization_id: "org-optout", user_id: "owner-o", role: "owner" },
     ],
     receipts: [
       { id: "r1", organization_id: "org-a", status: "pending_review", merchant_name: null, total: null, receipt_date: "2026-11-10", purchased_at: null, created_at: "2026-11-10T08:00:00Z" },
@@ -144,15 +151,19 @@ describe("runWeeklyReminders", () => {
     expect(mocks.sendEmail).toHaveBeenCalledTimes(1);
     const mail = mocks.sendEmail.mock.calls[0][0];
     expect(mail).toMatchObject({ to: "owner-a@client.se", replyTo: "anna@byran.se", tag: "weekly_reminder" });
-    expect(mail.subject).toBe("Byrån AB is waiting for 1 receipt for bank payments and 1 receipt to complete");
+    expect(mail.subject).toBe("Byrån AB is waiting for 1 receipt for bank payments, 1 receipt to complete and 1 to confirm");
     expect(mail.text).toContain("HORNBACH BARKARBY");
     // Booked yesterday: too early to chase.
     expect(mail.text.match(/HORNBACH/g)).toHaveLength(1);
     expect(mail.text).toContain("missing merchant and amount");
+    // Waiting for a confirmation: counted, not listed.
     expect(mail.text).not.toContain("Ahlsell");
+    expect(mail.text).toContain("1 receipt was read automatically and waits for your confirmation");
+    expect(mail.text).toContain("To stop these weekly emails: Settings, Your accountant. https://app.unreceipt.com/app/settings");
 
     expect(mocks.db.client_reminders).toEqual([
-      expect.objectContaining({ organization_id: "org-a", kind: "weekly", week: "2026-W47", missing_count: 1, review_count: 1, recipients: 1 }),
+      // The unconfirmed owner's address got nothing.
+      expect.objectContaining({ organization_id: "org-a", kind: "weekly", week: "2026-W47", missing_count: 1, review_count: 2, recipients: 1 }),
     ]);
     expect(mocks.db.bank_transactions[0].reminded_at).toEqual(expect.any(String));
 

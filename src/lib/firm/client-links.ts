@@ -13,6 +13,8 @@ type Row = {
   status: string;
   accepted_at: string | null;
   invited_email: string;
+  weekly_reminder?: boolean | null;
+  reminders_opted_out_at?: string | null;
   firms: { name: string } | { name: string }[] | null;
 };
 
@@ -23,7 +25,7 @@ function firmName(row: Row): string {
 
 export async function loadAccountantLinks(user: User): Promise<AccountantLink[]> {
   const db = getSupabaseAdmin();
-  const select = "id, status, accepted_at, invited_email, firms(name)";
+  const select = "id, status, accepted_at, invited_email, weekly_reminder, reminders_opted_out_at, firms(name)";
 
   const { data: memberships } = await db
     .from("memberships")
@@ -72,6 +74,9 @@ export async function loadAccountantLinks(user: User): Promise<AccountantLink[]>
     firmName: firmName(r),
     status,
     since: status === "active" && r.accepted_at ? formatDate(r.accepted_at) : null,
+    ...(status === "active"
+      ? { reminders: { optedOut: Boolean(r.reminders_opted_out_at), firmOn: r.weekly_reminder !== false } }
+      : {}),
   });
   return [
     ...((active.data ?? []) as Row[]).map((r) => toLink(r, "active")),

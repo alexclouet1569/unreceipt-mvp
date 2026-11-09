@@ -11,13 +11,14 @@ export async function deleteBankLines(
   organizationIds: string[]
 ): Promise<{ ok: boolean }> {
   if (organizationIds.length === 0) return { ok: true };
-  const { error } = await supabase
-    .from("bank_transactions")
-    .delete()
-    .in("organization_id", organizationIds);
-  if (error) {
-    console.error("[bank] delete on link end failed", error.code);
-    return { ok: false };
+  // The firm's reminder log for the company ends with the link too
+  // (client_reminders, 2026-11-09).
+  for (const table of ["bank_transactions", "client_reminders"]) {
+    const { error } = await supabase.from(table).delete().in("organization_id", organizationIds);
+    if (error) {
+      console.error(`[bank] ${table} delete on link end failed`, error.code);
+      return { ok: false };
+    }
   }
   return { ok: true };
 }

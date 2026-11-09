@@ -1,7 +1,15 @@
 // POST /api/capture/scan — "Several receipts at once": one photo or one
 // scanned page (multipart field `file`) becomes one receipt, read on the
-// server. The capture sheet sends a stack one file at a time and splits a
-// multi-page PDF into pages in the browser first.
+// server. The capture sheet sends a stack one file at a time.
+//
+// A multi-page PDF arrives either
+//   * split: the whole file was stored first (/api/capture/scan/original),
+//     each page comes here as a one-page PDF with `scan` (that stored
+//     path), `page` and `pages`; the receipt's original is the whole scan,
+//     and a page that isn't a receipt is not saved (it stays in the scan);
+//   * whole (`whole=1`): one receipt for the document, up to MAX_PDF_PAGES,
+//     stored as it is (encrypted PDFs and e-invoices with embedded files
+//     are always sent this way, src/lib/receipts/pdf-inspect.ts).
 //
 // Nobody checks the fields before they are saved, so every receipt made
 // here waits in Review needed (src/lib/receipts/scan-fields.ts): filled in
@@ -23,7 +31,8 @@ import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
 import { computeReceiptStatus, missingFieldsText, missingRequiredFields } from "@/lib/receipts/status";
 import { looksLikeSameReceipt, scanFields } from "@/lib/receipts/scan-fields";
 import { EXTENSION_BY_TYPE, MAX_UPLOAD_BYTES, isAllowedUploadType } from "@/lib/receipts/upload-limits";
-import { countPdfPages } from "@/lib/receipts/pdf-pages";
+import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
+import { isOwnScanPath, MAX_SCAN_PAGES } from "@/lib/receipts/scans";
 import { usableItems, usableVatLines } from "@/lib/receipts/receipt-fields";
 
 export const runtime = "nodejs";
@@ -63,9 +72,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This file is larger than 4 MB." }, { status: 400 });
   }
   const bytes = Buffer.from(await file.arrayBuffer());
-  // One receipt per request: the sheet splits a scan into pages first.
-  if (file.type === "application/pdf" && countPdfPages(bytes) > 1) {
-    return NextResponse.json({ error: "Send one page at a time." }, { status: 400 });
+  const whole = form?.get("whole") === "1";
+  if (file.type === "application/pdf") {
+    const pages = await pdfPageCount(bytes);
+    if (pages === null) return NextResponse.json({ error: "This PDF couldn't be opened." }, { status: 400 });
+    if (whole ? pages > MAX_PDF_PAGES : pages > 1) {
+      return NextResponse.json(
+        { error: whole ? `Up to ${MAX_PDF_PAGES} pages can be read as one receipt.` : "Send one page at a time." },
+        { status: 400 }
+      );
+    }
+  }
+
+  // A page of a stored scan: the scan is this user's own, under our naming.
+  const scanRaw = form?.get("scan");
+  let scan: { path: string; page: number; pages: number } | null = null;
+  if (typeof scanRaw === "string" && scanRaw) {
+    const page = Number(form?.get("page"));
+    const pages = Number(form?.get("pages"));
+    if (
+      file.type !== "application/pdf" ||
+      whole ||
+      !isOwnScanPath(user.id, scanRaw) ||
+      !Number.isInteger(page) ||
+      !Number.isInteger(pages) ||
+      page < 1 ||
+      pages < 2 ||
+      pages > MAX_SCAN_PAGES ||
+      page > pages
+    ) {
+      return NextResponse.json({ error: "invalid scan" }, { status: 400 });
+    }
+    scan = { path: scanRaw, page, pages };
   }
 
   const db = getSupabaseAdmin();
@@ -85,7 +123,11 @@ export async function POST(request: NextRequest) {
   const organizationId = await organizationPromise;
   const fields = scanFields(ocr, await homeCurrencyOf(organizationId));
   if (!fields) {
-    return NextResponse.json({ ok: true, skipped: true, reason: "This doesn't look like a receipt." });
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: scan ? "Not a receipt: kept in the original scan." : "This doesn't look like a receipt.",
+    });
   }
 
   let duplicate = false;
@@ -138,7 +180,15 @@ export async function POST(request: NextRequest) {
       vat_lines: fields.tax_amount != null ? (vatLines ?? null) : null,
       payment_method: fields.payment_method,
       items: usableItems(fields.items) ?? null,
-      notes: duplicate ? DUPLICATE_NOTE : null,
+      notes:
+        [
+          scan ? `Page ${scan.page} of ${scan.pages} of a scanned PDF; the whole file is kept as the original.` : null,
+          duplicate ? DUPLICATE_NOTE : null,
+        ]
+          .filter(Boolean)
+          .join(" ") || null,
+      original_source_url: scan ? scan.path : null,
+      original_source_kind: scan ? "application/pdf" : null,
       image_url: path,
       image_captured_at: new Date().toISOString(),
       source: "paper",

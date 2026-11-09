@@ -48,14 +48,16 @@ async function loadMonthReceipts(organizationId: string, month: string): Promise
 
 // The link's weekly-reminder switch and the latest reminder sent. Read
 // failures fall back to "on, never sent" (the default) and are logged.
-async function loadReminderState(firmClientId: string, organizationId: string): Promise<ReminderState> {
+async function loadReminderState(firmClientId: string, firmId: string, organizationId: string): Promise<ReminderState> {
   const db = getSupabaseAdmin();
   const [link, last] = await Promise.all([
-    db.from("firm_clients").select("weekly_reminder").eq("id", firmClientId).maybeSingle(),
+    db.from("firm_clients").select("weekly_reminder, reminders_opted_out_at").eq("id", firmClientId).maybeSingle(),
     db
       .from("client_reminders")
       .select("sent_at")
       .eq("organization_id", organizationId)
+      // This firm's reminders only: an earlier firm's aren't its business.
+      .eq("firm_id", firmId)
       .order("sent_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -65,6 +67,7 @@ async function loadReminderState(firmClientId: string, organizationId: string): 
   }
   return {
     weekly: link.data?.weekly_reminder !== false,
+    clientOptedOut: Boolean(link.data?.reminders_opted_out_at),
     lastSentAt: typeof last.data?.sent_at === "string" ? last.data.sent_at : null,
   };
 }
@@ -92,7 +95,7 @@ export default async function FirmClientPage({
   const [loaded, home, reminders] = await Promise.all([
     loadMonthReceipts(access.organizationId, month),
     homeCurrencyOf(access.organizationId),
-    loadReminderState(access.firmClientId, access.organizationId),
+    loadReminderState(access.firmClientId, ctx.firmId, access.organizationId),
   ]);
   // The client's own currency next to foreign amounts (src/lib/fx.ts).
   const [bank, receipts] = await Promise.all([

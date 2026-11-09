@@ -20,6 +20,7 @@
 // use the service role (`receipt-originals` has no user DELETE policy), on
 // paths checked with isOwnedStoragePath first.
 
+import { isScanPath } from "@/lib/receipts/scans";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
@@ -332,7 +333,23 @@ export async function DELETE(
     row.original_source_url &&
     isOwnedStoragePath(row.original_source_url, user.id)
   ) {
-    removals.push({ bucket: "receipt-originals", path: row.original_source_url });
+    // A scanned PDF is the original of every page receipt made from it:
+    // it goes with the last of them (src/lib/receipts/scans.ts).
+    let shared = false;
+    if (isScanPath(row.original_source_url)) {
+      const { count, error: countError } = await getSupabaseAdmin()
+        .from("receipts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("original_source_url", row.original_source_url)
+        .neq("id", id);
+      if (countError) {
+        console.error("[/api/receipts/DELETE] scan share check failed", countError.code);
+        return NextResponse.json({ error: "delete failed" }, { status: 500 });
+      }
+      shared = (count ?? 0) > 0;
+    }
+    if (!shared) removals.push({ bucket: "receipt-originals", path: row.original_source_url });
   }
   // An email whose attachment is the original keeps the message itself
   // next to it as <id>.eml; a missing file is not an error for remove().

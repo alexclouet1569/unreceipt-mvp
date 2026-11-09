@@ -22,6 +22,7 @@ export type RawLink = {
   status: string;
   direction: string;
   weekly_reminder: boolean | null;
+  reminders_opted_out_at?: string | null;
   accepted_at: string | null;
   created_at: string;
 };
@@ -104,7 +105,7 @@ export function buildPilotOverview(
       lastReceiptAt: null,
       bySource: {},
       bankLines: 0,
-      weeklyReminder: l.weekly_reminder !== false,
+      weeklyReminder: l.weekly_reminder !== false && !l.reminders_opted_out_at,
       lastReminderAt: null,
     });
   }
@@ -224,7 +225,7 @@ export async function loadPilotOverview(now = new Date()): Promise<PilotOverview
     db.from("firm_members").select("firm_id, email, role, user_id, claimed_at").limit(2000),
     db
       .from("firm_clients")
-      .select("firm_id, organization_id, client_name, status, direction, weekly_reminder, accepted_at, created_at")
+      .select("firm_id, organization_id, client_name, status, direction, weekly_reminder, reminders_opted_out_at, accepted_at, created_at")
       .in("status", ["active", "invited"])
       .limit(5000),
   ]);

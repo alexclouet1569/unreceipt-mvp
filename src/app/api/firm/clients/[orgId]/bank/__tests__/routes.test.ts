@@ -91,7 +91,7 @@ beforeEach(() => {
   mocks.rateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.sendEmail.mockReset().mockResolvedValue({ ok: true, id: "e1" });
   mocks.loadBankMonth.mockReset();
-  mocks.getUserById.mockReset().mockResolvedValue({ data: { user: { email: "owner@acme.se" } } });
+  mocks.getUserById.mockReset().mockResolvedValue({ data: { user: { email: "owner@acme.se", email_confirmed_at: "2026-01-01" } } });
   mocks.answer.mockReset().mockReturnValue({ data: [], error: null });
   mocks.calls = [];
   vi.spyOn(console, "error").mockImplementation(() => {});

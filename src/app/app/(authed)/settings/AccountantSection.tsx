@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/Switch";
 
 export type AccountantLink = {
   id: string;
@@ -12,6 +13,9 @@ export type AccountantLink = {
   // then the address it went to). active: the firm sees our receipts.
   status: "invited" | "active" | "sent";
   since: string | null;
+  // Active links: the Monday reminder email from the firm. optedOut is the
+  // client's own choice (this page); firmOn the firm's switch.
+  reminders?: { optedOut: boolean; firmOn: boolean };
 };
 
 /**
@@ -82,6 +86,28 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
     }
   };
 
+  const setReminders = async (link: AccountantLink, on: boolean) => {
+    if (busy) return;
+    setBusy(`${link.id}:reminders`);
+    setError(null);
+    try {
+      const res = await fetch("/api/accountant/link", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ linkId: link.id, weeklyReminders: on }),
+      });
+      if (!res.ok) {
+        setError("Couldn't save. Try again.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Couldn't save. Check your connection and try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const active = links.filter((l) => l.status === "active");
   const pending = links.filter((l) => l.status === "invited");
   const sent = links.filter((l) => l.status === "sent");
@@ -120,6 +146,29 @@ export function AccountantSection({ links }: { links: AccountantLink[] }) {
                 {busy === `${l.id}:disconnect` ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Stop sharing
               </Button>
+              {l.reminders ? (
+                <div className="flex w-full items-center justify-between gap-3 border-t border-[var(--hairline)] pt-2">
+                  <span className="min-w-0">
+                    <span id={`reminders-${l.id}`} className="block text-[var(--ink)]" style={{ fontSize: "14px", fontWeight: 600 }}>
+                      Weekly reminder from {l.firmName}
+                    </span>
+                    <span id={`reminders-${l.id}-desc`} className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.4 }}>
+                      {l.reminders.optedOut
+                        ? "Off. Your accountant can still email you when something is missing."
+                        : l.reminders.firmOn
+                          ? "On Mondays, an email listing missing receipts, when there are any."
+                          : "Your accountant has turned it off for now."}
+                    </span>
+                  </span>
+                  <Switch
+                    checked={!l.reminders.optedOut}
+                    onClick={() => setReminders(l, l.reminders!.optedOut)}
+                    labelledBy={`reminders-${l.id}`}
+                    describedBy={`reminders-${l.id}-desc`}
+                    busy={busy !== null}
+                  />
+                </div>
+              ) : null}
             </li>
           ))}
           {sent.map((l) => (

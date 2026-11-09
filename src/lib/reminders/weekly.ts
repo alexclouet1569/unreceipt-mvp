@@ -8,8 +8,12 @@
 //     (src/lib/bank), booked at least PAYMENT_GRACE_DAYS ago so a card
 //     payment from yesterday isn't chased before the receipt had a chance
 //     to arrive;
-//   * receipts that still miss their merchant, amount or date.
-// Nothing is sent when both lists are empty.
+//   * receipts that still miss their merchant, amount or date;
+//   * how many receipts were read automatically and wait for a
+//     confirmation (until confirmed they are not evidence anyone checked).
+// Nothing is sent when all three are empty. Only to confirmed addresses,
+// and never to a company whose owner turned the reminders off
+// (firm_clients.reminders_opted_out_at).
 //
 // At most one email per company per ISO week: a client_reminders row is
 // claimed (unique per organisation and week) before sending and removed
@@ -72,6 +76,8 @@ export function isoWeek(day: string): string {
 
 export type ClientNeeds = {
   payments: BankLineView[];
+  // Read automatically, complete, waiting only for a confirmation.
+  toConfirm: number;
   receipts: Array<Pick<Receipt, "id" | "merchant_name" | "receipt_date" | "purchased_at" | "created_at"> & { missing: string }>;
 };
 
@@ -98,8 +104,9 @@ export async function collectClientNeeds(organizationId: string, now: Date): Pro
     .order("created_at", { ascending: true })
     .limit(200);
   if (error) throw new Error(`review receipts unreadable (${error.code})`);
-  const receipts = ((data ?? []) as Receipt[])
-    .map((r) => ({ r, missing: missingRequiredFields(r) }))
+  const pending = ((data ?? []) as Receipt[]).map((r) => ({ r, missing: missingRequiredFields(r) }));
+  const toConfirm = pending.filter(({ missing }) => missing.length === 0).length;
+  const receipts = pending
     .filter(({ missing }) => missing.length > 0)
     .map(({ r, missing }) => ({
       id: r.id,
@@ -110,7 +117,7 @@ export async function collectClientNeeds(organizationId: string, now: Date): Pro
       missing: missingFieldsText(missing),
     }));
 
-  return { payments, receipts };
+  return { payments, receipts, toConfirm };
 }
 
 type LinkRow = {
@@ -147,6 +154,8 @@ export async function runWeeklyReminders(
     .select("firm_id, organization_id, client_name, firms(name)")
     .eq("status", "active")
     .eq("weekly_reminder", true)
+    // The client's own "no weekly reminders" always wins.
+    .is("reminders_opted_out_at", null)
     .not("organization_id", "is", null)
     .not("firm_id", "is", null);
   if (linkError) throw new Error(`links unreadable (${linkError.code})`);
@@ -178,7 +187,7 @@ export async function runWeeklyReminders(
     }
     try {
       const needs = await collectClientNeeds(link.organization_id, now);
-      if (needs.payments.length === 0 && needs.receipts.length === 0) {
+      if (needs.payments.length === 0 && needs.receipts.length === 0 && needs.toConfirm === 0) {
         result.nothingToAsk++;
         continue;
       }
@@ -192,7 +201,7 @@ export async function runWeeklyReminders(
           kind: "weekly",
           week,
           missing_count: needs.payments.length,
-          review_count: needs.receipts.length,
+          review_count: needs.receipts.length + needs.toConfirm,
         })
         .select("id")
         .single();
@@ -228,14 +237,17 @@ export async function runWeeklyReminders(
             missing: r.missing,
           };
         }),
+        toConfirm: needs.toConfirm,
         appUrl: appUrl("/app"),
+        settingsUrl: appUrl("/app/settings"),
       });
       const reply = await firmReplyTo(link.firm_id);
 
       let recipients = 0;
       for (const userId of [...new Set((owners ?? []).map((o) => o.user_id as string))]) {
         const { data: userRes } = await db.auth.admin.getUserById(userId);
-        const to = userRes?.user?.email;
+        // Confirmed addresses only: the email carries bank text.
+        const to = userRes?.user?.email_confirmed_at ? userRes.user.email : null;
         if (!to) continue;
         const sent = await sendEmail({ to, ...content, replyTo: reply, tag: "weekly_reminder" });
         if (sent.ok) recipients++;

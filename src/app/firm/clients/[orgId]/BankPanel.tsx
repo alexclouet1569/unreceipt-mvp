@@ -303,6 +303,7 @@ export function BankPanel({
             {matched.map((l) => (
               <LineRow key={l.id} line={l} busy={busy} onClear={() => decide(l, "clear")}>
                 {l.receipt?.merchant ?? "Receipt"}
+                {l.receipt?.pending ? " · receipt to confirm" : ""}
                 {l.state.kind === "matched" && l.state.how === "manual" ? " · linked by hand" : ""}
               </LineRow>
             ))}

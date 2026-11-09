@@ -13,7 +13,7 @@ export type BankLineView = {
   description: string;
   state: TransactionState;
   // The matched receipt, for "Matched" lines.
-  receipt: { id: string; merchant: string | null; day: string | null } | null;
+  receipt: { id: string; merchant: string | null; day: string | null; pending: boolean } | null;
   remindedAt: string | null;
 };
 
@@ -96,6 +96,7 @@ export function toMatchReceipt(r: Receipt): MatchReceipt {
     homeCurrency: r.home_currency,
     fxSource: r.fx_source,
     merchant: r.merchant_name,
+    pending: r.status === "pending_review",
   };
 }
 
@@ -128,7 +129,7 @@ export function buildBankMonth(transactions: BankTransaction[], receipts: Receip
       currency: t.currency,
       description: t.description,
       state,
-      receipt: r ? { id: r.id, merchant: r.merchant, day: r.day } : null,
+      receipt: r ? { id: r.id, merchant: r.merchant, day: r.day, pending: Boolean(r.pending) } : null,
       remindedAt: t.reminded_at,
     };
   });
