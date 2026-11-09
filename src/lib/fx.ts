@@ -15,6 +15,7 @@
 
 import { getSupabaseAdmin } from "./supabase-admin";
 import {
+  FX_CONVERTED_CURRENCIES,
   FX_FIRST_RATE_DATE,
   FX_MAX_RATE_AGE_DAYS,
 } from "./bookkeeping/rules";
@@ -22,10 +23,10 @@ import type { Receipt } from "./types";
 
 const ECB_90D = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml";
 const ECB_ALL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml";
-// Only these are cached: the receipt and company currencies we support,
-// plus the neighbours a Nordic company meets. Keeps a full-history fetch
-// to a few tens of thousands of rows.
-const CACHED_CURRENCIES = new Set(["SEK", "USD", "GBP", "NOK", "DKK", "CHF", "PLN"]);
+// Only these are cached (FX_CONVERTED_CURRENCIES without the euro, which
+// is the base and always 1). Keeps a full-history fetch to a few tens of
+// thousands of rows.
+const CACHED_CURRENCIES = new Set<string>(FX_CONVERTED_CURRENCIES.filter((c) => c !== "EUR"));
 // The 90-day file covers recent dates; older ones need the full history.
 const RECENT_DAYS = 85;
 

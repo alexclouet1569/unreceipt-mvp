@@ -84,6 +84,7 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 
+import { FX_CONVERTED_CURRENCIES, INPUT_VAT_CURRENCY } from "@/lib/bookkeeping/rules";
 import {
   MAX_EXPORT_RECEIPTS,
   PART_TARGET_BYTES,
@@ -162,6 +163,12 @@ describe("export helpers", () => {
     // A typed amount works for any currency, so nothing may promise a blank.
     expect(firm).toContain("Total SEK blank until the bank-statement amount is typed in");
     expect(firm).toContain("SUGGESTION");
+    // The currency list is typed by hand: it must be exactly the set fx.ts
+    // converts, minus SEK itself.
+    const listed = firm.match(/Only ([A-Z, ]+ and [A-Z]{3}) get an estimate/)?.[1];
+    expect(listed?.split(/, | and /).sort()).toEqual(
+      FX_CONVERTED_CURRENCIES.filter((c) => c !== INPUT_VAT_CURRENCY).sort()
+    );
     // A customer's own export has no bookkeeping.csv, so no word of it.
     const own = readme("2026-10", 1, null, now, null, false);
     expect(own).not.toContain("bookkeeping.csv");
