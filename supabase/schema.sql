@@ -1370,7 +1370,7 @@ CREATE POLICY "Parties can view firm links"
 --    their original amount and also get the amount in the home currency:
 --    home_total, at fx_rate from the ECB reference rate of fx_date
 --    (fx_source 'ecb'), the same amount when the currencies match
---    ('same'), or typed by the accountant from the bank statement
+--    ('same'), or typed in by the client from the bank statement
 --    ('manual'). fx_rates caches the ECB daily rates (EUR base); only the
 --    server reads or writes it.
 --
@@ -1548,3 +1548,150 @@ CREATE TRIGGER receipts_set_updated_at
 -- Dropped after the CREATE, so a partial run never leaves the table
 -- without an updated_at trigger.
 DROP TRIGGER IF EXISTS receipts_updated_at ON public.receipts;
+
+-- =============================================================================
+-- 2026-11-08 — bank statements and missing receipts (firm portal)
+--
+-- The accounting firm imports a client company's bank statement (CSV from
+-- the internet bank, src/lib/bank/parse-statement.ts) on the client's page.
+-- Every money-out line is matched to a receipt on read
+-- (src/lib/bank/match.ts): matches are computed, not stored, so a receipt
+-- the client adds later matches by itself. Stored here are only the lines
+-- and the accountant's decisions: a receipt linked by hand
+-- (linked_receipt_id), "no receipt needed" (no_receipt_reason), and when
+-- the client was last emailed about the line (reminded_at).
+--
+-- Not the 2026-10 `transactions` table: that one is per user, unused since
+-- the first prototype, and deleting one of its rows would delete the
+-- receipt (receipts.transaction_id ON DELETE CASCADE). Here a bank line
+-- belongs to the organisation and never deletes a receipt; deleting a
+-- receipt only clears the link. Only money out is stored (incoming lines
+-- carry customers' names and aren't checked). The lines end with the firm
+-- link (src/lib/bank/cleanup.ts: either side revoking, or the firm closing).
+--
+-- dedupe_key is a sha256 of day, amount, currency, description and the
+-- line's occurrence number in its file, so re-importing a file (or an
+-- overlapping one) adds nothing twice. decided_by / imported_by carry no
+-- FK, like receipts.booked_by: the audit value survives a staff account.
+--
+-- The client company's own data: cascades with the organisation (and so
+-- with the account, see deleteAccount()). Members of the organisation may
+-- read it; every write is server-only (the firm routes, service role).
+-- Idempotent.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.bank_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  booked_on DATE NOT NULL,
+  -- Negative = money out.
+  amount NUMERIC(14, 2) NOT NULL,
+  currency TEXT NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+  description TEXT NOT NULL DEFAULT '' CHECK (char_length(description) <= 300),
+  dedupe_key TEXT NOT NULL CHECK (char_length(dedupe_key) = 64),
+  linked_receipt_id UUID REFERENCES public.receipts(id) ON DELETE SET NULL,
+  no_receipt_reason TEXT,
+  decided_by UUID,
+  decided_at TIMESTAMPTZ,
+  reminded_at TIMESTAMPTZ,
+  imported_by UUID,
+  imported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT bank_transactions_one_decision
+    CHECK (linked_receipt_id IS NULL OR no_receipt_reason IS NULL)
+);
+
+-- Which document stands in for a receipt (src/lib/bank/match.ts). Named and
+-- re-created so the list can grow without rewriting the table.
+ALTER TABLE public.bank_transactions
+  DROP CONSTRAINT IF EXISTS bank_transactions_no_receipt_reason_check;
+ALTER TABLE public.bank_transactions
+  ADD CONSTRAINT bank_transactions_no_receipt_reason_check CHECK (
+    no_receipt_reason IS NULL
+    OR no_receipt_reason IN ('bank_fee', 'transfer', 'tax', 'salary', 'loan', 'invoice_elsewhere', 'other')
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS bank_transactions_dedupe_unique
+  ON public.bank_transactions(organization_id, dedupe_key);
+CREATE INDEX IF NOT EXISTS bank_transactions_org_day_idx
+  ON public.bank_transactions(organization_id, booked_on);
+-- One receipt pays one bank line.
+CREATE UNIQUE INDEX IF NOT EXISTS bank_transactions_linked_receipt_unique
+  ON public.bank_transactions(linked_receipt_id) WHERE linked_receipt_id IS NOT NULL;
+
+ALTER TABLE public.bank_transactions ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.bank_transactions FROM anon, authenticated;
+
+DROP POLICY IF EXISTS "Users can view own bank transactions" ON public.bank_transactions;
+CREATE POLICY "Users can view own bank transactions"
+  ON public.bank_transactions FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = bank_transactions.organization_id
+         AND m.user_id = (select auth.uid())
+    )
+  );
+
+-- =============================================================================
+-- 2026-11-09 — weekly reminders to client companies (firm portal)
+--
+-- Every Monday /api/cron/weekly-reminders (src/lib/reminders/weekly.ts)
+-- emails each linked client company's owners what their accounting firm is
+-- still waiting for: bank payments without a receipt (2026-11-08 block) and
+-- receipts that still miss their merchant, amount or date. Nothing is sent
+-- to a company with nothing to ask for.
+--
+--   firm_clients.weekly_reminder — the firm switches it per client on the
+--                       client's page (/api/firm/clients/[orgId]/reminders).
+--                       On by default: the firm invited the client to be
+--                       chased for receipts.
+--   firm_clients.reminders_opted_out_at — the client's own "no weekly
+--                       reminders" (Settings → Your accountant, PATCH
+--                       /api/accountant/link). Only the client sets or clears
+--                       it; the weekly job needs the firm's switch on AND
+--                       this NULL (GDPR art. 21 objection, review 2026-11-09).
+--   client_reminders  — one row per email run, weekly or sent by hand
+--                       (/bank/remind). The unique index on (organization_id,
+--                       week) for weekly rows is the claim that makes a
+--                       re-run in the same ISO week send nothing twice; the
+--                       counts feed /admin/pilot. No receipt contents here.
+--
+-- The client company's data: cascades with the organisation and with the
+-- firm. Members of the organisation may read it; writes are server-only.
+-- Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.firm_clients
+  ADD COLUMN IF NOT EXISTS weekly_reminder BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS reminders_opted_out_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS public.client_reminders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  firm_id UUID REFERENCES public.firms(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('weekly', 'manual')),
+  -- ISO week, e.g. '2026-W46', for weekly rows.
+  week TEXT CHECK (week IS NULL OR week ~ '^\d{4}-W\d{2}$'),
+  missing_count INTEGER NOT NULL DEFAULT 0 CHECK (missing_count >= 0),
+  review_count INTEGER NOT NULL DEFAULT 0 CHECK (review_count >= 0),
+  recipients INTEGER NOT NULL DEFAULT 0 CHECK (recipients >= 0),
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT client_reminders_weekly_has_week CHECK (kind <> 'weekly' OR week IS NOT NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS client_reminders_weekly_unique
+  ON public.client_reminders(organization_id, week) WHERE kind = 'weekly';
+CREATE INDEX IF NOT EXISTS client_reminders_sent_idx
+  ON public.client_reminders(sent_at DESC);
+
+ALTER TABLE public.client_reminders ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.client_reminders FROM anon, authenticated;
+
+DROP POLICY IF EXISTS "Users can view own client reminders" ON public.client_reminders;
+CREATE POLICY "Users can view own client reminders"
+  ON public.client_reminders FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = client_reminders.organization_id
+         AND m.user_id = (select auth.uid())
+    )
+  );

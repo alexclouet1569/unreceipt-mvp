@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   updateEq: vi.fn(),
   deleteEq: vi.fn(),
   storageRemove: vi.fn(),
+  // Other receipts sharing a scanned PDF (count query).
+  scanSharers: 0,
 }));
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
@@ -23,6 +25,13 @@ vi.mock("@/lib/usage", async (importOriginal) => ({
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({
+      select: () => {
+        const chain = {
+          eq: () => chain,
+          neq: async () => ({ count: mocks.scanSharers, error: null }),
+        };
+        return chain;
+      },
       update: (payload: Record<string, unknown>) => ({
         eq: (col: string, val: string) => ({
           eq: (col2: string, val2: string) =>
@@ -431,6 +440,22 @@ describe("DELETE /api/receipts/[id]", () => {
     expect(res.status).toBe(200);
     expect(mocks.storageRemove).not.toHaveBeenCalled();
     expect(mocks.deleteEq).toHaveBeenCalledWith("id", RECEIPT_ID);
+  });
+
+  it("keeps a scanned PDF other page receipts still use, and removes it with the last one", async () => {
+    const scan = `${USER_ID}/scans/22222222-2222-4222-8222-222222222222.pdf`;
+    const row = { data: { id: RECEIPT_ID, image_url: `${USER_ID}/page.pdf`, original_source_url: scan }, error: null };
+
+    mocks.scanSharers = 2;
+    mocks.maybeSingle.mockResolvedValueOnce(row);
+    expect((await del()).status).toBe(200);
+    expect(mocks.storageRemove).toHaveBeenCalledWith("receipts", [`${USER_ID}/page.pdf`]);
+    expect(mocks.storageRemove).not.toHaveBeenCalledWith("receipt-originals", [scan]);
+
+    mocks.scanSharers = 0;
+    mocks.maybeSingle.mockResolvedValueOnce(row);
+    expect((await del()).status).toBe(200);
+    expect(mocks.storageRemove).toHaveBeenCalledWith("receipt-originals", [scan]);
   });
 
   it("returns 404 for a row the caller can't see", async () => {

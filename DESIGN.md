@@ -78,7 +78,7 @@ Restrained palette. Brand green is an accent, not a background.
 | `--ink-muted` | `#5A5F7A` | Body, secondary labels |
 | `--ink-faint` | `#9CA0B8` | Dates, meta, micro caps |
 | `--hairline` | `#E8E5DD` | 1px borders and dividers — warm gray to match the cream |
-| `--negative` | `#C73E4E` | Destructive only (delete) |
+| `--negative` | `#C73E4E` | Destructive actions (delete), and **missing data**: the empty required fields of a receipt under review ("Amount · Missing", red field border) and bank payments without a receipt in the firm portal. For missing data: text and field borders only, never a background (destructive buttons keep the `--destructive` fill). 4.97:1 on white. |
 | `--attention` | `#C99440` | "Needs attention" accent: review-needed left rule on receipt cards, over-the-plan progress bar. Friendly honey, never red. |
 | `--attention-tint` | `#FBF1DE` | Background of attention notices (plan-usage notice above the inbox) |
 | `--attention-deep` | `#8C6320` | Text and icons on `--attention-tint` (≈5:1, passes AA) |
@@ -195,6 +195,7 @@ full 9999   FAB, avatars, pill badges
 - Amount: `Geist Mono 500 / 18 / -0.01em` in `--ink`. Currency suffix `kr` at 11px in `--ink-faint`, 3px left margin, vertically aligned to baseline+1px.
 - Foreign receipt: under the amount, right-aligned on the meta row, `≈ 267.98 kr` in `amount-row` (Geist Mono 14/400) `--ink-faint`, suffix split like the main amount.
 - Active state: `scale(0.985)` over 120ms.
+- Review needed: 3px `--attention` left rule. The meta row starts with what is missing, `Missing amount and date` (`--negative`, Manrope 600), or `To confirm` (`--attention-deep`, Manrope 600) when every field is there and the receipt only waits for a confirmation. First, so a narrow card truncates the date instead.
 
 ### Digital receipt (`ReceiptDetailCard`)
 
@@ -230,6 +231,17 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
   - Footer: "Read from your photo. Tap any value to change it." when OCR filled the form, then **Save receipt** (54px).
 - **Fallback.** If the photo can't be read, the same form shows with the photo still attached, an attention notice ("We couldn't read this photo…") and the title "Fill in the details". Manual entry uses the title "Enter manually" and a back button to stage 1.
 - Placeholders describe the field ("Shop or company", "Card, Swish, cash…"); they never look like example data. No red asterisks: required fields are enforced on save.
+
+### Several at once (`BatchCapture`)
+
+- Third button on the capture sheet's first screen, secondary style: **Several at once (photos or a scan)**. It opens the photo library with multiple selection (photos and PDFs); the sheet title becomes "Several receipts".
+- A multi-page PDF first shows a row asking "Is each page a receipt, or is the file one receipt?" with two 44px buttons, **Each page is a receipt** and **One receipt** (white, hairline). The status block says a scanned PDF is kept whole as the original.
+- One row per photo or scanned page: a 32px status mark (spinner while reading, `--brand-action` check when saved, `--attention` dot when skipped or failed), the merchant in Manrope 700 / 15, then `Missing amount` (`--negative`, 600) or `To confirm` (`--attention-deep`, 600), and the amount in `amount-row` (Geist Mono 14/400) on the right. Rows are hairline-divided, no cards.
+- A live status line on top ("Reading 3 of 12", then "11 receipts saved") with one sentence on what happens next. Footer: **Photo** and **Add more** (secondary, side by side), **Try again (n)** when something failed or the rate limit paused the queue, and **Done** (primary), disabled while files are being read, because closing the sheet stops the ones not yet sent; closing the sheet another way then asks first. The status block scrolls on its own (at most 40% of the sheet) so Done never leaves the screen. Focus moves to the status line when the batch opens. The choose panel's viewfinder shrinks to 190px so all four options fit on small phones.
+
+### Switch (`src/components/Switch.tsx`)
+
+The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when on and `--ink-faint` when off (so a screen's primary action stays its one green), white 20px thumb, colour 100ms, thumb 200ms on the entrance curve. Labelled by the visible title (`aria-labelledby`) and described by the line under it. While saving it stays focusable (`aria-disabled`) and ignores presses. Used for Include VAT, the firm's weekly reminder per client, and the client's own weekly-reminder opt-out.
 
 ### Swipe to delete
 
@@ -321,6 +333,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-16 | **Digital receipt redesign + "Receipt saved" step.** `ReceiptDetailCard` becomes a paper receipt (perforated top, torn bottom, dotted leaders, verified stamp) and is shown right after saving as well as in the detail view. VAT moves from the mint panel to leader lines under the total. Store logos for a hand-checked list of merchants, served through our own cached endpoint. Inbox gains By date / By category grouping and category chips. | The founder wanted a receipt that feels like the one on the landing page, visible the moment it's created. Logos only where we're sure of the match: a wrong logo on an accounting record is worse than initials. The footer no longer says "Awaiting verification" on receipts nobody else will verify. |
 | 2026-11-07 | **Photo viewer**: tap a receipt photo (capture sheet, Original tab) to see it full screen on `--ink`, pinch / double-tap / ± to zoom; "Delete photo" in the capture sheet only. | The founder wanted to check the read values against the photo; a 64px thumbnail can't show the small print. The original of a saved receipt is evidence, so it can't be deleted from the viewer. |
 | 2026-11-08 | **Swipe left to delete a receipt** on `/app`: reveals a red Delete action, tapping it deletes; the row disappears immediately with 5 s to Undo, and returns if the server refuses. | The founder wanted the iOS-native way to remove a receipt from the list. Two gestures (swipe, then tap) keep a stray swipe from deleting an accounting record. |
+| 2026-11-08 | **Missing is red, and only what is missing.** The "Review needed" form loses its honey background; each empty required field gets a red label suffix (`· Missing`) and a red border (`aria-invalid`), which go away as it is filled in. The panel names the missing fields ("Missing: amount and date.") or says merchant, amount and date are filled in and asks for a confirmation (button "Confirm receipt"). The inbox card starts its meta row with `Missing amount` (red) or `To confirm` (honey) instead of ending it with `needs review`. The firm portal's bank check shows payments without a receipt in red. Amends the 2026-10-15 "red only for delete" rule for missing data; other non-destructive errors stay honey. | Founder feedback: the whole honey panel didn't say what was missing, and a receipt with every field filled still said "Fill the missing fields". Red on just the gaps reads as "this is missing" at a glance. |
 | 2026-11-08 | **Setup guide illustrations**: the forwarding guide shows one action at a time with a drawn close-up of the other app's screen (target outlined in `--ring`, a cursor that glides there once, 3 pulses, still under reduced motion) next to a numbered checklist. Button names follow the language of the user's mail (EN/SV/FR switch). | 8 clicks in one breadcrumb were too many to follow while switching tabs; Swedish and French users don't see English button names. |
 
 ---

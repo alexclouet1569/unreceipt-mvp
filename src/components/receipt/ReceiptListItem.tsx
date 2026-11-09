@@ -8,6 +8,7 @@ import {
 } from "@/lib/receipt-format";
 import { MerchantLogo } from "@/components/receipt/MerchantLogo";
 import type { Receipt } from "@/lib/types";
+import { missingFieldsText, missingRequiredFields } from "@/lib/receipts/status";
 
 type ReceiptListItemProps = {
   receipt: Receipt;
@@ -23,6 +24,9 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
     receipt.currency,
   );
   const pending = receipt.status === "pending_review";
+  // What a person still has to fill in; nothing when the receipt only
+  // waits for a confirmation (read with low confidence, untrusted sender).
+  const missing = pending ? missingRequiredFields(receipt) : [];
   // A foreign receipt also shows its amount in the company's currency.
   const converted =
     receipt.home_total != null &&
@@ -99,27 +103,34 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
             className="text-[var(--ink-faint)] truncate min-w-0"
             style={{ fontSize: "13px", fontWeight: 500 }}
           >
+            {/* First, so a narrow card truncates the date, not this. */}
+            {pending ? (
+              <>
+                {missing.length > 0 ? (
+                  <span
+                    className="text-[var(--negative)]"
+                    style={{ fontWeight: 600 }}
+                  >
+                    Missing {missingFieldsText(missing)}
+                  </span>
+                ) : (
+                  <span
+                    className="text-[var(--attention-deep)]"
+                    style={{ fontWeight: 600 }}
+                  >
+                    To confirm
+                  </span>
+                )}
+                <span style={{ margin: "0 6px" }} aria-hidden="true">
+                  ·
+                </span>
+              </>
+            ) : null}
             {config.label}
             <span style={{ margin: "0 6px" }} aria-hidden="true">
               ·
             </span>
             {formatRelative(receipt.receipt_date)}
-            {pending ? (
-              <>
-                <span style={{ margin: "0 6px" }} aria-hidden="true">
-                  ·
-                </span>
-                <span
-                  className="font-accent italic"
-                  style={{
-                    color: "var(--attention-mint)",
-                    fontWeight: 500,
-                  }}
-                >
-                  needs review
-                </span>
-              </>
-            ) : null}
           </p>
           {converted ? (
           <p

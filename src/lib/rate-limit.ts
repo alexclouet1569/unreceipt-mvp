@@ -67,6 +67,18 @@ export const RATE_LIMITS = {
     { limit: 5, windowSeconds: 60 * 60 },
     { limit: 10, windowSeconds: 24 * 60 * 60 },
   ],
+  // A firm importing a client's bank statement: a few files per client at
+  // month-end, for many clients. Each import writes up to 5,000 rows.
+  bankImport: [
+    { limit: 30, windowSeconds: 60 * 60 },
+    { limit: 200, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Per client company, on top of the per-user limit: one company's
+  // statements are a few files a month.
+  bankImportOrg: [{ limit: 20, windowSeconds: 24 * 60 * 60 }],
+  // Per client company: the "missing receipts" email goes to its owners.
+  // A couple a day covers a retry; more would be nagging.
+  bankReminder: [{ limit: 3, windowSeconds: 24 * 60 * 60 }],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

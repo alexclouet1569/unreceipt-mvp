@@ -15,6 +15,17 @@ import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 
 export const ATTACHMENT_CONFIDENCE_CAP = UNTRUSTED_EXTRACTION_CONFIDENCE_CAP;
 
+/**
+ * Payment method as read, without anything that could be a card number:
+ * runs of 7+ digits (spaces or dashes inside) become "•••". Receipts
+ * print masked numbers, but a model may still read one in full.
+ */
+export function safePaymentMethod(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.replace(/\d(?:[ -]?\d){6,}/g, "•••").trim().slice(0, 50);
+  return s || null;
+}
+
 function finite(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
@@ -69,8 +80,7 @@ export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null 
       typeof result.seller_vat_number === "string" ? result.seller_vat_number.trim().slice(0, 32) || null : null,
     vat_lines: vatLines,
     category,
-    payment_method:
-      typeof result.payment_method === "string" ? result.payment_method.trim().slice(0, 50) || null : null,
+    payment_method: safePaymentMethod(result.payment_method),
     card_last_four: null,
     notes: null,
     items: items

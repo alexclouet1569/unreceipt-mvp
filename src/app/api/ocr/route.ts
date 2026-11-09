@@ -7,7 +7,7 @@ import {
   hasProductAccess,
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
-import { countPdfPages, MAX_PDF_PAGES } from "@/lib/receipts/pdf-pages";
+import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { STAGING_BUCKET, stagedPathFor } from "@/lib/receipts/staging";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
@@ -95,7 +95,10 @@ export async function POST(request: NextRequest) {
     const buf = Buffer.from(await (image as Blob).arrayBuffer());
 
     if (type === "application/pdf") {
-      const pages = countPdfPages(buf);
+      const pages = await pdfPageCount(buf);
+      if (pages === null) {
+        return NextResponse.json({ error: "This PDF couldn't be opened." }, { status: 400 });
+      }
       if (pages > MAX_PDF_PAGES) {
         return NextResponse.json(
           {

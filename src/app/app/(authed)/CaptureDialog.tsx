@@ -21,6 +21,8 @@ import {
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { BatchCapture } from "./BatchCapture";
+import { Switch } from "@/components/Switch";
 import {
   AlertCircle,
   Camera,
@@ -30,6 +32,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  Files,
   Loader2,
   Plus,
   Upload,
@@ -64,7 +67,7 @@ type CaptureDialogProps = {
 // the customer checks the result. "review" is also the manual form, for
 // a receipt without a photo or a photo we couldn't read. "saved" shows
 // the digital receipt that was just created.
-type Stage = "choose" | "reading" | "review" | "saved";
+type Stage = "choose" | "reading" | "review" | "saved" | "batch";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -143,6 +146,23 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // `capture` pushed iOS straight to the camera and buried the gallery.
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const severalInputRef = useRef<HTMLInputElement>(null);
+  // "Several receipts at once": the files picked, handed to BatchCapture.
+  const [batchFiles, setBatchFiles] = useState<File[] | null>(null);
+  // True while BatchCapture is still reading: closing then loses the files
+  // not yet sent, so the sheet asks first.
+  const [batchBusy, setBatchBusy] = useState(false);
+  const requestOpenChange = (next: boolean) => {
+    if (
+      !next &&
+      stage === "batch" &&
+      batchBusy &&
+      !window.confirm("Some receipts aren't read yet and will be lost. Close anyway?")
+    ) {
+      return;
+    }
+    onOpenChange(next);
+  };
   // Where focus goes after "Delete photo" in the photo viewer: the viewer and
   // the thumbnail that opened it are gone, and this button replaces them.
   const takePhotoButtonRef = useRef<HTMLButtonElement>(null);
@@ -200,6 +220,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     if (open) setIncludeVat(readIncludeVat());
     if (!open) {
       setStage("choose");
+      setBatchFiles(null);
+      setBatchBusy(false);
       setForm(blankForm());
       setImageFile(null);
       setImagePreview(null);
@@ -560,7 +582,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   };
 
   const title =
-    stage === "saved"
+    stage === "batch"
+      ? "Several receipts"
+      : stage === "saved"
       ? "Receipt saved"
       : stage !== "review"
       ? "New receipt"
@@ -571,7 +595,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           : "Enter manually";
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={requestOpenChange}>
       <SheetContent
         side="bottom"
         showCloseButton={false}
@@ -609,9 +633,22 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             notice={ocrError}
             onTakePhoto={() => cameraInputRef.current?.click()}
             onUpload={() => uploadInputRef.current?.click()}
+            onSeveral={() => severalInputRef.current?.click()}
             onManual={() => {
               setOcrError(null);
               setStage("review");
+            }}
+          />
+        ) : null}
+
+        {stage === "batch" && batchFiles ? (
+          <BatchCapture
+            initialFiles={batchFiles}
+            onBusyChange={setBatchBusy}
+            onDone={() => {
+              onSaved?.();
+              router.refresh();
+              onOpenChange(false);
             }}
           />
         ) : null}
@@ -912,6 +949,21 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           onChange={onPickFile}
         />
         <input
+          ref={severalInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (files.length === 0) return;
+            setOcrError(null);
+            setBatchFiles(files);
+            setStage("batch");
+          }}
+        />
+        <input
           ref={cameraInputRef}
           type="file"
           accept="image/*"
@@ -948,11 +1000,13 @@ function ChooseStage({
   notice,
   onTakePhoto,
   onUpload,
+  onSeveral,
   onManual,
 }: {
   notice: string | null;
   onTakePhoto: () => void;
   onUpload: () => void;
+  onSeveral: () => void;
   onManual: () => void;
 }) {
   return (
@@ -962,7 +1016,7 @@ function ChooseStage({
           <Notice>{notice}</Notice>
         </div>
       ) : null}
-      <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center gap-5 rounded-[12px] border border-[var(--hairline)] bg-[var(--surface)] p-6 text-center">
+      <div className="flex min-h-[190px] flex-1 flex-col items-center justify-center gap-5 rounded-[12px] border border-[var(--hairline)] bg-[var(--surface)] p-6 text-center">
         <Viewfinder />
         <div className="space-y-2">
           <p className="text-[18px] font-bold tracking-[-0.01em]">Photograph your receipt</p>
@@ -979,6 +1033,10 @@ function ChooseStage({
         <button type="button" onClick={onUpload} className={SECONDARY_BUTTON_CLASS}>
           <Upload className="size-5" aria-hidden="true" />
           Upload photo or PDF
+        </button>
+        <button type="button" onClick={onSeveral} className={SECONDARY_BUTTON_CLASS}>
+          <Files className="size-5" aria-hidden="true" />
+          Several at once (photos or a scan)
         </button>
         <button
           type="button"
@@ -1238,42 +1296,6 @@ function SelectControl({
         aria-hidden="true"
       />
     </div>
-  );
-}
-
-function Switch({
-  checked,
-  onClick,
-  labelledBy,
-}: {
-  checked: boolean;
-  onClick: () => void;
-  labelledBy: string;
-}) {
-  // Ink, not green, when on: the Save button is the screen's one green.
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-labelledby={labelledBy}
-      onClick={onClick}
-      className="flex size-11 w-14 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <span
-        className={cn(
-          "flex h-[26px] w-11 items-center rounded-full p-[3px] transition-colors duration-100",
-          checked ? "bg-[var(--ink)]" : "bg-[var(--ink-faint)]",
-        )}
-      >
-        <span
-          className={cn(
-            "size-5 rounded-full bg-card transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-            checked ? "translate-x-[18px]" : "translate-x-0",
-          )}
-        />
-      </span>
-    </button>
   );
 }
 

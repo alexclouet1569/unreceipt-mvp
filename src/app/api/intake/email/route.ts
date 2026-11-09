@@ -54,7 +54,7 @@ import { loadOwnerAddresses } from "@/lib/owner-addresses";
 import { extractAttachments, pickReceiptAttachment, type EmailAttachment } from "@/lib/email/attachments";
 import { extractReceipt } from "@/lib/ocr";
 import { fieldsFromOcr } from "@/lib/receipts/ocr-fields";
-import { countPdfPages, MAX_PDF_PAGES } from "@/lib/receipts/pdf-pages";
+import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
 
 export const runtime = "nodejs";
@@ -66,12 +66,14 @@ export const maxDuration = 60;
 
 // The attached PDF or photo the email carries, when one fits the upload
 // rules (type, 4 MB, PDF page cap). Null means "read the text".
-function receiptAttachmentOf(rawEml: Buffer | null): EmailAttachment | null {
+async function receiptAttachmentOf(rawEml: Buffer | null): Promise<EmailAttachment | null> {
   if (!rawEml || rawEml.length === 0) return null;
   const picked = pickReceiptAttachment(extractAttachments(rawEml));
   if (!picked) return null;
-  if (picked.mediaType === "application/pdf" && countPdfPages(picked.bytes) > MAX_PDF_PAGES) {
-    return null;
+  if (picked.mediaType === "application/pdf") {
+    // Unopenable or too long: read the email text instead.
+    const pages = await pdfPageCount(picked.bytes);
+    if (pages === null || pages > MAX_PDF_PAGES) return null;
   }
   return picked;
 }
@@ -370,7 +372,7 @@ export async function POST(request: NextRequest) {
   }
 
   // An attached PDF or photo is the receipt more often than the text is.
-  const attachment = receiptAttachmentOf(hasRaw ? rawEml : null);
+  const attachment = await receiptAttachmentOf(hasRaw ? rawEml : null);
 
   // Parse (best-effort). Throw → pending_review. With an attachment the
   // text parser runs its templates only; the LLM reads the attachment.

@@ -13,6 +13,9 @@ import type { FirmClient, FirmMemberRole, Receipt } from "@/lib/types";
 import { AddClientDialog } from "./clients/AddClientDialog";
 import { RevokeInviteButton } from "./clients/RevokeInviteButton";
 import { ExportMonthPanel } from "./clients/[orgId]/ExportMonthPanel";
+import { BankPanel } from "./clients/[orgId]/BankPanel";
+import { ReminderSwitch, type ReminderState } from "./clients/[orgId]/ReminderSwitch";
+import type { BankMonthView } from "@/lib/bank/month";
 import { FirmReceiptList } from "./clients/[orgId]/FirmReceiptList";
 import { MembersSection, type MemberView } from "./settings/MembersSection";
 
@@ -219,18 +222,23 @@ function ClientTable({
   );
 }
 
-/** /firm/clients/[orgId]: one client's month, export panel and receipts. */
+/** /firm/clients/[orgId]: one client's month, bank check, export panel and receipts. */
 export function ClientView({
   clientName,
   organizationId,
   month,
   receipts,
+  bank,
+  reminders,
   hrefs,
 }: {
   clientName: string;
   organizationId: string;
   month: string;
   receipts: Receipt[];
+  // Null when the bank lines couldn't be loaded.
+  bank: BankMonthView | null;
+  reminders: ReminderState;
   hrefs: { back: string; month: (month: string) => string };
 }) {
   return (
@@ -256,6 +264,10 @@ export function ClientView({
         </div>
         <MonthSwitch month={month} hrefFor={hrefs.month} />
       </div>
+
+      <ReminderSwitch organizationId={organizationId} clientName={clientName} state={reminders} />
+
+      <BankPanel organizationId={organizationId} clientName={clientName} month={month} bank={bank} />
 
       <ExportMonthPanel
         organizationId={organizationId}

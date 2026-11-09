@@ -1,5 +1,6 @@
 "use client";
 
+import { inspectPdf } from "@/lib/receipts/pdf-inspect";
 import { useEffect, useRef, useState } from "react";
 import { Dashboard } from "@/app/app/(authed)/dashboard";
 import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
@@ -9,7 +10,7 @@ import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from ".
 
 // Public guided tour for a client company: the real receipts screen and
 // capture sheet with sample receipts, then the accountant's invite.
-// Nothing is saved: /api/ocr, /api/capture and /api/accountant/respond are
+// Nothing is saved: /api/ocr, /api/capture, /api/capture/scan(/original) and /api/accountant/respond are
 // answered in the browser, every other /api call gets a 404.
 
 const STEPS: TourStep[] = [
@@ -208,6 +209,7 @@ export function CompanyTour({ step }: { step: number }) {
   const [notice, closeNotice] = useDemoLinkGuard();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
+  const scans = useRef(0);
   const dropReceipt = useRef((id: string) => setReceipts((prev) => prev.filter((r) => r.id !== id)));
 
   useEffect(() => {
@@ -244,6 +246,48 @@ export function CompanyTour({ step }: { step: number }) {
         });
         addReceipt.current(receipt);
         return json({ ok: true, id: receipt.id, receipt });
+      }
+      // "Several at once": every file reads as the sample receipt, waiting
+      // for a confirmation like the real thing.
+      // A split scan is "stored" first; nothing leaves the browser.
+      if (path === "/api/capture/scan/original") {
+        const fd = init?.body instanceof FormData ? init.body : new FormData();
+        const file = fd.get("file");
+        const shape = file instanceof File ? await inspectPdf(new Uint8Array(await file.arrayBuffer())) : null;
+        return json({ ok: true, scan: "demo/scans/scan.pdf", pages: shape?.pages ?? 2 });
+      }
+      if (path === "/api/capture/scan") {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        // A few different shops; one photo too blurry to read the total.
+        const reads = [
+          { merchant: "Clas Ohlson", amount: 245 as number | null, category: "office_supplies" },
+          { merchant: "Circle K", amount: 812 as number | null, category: "transport" },
+          { merchant: "EasyPark", amount: null as number | null, category: "transport" },
+          { merchant: "Espresso House", amount: 89 as number | null, category: "meals" },
+        ];
+        const read = reads[scans.current++ % reads.length];
+        const receipt = sample({
+          merchant_name: read.merchant,
+          total: read.amount,
+          category: read.category as Receipt["category"],
+          currency: "SEK",
+          receipt_date: daysAgo(scans.current % 5),
+          source: "paper",
+          image_url: "demo/photo.jpg",
+          status: "pending_review",
+          parse_confidence: 0.7,
+        });
+        addReceipt.current(receipt);
+        return json({
+          ok: true,
+          id: receipt.id,
+          merchant: receipt.merchant_name,
+          total: receipt.total,
+          currency: receipt.currency,
+          status: receipt.status,
+          missing: receipt.total == null ? "amount" : null,
+          duplicate: false,
+        });
       }
       // Swipe to delete: gone from the tour's list, nothing deleted anywhere.
       const deleted = /^\/api\/receipts\/([^/]+)$/.exec(path);

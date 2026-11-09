@@ -27,12 +27,17 @@ export default async function AdminLayout({
             </div>
             <span className="font-semibold text-sm">UnReceipt Admin</span>
           </Link>
-          <Link
-            href="/app"
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            Customer view ↗
-          </Link>
+          <nav className="flex items-center gap-4">
+            <Link href="/admin/pilot" className="text-xs font-medium hover:text-foreground">
+              Pilot
+            </Link>
+            <Link
+              href="/app"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Customer view ↗
+            </Link>
+          </nav>
         </div>
       </header>
 

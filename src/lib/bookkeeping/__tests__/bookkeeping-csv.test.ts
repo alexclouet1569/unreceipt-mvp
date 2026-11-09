@@ -125,5 +125,25 @@ describe("buildBookkeepingCsv", () => {
       },
     ]);
     expect(bank).toContain(";EUR;23,40;270,00;;11,53846154;Entered manually (bank statement);");
+    // No ECB rate for yen, but a typed bank amount still fills Total SEK
+    // (the firm README promises this).
+    const yen = buildBookkeepingCsv([
+      {
+        receipt: receipt({
+          currency: "JPY",
+          total: 1000,
+          tax_amount: null,
+          tax_rate: null,
+          home_currency: "SEK",
+          home_total: 70,
+          fx_rate: 0.07,
+          fx_date: null,
+          fx_source: "manual",
+        }),
+        pdfFile: "",
+        originalFile: "",
+      },
+    ]);
+    expect(yen).toContain(";JPY;1000,00;70,00;;0,07;Entered manually (bank statement);");
   });
 });

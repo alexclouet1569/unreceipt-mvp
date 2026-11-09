@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { signForTesting } from "@/lib/webhook-signature";
 
@@ -618,7 +618,16 @@ describe("POST /api/intake/email", () => {
 });
 
 describe("POST /api/intake/email — attachments", () => {
-  const PDF = "%PDF-1.4\n" + "x".repeat(9000) + "\n/Type /Page\n%%EOF";
+  // A real one-page PDF (the page cap parses it), padded past the
+  // attachment size floor with a long title.
+  let PDF = "";
+  beforeAll(async () => {
+    const { PDFDocument } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    doc.addPage([200, 300]);
+    doc.setTitle("x".repeat(9000));
+    PDF = Buffer.from(await doc.save({ useObjectStreams: false })).toString("latin1");
+  });
   const emlWithPdf = () =>
     Buffer.from(
       [

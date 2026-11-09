@@ -48,15 +48,23 @@ export const UNTRUSTED_EXTRACTION_CONFIDENCE_CAP = 0.7;
 // 2013-02-27 (VAT conversion). Sources read via FAR Online summaries,
 // UNVERIFIED against bfn.se / skatteverket.se. The ECB publishes the rates
 // "for information purposes only" (UNVERIFIED): a card purchase is
-// settled at the issuer's rate, so the bank-statement amount, typed by
-// the accountant, always wins over the ECB estimate, and the export keeps
-// the two in separate columns.
+// settled at the issuer's rate, so the bank-statement amount, typed in by
+// the client (the receipt's owner; the firm portal can't set it), always
+// wins over the ECB estimate, and the export keeps the two in separate
+// columns.
 export const FX_RATE_SOURCE = "ECB euro reference rate";
 
 // The ECB publishes on banking days around 16:00 CET; a weekend or holiday
 // purchase uses the last rate before it. A gap longer than this means the
 // rate is missing, not a holiday (product choice, no legal source).
 export const FX_MAX_RATE_AGE_DAYS = 7;
+
+// Currencies we convert between: the euro (the ECB's base) plus the
+// receipt and company currencies we support and the neighbours a Nordic
+// company meets. Rates for the others are not cached, so a receipt in any
+// other currency gets no ECB estimate (product choice, no legal source).
+// The firm export README lists these by hand; a test keeps it in step.
+export const FX_CONVERTED_CURRENCIES = ["EUR", "SEK", "USD", "GBP", "NOK", "DKK", "CHF", "PLN"] as const;
 
 // First day of ECB reference rates; nothing earlier can be converted.
 export const FX_FIRST_RATE_DATE = "1999-01-04";
