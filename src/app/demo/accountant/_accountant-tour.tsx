@@ -13,10 +13,20 @@ const STEPS: TourStep[] = [
     ),
   },
   {
+    title: "Find missing receipts",
+    text: (
+      <>
+        The client&apos;s bank statement is imported: payments without a receipt are in red. Pick <b>Resolve…</b> on
+        the bank fee, or <b>Email</b> the client the list.
+      </>
+    ),
+  },
+  {
     title: "Check a receipt",
     text: (
       <>
-        One client&apos;s month. Click <b>Review needed</b>, open a receipt, fill in what&apos;s missing and save.
+        Click <b>Review needed</b> and open the parking receipt: what&apos;s missing is in red. Fill it in (60 kr) and
+        the EasyPark payment finds its receipt by itself.
       </>
     ),
   },

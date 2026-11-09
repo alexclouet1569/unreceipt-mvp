@@ -204,13 +204,12 @@ describe("POST /api/ocr", () => {
 
   it("rejects PDFs over the page-count cap", async () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID });
-    // 11 `/Type /Page` occurrences — one above the 10-page cap.
-    const manyPages = Buffer.from(
-      "%PDF-1.4\n" +
-        Array.from({ length: 11 }, (_, i) => `${i} 0 obj\n<< /Type /Page >>\nendobj\n`).join("") +
-        "%%EOF",
-      "latin1"
-    );
+    // 11 pages — one above the 10-page cap — saved with compressed object
+    // streams, where a byte scan finds no `/Type /Page` at all.
+    const { PDFDocument } = await import("pdf-lib");
+    const doc = await PDFDocument.create();
+    for (let i = 0; i < 11; i++) doc.addPage([200, 300]);
+    const manyPages = Buffer.from(await doc.save({ useObjectStreams: true }));
     const fd = new FormData();
     fd.append("image", pdfBlob(manyPages), "contract.pdf");
 

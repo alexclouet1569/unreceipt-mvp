@@ -5,6 +5,8 @@ import type { Receipt } from "@/lib/types";
 import { ClientView } from "../../_views";
 import { notFound } from "next/navigation";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
+import { loadBankMonth } from "@/lib/bank/load";
+import type { ReminderState } from "./ReminderSwitch";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,32 @@ async function loadMonthReceipts(organizationId: string, month: string): Promise
   return rows.filter((r) => receiptMonth(r) === month);
 }
 
+// The link's weekly-reminder switch and the latest reminder sent. Read
+// failures fall back to "on, never sent" (the default) and are logged.
+async function loadReminderState(firmClientId: string, firmId: string, organizationId: string): Promise<ReminderState> {
+  const db = getSupabaseAdmin();
+  const [link, last] = await Promise.all([
+    db.from("firm_clients").select("weekly_reminder, reminders_opted_out_at").eq("id", firmClientId).maybeSingle(),
+    db
+      .from("client_reminders")
+      .select("sent_at")
+      .eq("organization_id", organizationId)
+      // This firm's reminders only: an earlier firm's aren't its business.
+      .eq("firm_id", firmId)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (link.error || last.error) {
+    console.error("[/firm/clients/[orgId]] reminder state failed", (link.error ?? last.error)?.code);
+  }
+  return {
+    weekly: link.data?.weekly_reminder !== false,
+    clientOptedOut: Boolean(link.data?.reminders_opted_out_at),
+    lastSentAt: typeof last.data?.sent_at === "string" ? last.data.sent_at : null,
+  };
+}
+
 export default async function FirmClientPage({
   params,
   searchParams,
@@ -64,14 +92,19 @@ export default async function FirmClientPage({
     throw err;
   }
 
-  const loaded = await loadMonthReceipts(access.organizationId, month);
+  const [loaded, home, reminders] = await Promise.all([
+    loadMonthReceipts(access.organizationId, month),
+    homeCurrencyOf(access.organizationId),
+    loadReminderState(access.firmClientId, ctx.firmId, access.organizationId),
+  ]);
   // The client's own currency next to foreign amounts (src/lib/fx.ts).
-  const receipts = await ensureHomeAmounts(loaded, await homeCurrencyOf(access.organizationId)).catch(
-    (err) => {
+  const [bank, receipts] = await Promise.all([
+    loadBankMonth(access.organizationId, month, home),
+    ensureHomeAmounts(loaded, home).catch((err) => {
       console.error("[/firm/clients/[orgId]] currency conversion failed", err);
       return loaded;
-    }
-  );
+    }),
+  ]);
 
   return (
     <ClientView
@@ -79,6 +112,8 @@ export default async function FirmClientPage({
       organizationId={access.organizationId}
       month={month}
       receipts={receipts}
+      bank={bank}
+      reminders={reminders}
       hrefs={{
         back: `/firm/clients?month=${month}`,
         month: (m) => `/firm/clients/${access.organizationId}?month=${m}`,

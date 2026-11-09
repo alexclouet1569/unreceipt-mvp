@@ -191,3 +191,39 @@ describe("firmClosedEmail", () => {
     expect(email.html).not.toContain("<AB>");
   });
 });
+
+describe("missingReceiptsEmail", () => {
+  const base = {
+    firmName: "Byrån AB",
+    clientName: "Acme AB",
+    monthLabel: "November 2026",
+    total: "1,309.00 kr",
+    appUrl: "https://app.unreceipt.com/app",
+  };
+
+  it("lists the payments, escaped, and leaves no web address in bank text", async () => {
+    const { missingReceiptsEmail, bankTextForEmail } = await import("../templates");
+    const mail = missingReceiptsEmail({
+      ...base,
+      lines: [
+        { day: "Nov 5, 2026", description: "HORNBACH <b>BARKARBY</b>", amount: "1,249.00 kr" },
+        { day: "Nov 6, 2026", description: "Pay at https://evil.example/x now", amount: "60.00 kr" },
+      ],
+    });
+    expect(mail.subject).toBe("2 receipts missing for November 2026 — Byrån AB");
+    expect(mail.html).toContain("HORNBACH &lt;b&gt;BARKARBY&lt;/b&gt;");
+    expect(mail.html).not.toContain("evil.example");
+    expect(mail.text).toContain("Pay at [link] now");
+    expect(bankTextForEmail("see www.evil.se and evil.com/pay")).toBe("see [link] and [link]");
+    // A merchant's name with a dot stays readable.
+    expect(bankTextForEmail("KORTKOP AMAZON.SE")).toBe("KORTKOP AMAZON.SE");
+  });
+
+  it("caps the list and counts the rest", async () => {
+    const { missingReceiptsEmail, MISSING_EMAIL_LINES } = await import("../templates");
+    const lines = Array.from({ length: MISSING_EMAIL_LINES + 3 }, (_, i) => ({ day: "Nov 1, 2026", description: `L${i}`, amount: "1.00 kr" }));
+    const mail = missingReceiptsEmail({ ...base, lines });
+    expect(mail.text).toContain("…and 3 more in UnReceipt.");
+    expect(mail.text).not.toContain(`L${MISSING_EMAIL_LINES} `);
+  });
+});

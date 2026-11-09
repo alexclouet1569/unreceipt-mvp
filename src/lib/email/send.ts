@@ -26,7 +26,10 @@ export type OutgoingEmail = {
     | "firm_invite"
     | "client_request"
     | "link_confirmation"
-    | "firm_closed";
+    | "firm_closed"
+    | "missing_receipts"
+    | "weekly_reminder"
+    | "firm_welcome";
 };
 
 export type SendResult =

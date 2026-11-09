@@ -4,6 +4,8 @@
 // that level is keyed by organisation id ([orgId]), and Next refuses two
 // different slug names at one level.
 
+import { deleteBankLines } from "@/lib/bank/cleanup";
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSameHost } from "@/lib/same-origin";
 import { FirmAuthError, firmAuthResponse, isUuid, requireFirmMember } from "@/lib/require-firm";
@@ -32,7 +34,8 @@ export async function DELETE(
   const { id } = await params;
   if (!isUuid(id)) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const { data, error } = await getSupabaseAdmin()
+  const db = getSupabaseAdmin();
+  const { data, error } = await db
     .from("firm_clients")
     .update({
       status: "revoked",
@@ -42,12 +45,19 @@ export async function DELETE(
     .eq("id", id)
     .eq("firm_id", ctx.firmId)
     .neq("status", "revoked")
-    .select("id")
+    .select("id, organization_id")
     .maybeSingle();
   if (error) {
     console.error("[/api/firm/links/[id]] revoke failed", error.code);
     return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  // The bank lines this firm imported end with the link
+  // (src/lib/bank/cleanup.ts). The organisation id comes from the row this
+  // firm just revoked.
+  if (typeof data.organization_id === "string") {
+    const lines = await deleteBankLines(db, [data.organization_id]);
+    if (!lines.ok) Sentry.captureMessage("bank lines kept after link end", { level: "warning", tags: { area: "bank-cleanup" } });
+  }
   return NextResponse.json({ ok: true });
 }

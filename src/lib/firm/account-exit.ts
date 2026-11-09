@@ -20,6 +20,7 @@
 // types and the notice copy are safe to import into the settings UI.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { deleteBankLines } from "@/lib/bank/cleanup";
 
 export type FirmExitPlan =
   | { kind: "none" }
@@ -142,6 +143,11 @@ export async function applyFirmExit(
   plan: FirmExitPlan,
 ): Promise<void> {
   if (plan.kind === "close") {
+    // The firm's links end with it: the bank lines it imported go first
+    // (src/lib/bank/cleanup.ts). A failure stops the deletion; a retry
+    // plans again.
+    const lines = await deleteBankLines(supabase, plan.clientOrganizationIds);
+    if (!lines.ok) throw new FirmExitError("bank lines delete failed");
     const { error } = await supabase.from("firms").delete().eq("id", plan.firmId);
     if (error) throw new FirmExitError("firm delete failed");
     return;

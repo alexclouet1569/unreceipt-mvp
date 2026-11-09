@@ -19,6 +19,8 @@ const C = {
   hairline: "#E8E5DD",
   brand: "#27BE7B",
   brandTint: "#ECF7E7",
+  // Missing data (DESIGN.md --negative).
+  negative: "#C73E4E",
 };
 
 const FONT =
@@ -404,7 +406,7 @@ export function clientRequestEmail(opts: { clientName: string; url: string }): E
 export function linkConfirmationEmail(opts: { firmName: string; settingsUrl: string }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const title = `${firm} now sees your receipts`;
-  const intro = `From now on, ${firm} sees all your receipts and does your bookkeeping. If you didn't agree to this, stop sharing in Settings.`;
+  const intro = `From now on, ${firm} sees all your receipts and does your bookkeeping. On Mondays they may send you a reminder of missing receipts; you can turn it off in Settings. If you didn't agree to this, stop sharing in Settings.`;
   const bodyHtml = [
     `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
     paragraph(esc(intro)),
@@ -444,6 +446,227 @@ export function firmClosedEmail(opts: { firmName: string; settingsUrl: string })
       footerHtml: "You get this email whenever someone stops seeing your receipts.",
     }),
     text: [title, "", intro, "", after, "", `Settings: ${opts.settingsUrl}`].join("\n"),
+  };
+}
+
+// The accounting firm asks a client company for the receipts of bank
+// payments it has none for (/api/firm/clients/[orgId]/bank/remind). Lines
+// come from the client's own bank statement; at most MISSING_EMAIL_LINES
+// are listed, the rest counted.
+export const MISSING_EMAIL_LINES = 40;
+
+// Bank text comes from a CSV the firm uploaded and goes out from our
+// domain: no web addresses in it, so it can't carry a link.
+export function bankTextForEmail(text: string): string {
+  return text
+    .replace(/\b(?:https?:\/\/|www\.)\S*/gi, "[link]")
+    .replace(/\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|se|fr|eu|info|xyz|app|link|ly|co|me)\/\S*/gi, "[link]");
+}
+
+export function missingReceiptsEmail(opts: {
+  firmName: string;
+  clientName: string;
+  monthLabel: string;
+  lines: Array<{ day: string; description: string; amount: string }>;
+  total: string;
+  appUrl: string;
+}): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const n = opts.lines.length;
+  const title = `${n} receipt${n === 1 ? "" : "s"} missing for ${opts.monthLabel}`;
+  const intro = `${firm} is doing the bookkeeping for ${opts.clientName} and couldn't match ${n} payment${n === 1 ? "" : "s"} on the bank statement to a receipt (${opts.total} in total).`;
+  const how =
+    "Already sent one? Check Review needed in UnReceipt first: a receipt without an amount can't be matched until it's completed. Otherwise photograph the receipt, or forward the email it came in to your UnReceipt address. UnReceipt matches most receipts to their payment by itself; your accountant links the rest.";
+  const shown = opts.lines
+    .slice(0, MISSING_EMAIL_LINES)
+    .map((l) => ({ ...l, description: bankTextForEmail(l.description) }));
+  const more = n - shown.length;
+  const cell = `font-family:${FONT};font-size:14px;line-height:1.4;color:${C.ink};padding:8px 0;border-bottom:1px solid ${C.hairline};`;
+  const table =
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">` +
+    shown
+      .map(
+        (l) =>
+          `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
+          `<td style="${cell}" valign="top">${esc(l.description || "(no text)")}</td>` +
+          `<td style="${cell}text-align:right;white-space:nowrap;padding-left:12px;font-family:Menlo,Consolas,monospace;" valign="top">${esc(l.amount)}</td></tr>`
+      )
+      .join("") +
+    `</table>` +
+    (more > 0 ? paragraph(esc(`…and ${more} more in UnReceipt.`)) : "");
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    table,
+    paragraph(esc(how)),
+    button("Add receipts", opts.appUrl),
+  ].join("\n");
+  return {
+    subject: `${title} — ${firm}`,
+    html: layout({
+      preheader: intro,
+      bodyHtml,
+      footerHtml: `${esc(firm)} sent this through UnReceipt. Reply to this email to answer them.`,
+    }),
+    text: [
+      title,
+      "",
+      intro,
+      "",
+      ...shown.map((l) => `${l.day}  ${l.description || "(no text)"}  ${l.amount}`),
+      ...(more > 0 ? [`…and ${more} more in UnReceipt.`] : []),
+      "",
+      how,
+      "",
+      `Add receipts: ${opts.appUrl}`,
+      "",
+      `${firm} sent this through UnReceipt. Reply to this email to answer them.`,
+    ].join("\n"),
+  };
+}
+
+// Monday reminder from the accounting firm to a client company
+// (src/lib/reminders/weekly.ts): bank payments it has no receipt for, and
+// receipts that still miss a field. Sent only when one list isn't empty.
+export const WEEKLY_EMAIL_PAYMENTS = 25;
+export const WEEKLY_EMAIL_RECEIPTS = 15;
+
+export function weeklyReminderEmail(opts: {
+  firmName: string;
+  clientName: string;
+  payments: Array<{ day: string; description: string; amount: string }>;
+  receipts: Array<{ day: string; merchant: string; missing: string }>;
+  // Receipts read automatically, waiting only for a confirmation.
+  toConfirm: number;
+  appUrl: string;
+  settingsUrl: string;
+}): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const p = opts.payments.length;
+  const r = opts.receipts.length;
+  const c = opts.toConfirm;
+  const parts = [
+    p > 0 ? `${p} receipt${p === 1 ? "" : "s"} for bank payments` : null,
+    r > 0 ? `${r} receipt${r === 1 ? "" : "s"} to complete` : null,
+    c > 0 ? `${c} to confirm` : null,
+  ].filter(Boolean);
+  const title = `${firm} is waiting for ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]}`;
+  const intro = `${firm} does the bookkeeping for ${opts.clientName}. Here is what they still need. It takes a minute in UnReceipt.`;
+  const cell = `font-family:${FONT};font-size:14px;line-height:1.4;color:${C.ink};padding:8px 0;border-bottom:1px solid ${C.hairline};`;
+  const heading = (t: string) =>
+    `<p style="margin:8px 0 6px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};">${esc(t)}</p>`;
+  const table = (rows: string[]) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">${rows.join("")}</table>`;
+
+  const shownPayments = opts.payments
+    .slice(0, WEEKLY_EMAIL_PAYMENTS)
+    .map((l) => ({ ...l, description: bankTextForEmail(l.description) }));
+  const morePayments = p - shownPayments.length;
+  const shownReceipts = opts.receipts.slice(0, WEEKLY_EMAIL_RECEIPTS);
+  const moreReceipts = r - shownReceipts.length;
+
+  const html: string[] = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+  ];
+  const text: string[] = [title, "", intro, ""];
+  if (p > 0) {
+    html.push(
+      heading("Payments without a receipt"),
+      table(
+        shownPayments.map(
+          (l) =>
+            `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
+            `<td style="${cell}" valign="top">${esc(l.description || "(no text)")}</td>` +
+            `<td style="${cell}text-align:right;white-space:nowrap;padding-left:12px;font-family:Menlo,Consolas,monospace;" valign="top">${esc(l.amount)}</td></tr>`
+        )
+      ),
+      morePayments > 0 ? paragraph(esc(`…and ${morePayments} more in UnReceipt.`)) : "",
+      paragraph(esc("Photograph each receipt, or forward the email it came in to your UnReceipt address. Already sent it? Then it may be one of the receipts to complete below."))
+    );
+    text.push(
+      "Payments without a receipt:",
+      ...shownPayments.map((l) => `  ${l.day}  ${l.description || "(no text)"}  ${l.amount}`),
+      ...(morePayments > 0 ? [`  …and ${morePayments} more in UnReceipt.`] : []),
+      ""
+    );
+  }
+  if (r > 0) {
+    html.push(
+      heading("Receipts to complete"),
+      table(
+        shownReceipts.map(
+          (l) =>
+            `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
+            `<td style="${cell}" valign="top">${esc(bankTextForEmail(l.merchant))}</td>` +
+            `<td style="${cell}text-align:right;padding-left:12px;color:${C.negative};" valign="top">${esc(`missing ${l.missing}`)}</td></tr>`
+        )
+      ),
+      moreReceipts > 0 ? paragraph(esc(`…and ${moreReceipts} more in UnReceipt.`)) : "",
+      paragraph(esc("Open each one under Review needed and fill in what's missing from the photo."))
+    );
+    text.push(
+      "Receipts to complete:",
+      ...shownReceipts.map((l) => `  ${l.day}  ${bankTextForEmail(l.merchant)}  missing ${l.missing}`),
+      ...(moreReceipts > 0 ? [`  …and ${moreReceipts} more in UnReceipt.`] : []),
+      ""
+    );
+  }
+  if (c > 0) {
+    const line = `${c} receipt${c === 1 ? " was" : "s were"} read automatically and ${c === 1 ? "waits" : "wait"} for your confirmation under Review needed: compare with the photo and confirm.`;
+    html.push(heading("Receipts to confirm"), paragraph(esc(line)));
+    text.push("Receipts to confirm:", `  ${line}`, "");
+  }
+  html.push(button("Open UnReceipt", opts.appUrl));
+  const footer = `${firm} sends this reminder on Mondays through UnReceipt while something is missing. Reply to this email to reach them.`;
+  const stop = "To stop these weekly emails: Settings, Your accountant.";
+  text.push(`Open UnReceipt: ${opts.appUrl}`, "", footer, `${stop} ${opts.settingsUrl}`);
+  return {
+    subject: title,
+    html: layout({
+      preheader: intro,
+      bodyHtml: html.join("\n"),
+      footerHtml: `${esc(footer)}<br><a href="${esc(opts.settingsUrl)}" style="color:${C.inkFaint};">${esc(stop)}</a>`,
+    }),
+    text: text.join("\n"),
+  };
+}
+
+// The founder set up an accounting firm for an accountant on /admin/pilot:
+// how to sign in to the firm portal with this address.
+export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }): EmailContent {
+  const firm = opts.firmName.trim() || "your firm";
+  const title = `${firm} is ready on UnReceipt`;
+  const intro = `Your firm portal is set up. Sign in with this email address to invite your clients, see their receipts as they arrive and export each month for your bookkeeping.`;
+  const steps =
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;">` +
+    step(1, "Sign in", "Use this email address; we send you a sign-in link or a code.") +
+    step(2, "Invite a client", "Clients → Add client: their name and email. They get an invitation and connect in a minute.") +
+    step(3, "Watch receipts arrive", "Each client's month fills up as they photograph or forward receipts. On Mondays they get a reminder of what's missing.") +
+    `</table>`;
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    steps,
+    button("Open the firm portal", opts.signInUrl),
+    signOff(true).html,
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout({ preheader: intro, bodyHtml, footerHtml: "You get this email because UnReceipt set up a firm portal for this address." }),
+    text: [
+      title,
+      "",
+      intro,
+      "",
+      "1. Sign in with this email address.",
+      "2. Clients → Add client: their name and email.",
+      "3. Each client's month fills up as they photograph or forward receipts. On Mondays they get a reminder of what's missing.",
+      "",
+      `Open the firm portal: ${opts.signInUrl}`,
+      "",
+      signOff(true).text,
+    ].join("\n"),
   };
 }
 
