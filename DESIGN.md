@@ -257,6 +257,17 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 - Email card: `bg-card`, `border 1px hairline`, `radius lg (12)`, `padding 14 16`. The address renders in `Geist Mono 500 / 14`. Brand-green Copy button on the right (`radius 9px`, Figtree 600 13).
 - FAB still present (so the customer can capture even before any email arrives).
 
+### Setup guide illustrations (`/app/settings/forwarding`)
+
+Drawn close-ups of another app's screen (Gmail, Outlook, iCloud, a phone mail app) that show one action at a time, next to a numbered checklist.
+
+- **Close-ups, not miniatures.** Each picture shows only the region around the button to press (a corner, a tab bar, a dialog), drawn at readable size: text inside is 12–14px at 328px width. A whole page scaled to a phone is unreadable.
+- **Drawn in our tokens, not theirs.** Frame and content use `--card`, `--surface`, `--hairline`, `--ink`/`--ink-muted`/`--ink-faint`, Manrope. No third-party logos or brand colours; the browser frame's address bar (`mail.google.com`) says where you are. Dialogs inside a picture get a hairline border, never a shadow.
+- **Target.** The control to press gets a 2px `--ring` outline, radius matching the control, and a ring that pulses outwards 3 times (1.2s each, entrance easing) then stays still. Controls to leave alone get a dashed `--ink-faint` outline and a "Leave" tag.
+- **Cursor.** A small ink arrow (desktop) or a fingertip dot (phone) glides from the picture's corner to the target over 320ms (entrance easing), then taps: scale 0.9 → 1 over 200ms. It plays once each time an action becomes current; "Show again" replays it. Never an endless loop: the user is reading another tab.
+- **Reduced motion.** No glide, no pulse: the cursor sits on the target and the outline is static.
+- **Checklist.** Numbered rows; done rows show a check in `--ink`, the current row is expanded (its button or copy field) and marked `aria-current="step"`. Rows are buttons, 44px tall minimum. The picture is `role="img"` with the action as its label; all information lives in the text.
+
 ### FAB
 
 - `64×64` circular, `bg: --brand-action` (via `--primary`), `border: none`.
@@ -310,6 +321,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | 2026-10-16 | **Digital receipt redesign + "Receipt saved" step.** `ReceiptDetailCard` becomes a paper receipt (perforated top, torn bottom, dotted leaders, verified stamp) and is shown right after saving as well as in the detail view. VAT moves from the mint panel to leader lines under the total. Store logos for a hand-checked list of merchants, served through our own cached endpoint. Inbox gains By date / By category grouping and category chips. | The founder wanted a receipt that feels like the one on the landing page, visible the moment it's created. Logos only where we're sure of the match: a wrong logo on an accounting record is worse than initials. The footer no longer says "Awaiting verification" on receipts nobody else will verify. |
 | 2026-11-07 | **Photo viewer**: tap a receipt photo (capture sheet, Original tab) to see it full screen on `--ink`, pinch / double-tap / ± to zoom; "Delete photo" in the capture sheet only. | The founder wanted to check the read values against the photo; a 64px thumbnail can't show the small print. The original of a saved receipt is evidence, so it can't be deleted from the viewer. |
 | 2026-11-08 | **Swipe left to delete a receipt** on `/app`: reveals a red Delete action, tapping it deletes; the row disappears immediately with 5 s to Undo, and returns if the server refuses. | The founder wanted the iOS-native way to remove a receipt from the list. Two gestures (swipe, then tap) keep a stray swipe from deleting an accounting record. |
+| 2026-11-08 | **Setup guide illustrations**: the forwarding guide shows one action at a time with a drawn close-up of the other app's screen (target outlined in `--ring`, a cursor that glides there once, 3 pulses, still under reduced motion) next to a numbered checklist. Button names follow the language of the user's mail (EN/SV/FR switch). | 8 clicks in one breadcrumb were too many to follow while switching tabs; Swedish and French users don't see English button names. |
 
 ---
 
