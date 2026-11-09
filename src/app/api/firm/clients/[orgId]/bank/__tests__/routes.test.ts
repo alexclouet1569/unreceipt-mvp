@@ -33,7 +33,7 @@ vi.mock("@/lib/supabase-admin", () => ({
     from: (table: string) => {
       const call: Call = { table, op: "select", args: [], filters: [] };
       const chain: Record<string, unknown> = {};
-      for (const op of ["select", "upsert", "update", "delete"]) {
+      for (const op of ["select", "upsert", "update", "delete", "insert"]) {
         chain[op] = (...args: unknown[]) => {
           if (op !== "select" || call.op === "select") {
             call.op = op === "select" && call.args.length ? call.op : op;
@@ -238,6 +238,10 @@ describe("POST bank/remind", () => {
     expect(email.subject).toBe("1 receipt missing for November 2026 — Byrån AB");
     const members = mocks.calls.find((c) => c.table === "memberships")!;
     expect(filter(members, "organization_id")).toBe(ORG);
+    // Logged for the pilot dashboard: counts only.
+    const log = mocks.calls.find((c) => c.op === "insert")!;
+    expect(log.table).toBe("client_reminders");
+    expect(log.args[0]).toEqual({ organization_id: ORG, firm_id: "firm-1", kind: "manual", missing_count: 1, recipients: 1 });
     const stamp = mocks.calls.find((c) => c.op === "update")!;
     expect(filter(stamp, "organization_id")).toBe(ORG);
     expect(filter(stamp, "id")).toEqual(["l1"]);
