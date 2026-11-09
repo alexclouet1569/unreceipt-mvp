@@ -19,6 +19,8 @@ const C = {
   hairline: "#E8E5DD",
   brand: "#27BE7B",
   brandTint: "#ECF7E7",
+  // Missing data (DESIGN.md --negative).
+  negative: "#C73E4E",
 };
 
 const FONT =
@@ -520,6 +522,98 @@ export function missingReceiptsEmail(opts: {
       "",
       `${firm} sent this through UnReceipt. Reply to this email to answer them.`,
     ].join("\n"),
+  };
+}
+
+// Monday reminder from the accounting firm to a client company
+// (src/lib/reminders/weekly.ts): bank payments it has no receipt for, and
+// receipts that still miss a field. Sent only when one list isn't empty.
+export const WEEKLY_EMAIL_PAYMENTS = 25;
+export const WEEKLY_EMAIL_RECEIPTS = 15;
+
+export function weeklyReminderEmail(opts: {
+  firmName: string;
+  clientName: string;
+  payments: Array<{ day: string; description: string; amount: string }>;
+  receipts: Array<{ day: string; merchant: string; missing: string }>;
+  appUrl: string;
+}): EmailContent {
+  const firm = opts.firmName.trim() || "Your accounting firm";
+  const p = opts.payments.length;
+  const r = opts.receipts.length;
+  const parts = [
+    p > 0 ? `${p} receipt${p === 1 ? "" : "s"} for bank payments` : null,
+    r > 0 ? `${r} receipt${r === 1 ? "" : "s"} to complete` : null,
+  ].filter(Boolean);
+  const title = `${firm} is waiting for ${parts.join(" and ")}`;
+  const intro = `${firm} does the bookkeeping for ${opts.clientName}. Here is what they still need. It takes a minute in UnReceipt.`;
+  const cell = `font-family:${FONT};font-size:14px;line-height:1.4;color:${C.ink};padding:8px 0;border-bottom:1px solid ${C.hairline};`;
+  const heading = (t: string) =>
+    `<p style="margin:8px 0 6px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.ink};">${esc(t)}</p>`;
+  const table = (rows: string[]) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">${rows.join("")}</table>`;
+
+  const shownPayments = opts.payments
+    .slice(0, WEEKLY_EMAIL_PAYMENTS)
+    .map((l) => ({ ...l, description: bankTextForEmail(l.description) }));
+  const morePayments = p - shownPayments.length;
+  const shownReceipts = opts.receipts.slice(0, WEEKLY_EMAIL_RECEIPTS);
+  const moreReceipts = r - shownReceipts.length;
+
+  const html: string[] = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+  ];
+  const text: string[] = [title, "", intro, ""];
+  if (p > 0) {
+    html.push(
+      heading("Payments without a receipt"),
+      table(
+        shownPayments.map(
+          (l) =>
+            `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
+            `<td style="${cell}" valign="top">${esc(l.description || "(no text)")}</td>` +
+            `<td style="${cell}text-align:right;white-space:nowrap;padding-left:12px;font-family:Menlo,Consolas,monospace;" valign="top">${esc(l.amount)}</td></tr>`
+        )
+      ),
+      morePayments > 0 ? paragraph(esc(`…and ${morePayments} more in UnReceipt.`)) : "",
+      paragraph(esc("Photograph each receipt, or forward the email it came in to your UnReceipt address. Already sent it? Then it may be one of the receipts to complete below."))
+    );
+    text.push(
+      "Payments without a receipt:",
+      ...shownPayments.map((l) => `  ${l.day}  ${l.description || "(no text)"}  ${l.amount}`),
+      ...(morePayments > 0 ? [`  …and ${morePayments} more in UnReceipt.`] : []),
+      ""
+    );
+  }
+  if (r > 0) {
+    html.push(
+      heading("Receipts to complete"),
+      table(
+        shownReceipts.map(
+          (l) =>
+            `<tr><td style="${cell}color:${C.inkMuted};white-space:nowrap;padding-right:12px;" valign="top">${esc(l.day)}</td>` +
+            `<td style="${cell}" valign="top">${esc(l.merchant)}</td>` +
+            `<td style="${cell}text-align:right;padding-left:12px;color:${C.negative};" valign="top">${esc(`missing ${l.missing}`)}</td></tr>`
+        )
+      ),
+      moreReceipts > 0 ? paragraph(esc(`…and ${moreReceipts} more in UnReceipt.`)) : "",
+      paragraph(esc("Open each one under Review needed and fill in what's missing from the photo."))
+    );
+    text.push(
+      "Receipts to complete:",
+      ...shownReceipts.map((l) => `  ${l.day}  ${l.merchant}  missing ${l.missing}`),
+      ...(moreReceipts > 0 ? [`  …and ${moreReceipts} more in UnReceipt.`] : []),
+      ""
+    );
+  }
+  html.push(button("Open UnReceipt", opts.appUrl));
+  const footer = `${firm} sends this reminder every Monday through UnReceipt while something is missing. Reply to this email to reach them.`;
+  text.push(`Open UnReceipt: ${opts.appUrl}`, "", footer);
+  return {
+    subject: title,
+    html: layout({ preheader: intro, bodyHtml: html.join("\n"), footerHtml: esc(footer) }),
+    text: text.join("\n"),
   };
 }
 

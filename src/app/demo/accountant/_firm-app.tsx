@@ -446,6 +446,8 @@ export function FirmApp({
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [members, setMembers] = useState<MemberView[]>(initialMembers);
   const [bankLines, setBankLines] = useState<BankTransaction[]>(initialBank);
+  // Weekly reminder switch per client (on by default, like a real link).
+  const [weeklyOff, setWeeklyOff] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
   // Latest data for the fetch stub, which is installed once.
@@ -607,6 +609,19 @@ export function FirmApp({
         return json({ ok: true, removed });
       }
 
+      // Weekly reminder switch.
+      m = /^\/api\/firm\/clients\/([^/]+)\/reminders$/.exec(path);
+      if (m && method === "PATCH") {
+        const org = m[1];
+        setWeeklyOff((prev) => {
+          const next = new Set(prev);
+          if (body.weekly === false) next.add(org);
+          else next.delete(org);
+          return next;
+        });
+        return json({ ok: true, weekly: body.weekly !== false });
+      }
+
       // Mark as booked.
       m = /^\/api\/firm\/clients\/([^/]+)\/receipts\/book$/.exec(path);
       if (m && method === "POST") {
@@ -766,6 +781,10 @@ export function FirmApp({
         receipts={receipts
           .filter((r) => r.organization_id === openClient.organization_id && receiptMonth(r) === month)
           .sort((a, b) => (b.purchased_at ?? b.created_at).localeCompare(a.purchased_at ?? a.created_at))}
+        reminders={{
+          weekly: !weeklyOff.has(openClient.organization_id),
+          lastSentAt: openClient.organization_id === ORG_HB ? inMonth(2) : null,
+        }}
         bank={buildBankMonth(
           bankLines.filter((l) => l.organization_id === openClient.organization_id),
           receipts.filter((r) => r.organization_id === openClient.organization_id),

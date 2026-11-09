@@ -332,6 +332,21 @@ export interface FirmClient {
   accepted_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  // Monday email to the client's owners (2026-11-09).
+  weekly_reminder: boolean;
+}
+
+// One reminder email run to a client company (2026-11-09).
+export interface ClientReminder {
+  id: string;
+  organization_id: string;
+  firm_id: string | null;
+  kind: "weekly" | "manual";
+  week: string | null;
+  missing_count: number;
+  review_count: number;
+  recipients: number;
+  sent_at: string;
 }
 
 // A line of a client company's bank statement, imported by its accounting

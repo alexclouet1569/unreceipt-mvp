@@ -27,7 +27,8 @@ export type OutgoingEmail = {
     | "client_request"
     | "link_confirmation"
     | "firm_closed"
-    | "missing_receipts";
+    | "missing_receipts"
+    | "weekly_reminder";
 };
 
 export type SendResult =

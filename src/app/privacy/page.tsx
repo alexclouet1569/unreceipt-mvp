@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-11-08";
+const LAST_UPDATED = "2026-11-09";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -123,8 +123,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Resend</strong> — sending our emails (welcome emails,
-              sign-in links, the list of payments without a receipt your
-              accounting firm asks you about) and receiving the receipts you forward to your
+              sign-in links, and the reminders your accounting firm sends
+              you: payments without a receipt and receipts to complete) and receiving the receipts you forward to your
               UnReceipt address.
             </li>
             <li>

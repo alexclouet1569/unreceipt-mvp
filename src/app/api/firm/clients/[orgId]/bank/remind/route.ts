@@ -113,6 +113,16 @@ export async function POST(
     return NextResponse.json({ error: "Couldn't send the email. Try again later." }, { status: 502 });
   }
 
+  // For the pilot dashboard (/admin/pilot): counts only, no contents.
+  const { error: logError } = await db.from("client_reminders").insert({
+    organization_id: access.organizationId,
+    firm_id: ctx.firmId,
+    kind: "manual",
+    missing_count: missing.length,
+    recipients: sent,
+  });
+  if (logError) console.error("[/api/firm/clients/[orgId]/bank/remind] log failed", logError.code);
+
   // In chunks: the ids go in the request URL.
   const remindedAt = new Date().toISOString();
   const ids = missing.map((l) => l.id);

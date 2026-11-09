@@ -1630,3 +1630,62 @@ CREATE POLICY "Users can view own bank transactions"
          AND m.user_id = (select auth.uid())
     )
   );
+
+-- =============================================================================
+-- 2026-11-09 — weekly reminders to client companies (firm portal)
+--
+-- Every Monday /api/cron/weekly-reminders (src/lib/reminders/weekly.ts)
+-- emails each linked client company's owners what their accounting firm is
+-- still waiting for: bank payments without a receipt (2026-11-08 block) and
+-- receipts that still miss their merchant, amount or date. Nothing is sent
+-- to a company with nothing to ask for.
+--
+--   firm_clients.weekly_reminder — the firm switches it per client on the
+--                       client's page (/api/firm/clients/[orgId]/reminders).
+--                       On by default: the firm invited the client to be
+--                       chased for receipts.
+--   client_reminders  — one row per email run, weekly or sent by hand
+--                       (/bank/remind). The unique index on (organization_id,
+--                       week) for weekly rows is the claim that makes a
+--                       re-run in the same ISO week send nothing twice; the
+--                       counts feed /admin/pilot. No receipt contents here.
+--
+-- The client company's data: cascades with the organisation and with the
+-- firm. Members of the organisation may read it; writes are server-only.
+-- Idempotent.
+-- =============================================================================
+
+ALTER TABLE public.firm_clients
+  ADD COLUMN IF NOT EXISTS weekly_reminder BOOLEAN NOT NULL DEFAULT true;
+
+CREATE TABLE IF NOT EXISTS public.client_reminders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  firm_id UUID REFERENCES public.firms(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('weekly', 'manual')),
+  -- ISO week, e.g. '2026-W46', for weekly rows.
+  week TEXT CHECK (week IS NULL OR week ~ '^\d{4}-W\d{2}$'),
+  missing_count INTEGER NOT NULL DEFAULT 0 CHECK (missing_count >= 0),
+  review_count INTEGER NOT NULL DEFAULT 0 CHECK (review_count >= 0),
+  recipients INTEGER NOT NULL DEFAULT 0 CHECK (recipients >= 0),
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT client_reminders_weekly_has_week CHECK (kind <> 'weekly' OR week IS NOT NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS client_reminders_weekly_unique
+  ON public.client_reminders(organization_id, week) WHERE kind = 'weekly';
+CREATE INDEX IF NOT EXISTS client_reminders_sent_idx
+  ON public.client_reminders(sent_at DESC);
+
+ALTER TABLE public.client_reminders ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.client_reminders FROM anon, authenticated;
+
+DROP POLICY IF EXISTS "Users can view own client reminders" ON public.client_reminders;
+CREATE POLICY "Users can view own client reminders"
+  ON public.client_reminders FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = client_reminders.organization_id
+         AND m.user_id = (select auth.uid())
+    )
+  );
