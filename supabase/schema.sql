@@ -1370,7 +1370,7 @@ CREATE POLICY "Parties can view firm links"
 --    their original amount and also get the amount in the home currency:
 --    home_total, at fx_rate from the ECB reference rate of fx_date
 --    (fx_source 'ecb'), the same amount when the currencies match
---    ('same'), or typed by the accountant from the bank statement
+--    ('same'), or typed in by the client from the bank statement
 --    ('manual'). fx_rates caches the ECB daily rates (EUR base); only the
 --    server reads or writes it.
 --
