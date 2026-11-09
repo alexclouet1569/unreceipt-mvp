@@ -56,6 +56,12 @@ Once, by the founder:
 
 The token and the key are secrets: they go into the build environment's secret settings, never into git or a chat.
 
+The first time only, link the app to the Expo account (it writes the project id into `app.json`; commit that change):
+
+```bash
+npx eas-cli@latest init
+```
+
 Then each new version is one command from `mobile/`:
 
 ```bash
