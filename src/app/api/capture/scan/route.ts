@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       skipped: true,
-      reason: scan ? "Not a receipt: kept in the original scan." : "This doesn't look like a receipt.",
+      reason: "This doesn't look like a receipt.",
     });
   }
 

@@ -11,6 +11,7 @@ import { isAuthorizedCron } from "@/lib/cron-auth";
 import { cleanupExports } from "@/lib/export/cleanup";
 import { cleanupForwardingConfirmations } from "@/lib/forwarding-confirmation-cleanup";
 import { cleanupStagedPhotos } from "@/lib/receipts/staging";
+import { cleanupOrphanScans } from "@/lib/receipts/scans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,13 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] staged photo cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "staged-photo-cleanup" } });
   }
+  let orphanScansDeleted: number | null = null;
+  try {
+    orphanScansDeleted = (await cleanupOrphanScans()).removed;
+  } catch (err) {
+    console.error("[cron/cleanup-exports] orphan scan cleanup failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "orphan-scan-cleanup" } });
+  }
   if (!exportResult) return NextResponse.json({ error: "failed" }, { status: 500 });
-  return NextResponse.json({ ...exportResult, forwardingConfirmationsDeleted, stagedPhotosDeleted });
+  return NextResponse.json({ ...exportResult, forwardingConfirmationsDeleted, stagedPhotosDeleted, orphanScansDeleted });
 }

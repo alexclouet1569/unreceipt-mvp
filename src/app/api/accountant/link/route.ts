@@ -86,11 +86,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 
+  // Owners only: the reminder goes to the owners, and the choice applies
+  // to the whole company.
   const db = getSupabaseAdmin();
   const { data: memberships, error: memberError } = await db
     .from("memberships")
     .select("organization_id")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("role", "owner");
   if (memberError) {
     console.error("[/api/accountant/link] memberships failed", memberError.code);
     return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });

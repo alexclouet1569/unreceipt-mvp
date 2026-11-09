@@ -207,6 +207,14 @@ export function BatchCapture({
       pump();
       return;
     }
+    // Room for every page, or none: a page that isn't read could hold a
+    // receipt nobody books.
+    const pageCount = item.state.kind === "choose" ? item.state.pages : 0;
+    const room = MAX_BATCH - itemsRef.current.length + 1;
+    if (pageCount > room) {
+      update(item.id, { kind: "failed", reason: `${pageCount} pages, but room for ${Math.max(0, room)} more in this batch: send this scan on its own.` });
+      return;
+    }
     update(item.id, { kind: "reading" });
     try {
       const form = new FormData();
@@ -218,20 +226,31 @@ export function BatchCapture({
         return;
       }
       const pages = await splitPages(item.file);
-      const room = Math.max(0, MAX_BATCH - itemsRef.current.length + 1);
-      const pageItems: Item[] = pages.slice(0, room).map((file, i) => ({
+      const pageItems: Item[] = pages.map((file, i) => ({
         id: nextId(),
         label: `${item.label}, page ${i + 1}`,
         file,
         mode: { as: "page", scan: body.scan as string, page: i + 1, pages: body.pages as number },
         state: { kind: "waiting" },
       }));
-      if (pages.length > room) setNotice(`Up to ${MAX_BATCH} at a time: the last pages weren't read. The whole scan is kept.`);
       commit(itemsRef.current.flatMap((it) => (it.id === item.id ? pageItems : [it])));
       pump();
     } catch {
+      // The stored scan, if any, has no receipt: the daily cleanup removes it.
       update(item.id, { kind: "failed", reason: "Couldn't open the pages. Try again." });
     }
+  }
+
+  // A skipped page of a scan stays in the stored scan only when another
+  // page of it became a receipt; otherwise nothing points at the file and
+  // it isn't kept (src/lib/receipts/scans.ts), so the client keeps theirs.
+  function skippedReason(it: Item, reason: string): string {
+    if (it.mode.as !== "page") return reason;
+    const scan = it.mode.scan;
+    const siblings = items.filter((x) => x.mode.as === "page" && x.mode.scan === scan);
+    if (siblings.some((x) => x.state.kind === "saved")) return "Not a receipt: kept in the original scan.";
+    if (siblings.some((x) => x.state.kind === "waiting" || x.state.kind === "reading")) return reason;
+    return "No receipt found in this scan, so it isn't kept. Keep your own copy.";
   }
 
   // Once, with the files the sheet was opened with; focus lands on the
@@ -348,7 +367,9 @@ export function BatchCapture({
                           ? "Reading…"
                           : it.state.kind === "choose"
                             ? `${it.state.pages} pages. Is each page a receipt, or is the file one receipt?`
-                            : it.state.reason}
+                            : it.state.kind === "skipped"
+                              ? skippedReason(it, it.state.reason)
+                              : it.state.reason}
                     </p>
                   </>
                 )}

@@ -142,7 +142,7 @@ describe("POST /api/capture/scan", () => {
     mocks.ocr.mockResolvedValue({ not_a_receipt: true });
     expect(await (await post(fakePdf(1), { scan: SCAN, page: "3", pages: "3" })).json()).toMatchObject({
       skipped: true,
-      reason: "Not a receipt: kept in the original scan.",
+      reason: "This doesn't look like a receipt.",
     });
   });
 
