@@ -21,6 +21,7 @@ import {
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { BatchCapture } from "./BatchCapture";
 import {
   AlertCircle,
   Camera,
@@ -30,6 +31,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  Files,
   Loader2,
   Plus,
   Upload,
@@ -64,7 +66,7 @@ type CaptureDialogProps = {
 // the customer checks the result. "review" is also the manual form, for
 // a receipt without a photo or a photo we couldn't read. "saved" shows
 // the digital receipt that was just created.
-type Stage = "choose" | "reading" | "review" | "saved";
+type Stage = "choose" | "reading" | "review" | "saved" | "batch";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -143,6 +145,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // `capture` pushed iOS straight to the camera and buried the gallery.
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const severalInputRef = useRef<HTMLInputElement>(null);
+  // "Several receipts at once": the files picked, handed to BatchCapture.
+  const [batchFiles, setBatchFiles] = useState<File[] | null>(null);
   // Where focus goes after "Delete photo" in the photo viewer: the viewer and
   // the thumbnail that opened it are gone, and this button replaces them.
   const takePhotoButtonRef = useRef<HTMLButtonElement>(null);
@@ -200,6 +205,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     if (open) setIncludeVat(readIncludeVat());
     if (!open) {
       setStage("choose");
+      setBatchFiles(null);
       setForm(blankForm());
       setImageFile(null);
       setImagePreview(null);
@@ -560,7 +566,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   };
 
   const title =
-    stage === "saved"
+    stage === "batch"
+      ? "Several receipts"
+      : stage === "saved"
       ? "Receipt saved"
       : stage !== "review"
       ? "New receipt"
@@ -609,9 +617,21 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             notice={ocrError}
             onTakePhoto={() => cameraInputRef.current?.click()}
             onUpload={() => uploadInputRef.current?.click()}
+            onSeveral={() => severalInputRef.current?.click()}
             onManual={() => {
               setOcrError(null);
               setStage("review");
+            }}
+          />
+        ) : null}
+
+        {stage === "batch" && batchFiles ? (
+          <BatchCapture
+            initialFiles={batchFiles}
+            onDone={() => {
+              onSaved?.();
+              router.refresh();
+              onOpenChange(false);
             }}
           />
         ) : null}
@@ -912,6 +932,21 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           onChange={onPickFile}
         />
         <input
+          ref={severalInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (files.length === 0) return;
+            setOcrError(null);
+            setBatchFiles(files);
+            setStage("batch");
+          }}
+        />
+        <input
           ref={cameraInputRef}
           type="file"
           accept="image/*"
@@ -948,11 +983,13 @@ function ChooseStage({
   notice,
   onTakePhoto,
   onUpload,
+  onSeveral,
   onManual,
 }: {
   notice: string | null;
   onTakePhoto: () => void;
   onUpload: () => void;
+  onSeveral: () => void;
   onManual: () => void;
 }) {
   return (
@@ -979,6 +1016,10 @@ function ChooseStage({
         <button type="button" onClick={onUpload} className={SECONDARY_BUTTON_CLASS}>
           <Upload className="size-5" aria-hidden="true" />
           Upload photo or PDF
+        </button>
+        <button type="button" onClick={onSeveral} className={SECONDARY_BUTTON_CLASS}>
+          <Files className="size-5" aria-hidden="true" />
+          Several at once (photos or a scan)
         </button>
         <button
           type="button"

@@ -232,6 +232,12 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 - **Fallback.** If the photo can't be read, the same form shows with the photo still attached, an attention notice ("We couldn't read this photo…") and the title "Fill in the details". Manual entry uses the title "Enter manually" and a back button to stage 1.
 - Placeholders describe the field ("Shop or company", "Card, Swish, cash…"); they never look like example data. No red asterisks: required fields are enforced on save.
 
+### Several at once (`BatchCapture`)
+
+- Third button on the capture sheet's first screen, secondary style: **Several at once (photos or a scan)**. It opens the photo library with multiple selection (photos and PDFs); the sheet title becomes "Several receipts".
+- One row per photo or scanned page: a 32px status mark (spinner while reading, `--brand-action` check when saved, `--attention` dot when skipped or failed), the merchant in Manrope 700 / 15, then `Missing amount` (`--negative`, 600) or `To confirm` (`--attention-deep`, 600), and the amount in Geist Mono on the right. Rows are hairline-divided, no cards.
+- A live status line on top ("Reading 3 of 12", then "11 receipts saved") with one sentence on what happens next. Footer: **Photo** and **Add more** (secondary, side by side), **Try again (n)** when something failed or the rate limit paused the queue, and **Done** (primary), disabled while files are being read, because closing the sheet stops the ones not yet sent.
+
 ### Swipe to delete
 
 `src/components/receipt/SwipeToDelete.tsx`, around each receipt card on `/app`. Swipe a card left (touch or pen) and it slides to reveal an 88px **Delete** action on `--destructive` with `--destructive-foreground` text and a trash icon (4.97:1); tapping it deletes. A swipe alone never deletes. Past the button the card follows at half speed; let go beyond half the button and it stays open (200ms, entrance curve), otherwise it slides back (exit curve). The action exists only while the card is moved, so pressing a card never shows red behind it. One row open at a time; tapping elsewhere, scrolling, or tapping the open card closes it.

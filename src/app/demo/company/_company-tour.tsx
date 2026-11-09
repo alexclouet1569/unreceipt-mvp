@@ -9,7 +9,7 @@ import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from ".
 
 // Public guided tour for a client company: the real receipts screen and
 // capture sheet with sample receipts, then the accountant's invite.
-// Nothing is saved: /api/ocr, /api/capture and /api/accountant/respond are
+// Nothing is saved: /api/ocr, /api/capture, /api/capture/scan and /api/accountant/respond are
 // answered in the browser, every other /api call gets a 404.
 
 const STEPS: TourStep[] = [
@@ -244,6 +244,32 @@ export function CompanyTour({ step }: { step: number }) {
         });
         addReceipt.current(receipt);
         return json({ ok: true, id: receipt.id, receipt });
+      }
+      // "Several at once": every file reads as the sample receipt, waiting
+      // for a confirmation like the real thing.
+      if (path === "/api/capture/scan") {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const receipt = sample({
+          merchant_name: DEMO_OCR.merchant ?? "Receipt",
+          total: DEMO_OCR.amount ?? null,
+          currency: DEMO_OCR.currency ?? "SEK",
+          receipt_date: DEMO_OCR.receipt_date ?? daysAgo(0),
+          source: "paper",
+          image_url: "demo/photo.jpg",
+          status: "pending_review",
+          parse_confidence: 0.7,
+        });
+        addReceipt.current(receipt);
+        return json({
+          ok: true,
+          id: receipt.id,
+          merchant: receipt.merchant_name,
+          total: receipt.total,
+          currency: receipt.currency,
+          status: receipt.status,
+          missing: null,
+          duplicate: false,
+        });
       }
       // Swipe to delete: gone from the tour's list, nothing deleted anywhere.
       const deleted = /^\/api\/receipts\/([^/]+)$/.exec(path);
