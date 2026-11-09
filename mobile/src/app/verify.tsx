@@ -3,7 +3,15 @@
 // wrong code shakes the cells and buzzes, like the iPhone passcode screen.
 
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Pressable, StyleSheet, TextInput, View, type TextInputInstance } from "react-native";
+import {
+  AccessibilityInfo,
+  KeyboardAvoidingView,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+  type TextInputInstance,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -19,7 +27,7 @@ import { Button } from "../components/Button";
 import { Text } from "../components/Text";
 import { CODE_LENGTH } from "../config";
 import { fill, s } from "../i18n";
-import { colors, fonts, radius, space } from "../theme";
+import { colors, durations, fonts, radius, space } from "../theme";
 
 const RESEND_AFTER_S = 30;
 
@@ -56,13 +64,14 @@ export default function Verify() {
     shake.value = withSequence(
       ...[-10, 10, -8, 8, -4, 0].map((x) => withTiming(x, { duration: 50 })),
     );
-    setError(
+    const message =
       result === "expired"
         ? s.signIn.expiredCode
         : result === "unreachable"
           ? s.common.unreachable
-          : s.signIn.wrongCode,
-    );
+          : s.signIn.wrongCode;
+    setError(message);
+    AccessibilityInfo.announceForAccessibility(message);
     input.current?.focus();
   };
 
@@ -80,18 +89,21 @@ export default function Verify() {
     const result = await requestCode(email);
     if (result === "sent") {
       setNote(s.signIn.resent);
+      AccessibilityInfo.announceForAccessibility(s.signIn.resent);
       setWait(RESEND_AFTER_S);
       setCode("");
       input.current?.focus();
     } else {
-      setNote(result === "rateLimited" ? s.signIn.rateLimited : s.signIn.sendFailed);
+      const message = result === "rateLimited" ? s.signIn.rateLimited : s.signIn.sendFailed;
+      setNote(message);
+      AccessibilityInfo.announceForAccessibility(message);
     }
   };
 
   return (
     <SafeAreaView style={styles.screen}>
       <KeyboardAvoidingView behavior="padding" style={styles.fill}>
-        <Animated.View entering={FadeIn.duration(320)} style={styles.top}>
+        <Animated.View entering={FadeIn.duration(durations.medium)} style={styles.top}>
           <Text variant="displayXl">{s.signIn.codeTitle}</Text>
           <Text variant="body" color={colors.inkMuted}>
             {fill(s.signIn.codeSubtitle, { email })}
@@ -99,7 +111,12 @@ export default function Verify() {
         </Animated.View>
 
         <Pressable onPress={() => input.current?.focus()} accessible={false}>
-          <Animated.View style={[styles.cells, shakeStyle]}>
+          {/* The cells only draw the digits; VoiceOver reads the field below. */}
+          <Animated.View
+            style={[styles.cells, shakeStyle]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             {Array.from({ length: CODE_LENGTH }, (_, i) => {
               const active = i === Math.min(code.length, CODE_LENGTH - 1) && !checking;
               return (
@@ -125,20 +142,21 @@ export default function Verify() {
             autoComplete="one-time-code"
             maxLength={CODE_LENGTH}
             caretHidden
+            maxFontSizeMultiplier={1.4}
             accessibilityLabel={s.signIn.codeLabel}
             style={styles.hiddenInput}
           />
         </Pressable>
 
         {error ? (
-          <Animated.View entering={FadeIn.duration(200)}>
-            <Text variant="caption" color={colors.negative} accessibilityLiveRegion="polite">
+          <Animated.View entering={FadeIn.duration(durations.short)}>
+            <Text variant="caption" color={colors.attentionDeep}>
               {error}
             </Text>
           </Animated.View>
         ) : null}
         {note ? (
-          <Text variant="caption" color={colors.inkMuted} accessibilityLiveRegion="polite">
+          <Text variant="caption" color={colors.inkMuted}>
             {note}
           </Text>
         ) : null}
@@ -173,7 +191,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cellActive: { borderColor: colors.brandAction },
-  cellError: { borderColor: colors.negative },
+  // Not a destructive error: honey, never red (DESIGN.md).
+  cellError: { borderColor: colors.attention },
   digit: { fontFamily: fonts.bold, fontSize: 26, color: colors.ink },
   hiddenInput: { ...StyleSheet.absoluteFill, opacity: 0.02, color: "transparent" },
   spacer: { flex: 1 },

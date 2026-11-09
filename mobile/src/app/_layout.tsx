@@ -8,11 +8,13 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 // One import per weight, so only these files ship in the app.
+import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
 import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
 import { Manrope_600SemiBold } from "@expo-google-fonts/manrope/600SemiBold";
 import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 import { Manrope_800ExtraBold } from "@expo-google-fonts/manrope/800ExtraBold";
 import { Figtree_500Medium_Italic } from "@expo-google-fonts/figtree/500Medium_Italic";
+import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono/400Regular";
 import { GeistMono_500Medium } from "@expo-google-fonts/geist-mono/500Medium";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { colors } from "../theme";
@@ -23,11 +25,13 @@ SplashScreen.setOptions({ duration: 250, fade: true });
 function RootNavigator() {
   const { status } = useAuth();
   const [fontsLoaded, fontError] = useFonts({
+    Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
     Manrope_800ExtraBold,
     Figtree_500Medium_Italic,
+    GeistMono_400Regular,
     GeistMono_500Medium,
   });
   // A font that fails to load falls back to the system font; never stay on

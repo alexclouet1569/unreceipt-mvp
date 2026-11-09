@@ -21,16 +21,14 @@ export function Button({
   return (
     <PressableScale
       accessibilityRole="button"
+      // Named even while the spinner replaces the label.
+      accessibilityLabel={label}
       accessibilityState={{ disabled: inactive, busy }}
       disabled={inactive}
       haptic={primary}
       scaleTo={0.97}
       onPress={onPress}
-      style={[
-        styles.base,
-        primary ? styles.primary : styles.plain,
-        primary && inactive && styles.primaryInactive,
-      ]}
+      style={[styles.base, primary ? styles.primary : styles.plain, inactive && styles.inactive]}
     >
       {busy ? (
         <ActivityIndicator color={primary ? colors.white : colors.ink} />
@@ -57,7 +55,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   primary: { backgroundColor: colors.brandAction },
-  primaryInactive: { opacity: 0.45 },
   plain: { backgroundColor: "transparent" },
+  inactive: { opacity: 0.45 },
   label: { fontFamily: fonts.bold, fontSize: 16 },
 });

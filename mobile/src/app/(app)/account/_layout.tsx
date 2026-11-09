@@ -13,7 +13,7 @@ export default function AccountStack() {
         headerLargeTitleShadowVisible: false,
         headerTintColor: colors.brandAction,
         headerTitleStyle: { fontFamily: fonts.bold, color: colors.ink },
-        headerLargeTitleStyle: { fontFamily: fonts.extrabold, color: colors.ink },
+        headerLargeTitleStyle: { fontFamily: fonts.bold, color: colors.ink },
       }}
     >
       <Stack.Screen name="index" options={{ title: s.account.title, headerLargeTitleEnabled: true }} />

@@ -20,7 +20,12 @@ function Tabs() {
     home?.state === "ready" ? home.receipts.filter((r) => r.status === "pending_review").length : 0;
 
   return (
-    <NativeTabs tintColor={colors.brandAction} minimizeBehavior="onScrollDown">
+    <NativeTabs
+      tintColor={colors.brandAction}
+      // Review-needed is honey, never red (DESIGN.md); white on attentionDeep is 5.4:1.
+      badgeBackgroundColor={colors.attentionDeep}
+      minimizeBehavior="onScrollDown"
+    >
       <NativeTabs.Trigger name="(receipts)">
         <NativeTabs.Trigger.Label>{s.tabs.receipts}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "doc.text", selected: "doc.text.fill" }} />

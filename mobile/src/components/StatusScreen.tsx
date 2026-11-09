@@ -2,7 +2,7 @@
 // staff (the portal is on the web) and accounts without an active plan.
 // No price, no plan, no purchase link (App Store 3.1.3(f)).
 
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
 import { s } from "../i18n";
@@ -24,12 +24,21 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
           {body}
         </Text>
         {email ? (
-          <Text variant="caption" color={colors.inkFaint} style={styles.center}>
+          <Text variant="caption" color={colors.inkMuted} style={styles.center}>
             {s.account.signedInAs} {email}
           </Text>
         ) : null}
       </View>
-      <Button label={s.account.signOut} kind="plain" onPress={() => void signOut()} />
+      <Button
+        label={s.account.signOut}
+        kind="destructive"
+        onPress={() =>
+          Alert.alert(s.account.signOutConfirm, undefined, [
+            { text: s.common.cancel, style: "cancel" },
+            { text: s.account.signOut, style: "destructive", onPress: () => void signOut() },
+          ])
+        }
+      />
     </SafeAreaView>
   );
 }

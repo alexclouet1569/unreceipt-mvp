@@ -15,11 +15,11 @@ import { Text } from "../../../components/Text";
 import { locale, s } from "../../../i18n";
 import { useHome } from "../../../lib/HomeProvider";
 import { buildSections } from "../../../lib/sections";
-import { colors, radius, space } from "../../../theme";
+import { colors, durations, radius, space } from "../../../theme";
 
 function Notice({ text }: { text: string }) {
   return (
-    <Animated.View entering={FadeIn.duration(200)} style={styles.notice}>
+    <Animated.View entering={FadeIn.duration(durations.short)} style={styles.notice}>
       <Text variant="caption" color={colors.attentionDeep}>
         {text}
       </Text>
@@ -29,9 +29,9 @@ function Notice({ text }: { text: string }) {
 
 function Empty({ address }: { address: string }) {
   return (
-    <Animated.View entering={FadeIn.duration(320)} style={styles.empty}>
+    <Animated.View entering={FadeIn.duration(durations.medium)} style={styles.empty}>
       <View style={styles.emptyMark}>
-        <BrandMark size={44} />
+        <BrandMark size={40} variant="bare" />
       </View>
       <Text variant="displayLg" style={styles.center}>
         {s.receipts.emptyTitle}
@@ -76,15 +76,16 @@ export default function Receipts() {
     );
   }
 
+  // No wrapper around the list: the large title must see the scroll view
+  // to shrink into the bar.
   return (
-    <Animated.View entering={FadeIn.duration(320)} style={styles.fill}>
       <SectionList
         contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(r) => r.id}
         stickySectionHeadersEnabled={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing && !loading} onRefresh={() => void refresh()} tintColor={colors.inkFaint} />
+          <RefreshControl refreshing={refreshing && !loading} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />
         }
         ListHeaderComponent={
           error ? <Notice text={error === "offline" ? s.common.offline : s.receipts.loadFailed} /> : undefined
@@ -93,11 +94,12 @@ export default function Receipts() {
         renderSectionHeader={({ section }) => (
           <Text
             variant="micro"
-            color={section.attention ? colors.attentionDeep : colors.inkFaint}
+            color={section.attention ? colors.attentionDeep : colors.inkMuted}
             style={styles.sectionLabel}
             accessibilityRole="header"
           >
-            {`${section.title.toUpperCase()}${section.attention ? `  ${section.data.length}` : ""}`}
+            {section.title}
+            {section.attention ? <Text variant="micro" style={styles.count} color={colors.attentionDeep}>{`  ${section.data.length}`}</Text> : null}
           </Text>
         )}
         renderItem={({ item }) => (
@@ -108,14 +110,13 @@ export default function Receipts() {
         )}
         contentContainerStyle={styles.content}
       />
-    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   content: { paddingBottom: space.xxxl },
   center: { textAlign: "center" },
+  count: { fontVariant: ["tabular-nums"] },
   sectionLabel: {
     marginHorizontal: space.lg,
     marginTop: space.xl,

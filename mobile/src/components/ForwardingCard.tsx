@@ -1,8 +1,8 @@
 // The user's private receipt address with a Copy button that answers with a
-// haptic tick and "Copied" for a moment.
+// haptic tick and "Copied" for a moment (announced to VoiceOver too).
 
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { AccessibilityInfo, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
@@ -26,15 +26,16 @@ export function ForwardingCard({ address }: { address: string }) {
       <PressableScale
         scaleTo={0.94}
         accessibilityRole="button"
-        accessibilityLabel={copied ? s.common.copied : s.common.copy}
+        accessibilityLabel={s.common.copy}
         onPress={async () => {
           await Clipboard.setStringAsync(address);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          AccessibilityInfo.announceForAccessibility(s.common.copied);
           setCopied(true);
         }}
-        style={[styles.copy, copied && styles.copied]}
+        style={styles.copy}
       >
-        <Text style={styles.copyLabel} color={copied ? colors.brandAction : colors.white}>
+        <Text style={styles.copyLabel} color={colors.white}>
           {copied ? s.common.copied : s.common.copy}
         </Text>
       </PressableScale>
@@ -48,7 +49,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space.sm,
     backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderWidth: 1,
     borderColor: colors.hairline,
     borderRadius: radius.lg,
     paddingLeft: 14,
@@ -60,9 +61,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandAction,
     borderRadius: radius.md,
     paddingHorizontal: 14,
-    minHeight: 40,
+    minHeight: 44,
+    minWidth: 84,
+    alignItems: "center",
     justifyContent: "center",
   },
-  copied: { backgroundColor: colors.brandTint },
   copyLabel: { fontFamily: fonts.bold, fontSize: 14 },
 });

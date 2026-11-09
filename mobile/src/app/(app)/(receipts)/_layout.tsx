@@ -17,7 +17,7 @@ export default function ReceiptsStack() {
         headerLargeTitleShadowVisible: false,
         headerTintColor: colors.brandAction,
         headerTitleStyle: { fontFamily: fonts.bold, color: colors.ink },
-        headerLargeTitleStyle: { fontFamily: fonts.extrabold, color: colors.ink },
+        headerLargeTitleStyle: { fontFamily: fonts.bold, color: colors.ink },
         headerBackButtonDisplayMode: "minimal",
       }}
     >

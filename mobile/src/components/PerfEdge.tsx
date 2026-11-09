@@ -1,26 +1,29 @@
-// The perforated top edge of a receipt (DESIGN.md signature element), drawn
-// as a row of half-circle bites out of the card.
+// The perforated top edge of a receipt (DESIGN.md signature element), the
+// same as the website's PerfEdge: an 8pt strip of the card with round 8×8
+// holes in the page colour every 16pt.
 
 import { useState } from "react";
 import { View } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 
-export function PerfEdge({ color, background, size = 8 }: { color: string; background: string; size?: number }) {
+const HEIGHT = 8;
+const PITCH = 16;
+
+export function PerfEdge({ color, background }: { color: string; background: string }) {
   const [width, setWidth] = useState(0);
-  const count = Math.max(1, Math.floor(width / size));
-  const step = width / count;
-  let d = `M0 ${size}`;
-  for (let i = 0; i < count; i++) {
-    const x = i * step;
-    d += ` L${x} ${size} A${step / 2} ${step / 2} 0 0 1 ${x + step} ${size}`;
-  }
-  d += ` L${width} ${size} L${width} ${size + 1} L0 ${size + 1} Z`;
-
+  const holes = Math.ceil(width / PITCH);
   return (
-    <View style={{ height: size, backgroundColor: background }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View
+      style={{ height: HEIGHT, backgroundColor: color }}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       {width > 0 ? (
-        <Svg width={width} height={size + 1} style={{ position: "absolute", top: 0 }}>
-          <Path d={d} fill={color} />
+        <Svg width={width} height={HEIGHT}>
+          {Array.from({ length: holes }, (_, i) => (
+            <Circle key={i} cx={PITCH / 2 + i * PITCH} cy={HEIGHT / 2} r={HEIGHT / 2} fill={background} />
+          ))}
         </Svg>
       ) : null}
     </View>

@@ -15,8 +15,8 @@ import { colors, radius, space } from "../../../theme";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
-      <Text variant="micro" color={colors.inkFaint} accessibilityRole="header">
-        {title.toUpperCase()}
+      <Text variant="micro" color={colors.inkMuted} accessibilityRole="header">
+        {title}
       </Text>
       {children}
     </View>
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   section: { gap: space.sm },
   card: {
     backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderWidth: 1,
     borderColor: colors.hairline,
     borderRadius: radius.lg,
     paddingVertical: 14,

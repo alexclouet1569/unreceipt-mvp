@@ -10,13 +10,13 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { colors, radius, space } from "../theme";
+import { colors, durations, radius, space } from "../theme";
 
 export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
   const opacity = useSharedValue(0.55);
   useEffect(() => {
     opacity.value = withRepeat(
-      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: durations.long, easing: Easing.inOut(Easing.quad) }),
       -1,
       true,
     );
@@ -40,7 +40,7 @@ export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
-const GREY = "#EFEDE6";
+const GREY = colors.skeleton;
 
 const styles = StyleSheet.create({
   label: {
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space.md,
     backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderWidth: 1,
     borderColor: colors.hairline,
     borderRadius: radius.lg,
     paddingVertical: 12,

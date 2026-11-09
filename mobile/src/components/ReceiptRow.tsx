@@ -6,25 +6,11 @@ import { StyleSheet, View } from "react-native";
 import type { MobileReceipt } from "@/lib/mobile/types";
 import { fill, joinList, locale, s } from "../i18n";
 import { formatMoney, parseReceiptDate, shortDate } from "../lib/format";
-import { colors, radius, space } from "../theme";
+import { getMerchantColor, getMerchantInitials } from "../lib/merchant";
+import { colors, fonts, radius, space } from "../theme";
 import { Money } from "./Money";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
-
-const BLOCK_COLORS = [colors.ink, colors.brandAction, colors.attentionDeep, "#6B9778", colors.inkMuted];
-
-function initials(name: string | null): string {
-  if (!name) return "?";
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "?").slice(0, 2);
-  return letters.toUpperCase();
-}
-
-function blockColor(name: string | null): string {
-  let h = 0;
-  for (const ch of name ?? "") h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return BLOCK_COLORS[h % BLOCK_COLORS.length];
-}
 
 /** "amount and date", or null when nothing is missing. */
 export function missingFields(r: MobileReceipt): string | null {
@@ -43,17 +29,26 @@ export function missingText(r: MobileReceipt): string | null {
   return fields ? fill(s.receipts.missing, { fields }) : null;
 }
 
+/** The converted amount of a foreign receipt, or null. */
+export function convertedAmount(r: MobileReceipt): string | null {
+  if (!r.homeCurrency || r.homeCurrency === r.currency || r.homeTotal == null) return null;
+  return fill(s.receipts.estimate, { amount: formatMoney(r.homeTotal, r.homeCurrency, locale) });
+}
+
 export function ReceiptRow({ receipt: r, onPress }: { receipt: MobileReceipt; onPress: () => void }) {
   const date = parseReceiptDate(r.date);
   const missing = missingText(r);
   const review = r.status === "pending_review";
-  const foreign =
-    r.homeCurrency && r.homeCurrency !== r.currency && r.homeTotal != null ? r.homeTotal : null;
+  const converted = convertedAmount(r);
+  const meta = [s.categories[r.category], date ? shortDate(date, locale) : null].filter(Boolean).join(" · ");
 
+  // Everything a sighted person reads on the card, in reading order.
   const label = [
-    r.merchant ?? "",
-    r.total != null ? formatMoney(r.total, r.currency, locale) : "",
-    missing ?? (review ? s.receipts.toConfirm : ""),
+    r.merchant ?? "—",
+    r.total != null ? formatMoney(r.total, r.currency, locale) : null,
+    converted,
+    review ? (missing ?? s.receipts.toConfirm) : null,
+    meta,
   ]
     .filter(Boolean)
     .join(", ");
@@ -61,20 +56,23 @@ export function ReceiptRow({ receipt: r, onPress }: { receipt: MobileReceipt; on
   return (
     <PressableScale
       onPress={onPress}
+      // Like a native table cell: a touch that starts a scroll doesn't
+      // shrink the card.
+      unstable_pressDelay={90}
       accessibilityRole="button"
       accessibilityLabel={label}
       style={[styles.card, review && styles.review]}
     >
-      <View style={[styles.block, { backgroundColor: blockColor(r.merchant) }]}>
+      <View style={[styles.block, { backgroundColor: getMerchantColor(r.merchant) }]}>
         <Text style={styles.initials} color={colors.white}>
-          {initials(r.merchant)}
+          {getMerchantInitials(r.merchant)}
         </Text>
       </View>
       <View style={styles.middle}>
         <Text variant="merchant" numberOfLines={1} color={r.merchant ? colors.ink : colors.inkFaint}>
           {r.merchant ?? "—"}
         </Text>
-        <Text variant="caption" numberOfLines={1} color={colors.inkFaint}>
+        <Text variant="caption" numberOfLines={1} color={colors.inkMuted}>
           {review ? (
             <Text
               variant="caption"
@@ -85,15 +83,14 @@ export function ReceiptRow({ receipt: r, onPress }: { receipt: MobileReceipt; on
               {" · "}
             </Text>
           ) : null}
-          {s.categories[r.category]}
-          {date ? ` · ${shortDate(date, locale)}` : ""}
+          {meta}
         </Text>
       </View>
       <View style={styles.right}>
         <Money amount={r.total} currency={r.currency} />
-        {foreign != null && r.homeCurrency ? (
-          <Text variant="amountRow" color={colors.inkFaint}>
-            ≈ {formatMoney(foreign, r.homeCurrency, locale)}
+        {converted ? (
+          <Text variant="amountRow" color={colors.inkMuted} numberOfLines={1}>
+            {converted}
           </Text>
         ) : null}
       </View>
@@ -107,7 +104,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space.md,
     backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderWidth: 1,
     borderColor: colors.hairline,
     borderRadius: radius.lg,
     paddingVertical: 12,
@@ -123,8 +120,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  initials: { fontFamily: "Manrope_700Bold", fontSize: 14 },
+  initials: { fontFamily: fonts.bold, fontSize: 14 },
   middle: { flex: 1, gap: 2 },
-  flag: { fontFamily: "Manrope_600SemiBold" },
-  right: { alignItems: "flex-end", gap: 2 },
+  flag: { fontFamily: fonts.semibold },
+  right: { alignItems: "flex-end", gap: 2, maxWidth: "45%" },
 });
