@@ -307,6 +307,18 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
   - `on="mint"` — cream receipt body, navy arrow, single-color navy wordmark (for the brand-tint hero / VAT panel)
 - Size via `style={{ fontSize: "Npx" }}` or a Tailwind `text-*` utility — the isotype scales relative to the wordmark cap-height.
 
+### Native iPhone app (`mobile/`)
+
+The same tokens, fonts and rules, in `mobile/src/theme.ts`. Where iOS draws its own chrome, the app uses it as is, because that is what makes it feel native:
+
+- **Tab bar:** the system tab bar (Liquid Glass on iOS 26) with SF Symbols, tinted `--brand-action`. The one exception to "no glassmorphism": it is the platform's, not ours. The Receipts tab carries a badge with the number of receipts to confirm.
+- **Headers:** the native large title on `--surface`, no hairline under it, shrinking into the bar on scroll. Back is the system chevron.
+- **Alerts and the share sheet** are the system's.
+- **Touch:** everything tappable springs to `scale(0.985)` under the finger (`0.97` for buttons, `0.94` for small pills) on the UI thread. Haptics: a light tap on primary buttons, success on a correct code or a copy, error with a shake on a wrong code.
+- **Loading:** the saved list shows at once; only a first-ever load shows placeholder cards (pulsing `#EFEDE6` shapes in the receipt card layout). No spinner in the middle of an empty screen.
+- **List:** "To confirm" first (micro label in `--attention-deep` with the count), then Today / Yesterday / This week / month names. Cards as specified above, with the honey left rule.
+- **Detail:** the perforated edge on top of a white card, the total in `amount-display`, a status band (`--attention-tint` to confirm, `--brand-tint` complete, red text when fields are missing), then dashed divider and label/value rows.
+
 ## Decisions Log
 
 | Date | Decision | Rationale |

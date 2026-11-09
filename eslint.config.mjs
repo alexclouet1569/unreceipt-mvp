@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The Xcode project: generated files and the copied web assets.
     "ios/**",
+    // The native iPhone app has its own config (mobile/: npm run lint there).
+    "mobile/**",
   ]),
 ]);
 
