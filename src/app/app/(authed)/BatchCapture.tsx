@@ -210,7 +210,7 @@ export function BatchCapture({ initialFiles, onDone }: { initialFiles: File[]; o
           {busy
             ? "Keep this open until every receipt is read. Each one then waits under Review needed for a quick check."
             : counts.toComplete > 0
-              ? `${counts.toComplete} still miss a field (in red). The others only need a quick confirmation under Review needed.`
+              ? `${counts.toComplete} still ${counts.toComplete === 1 ? "misses" : "miss"} a field (in red). The others only need a quick confirmation under Review needed.`
               : "Each one waits under Review needed: compare it with the photo and confirm."}
         </p>
         {paused || notice ? (

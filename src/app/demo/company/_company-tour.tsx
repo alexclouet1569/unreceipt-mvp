@@ -208,6 +208,7 @@ export function CompanyTour({ step }: { step: number }) {
   const [notice, closeNotice] = useDemoLinkGuard();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
+  const scans = useRef(0);
   const dropReceipt = useRef((id: string) => setReceipts((prev) => prev.filter((r) => r.id !== id)));
 
   useEffect(() => {
@@ -249,11 +250,20 @@ export function CompanyTour({ step }: { step: number }) {
       // for a confirmation like the real thing.
       if (path === "/api/capture/scan") {
         await new Promise((resolve) => setTimeout(resolve, 1200));
+        // A few different shops; one photo too blurry to read the total.
+        const reads = [
+          { merchant: "Clas Ohlson", amount: 245 as number | null, category: "office_supplies" },
+          { merchant: "Circle K", amount: 812 as number | null, category: "transport" },
+          { merchant: "EasyPark", amount: null as number | null, category: "transport" },
+          { merchant: "Espresso House", amount: 89 as number | null, category: "meals" },
+        ];
+        const read = reads[scans.current++ % reads.length];
         const receipt = sample({
-          merchant_name: DEMO_OCR.merchant ?? "Receipt",
-          total: DEMO_OCR.amount ?? null,
-          currency: DEMO_OCR.currency ?? "SEK",
-          receipt_date: DEMO_OCR.receipt_date ?? daysAgo(0),
+          merchant_name: read.merchant,
+          total: read.amount,
+          category: read.category as Receipt["category"],
+          currency: "SEK",
+          receipt_date: daysAgo(scans.current % 5),
           source: "paper",
           image_url: "demo/photo.jpg",
           status: "pending_review",
@@ -267,7 +277,7 @@ export function CompanyTour({ step }: { step: number }) {
           total: receipt.total,
           currency: receipt.currency,
           status: receipt.status,
-          missing: null,
+          missing: receipt.total == null ? "amount" : null,
           duplicate: false,
         });
       }

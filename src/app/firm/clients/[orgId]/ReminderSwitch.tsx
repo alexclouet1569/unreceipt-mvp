@@ -51,16 +51,16 @@ export function ReminderSwitch({
   return (
     <section
       aria-label="Weekly reminder"
-      className="bg-card flex flex-wrap items-center justify-between gap-3"
+      className="bg-card flex items-center justify-between gap-3"
       style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "10px 16px" }}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "14px" }}>
           Weekly reminder {weekly ? "on" : "off"}
         </p>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
           {weekly
-            ? `Every Monday ${clientName} gets an email listing missing receipts and receipts to complete, when there are any. Replies come to you.`
+            ? `Every Monday ${clientName} gets an email listing missing receipts and receipts to complete, when there are any. Replies go to your firm's admin.`
             : `${clientName} gets no automatic email. You can still email the missing list by hand.`}
           {state.lastSentAt ? ` Last reminded ${dayLabel(state.lastSentAt.slice(0, 10))}.` : ""}
         </p>
