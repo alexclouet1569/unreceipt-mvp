@@ -49,6 +49,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 
 vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
+  getUserSupabase: async () => userScopedClient(),
 }));
 
 // PATCH reads through loadReceiptForActor(); DELETE still reads under RLS.
@@ -75,8 +76,9 @@ vi.mock("next/headers", () => ({
     }),
 }));
 
-vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({
+// The caller-scoped client (RLS) the DELETE handler reads and deletes with.
+function userScopedClient() {
+  return {
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -87,8 +89,8 @@ vi.mock("@supabase/ssr", () => ({
         eq: (col: string, val: string) => mocks.deleteEq(col, val),
       }),
     }),
-  }),
-}));
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();

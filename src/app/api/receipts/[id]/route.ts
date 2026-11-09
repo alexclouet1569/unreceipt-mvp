@@ -23,9 +23,7 @@
 import { isScanPath } from "@/lib/receipts/scans";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { getServerUser } from "@/lib/supabase-server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { getServerUser, getUserSupabase } from "@/lib/supabase-server";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
@@ -78,26 +76,6 @@ const PatchSchema = z.object({
   // to the ECB rate.
   home_total: z.number().positive().max(MAX_AMOUNT).nullable().optional(),
 });
-
-async function getUserScopedClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const cookieStore = await cookies();
-  return createServerClient(url, anon, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll: (toSet) => {
-        try {
-          for (const { name, value, options } of toSet) {
-            cookieStore.set(name, value, options);
-          }
-        } catch {
-          /* read-only context */
-        }
-      },
-    },
-  });
-}
 
 export async function PATCH(
   request: NextRequest,
@@ -307,7 +285,7 @@ export async function DELETE(
     return NextResponse.json({ error: "invalid id" }, { status: 400 });
   }
 
-  const supabase = await getUserScopedClient();
+  const supabase = await getUserSupabase();
   const { data: row, error: readError } = await supabase
     .from("receipts")
     .select("id, image_url, original_source_url")
