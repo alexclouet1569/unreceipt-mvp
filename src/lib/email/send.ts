@@ -28,7 +28,8 @@ export type OutgoingEmail = {
     | "link_confirmation"
     | "firm_closed"
     | "missing_receipts"
-    | "weekly_reminder";
+    | "weekly_reminder"
+    | "firm_welcome";
 };
 
 export type SendResult =

@@ -617,6 +617,44 @@ export function weeklyReminderEmail(opts: {
   };
 }
 
+// The founder set up an accounting firm for an accountant on /admin/pilot:
+// how to sign in to the firm portal with this address.
+export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }): EmailContent {
+  const firm = opts.firmName.trim() || "your firm";
+  const title = `${firm} is ready on UnReceipt`;
+  const intro = `Your firm portal is set up. Sign in with this email address to invite your clients, see their receipts as they arrive and export each month for your bookkeeping.`;
+  const steps =
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;">` +
+    step(1, "Sign in", "Use this email address; we send you a sign-in link or a code.") +
+    step(2, "Invite a client", "Clients → Add client: their name and email. They get an invitation and connect in a minute.") +
+    step(3, "Watch receipts arrive", "Each client's month fills up as they photograph or forward receipts. Every Monday they get a reminder of what's missing.") +
+    `</table>`;
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    steps,
+    button("Open the firm portal", opts.signInUrl),
+    signOff(true).html,
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout({ preheader: intro, bodyHtml, footerHtml: "You get this email because UnReceipt set up a firm portal for this address." }),
+    text: [
+      title,
+      "",
+      intro,
+      "",
+      "1. Sign in with this email address.",
+      "2. Clients → Add client: their name and email.",
+      "3. Each client's month fills up as they photograph or forward receipts. Every Monday they get a reminder of what's missing.",
+      "",
+      `Open the firm portal: ${opts.signInUrl}`,
+      "",
+      signOff(true).text,
+    ].join("\n"),
+  };
+}
+
 // First word of the name the user typed at sign-up; nothing for magic-link
 // users who never gave one.
 export function firstNameFrom(fullName: string | null | undefined): string | null {
