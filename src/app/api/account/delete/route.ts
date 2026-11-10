@@ -12,9 +12,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 import { z } from "zod";
-import { getServerUser } from "@/lib/supabase-server";
+import { getServerUser, getSessionClaims } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import {
   AccountDeletionError,
@@ -63,14 +62,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "confirmation_required" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  );
-  const { data: claimsData } = await supabase.auth.getClaims();
-  if (!isFreshSignIn(sessionAuthTime(claimsData?.claims))) {
+  // This session's sign-in time: the browser's cookie or the app's token.
+  if (!isFreshSignIn(sessionAuthTime(await getSessionClaims()))) {
     return NextResponse.json({ error: "reauth_required" }, { status: 401 });
   }
 
@@ -88,6 +81,7 @@ export async function POST(request: NextRequest) {
 
   // The auth user is gone; clear the session cookies on the way out.
   const response = NextResponse.json({ ok: true });
+  const cookieStore = await cookies();
   for (const cookie of cookieStore.getAll()) {
     if (cookie.name.startsWith("sb-")) {
       response.cookies.set({ name: cookie.name, value: "", maxAge: 0 });

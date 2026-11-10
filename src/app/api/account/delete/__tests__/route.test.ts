@@ -13,7 +13,10 @@ const mocks = vi.hoisted(() => ({
   authTime: 0,
 }));
 
-vi.mock("@/lib/supabase-server", () => ({ getServerUser: mocks.getServerUser }));
+vi.mock("@/lib/supabase-server", () => ({
+  getServerUser: mocks.getServerUser,
+  getSessionClaims: async () => ({ amr: [{ method: "password", timestamp: mocks.authTime }] }),
+}));
 vi.mock("@/lib/rate-limit", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
   rateLimit: mocks.rateLimit,
@@ -26,16 +29,6 @@ vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ getAll: () => mocks.cookies }),
 }));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
-vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({
-    auth: {
-      getClaims: async () => ({
-        data: { claims: { amr: [{ method: "password", timestamp: mocks.authTime }] } },
-        error: null,
-      }),
-    },
-  }),
-}));
 
 import { POST } from "@/app/api/account/delete/route";
 import { AccountDeletionError } from "@/lib/account-deletion";

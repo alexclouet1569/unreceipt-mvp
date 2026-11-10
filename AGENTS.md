@@ -134,6 +134,8 @@ Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NE
 
 # Store apps
 
+**Native iPhone app (2026-11-09):** companies and freelancers get a real native app built with Expo in `mobile/` (plan: `docs/plans/unreceipt-ios-native-plan.md`; rules: `mobile/AGENTS.md`). Accountants stay on `/firm` on the web. It signs in with the Supabase email code and calls the API with `Authorization: Bearer <access token>`, which `getServerUser()` accepts next to cookies (a well-formed bearer is judged alone; `getUserSupabase()` and `getSessionClaims()` follow the same credential). Its data comes from `/api/mobile/*`, built from the same library code as the website (`loadHome()`, `src/lib/home/load-home.ts`), with display-only JSON typed once in `src/lib/mobile/types.ts`. That file must stay types only: the app imports it with `import type`. Every rule below about prices and purchases applies to it too. The Capacitor shell described next is kept until the native app is on TestFlight, then removed; it is never submitted.
+
 One Capacitor app wraps `app.unreceipt.com` for both roles (plan: `docs/plans/unreceipt-store-apps-plan.md`). The shell appends `UnReceiptApp/<version> (ios|android)` to the user agent; `parseNativeApp()` (`src/lib/native-app.ts`, client-safe) and `getNativeApp()` (`src/lib/native-app-server.ts`) read it.
 
 - The store apps sell nothing and point to no purchase elsewhere (App Store 3.1.3(f); the same rule on Android). Inside the app: no prices, plan suggestions, trial copy, "subscribe" or links to the marketing site; `/subscribe` shows a neutral screen and `/api/checkout` answers 403. Any new surface that mentions prices or plans must take the same native variant.

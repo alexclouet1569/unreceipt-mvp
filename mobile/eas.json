@@ -1,0 +1,24 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://app.unreceipt.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://zkomfxvyrtkwxzvbxxma.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_N--Ps1YU-jiyoVeEBcAnzw_FOan4Kcy"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {}
+    }
+  }
+}

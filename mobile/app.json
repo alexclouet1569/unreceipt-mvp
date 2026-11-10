@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "UnReceipt",
+    "slug": "unreceipt",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "unreceipt",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FAFAF7",
+    "ios": {
+      "bundleIdentifier": "com.unreceipt.app",
+      "supportsTablet": false,
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true,
+        "CFBundleLocalizations": [
+          "en",
+          "sv",
+          "fr"
+        ]
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FAFAF7",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 96
+        }
+      ],
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "UnReceipt uses the camera to scan your receipts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "UnReceipt reads the receipt photos you choose.",
+          "cameraPermission": "UnReceipt uses the camera to scan your receipts.",
+          "microphonePermission": false
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "locales": {
+      "en": "./locales/en.json",
+      "sv": "./locales/sv.json",
+      "fr": "./locales/fr.json"
+    }
+  }
+}

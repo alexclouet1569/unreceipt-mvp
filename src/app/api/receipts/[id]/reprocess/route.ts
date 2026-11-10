@@ -10,9 +10,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { getServerUser } from "@/lib/supabase-server";
+import { getServerUser, getUserSupabase } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import {
   hasProductAccess,
@@ -31,26 +29,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // Vision calls on multi-page PDFs can take 10-20s; give 30s headroom.
 export const maxDuration = 30;
-
-async function getUserScopedClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const cookieStore = await cookies();
-  return createServerClient(url, anon, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll: (toSet) => {
-        try {
-          for (const { name, value, options } of toSet) {
-            cookieStore.set(name, value, options);
-          }
-        } catch {
-          /* read-only context */
-        }
-      },
-    },
-  });
-}
 
 function inferMediaTypeFromPath(path: string): OcrMediaType | null {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -97,7 +75,7 @@ export async function POST(
     return NextResponse.json({ error: "invalid id" }, { status: 400 });
   }
 
-  const supabase = await getUserScopedClient();
+  const supabase = await getUserSupabase();
   const { data: row, error: readErr } = await supabase
     .from("receipts")
     .select("*")

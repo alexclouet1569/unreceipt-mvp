@@ -18,6 +18,12 @@
 // once confirmed (PATCH /api/receipts/[id]). A picture that isn't a
 // receipt is not saved. A receipt with the same merchant, amount and day
 // as one already there is saved with a note, so nobody books it twice.
+//
+// The iPhone app sends each scan's own id as `client_id` (a UUID). The app
+// sends a scan again when the answer was lost (bad connection, app closed),
+// so a scan already saved is answered with its receipt: no second reading,
+// no second receipt. The unique (user_id, client_upload_id) index settles
+// two copies arriving together.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
@@ -34,12 +40,13 @@ import { EXTENSION_BY_TYPE, MAX_UPLOAD_BYTES, isAllowedUploadType } from "@/lib/
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { isOwnScanPath, MAX_SCAN_PAGES } from "@/lib/receipts/scans";
 import { usableItems, usableVatLines } from "@/lib/receipts/receipt-fields";
+import { DUPLICATE_NOTE as SHARED_DUPLICATE_NOTE, isPossibleDuplicate, scanPageNote } from "@/lib/receipts/notes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export const DUPLICATE_NOTE = "Possible duplicate: another receipt has the same merchant, amount and date.";
+export const DUPLICATE_NOTE = SHARED_DUPLICATE_NOTE;
 
 export async function POST(request: NextRequest) {
   const formPromise = request.formData().then(
@@ -49,6 +56,15 @@ export async function POST(request: NextRequest) {
 
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const { form } = await formPromise;
+  const clientRaw = form?.get("client_id");
+  const clientId = typeof clientRaw === "string" && UUID.test(clientRaw) ? clientRaw.toLowerCase() : null;
+  if (clientId) {
+    // Before the limits and the reading: a resend costs nothing.
+    const saved = await findByClientId(user.id, clientId);
+    if (saved) return savedResponse(saved);
+  }
 
   // A read and a save in one: both limits count.
   const [access, ocrLimited, captureLimited] = await Promise.all([
@@ -60,7 +76,6 @@ export async function POST(request: NextRequest) {
   if (!ocrLimited.ok) return rateLimitedResponse(ocrLimited.retryAfterSeconds);
   if (!captureLimited.ok) return rateLimitedResponse(captureLimited.retryAfterSeconds);
 
-  const { form } = await formPromise;
   const file = form?.get("file");
   if (!file || typeof file === "string" || file.size === 0) {
     return NextResponse.json({ error: "Choose a photo or a PDF." }, { status: 400 });
@@ -161,9 +176,7 @@ export async function POST(request: NextRequest) {
   });
   const vatLines = usableVatLines(fields.vat_lines);
 
-  const { data: inserted, error: insertError } = await db
-    .from("receipts")
-    .insert({
+  const row = {
       id: receiptId,
       user_id: user.id,
       organization_id: organizationId,
@@ -182,7 +195,7 @@ export async function POST(request: NextRequest) {
       items: usableItems(fields.items) ?? null,
       notes:
         [
-          scan ? `Page ${scan.page} of ${scan.pages} of a scanned PDF; the whole file is kept as the original.` : null,
+          scan ? scanPageNote(scan.page, scan.pages) : null,
           duplicate ? DUPLICATE_NOTE : null,
         ]
           .filter(Boolean)
@@ -194,25 +207,76 @@ export async function POST(request: NextRequest) {
       source: "paper",
       status,
       parse_confidence: fields.parse_confidence,
-    })
-    .select("id, merchant_name, total, currency, receipt_date, purchased_at, status")
-    .single();
+  };
+  const insert = (values: Record<string, unknown>) =>
+    db.from("receipts").insert(values).select(SAVED_COLUMNS).single<SavedRow>();
+
+  let { data: inserted, error: insertError } = await insert(
+    clientId ? { ...row, client_upload_id: clientId } : row,
+  );
+  if (insertError && clientId && insertError.code === "23505") {
+    // The same scan arrived twice at once and the other copy won: answer
+    // with its receipt and drop this copy's file.
+    await db.storage.from("receipts").remove([path]).catch(() => {});
+    const saved = await findByClientId(user.id, clientId);
+    if (saved) return savedResponse(saved);
+  } else if (insertError && clientId && isMissingColumn(insertError)) {
+    // The 2026-11-10 schema block isn't applied yet: save without the id.
+    ({ data: inserted, error: insertError } = await insert(row));
+  }
   if (insertError || !inserted) {
     await db.storage.from("receipts").remove([path]).catch(() => {});
     console.error("[/api/capture/scan] insert failed", insertError?.code);
     return NextResponse.json({ error: "Couldn't save the receipt. Try again." }, { status: 500 });
   }
 
-  const missing = missingRequiredFields(inserted);
+  return savedResponse(inserted);
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SAVED_COLUMNS = "id, merchant_name, total, currency, receipt_date, purchased_at, status, notes";
+
+type SavedRow = {
+  id: string;
+  merchant_name: string | null;
+  total: number | null;
+  currency: string;
+  receipt_date: string | null;
+  purchased_at: string | null;
+  status: string;
+  notes: string | null;
+};
+
+// Postgres "undefined column", or PostgREST's "column not in the schema cache".
+function isMissingColumn(error: { code?: string }): boolean {
+  return error.code === "42703" || error.code === "PGRST204";
+}
+
+/** The receipt this user's app already made from this scan, if any. */
+async function findByClientId(userId: string, clientId: string): Promise<SavedRow | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("receipts")
+    .select(SAVED_COLUMNS)
+    .eq("user_id", userId)
+    .eq("client_upload_id", clientId)
+    .maybeSingle<SavedRow>();
+  // Before the schema block is applied the column doesn't exist: no resend
+  // can be recognised, and the scan is read as before.
+  if (error) return null;
+  return data ?? null;
+}
+
+function savedResponse(saved: SavedRow) {
+  const missing = missingRequiredFields(saved);
   return NextResponse.json({
     ok: true,
-    id: inserted.id,
-    merchant: inserted.merchant_name,
-    total: inserted.total,
-    currency: inserted.currency,
-    receiptDate: inserted.receipt_date,
-    status: inserted.status,
+    id: saved.id,
+    merchant: saved.merchant_name,
+    total: saved.total,
+    currency: saved.currency,
+    receiptDate: saved.receipt_date,
+    status: saved.status,
     missing: missing.length > 0 ? missingFieldsText(missing) : null,
-    duplicate,
+    duplicate: isPossibleDuplicate(saved.notes),
   });
 }

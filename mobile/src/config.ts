@@ -1,0 +1,23 @@
+// Public values, set in mobile/.env for local runs and in eas.json for cloud
+// builds. Nothing secret lives in the app: the Supabase publishable key only
+// allows what row-level security allows, and everything else goes through
+// app.unreceipt.com with the user's own access token.
+
+function required(name: string, value: string | undefined): string {
+  if (!value) throw new Error(`${name} is not set (mobile/.env or eas.json)`);
+  return value.replace(/\/+$/, "");
+}
+
+// EXPO_PUBLIC_* must be read with the literal name so Metro inlines it.
+export const API_URL = required("EXPO_PUBLIC_API_URL", process.env.EXPO_PUBLIC_API_URL);
+export const SUPABASE_URL = required(
+  "EXPO_PUBLIC_SUPABASE_URL",
+  process.env.EXPO_PUBLIC_SUPABASE_URL,
+);
+export const SUPABASE_KEY = required(
+  "EXPO_PUBLIC_SUPABASE_KEY",
+  process.env.EXPO_PUBLIC_SUPABASE_KEY,
+);
+
+/** Same length as the website's code step (src/app/app/login/_auth-lib.ts). */
+export const CODE_LENGTH = 6;

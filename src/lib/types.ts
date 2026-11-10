@@ -115,6 +115,9 @@ export interface Receipt {
   // rows older than the backfill.
   organization_id: string | null;
 
+  /** The iPhone app's id for the scan this receipt came from (2026-11-10 block). */
+  client_upload_id?: string | null;
+
   // Bookkeeping facts for the accountant (2026-11-04). vat_lines holds the
   // VAT split per rate; bas_account the account the firm chose (overrides the
   // category suggestion in src/lib/bookkeeping/bas-map.ts).
