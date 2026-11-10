@@ -13,7 +13,7 @@ import {
   type TextInputInstance,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   FadeIn,
@@ -99,6 +99,10 @@ export default function Verify() {
       AccessibilityInfo.announceForAccessibility(message);
     }
   };
+
+  // Only reachable with the address typed on the sign-in screen; without
+  // one there is nothing to check or resend, so go and ask for it.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return <Redirect href="/sign-in" />;
 
   return (
     <SafeAreaView style={styles.screen}>

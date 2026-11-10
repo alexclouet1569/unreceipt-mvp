@@ -58,6 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const requestCode = useCallback(async (email: string): Promise<RequestResult> => {
+    // Never ask Supabase for a code without an address (it answers 400).
+    if (!email?.trim()) return "failed";
     const { error } = await supabase.auth.signInWithOtp({
       email,
       // The email also carries a link; it opens the website, the code is
