@@ -5,7 +5,8 @@
 import { Alert, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
-import { s } from "../i18n";
+import { fill, s } from "../i18n";
+import { useScans } from "../lib/scans/ScanProvider";
 import { colors, space } from "../theme";
 import { BrandMark } from "./Brand";
 import { Button } from "./Button";
@@ -13,6 +14,8 @@ import { Text } from "./Text";
 
 export function StatusScreen({ title, body }: { title: string; body: string }) {
   const { email, signOut } = useAuth();
+  const { pending } = useScans();
+  const unsent = pending.filter((p) => p.state !== "notReceipt").length;
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.middle}>
@@ -33,7 +36,7 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
         label={s.account.signOut}
         kind="destructive"
         onPress={() =>
-          Alert.alert(s.account.signOutConfirm, undefined, [
+          Alert.alert(s.account.signOutConfirm, unsent > 0 ? fill(s.account.signOutPending, { count: unsent }) : undefined, [
             { text: s.common.cancel, style: "cancel" },
             { text: s.account.signOut, style: "destructive", onPress: () => void signOut() },
           ])

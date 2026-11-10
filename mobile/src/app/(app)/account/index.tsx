@@ -29,7 +29,8 @@ export default function Account() {
   const { home } = useHome();
 
   const { pending } = useScans();
-  const unsent = pending.filter((p) => p.state === "waiting" || p.state === "uploading").length;
+  // Everything not yet a receipt, "Try again" ones included.
+  const unsent = pending.filter((p) => p.state !== "notReceipt").length;
 
   const confirmSignOut = () =>
     Alert.alert(s.account.signOutConfirm, unsent > 0 ? fill(s.account.signOutPending, { count: unsent }) : undefined, [
