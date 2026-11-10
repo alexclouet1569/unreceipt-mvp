@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "UnReceipt använder kameran för att skanna dina kvitton.",
+    "NSPhotoLibraryUsageDescription": "UnReceipt läser de kvittobilder du väljer."
+  }
+}

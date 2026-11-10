@@ -16,6 +16,8 @@ export class ApiError extends Error {
 }
 
 const TIMEOUT_MS = 15_000;
+// Reading a receipt takes the server up to ~30 s (maxDuration of /api/capture/scan).
+const UPLOAD_TIMEOUT_MS = 45_000;
 const VERSION = Constants.expoConfig?.version ?? "0";
 // Same marker as the old app shell (src/lib/native-app.ts): the server hides
 // prices and purchase prompts for it. Display only, never access.
@@ -23,7 +25,7 @@ const USER_AGENT = `UnReceiptApp/${VERSION} (ios)`;
 
 async function send(path: string, token: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), init.body instanceof FormData ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS);
   try {
     return await fetch(`${API_URL}${path}`, {
       ...init,
@@ -31,7 +33,8 @@ async function send(path: string, token: string, init: RequestInit): Promise<Res
       headers: {
         Accept: "application/json",
         "User-Agent": USER_AGENT,
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        // A FormData body sets its own multipart boundary.
+        ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
         ...init.headers,
         Authorization: `Bearer ${token}`,
       },
@@ -43,8 +46,11 @@ async function send(path: string, token: string, init: RequestInit): Promise<Res
   }
 }
 
-/** A JSON call as the signed-in user. Refreshes an expired token once. */
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * A call as the signed-in user, returning the raw response (for callers
+ * that read the status themselves). Refreshes an expired token once.
+ */
+export async function apiResponse(path: string, init: RequestInit = {}): Promise<Response> {
   const { data } = await supabase.auth.getSession();
   if (!data.session) throw new ApiError("unauthorized");
 
@@ -56,6 +62,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   }
   if (res.status === 401) throw new ApiError("unauthorized");
+  return res;
+}
+
+/** A JSON call as the signed-in user. */
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await apiResponse(path, init);
   if (!res.ok) throw new ApiError("server", `HTTP ${res.status}`);
   return (await res.json()) as T;
 }

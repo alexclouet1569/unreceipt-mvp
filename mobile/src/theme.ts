@@ -3,6 +3,7 @@
 
 export const colors = {
   brand: "#27BE7B",
+  brandDeep: "#1F9D63",
   brandAction: "#1A7F52",
   brandActionDeep: "#176E47",
   brandTint: "#ECF7E7",

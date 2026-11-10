@@ -32,6 +32,11 @@ What made the wrapper feel solid: every screen was a web page, transitions were 
 5. **The phone's own tools.** Apple's document scanner (finds the edges, flattens the receipt), the share sheet, Face ID later, notifications.
 6. **The UnReceipt look** from `DESIGN.md`: cream surface, mint only where allowed, Manrope + Figtree, Geist Mono for amounts only, hairline cards with no shadow (the Scan button is the one shadow).
 
+## Progress
+
+- **2026-11-09** Phase 1 built (PR #126): server sign-in for the app, `/api/mobile/home`, sign-in, tab bar, receipts list, receipt page, account, three languages. Design and security reviewed.
+- **2026-11-10** Phase 2 built on the same branch: Apple's document scanner (`react-native-document-scanner-plugin`) and photo picking, an offline scan queue sent to `POST /api/capture/scan`, editing fields in bottom sheets, Confirm, swipe to delete with Undo, the receipt photo with zoom. Not yet run on an iPhone: waiting for the first EAS build.
+
 ## 3. Phases
 
 ### Phase 1 — Foundation (week 1)

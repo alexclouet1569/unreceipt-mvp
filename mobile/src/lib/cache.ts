@@ -4,6 +4,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { MobileHome } from "@/lib/mobile/types";
+import { deleteAllScans } from "./scans/files";
 
 const PREFIX = "home:v1:";
 
@@ -24,10 +25,13 @@ export async function writeHome(userId: string, home: MobileHome): Promise<void>
   }
 }
 
+/** On sign-out: the saved list, the scan queue and the scans themselves. */
 export async function clearAll(): Promise<void> {
+  deleteAllScans();
   try {
     const keys = await AsyncStorage.getAllKeys();
-    await AsyncStorage.multiRemove(keys.filter((k) => k.startsWith(PREFIX)));
+    // "scans:v1:" is the queue (src/lib/scans/ScanProvider.tsx).
+    await AsyncStorage.multiRemove(keys.filter((k) => k.startsWith(PREFIX) || k.startsWith("scans:v1:")));
   } catch {
     // Nothing more to do: the next sign-in overwrites it.
   }

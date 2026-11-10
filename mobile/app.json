@@ -35,11 +35,31 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 96
         }
-      ]
+      ],
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "UnReceipt uses the camera to scan your receipts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "UnReceipt reads the receipt photos you choose.",
+          "cameraPermission": "UnReceipt uses the camera to scan your receipts.",
+          "microphonePermission": false
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "locales": {
+      "en": "./locales/en.json",
+      "sv": "./locales/sv.json",
+      "fr": "./locales/fr.json"
     }
   }
 }

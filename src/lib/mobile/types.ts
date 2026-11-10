@@ -24,7 +24,17 @@ export type MobileReceipt = {
   /** ISO timestamp (purchased_at) or plain date (receipt_date), null when unknown. */
   date: string | null;
   createdAt: string;
-  hasPhoto: boolean;
+  /**
+   * What the receipt was made from, for the detail screen:
+   * "image" or "pdf" (a photo or scan, shown from GET
+   * /api/receipts/[id]/original), "email" or "text" (a forwarded message),
+   * null when there is none.
+   */
+  original: "image" | "pdf" | "email" | "text" | null;
+  /** The user's own note, without the sentences the server writes. */
+  notes: string | null;
+  /** Same merchant, amount and day as another receipt (shown translated). */
+  possibleDuplicate: boolean;
   exportedAt: string | null;
   bookedAt: string | null;
 };

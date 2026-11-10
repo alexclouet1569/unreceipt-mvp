@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "UnReceipt utilise l’appareil photo pour scanner vos reçus.",
+    "NSPhotoLibraryUsageDescription": "UnReceipt lit les photos de reçus que vous choisissez."
+  }
+}

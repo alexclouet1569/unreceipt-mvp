@@ -35,7 +35,16 @@ export function convertedAmount(r: MobileReceipt): string | null {
   return fill(s.receipts.estimate, { amount: formatMoney(r.homeTotal, r.homeCurrency, locale) });
 }
 
-export function ReceiptRow({ receipt: r, onPress }: { receipt: MobileReceipt; onPress: () => void }) {
+export function ReceiptRow({
+  receipt: r,
+  onPress,
+  onDelete,
+}: {
+  receipt: MobileReceipt;
+  onPress: () => void;
+  /** Offered to VoiceOver as an action (the swipe's equivalent). */
+  onDelete?: () => void;
+}) {
   const date = parseReceiptDate(r.date);
   const missing = missingText(r);
   const review = r.status === "pending_review";
@@ -61,6 +70,10 @@ export function ReceiptRow({ receipt: r, onPress }: { receipt: MobileReceipt; on
       unstable_pressDelay={90}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityActions={onDelete ? [{ name: "delete", label: s.edit.delete }] : undefined}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === "delete") onDelete?.();
+      }}
       style={[styles.card, review && styles.review]}
     >
       <View style={[styles.block, { backgroundColor: getMerchantColor(r.merchant) }]}>

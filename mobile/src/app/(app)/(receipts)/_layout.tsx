@@ -4,7 +4,7 @@
 
 import { Stack } from "expo-router";
 import { s } from "../../../i18n";
-import { colors, fonts } from "../../../theme";
+import { colors, fonts, radius } from "../../../theme";
 
 export default function ReceiptsStack() {
   return (
@@ -23,6 +23,23 @@ export default function ReceiptsStack() {
     >
       <Stack.Screen name="index" options={{ title: s.receipts.title, headerLargeTitleEnabled: true }} />
       <Stack.Screen name="receipt/[id]" options={{ title: s.detail.title }} />
+      {/* A field is edited in iOS's own bottom sheet, dragged away to cancel. */}
+      <Stack.Screen
+        name="receipt/edit"
+        options={{
+          presentation: "formSheet",
+          headerShown: false,
+          sheetGrabberVisible: true,
+          sheetCornerRadius: radius.xl,
+          sheetAllowedDetents: [0.5],
+          contentStyle: { backgroundColor: colors.surface },
+        }}
+      />
+      {/* The photo full screen, pinch to zoom, swipe down to close. */}
+      <Stack.Screen
+        name="receipt/photo"
+        options={{ presentation: "modal", headerShown: false, contentStyle: { backgroundColor: colors.ink } }}
+      />
     </Stack>
   );
 }

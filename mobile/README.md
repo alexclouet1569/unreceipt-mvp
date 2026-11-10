@@ -80,4 +80,10 @@ The build number goes up by itself (`autoIncrement`). The version the user sees 
 6. **Account:** Copy the receipt address (a tick in the hand, "Copied"), sign out asks first.
 7. **Offline:** Airplane mode, reopen: the saved list with a "You're offline" note.
 8. **Languages:** set the iPhone to Swedish or French (Settings → General → Language): the whole app follows.
-9. **Fonts:** titles in the bar and the large title should be Manrope, like the rest. If they look like the iPhone's own font (San Francisco), tell Claude: it's a known risk with fonts loaded at start.
+9. **Scan:** tap the green button. Apple's scanner opens, finds the receipt's edges and takes it by itself; scan two or three receipts in a row, then Save. Each shows at once with its picture and "Reading your receipt…", then turns into the receipt (a tick in the hand). Touch and hold the button (or the photo icon at the top) to pick photos instead. The first time, iOS asks for the camera with UnReceipt's sentence.
+10. **Offline scan:** Airplane mode, scan a receipt: it says it's waiting and saved on the iPhone. Airplane mode off, back in the app: it's read.
+11. **Confirm:** open a receipt "To confirm", tap the amount, the date or the category to change it in the bottom sheet, then **Confirm receipt**. It leaves the "To confirm" section and the badge goes down.
+12. **Missing fields:** a receipt with a missing amount shows "Add" in red and a button "Add amount" that opens the right sheet.
+13. **Delete:** swipe a receipt left, tap Delete: it disappears, "Deleted …" with Undo for 5 seconds. Try Undo once.
+14. **Photo:** a scanned receipt shows its photo on top; tap it, pinch and double-tap to zoom, swipe down to close.
+15. **Fonts:** titles in the bar and the large title should be Manrope, like the rest. If they look like the iPhone's own font (San Francisco), tell Claude: it's a known risk with fonts loaded at start.

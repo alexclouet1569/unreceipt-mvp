@@ -28,7 +28,9 @@ function receipt(over: Partial<Receipt>): Receipt {
     status: "verified",
     parse_confidence: 0.9,
     image_url: `${USER.id}/r1.jpg`,
-    original_source_url: `${USER.id}/r1.eml`,
+    original_source_url: `${USER.id}/r1.jpg`,
+    original_source_kind: "image/jpeg",
+    notes: null,
     verification_code: "SECRET",
     edit_history: [],
     home_currency: "SEK",
@@ -76,7 +78,15 @@ describe("GET /api/mobile/home", () => {
       data: {
         receipts: [
           receipt({}),
-          receipt({ id: "r2", merchant_name: null, total: null, status: "pending_review", image_url: null }),
+          receipt({
+            id: "r2",
+            merchant_name: null,
+            total: null,
+            status: "pending_review",
+            image_url: null,
+            original_source_url: null,
+            original_source_kind: null,
+          }),
         ],
         forwardingEmail: "abc@in.unreceipt.com",
         showOnboarding: false,
@@ -110,11 +120,13 @@ describe("GET /api/mobile/home", () => {
       fxSource: "same",
       date: "2026-11-08T12:00:00Z",
       createdAt: "2026-11-08T12:00:01Z",
-      hasPhoto: true,
+      original: "image",
+      notes: null,
+      possibleDuplicate: false,
       exportedAt: null,
       bookedAt: null,
     });
-    expect(body.receipts[1]).toMatchObject({ hasPhoto: false, missing: ["merchant", "total"] });
+    expect(body.receipts[1]).toMatchObject({ original: null, missing: ["merchant", "total"] });
     // No storage paths, codes or history leave the server.
     const text = JSON.stringify(body);
     expect(text).not.toContain(USER.id);

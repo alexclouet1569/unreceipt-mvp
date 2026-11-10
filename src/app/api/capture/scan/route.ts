@@ -34,12 +34,13 @@ import { EXTENSION_BY_TYPE, MAX_UPLOAD_BYTES, isAllowedUploadType } from "@/lib/
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { isOwnScanPath, MAX_SCAN_PAGES } from "@/lib/receipts/scans";
 import { usableItems, usableVatLines } from "@/lib/receipts/receipt-fields";
+import { DUPLICATE_NOTE as SHARED_DUPLICATE_NOTE, scanPageNote } from "@/lib/receipts/notes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export const DUPLICATE_NOTE = "Possible duplicate: another receipt has the same merchant, amount and date.";
+export const DUPLICATE_NOTE = SHARED_DUPLICATE_NOTE;
 
 export async function POST(request: NextRequest) {
   const formPromise = request.formData().then(
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
       items: usableItems(fields.items) ?? null,
       notes:
         [
-          scan ? `Page ${scan.page} of ${scan.pages} of a scanned PDF; the whole file is kept as the original.` : null,
+          scan ? scanPageNote(scan.page, scan.pages) : null,
           duplicate ? DUPLICATE_NOTE : null,
         ]
           .filter(Boolean)
