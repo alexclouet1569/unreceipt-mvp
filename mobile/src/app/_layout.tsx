@@ -48,10 +48,13 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ contentStyle: { backgroundColor: colors.surface } }}>
-      <Stack.Protected guard={signedIn}>
+      {/* Where each side sends you is explicit: without it, Expo Router
+          falls back to the shortest route name, which opened the code screen
+          ("verify") before anyone had typed an email (2026-11-10). */}
+      <Stack.Protected guard={signedIn} redirectTo="/sign-in">
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={!signedIn}>
+      <Stack.Protected guard={!signedIn} redirectTo="/">
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen
           name="verify"
