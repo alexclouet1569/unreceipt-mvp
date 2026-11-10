@@ -60,6 +60,12 @@
       "en": "./locales/en.json",
       "sv": "./locales/sv.json",
       "fr": "./locales/fr.json"
+    },
+    "owner": "alexclouets-team",
+    "extra": {
+      "eas": {
+        "projectId": "65563470-9822-49cc-8a1e-7024efbdbc64"
+      }
     }
   }
 }
