@@ -3,7 +3,7 @@
 // background, pull down to refresh by hand. The big button scans.
 
 import { useMemo } from "react";
-import { RefreshControl, SectionList, StyleSheet, View } from "react-native";
+import { RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -14,7 +14,7 @@ import { PendingRow } from "../../../components/PendingRow";
 import { PressableScale } from "../../../components/PressableScale";
 import { ReceiptRow } from "../../../components/ReceiptRow";
 import { SCAN_BUTTON_SPACE, ScanButton } from "../../../components/ScanButton";
-import { SwipeToDelete } from "../../../components/SwipeToDelete";
+import { SwipeToDelete, closeOpenSwipe } from "../../../components/SwipeToDelete";
 import { ReceiptSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { locale, s } from "../../../i18n";
@@ -63,14 +63,30 @@ function PhotosButton({ onPress }: { onPress: () => void }) {
       hitSlop={10}
       style={styles.headerButton}
     >
-      <SymbolView name="photo.on.rectangle.angled" size={22} tintColor={colors.brandAction} />
+      <SymbolView name="photo.on.rectangle.angled" size={22} tintColor={colors.ink} />
     </PressableScale>
   );
 }
 
+/** Shown on every state of the screen: scans keep working offline. */
+function PendingList() {
+  const { pending, remove, retry } = useScans();
+  if (pending.length === 0) return null;
+  return (
+    <View style={styles.pending}>
+      {pending.map((p) => (
+        <PendingRow key={p.id} scan={p} onRemove={() => remove(p.id)} onRetry={() => retry(p.id)} />
+      ))}
+    </View>
+  );
+}
+
+// A receipt that has just arrived (a scan read, a forward) fades in.
+const FRESH_MS = 30_000;
+
 export default function Receipts() {
   const { home, error, refreshing, loading, refresh } = useHome();
-  const { pending, scan, pickPhotos, remove } = useScans();
+  const { pending, scan, pickPhotos } = useScans();
   const actions = useReceiptActions();
   const receipts = home?.state === "ready" ? home.receipts : null;
   const sections = useMemo(
@@ -78,55 +94,48 @@ export default function Receipts() {
     [receipts],
   );
 
-  const header = (
-    <Stack.Screen options={{ headerRight: () => <PhotosButton onPress={() => void pickPhotos()} /> }} />
-  );
-
+  let body: React.ReactNode;
   if (!home && loading) {
-    return (
+    body = (
       <SectionList
         contentInsetAdjustmentBehavior="automatic"
         sections={[]}
         renderItem={() => null}
-        ListHeaderComponent={<ReceiptSkeleton />}
+        ListHeaderComponent={
+          <View>
+            <PendingList />
+            <ReceiptSkeleton />
+          </View>
+        }
       />
     );
-  }
-
-  if (!home || home.state !== "ready") {
-    return (
-      <View style={styles.failed}>
-        <Text variant="body" color={colors.inkMuted} style={styles.center}>
-          {error === "offline" ? s.common.unreachable : s.receipts.loadFailed}
-        </Text>
-        <Button label={s.common.retry} onPress={() => void refresh()} busy={refreshing} />
-      </View>
+  } else if (!home || home.state !== "ready") {
+    body = (
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <PendingList />
+        <View style={styles.failed}>
+          <Text variant="body" color={colors.inkMuted} style={styles.center}>
+            {error === "offline" ? s.common.unreachable : s.receipts.loadFailed}
+          </Text>
+          <Button label={s.common.retry} onPress={() => void refresh()} busy={refreshing} />
+        </View>
+      </ScrollView>
     );
-  }
-
-  // The list comes first in the screen, so the large title can follow its
-  // scrolling; the scan button floats over it.
-  return (
-    <View style={styles.fill}>
-      {header}
+  } else {
+    body = (
       <SectionList
         contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(r) => r.id}
         stickySectionHeadersEnabled={false}
+        onScrollBeginDrag={closeOpenSwipe}
         refreshControl={
           <RefreshControl refreshing={refreshing && !loading} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />
         }
         ListHeaderComponent={
           <View>
             {error ? <Notice text={error === "offline" ? s.common.offline : s.receipts.loadFailed} /> : null}
-            {pending.length > 0 ? (
-              <View style={styles.pending}>
-                {pending.map((p) => (
-                  <PendingRow key={p.id} scan={p} onRemove={() => remove(p.id)} />
-                ))}
-              </View>
-            ) : null}
+            <PendingList />
           </View>
         }
         ListEmptyComponent={pending.length === 0 ? <Empty address={home.forwardingEmail} /> : undefined}
@@ -143,17 +152,30 @@ export default function Receipts() {
             ) : null}
           </Text>
         )}
-        renderItem={({ item }) => (
-          <SwipeToDelete onDelete={() => actions.remove(item.id)}>
-            <ReceiptRow
-              receipt={item}
-              onPress={() => router.push({ pathname: "/receipt/[id]", params: { id: item.id } })}
-              onDelete={() => actions.remove(item.id)}
-            />
-          </SwipeToDelete>
-        )}
+        renderItem={({ item }) => {
+          const row = (
+            <SwipeToDelete onDelete={() => actions.remove(item.id)}>
+              <ReceiptRow
+                receipt={item}
+                onPress={() => router.push({ pathname: "/receipt/[id]", params: { id: item.id } })}
+                onDelete={() => actions.remove(item.id)}
+              />
+            </SwipeToDelete>
+          );
+          const fresh = Date.now() - Date.parse(item.createdAt) < FRESH_MS;
+          return fresh ? <Animated.View entering={FadeIn.duration(durations.medium)}>{row}</Animated.View> : row;
+        }}
         contentContainerStyle={styles.content}
       />
+    );
+  }
+
+  // The list comes first in the screen, so the large title can follow its
+  // scrolling; the scan button and the Undo bar float over it.
+  return (
+    <View style={styles.fill}>
+      <Stack.Screen options={{ headerRight: () => <PhotosButton onPress={() => void pickPhotos()} /> }} />
+      {body}
       <ScanButton onScan={() => void scan()} onPickPhotos={() => void pickPhotos()} />
       <UndoToast />
     </View>
@@ -191,5 +213,5 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   emptyCard: { alignSelf: "stretch", marginTop: space.md },
-  failed: { flex: 1, justifyContent: "center", padding: space.xl, gap: space.lg },
+  failed: { justifyContent: "center", padding: space.xl, paddingTop: space.xxxl, gap: space.lg },
 });

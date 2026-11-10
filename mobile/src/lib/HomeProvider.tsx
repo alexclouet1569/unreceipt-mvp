@@ -59,7 +59,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
         again = true;
       } catch (err) {
         if (err instanceof ApiError && err.kind === "unauthorized") {
-          await signOut();
+          await signOut({ keepScans: true });
           return;
         }
         setError(err instanceof ApiError && err.kind === "offline" ? "offline" : "server");

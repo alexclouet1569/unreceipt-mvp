@@ -18,6 +18,8 @@ export const colors = {
   attentionTint: "#FBF1DE",
   attentionDeep: "#8C6320",
   attentionMint: "#6B9778",
+  // Behind controls laid over a photo (the photo viewer's close button).
+  inkScrim: "rgba(48, 53, 104, 0.7)",
   // Placeholder shapes while the very first list loads (DESIGN.md, native app).
   skeleton: "#EFEDE6",
   white: "#FFFFFF",

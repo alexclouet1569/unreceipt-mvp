@@ -2,6 +2,7 @@
 // (`Authorization: Bearer`, accepted by getServerUser() on the server).
 
 import Constants from "expo-constants";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import type { MobileHome } from "@/lib/mobile/types";
 import { API_URL } from "../config";
 import { supabase } from "./supabase";
@@ -16,8 +17,10 @@ export class ApiError extends Error {
 }
 
 const TIMEOUT_MS = 15_000;
-// Reading a receipt takes the server up to ~30 s (maxDuration of /api/capture/scan).
-const UPLOAD_TIMEOUT_MS = 45_000;
+// Sending a scan on a slow line plus up to ~30 s of reading on the server
+// (maxDuration of /api/capture/scan). A retry after a timeout is safe: the
+// scan's id makes the server answer with the receipt it already saved.
+const UPLOAD_TIMEOUT_MS = 90_000;
 const VERSION = Constants.expoConfig?.version ?? "0";
 // Same marker as the old app shell (src/lib/native-app.ts): the server hides
 // prices and purchase prompts for it. Display only, never access.
@@ -51,14 +54,19 @@ async function send(path: string, token: string, init: RequestInit): Promise<Res
  * that read the status themselves). Refreshes an expired token once.
  */
 export async function apiResponse(path: string, init: RequestInit = {}): Promise<Response> {
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) throw new ApiError("unauthorized");
+  // An expired token is refreshed here. Offline, that refresh fails with a
+  // network error and no session comes back: that is "offline", never
+  // "signed out" (signing out would throw away scans waiting to be sent).
+  const { data, error } = await supabase.auth.getSession();
+  if (!data.session) throw new ApiError(isAuthRetryableFetchError(error) ? "offline" : "unauthorized");
 
   let res = await send(path, data.session.access_token, init);
   if (res.status === 401) {
     const refreshed = await supabase.auth.refreshSession();
     if (refreshed.data.session) {
       res = await send(path, refreshed.data.session.access_token, init);
+    } else if (isAuthRetryableFetchError(refreshed.error)) {
+      throw new ApiError("offline");
     }
   }
   if (res.status === 401) throw new ApiError("unauthorized");

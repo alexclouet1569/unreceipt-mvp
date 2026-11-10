@@ -5,6 +5,7 @@
 import { Stack } from "expo-router";
 import { s } from "../../../i18n";
 import { colors, fonts, radius } from "../../../theme";
+import { EDIT_DETENTS } from "../../../lib/edits";
 
 export default function ReceiptsStack() {
   return (
@@ -26,14 +27,16 @@ export default function ReceiptsStack() {
       {/* A field is edited in iOS's own bottom sheet, dragged away to cancel. */}
       <Stack.Screen
         name="receipt/edit"
-        options={{
+        options={({ route }) => ({
           presentation: "formSheet",
           headerShown: false,
           sheetGrabberVisible: true,
           sheetCornerRadius: radius.xl,
-          sheetAllowedDetents: [0.5],
+          sheetAllowedDetents:
+            EDIT_DETENTS[(route.params as { field?: keyof typeof EDIT_DETENTS } | undefined)?.field ?? "merchant"] ??
+            EDIT_DETENTS.merchant,
           contentStyle: { backgroundColor: colors.surface },
-        }}
+        })}
       />
       {/* The photo full screen, pinch to zoom, swipe down to close. */}
       <Stack.Screen

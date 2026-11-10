@@ -16,6 +16,7 @@ import { ApiError, apiResponse } from "../api";
 import { useHome } from "../HomeProvider";
 import { deleteFile, prepareScan } from "./files";
 import {
+  MAX_ATTEMPTS,
   classifyUpload,
   dueScans,
   nextRetryAt,
@@ -34,6 +35,7 @@ type ScanState = {
   scan: () => Promise<void>;
   pickPhotos: () => Promise<void>;
   remove: (id: string) => void;
+  retry: (id: string) => void;
 };
 
 const ScanContext = createContext<ScanState | null>(null);
@@ -77,12 +79,15 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         const form = new FormData();
         // React Native reads the file from its uri when sending.
         form.append("file", { uri: item.fileUri, name: `${item.id}.jpg`, type: "image/jpeg" } as unknown as Blob);
+        // The scan's own id: a resend is answered with the receipt already
+        // saved, never read twice (POST /api/capture/scan).
+        form.append("client_id", item.id);
         const res = await apiResponse("/api/capture/scan", { method: "POST", body: form });
         status = res.status;
         body = await res.json().catch(() => null);
       } catch (err) {
         if (err instanceof ApiError && err.kind === "unauthorized") {
-          await signOut();
+          await signOut({ keepScans: true });
           return;
         }
         // Offline: keep it and try again later.
@@ -94,7 +99,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
           deleteFile(item.fileUri);
           update(item.id, null);
           mutateReceipts((rs) => [receiptFromScan(outcome.saved), ...rs.filter((r) => r.id !== outcome.saved.id)]);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          // One tick for a batch: only when the last scan of it is in.
+          if (!queue.current.some((x) => x.state === "waiting" || x.state === "uploading")) {
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
           AccessibilityInfo.announceForAccessibility(s.scan.added);
           // The server's full row (category, conversions) shortly after;
           // several scans finishing together share one refresh.
@@ -104,12 +112,21 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         }
         case "notReceipt":
           update(item.id, { state: "notReceipt" });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          AccessibilityInfo.announceForAccessibility(s.scan.notReceipt);
           break;
         case "failed":
           update(item.id, { state: "failed" });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          AccessibilityInfo.announceForAccessibility(s.scan.failed);
           break;
         case "retry":
-          update(item.id, { state: "waiting", retryAt: Date.now() + retryDelayMs(item.attempts + 1) });
+          if (item.attempts + 1 >= MAX_ATTEMPTS) {
+            update(item.id, { state: "failed" });
+            AccessibilityInfo.announceForAccessibility(s.scan.failed);
+          } else {
+            update(item.id, { state: "waiting", retryAt: Date.now() + retryDelayMs(item.attempts + 1) });
+          }
           break;
       }
     },
@@ -155,14 +172,14 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   }, [userId, commit, pump]);
 
   const enqueue = useCallback(
-    async (uris: string[], fromScanner: boolean) => {
+    async (uris: string[], removeSources: boolean) => {
       if (uris.length === 0) return;
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const added: PendingScan[] = [];
       for (const uri of uris) {
         const id = Crypto.randomUUID();
         try {
-          const fileUri = await prepareScan(uri, id, fromScanner);
+          const fileUri = await prepareScan(uri, id, removeSources);
           added.push({ id, fileUri, createdAt: new Date().toISOString(), state: "waiting", attempts: 0, retryAt: 0 });
         } catch {
           // An unreadable image: skip it rather than block the rest.
@@ -186,9 +203,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       quality: 1,
     });
     if (result.canceled) return;
+    // The picker's copies are in the app's caches: ours to remove.
     await enqueue(
       result.assets.map((a) => a.uri),
-      false,
+      true,
     );
   }, [enqueue]);
 
@@ -219,7 +237,15 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     [update],
   );
 
-  return <ScanContext.Provider value={{ pending, scan, pickPhotos, remove }}>{children}</ScanContext.Provider>;
+  const retry = useCallback(
+    (id: string) => {
+      update(id, { state: "waiting", attempts: 0, retryAt: 0 });
+      pump();
+    },
+    [update, pump],
+  );
+
+  return <ScanContext.Provider value={{ pending, scan, pickPhotos, remove, retry }}>{children}</ScanContext.Provider>;
 }
 
 export function useScans(): ScanState {

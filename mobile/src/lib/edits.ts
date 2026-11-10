@@ -85,3 +85,11 @@ export function applyPatch(r: MobileReceipt, patch: ReceiptPatch, status: Mobile
   next.missing = missing;
   return next;
 }
+
+/** Each edit sheet's height, set by the stack before it opens (no jump). */
+export const EDIT_DETENTS: Record<"merchant" | "amount" | "date" | "category", number[]> = {
+  merchant: [0.45],
+  amount: [0.5],
+  date: [0.75],
+  category: [0.75],
+};

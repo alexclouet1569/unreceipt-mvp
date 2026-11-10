@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   removed: [] as string[],
   existing: [] as Array<Record<string, unknown>>,
   filters: [] as Array<[string, unknown]>,
+  byClient: null as Record<string, unknown> | null,
+  lookupError: null as { code: string } | null,
+  insertErrors: [] as Array<{ code: string }>,
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: async () => mocks.user }));
@@ -47,7 +50,11 @@ vi.mock("@/lib/supabase-admin", () => ({
         eq: (c: string, v: unknown) => (mocks.filters.push([c, v]), chain),
         limit: async () => ({ data: mocks.existing, error: null }),
         insert: (r: Record<string, unknown>) => ((row = r), mocks.inserted.push(r), chain),
-        single: async () => ({ data: row, error: null }),
+        single: async () => {
+          const error = mocks.insertErrors.shift();
+          return error ? { data: null, error } : { data: row, error: null };
+        },
+        maybeSingle: async () => ({ data: mocks.lookupError ? null : mocks.byClient, error: mocks.lookupError }),
       };
       return chain;
     },
@@ -77,6 +84,9 @@ beforeEach(() => {
   mocks.removed = [];
   mocks.existing = [];
   mocks.filters = [];
+  mocks.byClient = null;
+  mocks.lookupError = null;
+  mocks.insertErrors = [];
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -153,5 +163,61 @@ describe("POST /api/capture/scan", () => {
     expect((await post(fakePdf(1), { scan: SCAN, page: "4", pages: "3" })).status).toBe(400);
     expect((await post(jpeg(), { scan: SCAN, page: "1", pages: "2" })).status).toBe(400);
     expect(mocks.ocr).not.toHaveBeenCalled();
+  });
+
+  describe("a scan sent again by the app (client_id)", () => {
+    const CLIENT = "33333333-3333-4333-8333-333333333333";
+    const saved = {
+      id: "r-saved",
+      merchant_name: "Byggmax",
+      total: 2486,
+      currency: "SEK",
+      receipt_date: "2026-11-01",
+      purchased_at: "2026-11-01T12:00:00.000Z",
+      status: "pending_review",
+      notes: DUPLICATE_NOTE,
+    };
+
+    it("answers with the receipt already saved, without reading or limits", async () => {
+      mocks.byClient = saved;
+      mocks.limits = { ocr: { ok: false, retryAfterSeconds: 60 }, capture: { ok: false, retryAfterSeconds: 60 } };
+      const res = await post(jpeg(), { client_id: CLIENT });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, id: "r-saved", merchant: "Byggmax", duplicate: true });
+      expect(mocks.ocr).not.toHaveBeenCalled();
+      expect(mocks.inserted).toHaveLength(0);
+      expect(mocks.filters).toEqual(expect.arrayContaining([["user_id", USER], ["client_upload_id", CLIENT]]));
+    });
+
+    it("stores the scan's id with a new receipt", async () => {
+      const res = await post(jpeg(), { client_id: CLIENT.toUpperCase() });
+      expect(res.status).toBe(200);
+      expect(mocks.inserted[0]).toMatchObject({ client_upload_id: CLIENT });
+    });
+
+    it("ignores an id that isn't a UUID", async () => {
+      await post(jpeg(), { client_id: "not-a-uuid" });
+      expect(mocks.inserted[0]).not.toHaveProperty("client_upload_id");
+    });
+
+    it("lets the copy that won a race answer, and drops this copy's file", async () => {
+      mocks.insertErrors = [{ code: "23505" }];
+      // The lookup before reading found nothing; after the clash it finds the winner.
+      let lookups = 0;
+      Object.defineProperty(mocks, "byClient", { configurable: true, get: () => (lookups++ === 0 ? null : saved) });
+      const res = await post(jpeg(), { client_id: CLIENT });
+      expect(await res.json()).toMatchObject({ id: "r-saved" });
+      expect(mocks.removed).toEqual(mocks.uploads);
+      Object.defineProperty(mocks, "byClient", { configurable: true, writable: true, value: null });
+    });
+
+    it("still saves before the schema block adds the column", async () => {
+      mocks.lookupError = { code: "42703" };
+      mocks.insertErrors = [{ code: "PGRST204" }];
+      const res = await post(jpeg(), { client_id: CLIENT });
+      expect(res.status).toBe(200);
+      expect(mocks.inserted).toHaveLength(2);
+      expect(mocks.inserted[1]).not.toHaveProperty("client_upload_id");
+    });
   });
 });

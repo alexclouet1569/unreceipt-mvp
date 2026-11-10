@@ -10,6 +10,7 @@ import { ForwardingCard } from "../../../components/ForwardingCard";
 import { Text } from "../../../components/Text";
 import { fill, s } from "../../../i18n";
 import { useHome } from "../../../lib/HomeProvider";
+import { useScans } from "../../../lib/scans/ScanProvider";
 import { colors, radius, space } from "../../../theme";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -27,8 +28,11 @@ export default function Account() {
   const { email, signOut } = useAuth();
   const { home } = useHome();
 
+  const { pending } = useScans();
+  const unsent = pending.filter((p) => p.state === "waiting" || p.state === "uploading").length;
+
   const confirmSignOut = () =>
-    Alert.alert(s.account.signOutConfirm, undefined, [
+    Alert.alert(s.account.signOutConfirm, unsent > 0 ? fill(s.account.signOutPending, { count: unsent }) : undefined, [
       { text: s.common.cancel, style: "cancel" },
       { text: s.account.signOut, style: "destructive", onPress: () => void signOut() },
     ]);

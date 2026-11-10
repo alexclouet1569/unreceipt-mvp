@@ -3,6 +3,7 @@
 // sandbox (iOS encrypts it while the phone is locked); deleted on sign-out.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image } from "expo-image";
 import type { MobileHome } from "@/lib/mobile/types";
 import { deleteAllScans } from "./scans/files";
 
@@ -25,13 +26,21 @@ export async function writeHome(userId: string, home: MobileHome): Promise<void>
   }
 }
 
-/** On sign-out: the saved list, the scan queue and the scans themselves. */
-export async function clearAll(): Promise<void> {
-  deleteAllScans();
+/**
+ * On sign-out: the saved list and the receipt photos kept by the image
+ * cache. A sign-out the user asked for also deletes the scans still waiting
+ * to be sent (after a warning); when the server ended the session, they
+ * stay, keyed by user, and are sent once the same person signs back in.
+ */
+export async function clearAll({ keepScans = false }: { keepScans?: boolean } = {}): Promise<void> {
+  if (!keepScans) deleteAllScans();
+  await Promise.all([Image.clearDiskCache(), Image.clearMemoryCache()]).catch(() => {});
   try {
     const keys = await AsyncStorage.getAllKeys();
     // "scans:v1:" is the queue (src/lib/scans/ScanProvider.tsx).
-    await AsyncStorage.multiRemove(keys.filter((k) => k.startsWith(PREFIX) || k.startsWith("scans:v1:")));
+    await AsyncStorage.multiRemove(
+      keys.filter((k) => k.startsWith(PREFIX) || (!keepScans && k.startsWith("scans:v1:"))),
+    );
   } catch {
     // Nothing more to do: the next sign-in overwrites it.
   }

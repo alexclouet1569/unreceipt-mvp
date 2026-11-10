@@ -27,7 +27,7 @@ export function ScanButton({ onScan, onPickPhotos }: { onScan: () => void; onPic
             if (e.nativeEvent.actionName === "longpress") onPickPhotos();
           }}
           onPress={() => {
-            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             onScan();
           }}
           onLongPress={() => {

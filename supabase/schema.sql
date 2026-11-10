@@ -1695,3 +1695,20 @@ CREATE POLICY "Users can view own client reminders"
          AND m.user_id = (select auth.uid())
     )
   );
+
+-- =============================================================================
+-- 2026-11-10 — iPhone app: a resent scan makes no second receipt
+-- =============================================================================
+-- The app (mobile/) gives every scan its own UUID and sends it as
+-- `client_id` to POST /api/capture/scan. When the answer was lost (bad
+-- connection, app closed) the app sends the scan again; the route then
+-- answers with the receipt it already saved instead of reading the photo
+-- again (one Claude call, one receipt, one billing). The unique index
+-- settles two copies arriving at the same moment. Rows from other sources
+-- leave it NULL. The route works without this block (it just can't
+-- recognise a resend), so it can be applied any time.
+
+ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS client_upload_id UUID;
+
+CREATE UNIQUE INDEX IF NOT EXISTS receipts_user_client_upload_unique
+  ON public.receipts(user_id, client_upload_id) WHERE client_upload_id IS NOT NULL;

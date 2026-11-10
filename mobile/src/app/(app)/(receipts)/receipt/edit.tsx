@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { AccessibilityInfo, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
@@ -27,12 +27,6 @@ import { colors, fonts, radius, space } from "../../../../theme";
 
 type Field = "merchant" | "amount" | "date" | "category";
 
-const DETENTS: Record<Field, number[]> = {
-  merchant: [0.45],
-  amount: [0.5],
-  date: [0.75],
-  category: [0.75],
-};
 
 const INTL_LOCALE = { en: "en-GB", sv: "sv-SE", fr: "fr-FR" } as const;
 
@@ -51,25 +45,22 @@ export default function EditField() {
   const [currency, setCurrency] = useState<string>(r?.currency ?? (home?.state === "ready" ? home.homeCurrency : "SEK"));
   const [date, setDate] = useState<Date>(parseReceiptDate(r?.date ?? null) ?? new Date());
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const title = { merchant: s.edit.merchant, amount: s.edit.amount, date: s.edit.date, category: s.edit.category }[field];
 
-  const submit = async (patch: ReceiptPatch) => {
-    setBusy(true);
-    const ok = await save(id, patch);
-    setBusy(false);
-    if (ok) {
-      void Haptics.selectionAsync();
-      router.back();
-    }
+  // The change shows at once and the sheet closes; if the server refuses,
+  // it is undone with a message (ReceiptActions).
+  const submit = (patch: ReceiptPatch) => {
+    void save(id, patch);
+    void Haptics.selectionAsync();
+    router.back();
   };
 
   const onSave = () => {
     if (field === "merchant") {
       const value = merchant.trim();
       if (!value) return;
-      void submit({ merchant: value });
+      submit({ merchant: value });
     } else if (field === "amount") {
       const value = parseAmount(amount);
       if (value == null) {
@@ -81,15 +72,14 @@ export default function EditField() {
       const patch: ReceiptPatch = { amount: value };
       // Only the currencies the server knows; another one stays as it is.
       if ((EDITABLE_CURRENCIES as readonly string[]).includes(currency)) patch.currency = currency as EditableCurrency;
-      void submit(patch);
+      submit(patch);
     } else if (field === "date") {
-      void submit({ receipt_date: toPlainDate(date) });
+      submit({ receipt_date: toPlainDate(date) });
     }
   };
 
   return (
     <>
-      <Stack.Screen options={{ sheetAllowedDetents: DETENTS[field] }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text variant="displayLg" accessibilityRole="header">
           {title}
@@ -120,7 +110,7 @@ export default function EditField() {
                 setAmount(t);
                 if (error) setError(null);
               }}
-              placeholder="0,00"
+              placeholder={s.edit.amountPlaceholder}
               placeholderTextColor={colors.inkFaint}
               autoFocus
               keyboardType="decimal-pad"
@@ -146,6 +136,7 @@ export default function EditField() {
                         void Haptics.selectionAsync();
                       }}
                       accessibilityRole="radio"
+                      accessibilityLabel={`${s.edit.currency}: ${c}`}
                       accessibilityState={{ selected }}
                       style={[styles.chip, selected && styles.chipSelected]}
                     >
@@ -158,7 +149,7 @@ export default function EditField() {
               </View>
             ) : (
               <Text variant="caption" color={colors.inkMuted}>
-                {r?.currency}
+                {`${s.edit.currency}: ${r?.currency}`}
               </Text>
             )}
           </>
@@ -188,8 +179,7 @@ export default function EditField() {
                 <PressableScale
                   key={c}
                   scaleTo={0.99}
-                  disabled={busy}
-                  onPress={() => void submit({ category: c })}
+                  onPress={() => submit({ category: c })}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   style={[styles.option, i > 0 && styles.optionDivider]}
@@ -208,7 +198,6 @@ export default function EditField() {
           <Button
             label={s.edit.save}
             onPress={onSave}
-            busy={busy}
             disabled={field === "merchant" ? !merchant.trim() : field === "amount" ? !amount.trim() : false}
           />
         ) : null}

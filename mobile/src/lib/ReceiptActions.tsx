@@ -5,7 +5,8 @@
 // to the background, so it is never lost.
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, AppState, StyleSheet } from "react-native";
+import type { HostInstance } from "react-native";
+import { AccessibilityInfo, Alert, AppState, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-screens/experimental";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
@@ -13,12 +14,15 @@ import type { MobileReceipt } from "@/lib/mobile/types";
 import { PressableScale } from "../components/PressableScale";
 import { Text } from "../components/Text";
 import { fill, s } from "../i18n";
+import { SCAN_BUTTON_SPACE } from "../components/ScanButton";
 import { colors, durations, fonts, radius, space } from "../theme";
 import { ApiError, apiResponse } from "./api";
 import { applyPatch, type ReceiptPatch } from "./edits";
 import { useHome } from "./HomeProvider";
 
 const UNDO_MS = 5_000;
+// With VoiceOver, finding Undo takes longer (WCAG 2.2.1).
+const UNDO_MS_SCREEN_READER = 15_000;
 
 type Actions = {
   /** Saves fields; true when the server kept them. An empty patch confirms. */
@@ -117,6 +121,11 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const pending: PendingDelete = { receipt, index, timer: setTimeout(() => void sendDelete(pending), UNDO_MS) };
       deleting.current = pending;
+      void AccessibilityInfo.isScreenReaderEnabled().then((on) => {
+        if (!on || deleting.current !== pending) return;
+        clearTimeout(pending.timer);
+        pending.timer = setTimeout(() => void sendDelete(pending), UNDO_MS_SCREEN_READER);
+      });
       const message = receipt.merchant ? fill(s.edit.deletedNamed, { merchant: receipt.merchant }) : s.edit.deleted;
       setToast(message);
       AccessibilityInfo.announceForAccessibility(message);
@@ -136,6 +145,7 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
       return next;
     });
     void Haptics.selectionAsync();
+    AccessibilityInfo.announceForAccessibility(s.edit.restored);
   }, [mutateReceipts]);
 
   // Leaving the app ends the Undo window: send the delete now.
@@ -156,35 +166,53 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
 }
 
 /**
- * The Undo bar. Rendered by the Receipts screen, inside the tab, so it sits
- * above the tab bar (that screen's SafeAreaView knows the bar's height).
+ * The Undo bar, just above the scan button. Rendered by the Receipts screen,
+ * inside the tab, so it sits above the tab bar (that screen's SafeAreaView
+ * knows the bar's height). VoiceOver focus moves to Undo when it appears.
  */
 export function UndoToast() {
   const { toast, undo } = useReceiptActions();
-  if (!toast) return null;
+  const undoRef = useRef<HostInstance>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => {
+      if (undoRef.current) AccessibilityInfo.sendAccessibilityEvent(undoRef.current, "focus");
+    }, 300);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // The wrapper stays mounted so the bar's exit animation can play.
   return (
     <SafeAreaView edges={{ bottom: true }} style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View
-        entering={FadeInDown.duration(durations.short)}
-        exiting={FadeOutDown.duration(durations.short)}
-        style={styles.toast}
-      >
-        <Text variant="body" color={colors.white} style={styles.toastText}>
-          {toast}
-        </Text>
-        <PressableScale
-          scaleTo={0.94}
-          onPress={undo}
-          accessibilityRole="button"
-          accessibilityLabel={s.edit.undo}
-          hitSlop={8}
-          style={styles.undo}
-        >
-          <Text style={styles.undoLabel} color={colors.brand}>
-            {s.edit.undo}
-          </Text>
-        </PressableScale>
-      </Animated.View>
+      <View style={styles.place} pointerEvents="box-none">
+        {toast ? (
+          <Animated.View
+            entering={FadeInDown.duration(durations.short)}
+            exiting={FadeOutDown.duration(durations.short)}
+            style={styles.toast}
+          >
+            <Text variant="body" color={colors.white} style={styles.toastText} numberOfLines={2}>
+              {toast}
+            </Text>
+            <View ref={undoRef} collapsable={false}>
+              <PressableScale
+                scaleTo={0.94}
+                onPress={undo}
+                accessibilityRole="button"
+                accessibilityLabel={s.edit.undo}
+                hitSlop={8}
+                style={styles.undo}
+              >
+                {/* --brand, not --brand-action: 4.8:1 on ink, where
+                    --brand-action is 2.3:1 (DESIGN.md, native app). */}
+                <Text style={styles.undoLabel} color={colors.brand}>
+                  {s.edit.undo}
+                </Text>
+              </PressableScale>
+            </View>
+          </Animated.View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -196,11 +224,8 @@ export function useReceiptActions(): Actions {
 }
 
 const styles = StyleSheet.create({
+  place: { flex: 1, justifyContent: "flex-end", paddingHorizontal: space.lg, paddingBottom: SCAN_BUTTON_SPACE },
   toast: {
-    position: "absolute",
-    left: space.lg,
-    right: space.lg,
-    bottom: space.lg,
     minHeight: 52,
     borderRadius: radius.lg,
     backgroundColor: colors.ink,

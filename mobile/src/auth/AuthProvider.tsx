@@ -18,7 +18,8 @@ type AuthState = {
   email: string | null;
   requestCode: (email: string) => Promise<RequestResult>;
   verifyCode: (email: string, code: string) => Promise<VerifyResult>;
-  signOut: () => Promise<void>;
+  /** keepScans: the server ended the session; unsent scans stay for the next sign-in. */
+  signOut: (options?: { keepScans?: boolean }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -80,8 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return msg.includes("expired") || error.code === "otp_expired" ? "expired" : "wrong";
   }, []);
 
-  const signOut = useCallback(async () => {
-    await clearAll();
+  const signOut = useCallback(async (options?: { keepScans?: boolean }) => {
+    await clearAll(options);
     // This iPhone only: the user stays signed in on their computer.
     await supabase.auth.signOut({ scope: "local" });
   }, []);

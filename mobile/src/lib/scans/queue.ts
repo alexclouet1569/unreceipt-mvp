@@ -11,7 +11,7 @@ export type ScanState =
   | "waiting" // on the phone, to be sent (now or after `retryAt`)
   | "uploading" // being read by the server
   | "notReceipt" // the server says it isn't a receipt; the user removes it
-  | "failed"; // refused for good (too big, wrong type); the user removes it
+  | "failed"; // refused, or MAX_ATTEMPTS used up: "Try again" or remove
 
 export type PendingScan = {
   id: string;
@@ -26,6 +26,13 @@ export type PendingScan = {
 
 /** How many scans are read at the same time (as the website's batch sheet). */
 export const CONCURRENCY = 2;
+
+/**
+ * Tries before a scan waits for the user's "Try again" (about 10 minutes of
+ * backoff). A resend is safe (the server recognises the scan's id), but it
+ * shouldn't go on for ever on a line that never gets through.
+ */
+export const MAX_ATTEMPTS = 8;
 
 /** 5 s, 10 s, 20 s … up to 5 minutes between tries. */
 export function retryDelayMs(attempts: number): number {

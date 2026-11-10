@@ -28,6 +28,10 @@ describe("toMobileReceipt", () => {
     expect(of({ original_source_url: "u/a.txt", original_source_kind: "txt" })).toBe("text");
     expect(of({ original_source_url: "u/a.pdf", original_source_kind: "application/pdf" })).toBe("pdf");
     expect(of({ original_source_url: "u/a.png", original_source_kind: "image/png" })).toBe("image");
+    // No recorded kind: the extension says, as GET /original does.
+    expect(of({ image_url: "u/a.pdf" })).toBe("pdf");
+    expect(of({ original_source_url: "u/a.eml", original_source_kind: null })).toBe("email");
+    expect(of({ image_url: "u/a" })).toBeNull();
     // The stored original wins over a legacy photo.
     expect(of({ image_url: "u/a.jpg", original_source_url: "u/a.eml", original_source_kind: "eml" })).toBe("email");
   });

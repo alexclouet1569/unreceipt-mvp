@@ -3,10 +3,13 @@
 // A receipt waiting for the user ends with one button: add what's missing,
 // or confirm it.
 
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import type { MobileReceipt } from "@/lib/mobile/types";
 import { Button } from "../../../../components/Button";
 import { Money } from "../../../../components/Money";
 import { PerfEdge } from "../../../../components/PerfEdge";
@@ -14,26 +17,47 @@ import { PressableScale } from "../../../../components/PressableScale";
 import { convertedAmount, missingFields } from "../../../../components/ReceiptRow";
 import { Text } from "../../../../components/Text";
 import { fill, locale, s } from "../../../../i18n";
-import { longDate, parseReceiptDate } from "../../../../lib/format";
+import { formatMoney, longDate, parseReceiptDate } from "../../../../lib/format";
 import { useHome } from "../../../../lib/HomeProvider";
 import { photoCacheKey, useReceiptPhoto } from "../../../../lib/original";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
-import { colors, fonts, radius, space } from "../../../../theme";
+import { colors, durations, fonts, radius, space } from "../../../../theme";
 
 type Field = "merchant" | "amount" | "date" | "category";
+
+const ADD_LABEL: Record<"merchant" | "amount" | "date", () => string> = {
+  merchant: () => s.edit.addMerchant,
+  amount: () => s.edit.addAmount,
+  date: () => s.edit.addDate,
+};
 
 function edit(id: string, field: Field) {
   router.push({ pathname: "/receipt/edit", params: { id, field } });
 }
 
-/** A detail line that opens its editor; an empty required one says "Add" in red. */
-function Row({ label, value, missing, onPress }: { label: string; value: string | null; missing?: boolean; onPress: () => void }) {
+function Chevron() {
+  return <SymbolView name="chevron.right" size={13} tintColor={colors.inkFaint} weight="semibold" />;
+}
+
+/** A detail line that opens its editor; an empty required one says "Add …" in red. */
+function Row({
+  label,
+  value,
+  addLabel,
+  onPress,
+}: {
+  label: string;
+  value: string | null;
+  addLabel?: string;
+  onPress: () => void;
+}) {
+  const shown = value ?? addLabel ?? "—";
   return (
     <PressableScale
       scaleTo={0.99}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value ?? s.edit.add}`}
+      accessibilityLabel={`${label}: ${shown}`}
       style={styles.row}
     >
       <Text variant="caption" color={colors.inkMuted}>
@@ -42,24 +66,40 @@ function Row({ label, value, missing, onPress }: { label: string; value: string 
       <View style={styles.rowRight}>
         <Text
           variant="body"
-          style={[styles.rowValue, missing && styles.missingValue]}
-          color={missing ? colors.negative : colors.ink}
+          style={[styles.rowValue, value == null && styles.missingValue]}
+          color={value == null ? colors.negative : colors.ink}
           numberOfLines={2}
         >
-          {value ?? s.edit.add}
+          {shown}
         </Text>
-        <SymbolView name="chevron.right" size={13} tintColor={colors.inkFaint} weight="semibold" />
+        <Chevron />
       </View>
     </PressableScale>
   );
+}
+
+/** The photo's frame breathes while the picture loads (as the list's placeholders). */
+function PhotoPlaceholder() {
+  const opacity = useSharedValue(0.55);
+  useEffect(() => {
+    opacity.value = withRepeat(withTiming(1, { duration: durations.long, easing: Easing.inOut(Easing.quad) }), -1, true);
+  }, [opacity]);
+  const pulse = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[StyleSheet.absoluteFill, styles.photoLoading, pulse]} />;
 }
 
 export default function ReceiptDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { home } = useHome();
   const { confirm, remove } = useReceiptActions();
-  const r = home?.state === "ready" ? home.receipts.find((x) => x.id === id) : undefined;
+  const live = home?.state === "ready" ? home.receipts.find((x) => x.id === id) : undefined;
+  // After Delete the row is gone while the screen slides away: keep showing
+  // the last version instead of an error.
+  const last = useRef<MobileReceipt | undefined>(live);
+  if (live) last.current = live;
+  const r = live ?? last.current;
   const photo = useReceiptPhoto(id, r?.original === "image");
+  const [confirming, setConfirming] = useState(false);
 
   if (!r) {
     return (
@@ -75,21 +115,30 @@ export default function ReceiptDetail() {
   const missing = missingFields(r);
   const review = r.status === "pending_review";
   const converted = convertedAmount(r);
-  const firstMissing: Field | null = r.missing.includes("merchant")
+  const fxNote = converted ? (r.fxSource === "manual" ? s.detail.bankAmount : s.detail.ecbEstimate) : null;
+  const firstMissing: "merchant" | "amount" | "date" | null = r.missing.includes("merchant")
     ? "merchant"
     : r.missing.includes("total")
       ? "amount"
       : r.missing.includes("purchased_at")
         ? "date"
         : null;
+  const amountLabel = [
+    s.edit.amount,
+    r.total != null ? formatMoney(r.total, r.currency, locale) : s.edit.addAmount,
+    converted,
+    fxNote,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-      {r.original === "image" ? (
+      {r.original === "image" && !photo.failed ? (
         <PressableScale
           scaleTo={0.985}
           disabled={!photo.url}
-          onPress={() => photo.url && router.push({ pathname: "/receipt/photo", params: { id: r.id, url: photo.url } })}
+          onPress={() => router.push({ pathname: "/receipt/photo", params: { id: r.id } })}
           accessibilityRole="imagebutton"
           accessibilityLabel={s.edit.photo}
           style={styles.photoFrame}
@@ -100,9 +149,11 @@ export default function ReceiptDetail() {
               style={styles.photo}
               contentFit="cover"
               contentPosition="top"
-              transition={200}
+              transition={durations.short}
             />
-          ) : null}
+          ) : (
+            <PhotoPlaceholder />
+          )}
         </PressableScale>
       ) : null}
 
@@ -113,37 +164,47 @@ export default function ReceiptDetail() {
             scaleTo={0.99}
             onPress={() => edit(r.id, "merchant")}
             accessibilityRole="button"
-            accessibilityLabel={`${s.edit.merchant}: ${r.merchant ?? s.edit.add}`}
+            accessibilityLabel={`${s.edit.merchant}: ${r.merchant ?? s.edit.addMerchant}`}
+            style={styles.tapLine}
           >
-            <Text variant="bodyLg" numberOfLines={2} color={r.merchant ? colors.ink : colors.negative}>
-              {r.merchant ?? s.edit.add}
+            <Text
+              variant="bodyLg"
+              numberOfLines={2}
+              style={styles.flex}
+              color={r.merchant ? colors.ink : colors.negative}
+            >
+              {r.merchant ?? s.edit.addMerchant}
             </Text>
+            <Chevron />
           </PressableScale>
 
           <PressableScale
             scaleTo={0.99}
             onPress={() => edit(r.id, "amount")}
             accessibilityRole="button"
-            accessibilityLabel={s.edit.amount}
-            style={styles.total}
+            accessibilityLabel={amountLabel}
+            style={styles.tapLine}
           >
-            {r.total != null ? (
-              <Money amount={r.total} currency={r.currency} size="display" />
-            ) : (
-              <Text variant="bodyLg" color={colors.negative}>
-                {fill(s.edit.addMissing, { field: s.fields.total })}
-              </Text>
-            )}
-            {converted ? (
-              <View>
-                <Text variant="amountRow" color={colors.inkMuted}>
-                  {converted}
+            <View style={styles.total}>
+              {r.total != null ? (
+                <Money amount={r.total} currency={r.currency} size="display" />
+              ) : (
+                <Text variant="bodyLg" color={colors.negative}>
+                  {s.edit.addAmount}
                 </Text>
-                <Text variant="caption" color={colors.inkMuted}>
-                  {r.fxSource === "manual" ? s.detail.bankAmount : s.detail.ecbEstimate}
-                </Text>
-              </View>
-            ) : null}
+              )}
+              {converted ? (
+                <View>
+                  <Text variant="amountRow" color={colors.inkMuted}>
+                    {converted}
+                  </Text>
+                  <Text variant="caption" color={colors.inkMuted}>
+                    {fxNote}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Chevron />
           </PressableScale>
 
           {/* Only what needs the user is flagged; a complete receipt carries
@@ -159,12 +220,17 @@ export default function ReceiptDetail() {
               </Text>
             </View>
           ) : null}
+          {r.possibleDuplicate ? (
+            <Text variant="caption" style={styles.statusText} color={colors.attentionDeep}>
+              {s.detail.possibleDuplicate}
+            </Text>
+          ) : null}
 
           <View style={styles.divider} />
           <Row
             label={s.detail.date}
             value={date ? longDate(date, locale) : null}
-            missing={!date}
+            addLabel={s.edit.addDate}
             onPress={() => edit(r.id, "date")}
           />
           <Row label={s.detail.category} value={s.categories[r.category]} onPress={() => edit(r.id, "category")} />
@@ -174,11 +240,6 @@ export default function ReceiptDetail() {
             </Text>
             <Text variant="body">{s.detail.sources[r.source]}</Text>
           </View>
-          {r.possibleDuplicate ? (
-            <Text variant="caption" style={styles.statusText} color={colors.attentionDeep}>
-              {s.detail.possibleDuplicate}
-            </Text>
-          ) : null}
           {r.notes ? (
             <Text variant="caption" color={colors.inkMuted}>
               {r.notes}
@@ -190,17 +251,16 @@ export default function ReceiptDetail() {
       <View style={styles.actions}>
         {review ? (
           firstMissing ? (
-            <Button
-              label={fill(s.edit.addMissing, {
-                field: s.fields[firstMissing === "amount" ? "total" : firstMissing === "date" ? "purchased_at" : "merchant"],
-              })}
-              onPress={() => edit(r.id, firstMissing)}
-            />
+            <Button label={ADD_LABEL[firstMissing]()} onPress={() => edit(r.id, firstMissing)} />
           ) : (
             <Button
               label={s.edit.confirm}
+              busy={confirming}
               onPress={async () => {
-                if (await confirm(r.id)) router.back();
+                setConfirming(true);
+                const ok = await confirm(r.id);
+                setConfirming(false);
+                if (ok) router.back();
               }}
             />
           )
@@ -209,8 +269,8 @@ export default function ReceiptDetail() {
           label={s.edit.delete}
           kind="destructive"
           onPress={() => {
-            router.back();
             remove(r.id);
+            router.back();
           }}
         />
       </View>
@@ -220,15 +280,17 @@ export default function ReceiptDetail() {
 
 const styles = StyleSheet.create({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.lg },
+  flex: { flex: 1 },
   photoFrame: {
     height: 220,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.hairline,
-    backgroundColor: colors.skeleton,
+    backgroundColor: colors.card,
     overflow: "hidden",
   },
   photo: { flex: 1 },
+  photoLoading: { backgroundColor: colors.skeleton },
   // DESIGN.md "Digital receipt": paper, a hairline border, no radius.
   card: {
     backgroundColor: colors.card,
@@ -240,7 +302,8 @@ const styles = StyleSheet.create({
     paddingBottom: space.lg,
     gap: space.md,
   },
-  total: { gap: 4, marginTop: space.xs },
+  tapLine: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: space.sm },
+  total: { flex: 1, gap: 4, marginTop: space.xs },
   reviewBand: {
     borderRadius: radius.md,
     paddingVertical: space.sm,
