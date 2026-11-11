@@ -43,6 +43,8 @@ export const fr: Strings = {
     emptyBody: "Transférez vos reçus par e-mail à votre adresse UnReceipt. Nous les lisons et les classons pour vous.",
     loadFailed: "Nous n’avons pas pu charger vos reçus.",
     estimate: "≈ {amount}",
+    approx: "≈ ",
+    totalJoin: " + ",
   },
   summary: {
     yourReceipts: "Vos reçus",
@@ -59,7 +61,7 @@ export const fr: Strings = {
     totalFor: "Total de {period}",
     about: "environ {amount}",
     filterAll: "Tous",
-    filterLabel: "Catégorie",
+    filterHint: "Filtre la liste",
   },
   invite: {
     title: "Partager vos reçus avec {firm} ?",

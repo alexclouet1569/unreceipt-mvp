@@ -35,7 +35,7 @@ function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={`${label}, ${count}`}
-      accessibilityHint={s.summary.filterLabel}
+      accessibilityHint={s.summary.filterHint}
       style={styles.target}
     >
       <View style={[styles.chip, active && (attention ? styles.activeAttention : styles.active)]}>

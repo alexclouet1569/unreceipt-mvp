@@ -4,7 +4,7 @@
 // action sheet picks another month or All time.
 
 import { useMemo } from "react";
-import { ActionSheetIOS, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, ActionSheetIOS, StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
 import type { MobileReceipt } from "@/lib/mobile/types";
@@ -27,7 +27,7 @@ function Count({ value, label }: { value: number; label: string }) {
         <Text variant="bodyLg" style={styles.number}>
           {value}
         </Text>
-        <Text variant="caption" color={colors.inkMuted} numberOfLines={1}>
+        <Text variant="caption" color={colors.inkMuted} numberOfLines={2} style={styles.center}>
           {label}
         </Text>
       </View>
@@ -58,7 +58,9 @@ export function StatCards({
       { title: s.summary.choosePeriod, options, cancelButtonIndex: options.length - 1, tintColor: colors.ink },
       (index) => {
         const p = periods[index];
-        if (p) onPeriod(p.key);
+        if (!p) return;
+        onPeriod(p.key);
+        AccessibilityInfo.announceForAccessibility(fill(s.summary.totalFor, { period: p.label }));
       },
     );
   };
@@ -86,8 +88,8 @@ export function StatCards({
           {totals.map((t) => (
             <View key={t.currency} style={styles.total}>
               {t.estimate ? (
-                <Text variant="amountRow" color={colors.inkMuted}>
-                  {"≈ "}
+                <Text variant="amountRow" color={colors.inkMuted} maxFontSizeMultiplier={1.2}>
+                  {s.receipts.approx}
                 </Text>
               ) : null}
               <Money amount={t.amount} currency={t.currency} size="row" fit />
@@ -95,7 +97,7 @@ export function StatCards({
           ))}
           <View style={styles.period}>
             <Text variant="caption" color={colors.inkMuted} numberOfLines={1} style={styles.shrink}>
-              {selected.label}
+              {selected.short}
             </Text>
             <SymbolView name="chevron.down" size={10} weight="semibold" tintColor={colors.inkMuted} />
           </View>
@@ -120,4 +122,5 @@ const styles = StyleSheet.create({
   total: { flexDirection: "row", alignItems: "baseline", maxWidth: "100%" },
   period: { flexDirection: "row", alignItems: "center", gap: 3, maxWidth: "100%" },
   shrink: { flexShrink: 1 },
+  center: { textAlign: "center" },
 });

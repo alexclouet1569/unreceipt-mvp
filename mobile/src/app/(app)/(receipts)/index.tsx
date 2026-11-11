@@ -100,7 +100,12 @@ type ListSection = {
 
 /** "1 305,00 kr + €18.50", with "≈" before an ECB estimate. */
 function totalText(lines: TotalLine[]): string {
-  return lines.map((l) => (l.estimate ? "≈ " : "") + formatMoney(l.amount, l.currency, locale)).join(" + ");
+  return lines
+    .map((l) => {
+      const money = formatMoney(l.amount, l.currency, locale);
+      return l.estimate ? fill(s.receipts.estimate, { amount: money }) : money;
+    })
+    .join(s.receipts.totalJoin);
 }
 
 // A receipt that has just arrived (a scan read, a forward) fades in.
@@ -174,11 +179,8 @@ export default function Receipts() {
         ListHeaderComponent={
           <View>
             {error ? <Notice text={error === "offline" ? s.common.offline : s.receipts.loadFailed} /> : null}
-            {home.accountantInvites.map((invite) => (
-              <InviteCard key={invite.id} invite={invite} />
-            ))}
+            {/* The website's order: pilot banner, the page title, then invites. */}
             {home.access === "pilot" ? <PilotBox /> : null}
-            {/* The website's page title: "Your receipts" and who is signed in. */}
             <View style={styles.heading}>
               <Text variant="displayLg" accessibilityRole="header">
                 {s.summary.yourReceipts}
@@ -187,6 +189,9 @@ export default function Receipts() {
                 {home.email}
               </Text>
             </View>
+            {home.accountantInvites.map((invite) => (
+              <InviteCard key={invite.id} invite={invite} />
+            ))}
             {home.receipts.length > 0 ? (
               <>
                 <StatCards
@@ -219,26 +224,29 @@ export default function Receipts() {
         }
         ListEmptyComponent={pending.length === 0 ? <Empty address={home.forwardingEmail} /> : undefined}
         renderSectionHeader={({ section }) => (
-          <Text
-            variant="micro"
-            color={section.attention ? colors.attentionDeep : colors.inkMuted}
-            style={styles.sectionLabel}
-            accessibilityRole="header"
-          >
-            {section.title}
-            {section.attention || section.totals ? (
-              <Text
-                variant="micro"
-                style={styles.count}
-                color={section.attention ? colors.attentionDeep : colors.inkMuted}
-              >{`  ${section.data.length}`}</Text>
-            ) : null}
+          // "Travel · 3" on the left; by category, the total in mono on the right (as the website).
+          <View style={styles.sectionRow}>
+            <Text
+              variant="micro"
+              color={section.attention ? colors.attentionDeep : colors.inkMuted}
+              style={styles.sectionTitle}
+              accessibilityRole="header"
+            >
+              {section.title}
+              {section.attention || section.totals ? (
+                <Text
+                  variant="micro"
+                  style={styles.count}
+                  color={section.attention ? colors.attentionDeep : colors.inkMuted}
+                >{` · ${section.data.length}`}</Text>
+              ) : null}
+            </Text>
             {section.totals && section.totals.length > 0 ? (
-              <Text variant="micro" style={styles.count} color={colors.inkMuted}>
-                {`  ·  ${totalText(section.totals)}`}
+              <Text variant="amountRow" style={styles.sectionTotal} color={colors.inkMuted} numberOfLines={1}>
+                {totalText(section.totals)}
               </Text>
             ) : null}
-          </Text>
+          </View>
         )}
         renderItem={({ item }) => {
           const row = (
@@ -258,8 +266,7 @@ export default function Receipts() {
     );
   }
 
-  // The list comes first in the screen, so the large title can follow its
-  // scrolling; the scan button and the Undo bar float over it.
+  // The list fills the screen; the scan button and the Undo bar float over it.
   return (
     <View style={styles.fill}>
       <Stack.Screen options={{ headerRight: () => <PhotosButton onPress={() => void pickPhotos()} /> }} />
@@ -278,11 +285,16 @@ const styles = StyleSheet.create({
   count: { fontVariant: ["tabular-nums"] },
   pending: { marginTop: space.lg },
   heading: { marginHorizontal: space.lg, marginTop: space.lg, gap: 2 },
-  sectionLabel: {
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: space.sm,
     marginHorizontal: space.lg,
     marginTop: space.xl,
     marginBottom: space.sm,
   },
+  sectionTitle: { flexShrink: 1 },
+  sectionTotal: { marginLeft: "auto", fontSize: 12, lineHeight: 16 },
   notice: {
     marginHorizontal: space.lg,
     marginTop: space.md,

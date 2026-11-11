@@ -17,10 +17,12 @@ export function BrandMark({
   label,
 }: {
   size?: number;
-  variant?: "tile" | "bare";
+  /** light: the website's header mark (green receipt, cream lines, navy arrow), no tile. */
+  variant?: "tile" | "bare" | "light";
   label?: string;
 }) {
   const tile = variant === "tile";
+  const light = variant === "light";
   const arrow = tile ? colors.brand : colors.ink;
   return (
     <Svg
@@ -36,9 +38,9 @@ export function BrandMark({
       <Path
         transform="translate(19 19) scale(0.96875)"
         d="M30 14 H56 A2 2 0 0 1 58 16 V49 L55.5 52 L52.5 49 L49.5 52 L46.5 49 L43.5 52 L40.5 49 L37.5 52 L34.5 49 L31.5 52 L30 49 Z"
-        fill={colors.surface}
-        stroke={tile ? undefined : colors.ink}
-        strokeWidth={tile ? undefined : 1.5}
+        fill={light ? colors.brand : colors.surface}
+        stroke={tile || light ? undefined : colors.ink}
+        strokeWidth={tile || light ? undefined : 1.5}
         strokeLinejoin="round"
       />
       {[
@@ -55,7 +57,7 @@ export function BrandMark({
           width={w}
           height={2.6}
           rx={1.3}
-          fill={colors.brand}
+          fill={light ? colors.surface : colors.brand}
         />
       ))}
       <Path
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
 export function HeaderBrand() {
   return (
     <View style={headerStyles.row} accessible accessibilityRole="header" accessibilityLabel="UnReceipt">
-      <BrandMark size={24} />
+      <BrandMark size={24} variant="light" />
       <Wordmark size={19} />
     </View>
   );

@@ -43,6 +43,8 @@ export const sv: Strings = {
     emptyBody: "Vidarebefordra kvittomejl till din UnReceipt-adress. Vi läser dem och sorterar åt dig.",
     loadFailed: "Vi kunde inte hämta dina kvitton.",
     estimate: "≈ {amount}",
+    approx: "≈ ",
+    totalJoin: " + ",
   },
   summary: {
     yourReceipts: "Dina kvitton",
@@ -59,7 +61,7 @@ export const sv: Strings = {
     totalFor: "Summa för {period}",
     about: "cirka {amount}",
     filterAll: "Alla",
-    filterLabel: "Kategori",
+    filterHint: "Filtrerar listan",
   },
   invite: {
     title: "Dela dina kvitton med {firm}?",

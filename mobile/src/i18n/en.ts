@@ -44,6 +44,8 @@ export const en = {
     emptyBody: "Forward any receipt email to your UnReceipt address. We read it and file it for you.",
     loadFailed: "We couldn't load your receipts.",
     estimate: "≈ {amount}",
+    approx: "≈ ",
+    totalJoin: " + ",
   },
   summary: {
     yourReceipts: "Your receipts",
@@ -60,7 +62,7 @@ export const en = {
     totalFor: "Total for {period}",
     about: "about {amount}",
     filterAll: "All",
-    filterLabel: "Category",
+    filterHint: "Filters the list",
   },
   invite: {
     title: "Share your receipts with {firm}?",

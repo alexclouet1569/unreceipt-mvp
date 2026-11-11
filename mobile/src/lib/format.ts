@@ -82,6 +82,13 @@ export function monthLabel(year: number, month: number, locale: Locale, now: Dat
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+/** "November", but "Sep 2025" for another year: the year never gets cut off in a narrow box. */
+export function shortMonthLabel(year: number, month: number, locale: Locale, now: Date = new Date()): string {
+  if (year === now.getFullYear()) return monthLabel(year, month, locale, now);
+  const label = new Intl.DateTimeFormat(INTL_LOCALE[locale], { month: "short", year: "numeric" }).format(new Date(year, month, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 /** "8 Nov" / "8 nov." — the short date on a receipt row. */
 export function shortDate(date: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { day: "numeric", month: "short" }).format(date);

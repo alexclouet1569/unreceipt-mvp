@@ -6,14 +6,15 @@
 import type { MobileReceipt } from "@/lib/mobile/types";
 import type { ReceiptCategory } from "@/lib/types";
 import type { Locale } from "../i18n/core";
-import { monthLabel, parseReceiptDate } from "./format";
+import { monthLabel, parseReceiptDate, shortMonthLabel } from "./format";
 
 /** "2026-11", or "all". */
 export type PeriodKey = string;
 
 export const ALL_TIME = "all";
 
-export type Period = { key: PeriodKey; label: string };
+/** label: in the picker ("September 2025"); short: in the narrow box ("Sep 2025"). */
+export type Period = { key: PeriodKey; label: string; short: string };
 
 function monthKey(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -39,9 +40,9 @@ export function periodsFor(
   }
   const months = [...keys].sort().reverse().map((key) => {
     const [y, m] = key.split("-").map(Number);
-    return { key, label: monthLabel(y, m - 1, locale, now) };
+    return { key, label: monthLabel(y, m - 1, locale, now), short: shortMonthLabel(y, m - 1, locale, now) };
   });
-  return [...months, { key: ALL_TIME, label: allTimeLabel }];
+  return [...months, { key: ALL_TIME, label: allTimeLabel, short: allTimeLabel }];
 }
 
 export function inPeriod(receipts: MobileReceipt[], period: PeriodKey): MobileReceipt[] {

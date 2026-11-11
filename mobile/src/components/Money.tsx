@@ -48,8 +48,12 @@ export function Money({
       ? { ...base, fontSize: displaySize(p.value), lineHeight: displaySize(p.value) * 1.05, letterSpacing: -0.02 * displaySize(p.value) }
       : base;
   const small = { fontFamily: base.fontFamily, fontSize: CURRENCY_SIZE[size] };
-  // Already large on the detail: grow less with the user's text size.
-  const scale = size === "display" ? 1.1 : 1.4;
+  // Already large on the detail: grow less with the user's text size; in a
+  // narrow box (fit) too, so the digits stay whole.
+  const scale = size === "display" ? 1.1 : fit ? 1.2 : 1.4;
+  // A narrow box steps long amounts down to 12 pt, as the website's stat card.
+  const fitted =
+    fit && `${p.prefix}${p.value}${p.suffix}`.length > 11 ? { fontSize: 12, lineHeight: 18 } : null;
 
   return (
     <View style={styles.row} accessible accessibilityLabel={`${p.prefix}${p.value} ${p.suffix}`.trim()}>
@@ -59,7 +63,7 @@ export function Money({
         </Text>
       ) : null}
       <Text
-        style={[value, styles.tabular]}
+        style={[value, fitted, styles.tabular, fit && styles.shrink]}
         color={color}
         numberOfLines={1}
         adjustsFontSizeToFit={fit}
@@ -80,6 +84,7 @@ export function Money({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "baseline", flexShrink: 1 },
   tabular: { fontVariant: ["tabular-nums"] },
+  shrink: { flexShrink: 1 },
   prefix: { marginRight: 1 },
   suffix: { marginLeft: 3 },
 });

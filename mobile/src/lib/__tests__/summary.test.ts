@@ -50,6 +50,8 @@ describe("summary periods", () => {
     );
     expect(periods.map((p) => p.key)).toEqual(["2026-11", "2026-09", "2025-12", ALL_TIME]);
     expect(periods.map((p) => p.label)).toEqual(["November", "September", "December 2025", "All time"]);
+    // The narrow box shows another year's month short, so the year isn't cut off.
+    expect(periods.map((p) => p.short)).toEqual(["November", "September", "Dec 2025", "All time"]);
   });
 
   it("keeps a month's receipts, or all of them", () => {
