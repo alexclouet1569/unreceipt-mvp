@@ -163,6 +163,7 @@ export const en = {
     signOutConfirm: "Sign out of UnReceipt on this iPhone?",
     signOutPending: "Scans not sent yet: {count}. Signing out deletes them from this iPhone.",
     version: "Version {version}",
+    updated: "Updated {date}",
     company: "Your company",
     setupForwarding: "Set up automatic forwarding",
     setupForwardingNote: "Receipts arrive by themselves",

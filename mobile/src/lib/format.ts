@@ -109,3 +109,13 @@ export function longDate(date: Date, locale: Locale): string {
 export function dayMonthYear(date: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
+
+/** "12 Nov, 10:42" — when the app received its last update. */
+export function dayTime(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
