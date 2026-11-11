@@ -72,6 +72,17 @@ npm run build:testflight
 
 The build number goes up by itself (`autoIncrement`). The version the user sees is `version` in `app.json`. The new build shows up in TestFlight after Apple processes it, usually 10 to 30 minutes.
 
+## Releases: updates and builds
+
+Two ways a new version reaches the iPhone:
+
+- **Over-the-air update (most changes).** Screens, text, logic and images are JavaScript and assets: `expo-updates` downloads them from Expo (channel `production`) without a new build or Apple's processing. The app checks at every start and when it comes back to the front (`src/lib/useAppUpdates.ts`); it switches to the new version at the next cold start, or at once when it comes back after more than 5 minutes away. Never in the middle of something.
+- **A new build (native changes).** A new native module (`npx expo install`), a permission, a plugin or an `app.json` setting changes the app's *fingerprint* (`runtimeVersion` policy `fingerprint`). An update only reaches builds with the same fingerprint, so these need a build and a TestFlight round.
+
+Both happen by themselves: `.eas/workflows/deploy-to-production.yml` runs on every merge to `main` that touches the app. It computes the fingerprint; if a build with it exists, it publishes an update; if not, it builds and sends the build to TestFlight. That needs, once, the repository connected on expo.dev → project **unreceipt** → **GitHub** (install the Expo GitHub app, pick `alexclouet1569/unreceipt-mvp`, **Base directory** `mobile`). The update job sets the three public `EXPO_PUBLIC_*` values itself: an update is bundled outside a build and doesn't read `eas.json`'s build env.
+
+By hand, from `mobile/` (signed in once with `npx eas-cli@latest login`): `npx eas-cli@latest update --channel production --platform ios --message "…"` for an update (with the three `EXPO_PUBLIC_*` values set), or `npm run build:testflight` for a build. Apple allows updates that fix and improve the app; never use one to change what the app is for (App Store 2.5.2), and never to show anything about prices.
+
 ## What to check on every TestFlight build
 
 1. **Start:** the splash (brand icon on cream) fades into the sign-in or the receipts. No white flash.

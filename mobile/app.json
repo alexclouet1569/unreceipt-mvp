@@ -3,6 +3,14 @@
     "name": "UnReceipt",
     "slug": "unreceipt",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/65563470-9822-49cc-8a1e-7024efbdbc64",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "unreceipt",
