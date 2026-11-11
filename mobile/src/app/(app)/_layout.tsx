@@ -9,6 +9,7 @@ import { s } from "../../i18n";
 import { HomeProvider, useHome } from "../../lib/HomeProvider";
 import { ReceiptActionsProvider } from "../../lib/ReceiptActions";
 import { ScanProvider } from "../../lib/scans/ScanProvider";
+import { overallCounts } from "../../lib/summary";
 import { colors } from "../../theme";
 
 function Tabs() {
@@ -19,8 +20,8 @@ function Tabs() {
   if (home?.state === "inactive") {
     return <StatusScreen title={s.states.inactiveTitle} body={s.states.inactiveBody} />;
   }
-  const toConfirm =
-    home?.state === "ready" ? home.receipts.filter((r) => r.status === "pending_review").length : 0;
+  // Every receipt waiting, not only the newest 50 in the list.
+  const toConfirm = home?.state === "ready" ? overallCounts(home.receipts, home.older).toConfirm : 0;
 
   return (
     <NativeTabs

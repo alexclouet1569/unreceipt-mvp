@@ -3,7 +3,7 @@
 // it's tested; the same rules as the website's dashboard
 // (src/app/app/(authed)/dashboard.tsx: receiptMonthKey, sumByCurrency).
 
-import type { MobileReceipt } from "@/lib/mobile/types";
+import type { MobileReceipt, MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import type { ReceiptCategory } from "@/lib/types";
 import type { Locale } from "../i18n/core";
 import { monthLabel, parseReceiptDate, shortMonthLabel } from "./format";
@@ -20,20 +20,33 @@ function monthKey(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
-/** The month a receipt was bought in, in the phone's own calendar. */
+/**
+ * The month printed on the receipt. `date` is a plain date or the receipt's
+ * own clock time written with a "Z" (not a real UTC instant), so it is read
+ * as printed, never shifted into the phone's time zone: a receipt from
+ * 23:15 on 31 December stays in December, as in the server's totals.
+ */
 export function receiptMonthKey(r: Pick<MobileReceipt, "date">): string | null {
+  const m = r.date ? /^(\d{4})-(\d{2})/.exec(r.date) : null;
+  if (m) return `${m[1]}-${m[2]}`;
   const d = parseReceiptDate(r.date);
   return d ? monthKey(d.getFullYear(), d.getMonth()) : null;
 }
 
-/** This month first, then every month with a receipt, newest first, then all time. */
+/**
+ * This month first, then every month with a receipt, newest first, then all
+ * time. `moreMonths`: months of receipts not in the list (the server's
+ * summary of everything beyond the newest 50).
+ */
 export function periodsFor(
   receipts: Pick<MobileReceipt, "date">[],
   locale: Locale,
   allTimeLabel: string,
   now: Date = new Date(),
+  moreMonths: string[] = [],
 ): Period[] {
   const keys = new Set<string>([monthKey(now.getFullYear(), now.getMonth())]);
+  for (const k of moreMonths) if (/^\d{4}-\d{2}$/.test(k)) keys.add(k);
   for (const r of receipts) {
     const k = receiptMonthKey(r);
     if (k) keys.add(k);
@@ -49,7 +62,52 @@ export function inPeriod(receipts: MobileReceipt[], period: PeriodKey): MobileRe
   return period === ALL_TIME ? receipts : receipts.filter((r) => receiptMonthKey(r) === period);
 }
 
-export type TotalLine = { amount: number; currency: string; estimate: boolean };
+export type TotalLine = MoneyLine;
+
+/**
+ * Two lists of totals added up (the phone's own list and the server's sum
+ * of everything older). The company's currency first; other zero lines dropped.
+ */
+export function mergeTotals(a: TotalLine[], b: TotalLine[], homeCurrency: string): TotalLine[] {
+  const sums = new Map<string, TotalLine>();
+  for (const l of [...a, ...b]) {
+    const line = sums.get(l.currency) ?? { amount: 0, currency: l.currency, estimate: false };
+    line.amount += l.amount;
+    line.estimate = line.estimate || l.estimate;
+    sums.set(l.currency, line);
+  }
+  if (!sums.has(homeCurrency)) sums.set(homeCurrency, { amount: 0, currency: homeCurrency, estimate: false });
+  return [...sums.values()]
+    .filter((l) => l.currency === homeCurrency || l.amount !== 0)
+    .map((l) => ({ ...l, amount: Math.round(l.amount * 100) / 100 }))
+    .sort((x, y) => (x.currency === homeCurrency ? -1 : y.currency === homeCurrency ? 1 : 0));
+}
+
+/** Counts for the stat boxes and the tab badge: the list plus everything older. */
+export function overallCounts(
+  receipts: Pick<MobileReceipt, "status">[],
+  older: OlderSummary | undefined,
+): { count: number; verified: number; toConfirm: number } {
+  let verified = 0;
+  for (const r of receipts) if (r.status === "verified") verified += 1;
+  return {
+    count: receipts.length + (older?.count ?? 0),
+    verified: verified + (older?.verified ?? 0),
+    toConfirm: receipts.length - verified + (older?.toConfirm ?? 0),
+  };
+}
+
+/** The total of a period over the list and the older receipts. */
+export function periodTotals(
+  receipts: MobileReceipt[],
+  older: OlderSummary | undefined,
+  period: PeriodKey,
+  homeCurrency: string,
+): TotalLine[] {
+  const own = totalsFor(inPeriod(receipts, period), homeCurrency);
+  const rest = (period === ALL_TIME ? older?.all : older?.months[period]) ?? [];
+  return mergeTotals(own, rest, homeCurrency);
+}
 
 /**
  * The total in the company's currency: a foreign receipt counts with its

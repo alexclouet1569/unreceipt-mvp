@@ -6,6 +6,9 @@ import {
   applyFilter,
   categorySections,
   inPeriod,
+  mergeTotals,
+  overallCounts,
+  periodTotals,
   periodsFor,
   receiptMonthKey,
   totalsFor,
@@ -133,5 +136,55 @@ describe("category filter", () => {
       { amount: 5, currency: "EUR", estimate: false },
     ]);
     expect(sections[1].totals).toEqual([{ amount: 10, currency: "SEK", estimate: false }]);
+  });
+});
+
+describe("the older receipts' summary", () => {
+  const older = {
+    count: 120,
+    verified: 115,
+    toConfirm: 5,
+    months: {
+      "2026-11": [{ amount: 90, currency: "SEK", estimate: false }],
+      "2025-12": [
+        { amount: 400, currency: "SEK", estimate: true },
+        { amount: 12, currency: "USD", estimate: false },
+      ],
+    },
+    all: [
+      { amount: 5000, currency: "SEK", estimate: true },
+      { amount: 12, currency: "USD", estimate: false },
+    ],
+  };
+
+  it("counts every receipt, not only the list", () => {
+    const list = [r("a"), r("b", { status: "pending_review" })];
+    expect(overallCounts(list, older)).toEqual({ count: 122, verified: 116, toConfirm: 6 });
+    expect(overallCounts(list, undefined)).toEqual({ count: 2, verified: 1, toConfirm: 1 });
+  });
+
+  it("adds the list's month to the server's, the company's currency first", () => {
+    const list = [r("a", { total: 10, homeTotal: 10 }), r("b", { currency: "EUR", total: 3, homeTotal: null, homeCurrency: null })];
+    expect(periodTotals(list, older, "2026-11", "SEK")).toEqual([
+      { amount: 100, currency: "SEK", estimate: false },
+      { amount: 3, currency: "EUR", estimate: false },
+    ]);
+    expect(periodTotals(list, older, ALL_TIME, "SEK")[0]).toEqual({ amount: 5010, currency: "SEK", estimate: true });
+    // A month only the server knows still shows, with its estimate mark.
+    expect(periodTotals(list, older, "2025-12", "SEK")).toEqual([
+      { amount: 400, currency: "SEK", estimate: true },
+      { amount: 12, currency: "USD", estimate: false },
+    ]);
+  });
+
+  it("lists months only the server knows in the picker", () => {
+    const keys = periodsFor([r("a")], "en", "All time", now, Object.keys(older.months)).map((p) => p.key);
+    expect(keys).toEqual(["2026-11", "2025-12", ALL_TIME]);
+  });
+
+  it("keeps a zero total in the company's currency and drops other zeros", () => {
+    expect(mergeTotals([{ amount: 0, currency: "USD", estimate: false }], [], "SEK")).toEqual([
+      { amount: 0, currency: "SEK", estimate: false },
+    ]);
   });
 });

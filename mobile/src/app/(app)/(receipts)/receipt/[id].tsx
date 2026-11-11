@@ -99,7 +99,6 @@ export default function ReceiptDetail() {
   if (live) last.current = live;
   const r = live ?? last.current;
   const photo = useReceiptPhoto(id, r?.original === "image");
-  const [confirming, setConfirming] = useState(false);
 
   if (!r) {
     return (
@@ -255,12 +254,10 @@ export default function ReceiptDetail() {
           ) : (
             <Button
               label={s.edit.confirm}
-              busy={confirming}
-              onPress={async () => {
-                setConfirming(true);
-                const ok = await confirm(r.id);
-                setConfirming(false);
-                if (ok) router.back();
+              onPress={() => {
+                // Confirmed at once; a refusal comes back as an alert.
+                confirm(r.id);
+                router.back();
               }}
             />
           )

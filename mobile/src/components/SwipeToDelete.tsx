@@ -11,6 +11,7 @@ import { StyleSheet } from "react-native";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { SymbolView } from "expo-symbols";
+import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
 import { colors, fonts, radius, space } from "../theme";
 import { PressableScale } from "./PressableScale";
@@ -56,6 +57,8 @@ export function SwipeToDelete({ onDelete, children }: { onDelete: () => void; ch
       overshootFriction={2}
       containerStyle={styles.container}
       onSwipeableWillOpen={() => {
+        // A tick in the hand as the card snaps open on Delete.
+        void Haptics.selectionAsync();
         if (openRow && openRow !== ref.current) openRow.close();
         openRow = ref.current;
       }}

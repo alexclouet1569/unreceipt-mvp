@@ -7,7 +7,7 @@
 // may return the list without it; its answer is then dropped and the list
 // fetched again, so a change never flickers away.
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, LayoutAnimation } from "react-native";
 import type { MobileHome, MobileReceipt } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -117,11 +117,13 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userId, refresh]);
 
-  return (
-    <HomeContext.Provider value={{ home, error, refreshing, loading, refresh, mutateReceipts, mutateHome }}>
-      {children}
-    </HomeContext.Provider>
+  // A new value only when something in it changed: every screen reading
+  // the home data re-renders on each change of this object.
+  const value = useMemo(
+    () => ({ home, error, refreshing, loading, refresh, mutateReceipts, mutateHome }),
+    [home, error, refreshing, loading, refresh, mutateReceipts, mutateHome],
   );
+  return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;
 }
 
 export function useHome(): HomeState {
