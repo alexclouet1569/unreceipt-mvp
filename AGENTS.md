@@ -116,6 +116,16 @@ To flip back to paid: in Vercel → Settings → Environment Variables, remove `
 
 Required env var: `ANTHROPIC_API_KEY` (see `.env.example`). Server-only, not `NEXT_PUBLIC_*` — an accidental client import resolves to `undefined` and `getClient()` throws fast.
 
+# Insights (spending statistics)
+
+`src/lib/analytics/` computes the customer's Insights screen (iPhone tab now, `/app/insights` later): totals per period (month, quarter, year, custom ≤ 731 days) with the previous period and the same period last year, bars (day/week/month), categories, top merchants (`merchants.ts` groups spellings conservatively), a VAT block and up to three rule-based insights (`insights.ts`: duplicates, category spike, recurring merchant, new merchant, representation, largest purchase). Pure code in `periods.ts`, `money.ts`, `vat.ts`, `insights.ts`, `aggregate.ts` (tested); `load.ts` reads and converts.
+
+- **Day rule:** a receipt's day is its printed date (`receipt_date`, else the date part of `purchased_at`, which holds the receipt's own clock time written with a `Z`, never shifted into a time zone). Undated receipts are in no period and counted apart. Unconfirmed receipts count, flagged; an unconverted foreign amount is listed apart, never added in.
+- **VAT block:** what the receipts say, never a VAT return and never "deductible": that depends on the company's VAT registration and what each purchase was for. A Swedish company in kronor (`country 'SE'`, `SEK`) sees VAT at Swedish rates on confirmed receipts, representation apart, and "to check" (unconfirmed receipts, rates that aren't Swedish or couldn't be read); everyone else sees VAT as printed. Only receipts in the company's currency count.
+- **Routes:** `GET /api/mobile/analytics` (`?period=&anchor=` or `&from=&to=`) and `GET /api/mobile/analytics/receipts` (the receipts behind a number: `category`, `merchant`, `ids` or `quality`, at most 200). Both use the home screen's access rules, the `analytics` rate limit, scope by `user_id`, and read the company's currency strictly (a failed read is a 500, never a guessed SEK, which would rewrite every conversion).
+- **Home summary:** `loadHome()` adds `older`, the counts and month totals of every receipt beyond the newest 50, read as stored (no conversion or writes on a page load); the website's stat cards and the iPhone app add their own list to it.
+- `ensureHomeAmounts()` reads the rates of many foreign receipts in one go (`RateTable`) and saves at most 8 conversions at a time.
+
 # Scheduled jobs
 
 `vercel.json` schedules five daily Vercel Cron jobs (Hobby allows one run per day, ±59 min). Each route calls `isAuthorizedCron()` (`src/lib/cron-auth.ts`), which requires `Authorization: Bearer $CRON_SECRET` and refuses everything when `CRON_SECRET` is unset.

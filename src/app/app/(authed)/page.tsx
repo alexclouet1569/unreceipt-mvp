@@ -58,7 +58,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     return <SelfHealSpinner />;
   }
 
-  const { receipts, forwardingEmail, showOnboarding, accountantInvites, homeCurrency } =
+  const { receipts, forwardingEmail, showOnboarding, accountantInvites, homeCurrency, older } =
     home.data;
 
   // Shared concierge SMS/WhatsApp line (step 7). When unset, the empty
@@ -77,6 +77,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       showOnboarding={showOnboarding}
       accountantInvites={accountantInvites}
       homeCurrency={homeCurrency}
+      older={older}
     />
   );
 

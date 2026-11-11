@@ -79,6 +79,12 @@ export const RATE_LIMITS = {
   // Per client company: the "missing receipts" email goes to its owners.
   // A couple a day covers a retry; more would be nagging.
   bankReminder: [{ limit: 3, windowSeconds: 24 * 60 * 60 }],
+  // Insights read every receipt of the user and may fetch ECB rates:
+  // generous for someone swiping through periods, a ceiling for a loop.
+  analytics: [
+    { limit: 300, windowSeconds: 60 * 60 },
+    { limit: 2000, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

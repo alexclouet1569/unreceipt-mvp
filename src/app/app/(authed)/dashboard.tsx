@@ -20,6 +20,7 @@ import {
   type CategoryKey,
 } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
+import type { MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
@@ -41,6 +42,9 @@ type DashboardProps = {
   // The company's currency (organizations.currency); "0" this month is
   // shown in it.
   homeCurrency?: string;
+  // Every receipt beyond `receipts` (the newest 50), summed on the server:
+  // the stat cards add it to their own list. Null when it couldn't be read.
+  older?: OlderSummary | null;
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -59,6 +63,7 @@ export function Dashboard({
   showOnboarding = false,
   accountantInvites = [],
   homeCurrency,
+  older = null,
 }: DashboardProps) {
   const router = useRouter();
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -210,14 +215,16 @@ export function Dashboard({
 
   const stats = useMemo(() => {
     const baseCurrency = homeCurrency ?? receipts[0]?.currency ?? "EUR";
-    const verified = receipts.filter((r) => r.status === "verified").length;
+    // The list holds the newest 50; `older` counts the rest.
+    const count = receipts.length + (older?.count ?? 0);
+    const verified = receipts.filter((r) => r.status === "verified").length + (older?.verified ?? 0);
     if (!today) {
-      return { baseCurrency, verified, periods: null, selected: null, totals: null };
+      return { baseCurrency, count, verified, periods: null, selected: null, totals: null };
     }
     // This month, then every month that has a receipt, newest first, then
     // all time. A month in another year carries the year.
     const current = monthKey(today.year, today.index);
-    const keys = new Set<string>([current]);
+    const keys = new Set<string>([current, ...Object.keys(older?.months ?? {})]);
     for (const r of receipts) {
       const k = receiptMonthKey(r);
       if (k) keys.add(k);
@@ -229,11 +236,13 @@ export function Dashboard({
     const selected = periods.find((p) => p.key === (period ?? current)) ?? periods[0];
     // In the company's currency; a receipt not converted yet stays apart
     // (DESIGN.md, 2026-11-05).
-    const totals = sumByCurrency(
+    const own = sumLines(
       selected.key === "all" ? receipts : receipts.filter((r) => receiptMonthKey(r) === selected.key),
     );
-    return { baseCurrency, verified, periods, selected, totals };
-  }, [receipts, homeCurrency, today, period]);
+    const rest = (selected.key === "all" ? older?.all : older?.months[selected.key]) ?? [];
+    const totals = formatLines(mergeLines(own, rest, baseCurrency));
+    return { baseCurrency, count, verified, periods, selected, totals };
+  }, [receipts, homeCurrency, today, period, older]);
 
   const groupedReceipts = useMemo(() => {
     if (view === "category") {
@@ -329,7 +338,7 @@ export function Dashboard({
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3 mb-6">
-              <StatCard label="Receipts" lines={[String(receipts.length)]} />
+              <StatCard label="Receipts" lines={[String(stats.count)]} />
               <StatCard label="Verified" lines={[String(stats.verified)]} />
               {stats.periods && stats.selected ? (
                 <PeriodTotalCard
@@ -573,18 +582,14 @@ function monthKey(year: number, index: number): string {
   return `${year}-${String(index + 1).padStart(2, "0")}`;
 }
 
-/**
- * The month a receipt was bought in ("2026-10"), in the user's own time
- * zone. purchased_at is a UTC timestamp, so it's read through Date (00:30 on
- * the 1st in Stockholm is still the 31st in UTC); receipt_date is already a
- * plain calendar date.
- */
+/** The month a receipt was bought in ("2026-10"), as printed on it. */
 function receiptMonthKey(r: Receipt): string | null {
-  if (r.purchased_at) {
-    const d = new Date(r.purchased_at);
-    if (!Number.isNaN(d.getTime())) return monthKey(d.getFullYear(), d.getMonth());
+  // The printed month (src/lib/analytics/money.ts purchaseDay): purchased_at
+  // holds the receipt's own clock time with a "Z", so it isn't shifted into
+  // the browser's time zone, and the server's totals agree.
+  for (const v of [r.receipt_date, r.purchased_at]) {
+    if (v && /^\d{4}-\d{2}/.test(v)) return v.slice(0, 7);
   }
-  if (r.receipt_date && /^\d{4}-\d{2}/.test(r.receipt_date)) return r.receipt_date.slice(0, 7);
   return null;
 }
 
@@ -670,25 +675,50 @@ function PeriodTotalCard({
 }
 
 /**
- * "1,245.00 kr": foreign receipts count with their amount in the company's
- * currency (home_total, src/lib/fx.ts). Only a receipt that couldn't be
- * converted yet is listed apart ("1,245.00 kr + €18.50"), never added in.
+ * The receipts' total per currency: foreign receipts count with their
+ * amount in the company's currency (home_total, src/lib/fx.ts). Only a
+ * receipt that couldn't be converted yet is listed apart, never added in.
+ * `estimate`: the sum includes an ECB-rate conversion ("≈").
  */
-function sumByCurrency(items: Receipt[]): string {
-  const sums = new Map<string, number>();
-  // Currencies whose sum includes an ECB-rate estimate get a "≈".
-  const estimated = new Set<string>();
+function sumLines(items: Receipt[]): MoneyLine[] {
+  const sums = new Map<string, MoneyLine>();
   for (const r of items) {
     const converted = r.home_total != null && r.home_currency != null;
     const amount = converted ? r.home_total : r.total;
     const currency = converted ? (r.home_currency as string) : r.currency;
     if (amount == null) continue;
-    sums.set(currency, (sums.get(currency) ?? 0) + amount);
-    if (converted && r.fx_source === "ecb" && r.currency !== r.home_currency) estimated.add(currency);
+    const line = sums.get(currency) ?? { amount: 0, currency, estimate: false };
+    line.amount += amount;
+    if (converted && r.fx_source === "ecb" && r.currency !== r.home_currency) line.estimate = true;
+    sums.set(currency, line);
   }
-  return Array.from(sums, ([currency, sum]) =>
-    (estimated.has(currency) ? "≈ " : "") + formatAmount(Math.round(sum * 100) / 100, currency),
-  ).join(" + ");
+  return [...sums.values()];
+}
+
+/** Two lists of sums added up, the company's currency first; zero sums dropped. */
+function mergeLines(a: MoneyLine[], b: MoneyLine[], home: string): MoneyLine[] {
+  const sums = new Map<string, MoneyLine>();
+  for (const l of [...a, ...b]) {
+    const line = sums.get(l.currency) ?? { amount: 0, currency: l.currency, estimate: false };
+    line.amount += l.amount;
+    line.estimate ||= l.estimate;
+    sums.set(l.currency, line);
+  }
+  return [...sums.values()]
+    .filter((l) => l.amount !== 0)
+    .sort((x, y) => (x.currency === home ? -1 : y.currency === home ? 1 : 0));
+}
+
+/** "≈ 1,245.00 kr + €18.50", or "" for nothing. */
+function formatLines(lines: MoneyLine[]): string {
+  return lines
+    .map((l) => (l.estimate ? "≈ " : "") + formatAmount(Math.round(l.amount * 100) / 100, l.currency))
+    .join(" + ");
+}
+
+/** "1,245.00 kr + €18.50" for a list of receipts. */
+function sumByCurrency(items: Receipt[]): string {
+  return formatLines(sumLines(items));
 }
 
 function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {

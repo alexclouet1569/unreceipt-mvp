@@ -17,6 +17,9 @@ import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organiza
 import { getFirmMembership } from "@/lib/require-firm";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
+import { olderSummary } from "@/lib/analytics/aggregate";
+import { loadSummaryRows } from "@/lib/analytics/load";
+import type { OlderSummary } from "@/lib/mobile/types";
 import type { Receipt } from "@/lib/types";
 
 export const RECENT_RECEIPTS_LIMIT = 50;
@@ -29,6 +32,12 @@ export type HomeData = {
   showOnboarding: boolean;
   accountantInvites: PendingInvite[];
   homeCurrency: string;
+  /**
+   * Counts and totals of every receipt not in `receipts`, so the screens'
+   * numbers are right past the newest 50 (they add their own list to it).
+   * Null when it couldn't be read: the screens then count their list only.
+   */
+  older: OlderSummary | null;
 };
 
 export type HomeLoad =
@@ -130,10 +139,23 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
   // Amounts in the company's currency next to foreign ones (src/lib/fx.ts).
   // Best effort: a missing rate leaves the receipt unconverted.
   const homeCurrency = await homeCurrencyOf(organizationId);
-  const receipts = await ensureHomeAmounts(loadedReceipts, homeCurrency).catch((err) => {
-    console.error("[home] currency conversion failed", err);
-    return loadedReceipts;
-  });
+  const listed = new Set(loadedReceipts.map((r) => r.id));
+  const [receipts, older] = await Promise.all([
+    ensureHomeAmounts(loadedReceipts, homeCurrency).catch((err) => {
+      console.error("[home] currency conversion failed", err);
+      return loadedReceipts;
+    }),
+    // Only when the list may be cut: below the limit it holds everything.
+    loadedReceipts.length < RECENT_RECEIPTS_LIMIT
+      ? Promise.resolve(olderSummary([], listed, homeCurrency))
+      : loadSummaryRows(user.id, listed)
+          .then((rows) => olderSummary(rows, listed, homeCurrency))
+          .catch((err) => {
+            Sentry.captureException(err, { tags: { area: "home summary" } });
+            console.error("[home] summary load failed", err);
+            return null;
+          }),
+  ]);
 
   return {
     kind: "ready",
@@ -149,6 +171,7 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
       showOnboarding: !onboarded && loadedReceipts.length === 0,
       accountantInvites,
       homeCurrency,
+      older,
     },
   };
 }
