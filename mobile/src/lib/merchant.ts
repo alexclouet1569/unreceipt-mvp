@@ -4,7 +4,7 @@
 // (src/lib/__tests__/merchant.test.ts) keeps the two in step.
 
 // Every colour carries white initials at AA (DESIGN.md "Merchant logo").
-const PALETTE = [
+export const MERCHANT_PALETTE = [
   "#1A7F52",
   "#303568",
   "#3B5B8C",
@@ -42,6 +42,6 @@ export function getMerchantInitials(name: string | null | undefined): string {
 
 export function getMerchantColor(name: string | null | undefined): string {
   const trimmed = (name ?? "").trim();
-  if (!trimmed) return PALETTE[PALETTE.length - 1];
-  return PALETTE[hash(trimmed.toLowerCase()) % PALETTE.length];
+  if (!trimmed) return MERCHANT_PALETTE[MERCHANT_PALETTE.length - 1];
+  return MERCHANT_PALETTE[hash(trimmed.toLowerCase()) % MERCHANT_PALETTE.length];
 }

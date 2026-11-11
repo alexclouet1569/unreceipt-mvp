@@ -1,5 +1,4 @@
 // ‹ November 2026 › — the period shown, with the one before and after.
-// Swiping the screen sideways does the same (the Insights screen).
 
 import { StyleSheet, View } from "react-native";
 import { SymbolView } from "expo-symbols";
@@ -28,7 +27,7 @@ function Arrow({ dir, onPress }: { dir: "left" | "right"; onPress: (() => void) 
         name={dir === "left" ? "chevron.left" : "chevron.right"}
         size={17}
         weight="semibold"
-        tintColor={onPress ? colors.ink : colors.hairline}
+        tintColor={onPress ? colors.ink : colors.inkFaint}
       />
     </PressableScale>
   );

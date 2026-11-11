@@ -22,7 +22,7 @@ export type InsightsState = {
 
 export function useInsights(query: PeriodQuery): InsightsState {
   const { userId, signOut } = useAuth();
-  const { home } = useHome();
+  const { home, extra } = useHome();
   const key = periodCacheKey(query);
   const qs = periodQueryString(query);
   const [state, setState] = useState<{ key: string; data: MobileAnalytics | null }>({ key, data: null });
@@ -79,7 +79,7 @@ export function useInsights(query: PeriodQuery): InsightsState {
     }
     const t = setTimeout(() => void refresh(), 1_500);
     return () => clearTimeout(t);
-  }, [receipts, refresh]);
+  }, [receipts, extra, refresh]);
 
   const data = state.key === key ? state.data : null;
   return { data, error, refreshing, loading: data == null && error == null, refresh };
