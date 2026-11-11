@@ -38,6 +38,10 @@ function Tabs() {
           <NativeTabs.Trigger.Badge>{String(toConfirm)}</NativeTabs.Trigger.Badge>
         ) : null}
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="insights">
+        <NativeTabs.Trigger.Label>{s.tabs.insights}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "chart.bar.xaxis", selected: "chart.bar.xaxis" }} />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="account">
         <NativeTabs.Trigger.Label>{s.tabs.account}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "person.crop.circle", selected: "person.crop.circle.fill" }} />

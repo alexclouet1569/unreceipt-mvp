@@ -28,6 +28,7 @@ import {
   type AnalyticsRow,
 } from "./money";
 import { resolvePeriod, type PeriodInput, type ResolvedPeriod } from "./periods";
+import { needsVatCheck } from "./vat";
 
 const PAGE = 1000;
 /** A safety cap: about ten years of the largest plan. */
@@ -154,7 +155,10 @@ export type DrillFilter =
   | { kind: "category"; category: string }
   | { kind: "merchant"; key: string }
   | { kind: "ids"; ids: string[] }
-  | { kind: "quality"; which: "to_complete" | "unconverted" | "missing_amount" | "to_confirm" };
+  | { kind: "quality"; which: QualityFilter };
+
+const QUALITY = ["to_complete", "unconverted", "missing_amount", "to_confirm", "vat_to_check"] as const;
+type QualityFilter = (typeof QUALITY)[number];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -181,15 +185,13 @@ export function drillFilterFromParams(params: URLSearchParams): DrillFilter {
     return { kind: "ids", ids: list };
   }
   if (quality != null) {
-    if (!["to_complete", "unconverted", "missing_amount", "to_confirm"].includes(quality)) {
-      throw new AnalyticsInputError("invalid quality");
-    }
-    return { kind: "quality", which: quality as "to_complete" };
+    if (!(QUALITY as readonly string[]).includes(quality)) throw new AnalyticsInputError("invalid quality");
+    return { kind: "quality", which: quality as QualityFilter };
   }
   return { kind: "all" };
 }
 
-function matches(r: AnalyticsRow, f: DrillFilter, home: string): boolean {
+function matches(r: AnalyticsRow, f: DrillFilter, home: string, country: string): boolean {
   switch (f.kind) {
     case "all":
       return true;
@@ -201,6 +203,7 @@ function matches(r: AnalyticsRow, f: DrillFilter, home: string): boolean {
       return f.ids.includes(r.id);
     case "quality": {
       if (f.which === "to_confirm") return r.status === "pending_review";
+      if (f.which === "vat_to_check") return needsVatCheck(r, home, country);
       if (f.which === "to_complete") return r.status === "pending_review" && missingRequiredFields(r).length > 0;
       const c = contribution(r, home).kind;
       return f.which === "unconverted" ? c === "foreign" : c === "none";
@@ -220,7 +223,7 @@ export async function loadDrillReceipts(
   const hits = rows
     .map((r) => ({ r, day: purchaseDay(r) }))
     .filter((x): x is { r: AnalyticsRow; day: string } => x.day != null && x.day >= period.from && x.day <= period.to)
-    .filter((x) => matches(x.r, filter, access.home))
+    .filter((x) => matches(x.r, filter, access.home, access.country))
     .sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : b.r.created_at.localeCompare(a.r.created_at)));
   const ids = hits.slice(0, MAX_DRILL_RECEIPTS).map((x) => x.r.id);
   if (ids.length === 0) return { receipts: [], truncated: false };

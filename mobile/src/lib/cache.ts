@@ -5,11 +5,30 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { Directory, Paths } from "expo-file-system";
-import type { MobileAccount, MobileHome } from "@/lib/mobile/types";
+import type { MobileAccount, MobileAnalytics, MobileHome } from "@/lib/mobile/types";
 import { deleteAllScans } from "./scans/files";
 
 const PREFIX = "home:v1:";
 const ACCOUNT_PREFIX = "account:v1:";
+const INSIGHTS_PREFIX = "insights:v1:";
+
+/** The last Insights answer for a period ("month:2026-11"), for an instant screen. */
+export async function readInsights(userId: string, key: string): Promise<MobileAnalytics | null> {
+  try {
+    const raw = await AsyncStorage.getItem(`${INSIGHTS_PREFIX}${userId}:${key}`);
+    return raw ? (JSON.parse(raw) as MobileAnalytics) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeInsights(userId: string, key: string, data: MobileAnalytics): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`${INSIGHTS_PREFIX}${userId}:${key}`, JSON.stringify(data));
+  } catch {
+    // Only costs the next visit its instant screen.
+  }
+}
 
 export async function readHome(userId: string): Promise<MobileHome | null> {
   try {
@@ -59,7 +78,13 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
     const keys = await AsyncStorage.getAllKeys();
     // "scans:v1:" is the queue (src/lib/scans/ScanProvider.tsx).
     await AsyncStorage.multiRemove(
-      keys.filter((k) => k.startsWith(PREFIX) || k.startsWith(ACCOUNT_PREFIX) || (!keepScans && k.startsWith("scans:v1:"))),
+      keys.filter(
+        (k) =>
+          k.startsWith(PREFIX) ||
+          k.startsWith(ACCOUNT_PREFIX) ||
+          k.startsWith(INSIGHTS_PREFIX) ||
+          (!keepScans && k.startsWith("scans:v1:")),
+      ),
     );
   } catch {
     // Nothing more to do: the next sign-in overwrites it.
