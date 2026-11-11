@@ -162,6 +162,7 @@ export const fr: Strings = {
     signOutConfirm: "Se déconnecter d’UnReceipt sur cet iPhone ?",
     signOutPending: "Scans pas encore envoyés : {count}. Se déconnecter les supprime de cet iPhone.",
     version: "Version {version}",
+    updated: "Mise à jour du {date}",
     company: "Votre entreprise",
     setupForwarding: "Configurer le transfert automatique",
     setupForwardingNote: "Les reçus arrivent tout seuls",

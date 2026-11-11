@@ -162,6 +162,7 @@ export const sv: Strings = {
     signOutConfirm: "Logga ut från UnReceipt på den här iPhonen?",
     signOutPending: "Skanningar som inte har skickats än: {count}. Om du loggar ut raderas de från den här iPhonen.",
     version: "Version {version}",
+    updated: "Uppdaterad {date}",
     company: "Ditt företag",
     setupForwarding: "Ställ in automatisk vidarebefordran",
     setupForwardingNote: "Kvitton kommer in av sig själva",

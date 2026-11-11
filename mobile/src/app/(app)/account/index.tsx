@@ -6,6 +6,7 @@
 import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { useAuth } from "../../../auth/AuthProvider";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { Group, Row, Section } from "../../../components/Grouped";
@@ -13,6 +14,7 @@ import { Text } from "../../../components/Text";
 import { fill, LANGUAGE_NAMES, locale, s } from "../../../i18n";
 import type { MobileAccount } from "@/lib/mobile/types";
 import { useAccount } from "../../../lib/AccountProvider";
+import { dayTime } from "../../../lib/format";
 import { useHome } from "../../../lib/HomeProvider";
 import { useScans } from "../../../lib/scans/ScanProvider";
 import { colors, radius, space } from "../../../theme";
@@ -126,6 +128,11 @@ export default function Account() {
         </Group>
         <Text variant="caption" color={colors.inkFaint} style={styles.center}>
           {fill(s.account.version, { version: Constants.expoConfig?.version ?? "" })}
+          {/* Running an over-the-air update: when it was published, so we know
+              which version someone has (README "Releases"). */}
+          {!Updates.isEmbeddedLaunch && Updates.createdAt
+            ? ` · ${fill(s.account.updated, { date: dayTime(Updates.createdAt, locale) })}`
+            : null}
         </Text>
       </View>
     </ScrollView>
