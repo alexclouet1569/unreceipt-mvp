@@ -3,6 +3,7 @@
 // background, pull down to refresh by hand. The big button scans.
 
 import { useMemo, useState } from "react";
+import type { MobileReceipt } from "@/lib/mobile/types";
 import { RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -11,7 +12,9 @@ import { BrandMark } from "../../../components/Brand";
 import { Button } from "../../../components/Button";
 import { CategoryChips } from "../../../components/CategoryChips";
 import { InviteCard } from "../../../components/InviteCard";
-import { SummaryCard } from "../../../components/SummaryCard";
+import { PilotBox } from "../../../components/PilotBox";
+import { StatCards } from "../../../components/StatCards";
+import { ViewToggle, type ListView } from "../../../components/ViewToggle";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { PendingRow } from "../../../components/PendingRow";
 import { PressableScale } from "../../../components/PressableScale";
@@ -20,13 +23,13 @@ import { SCAN_BUTTON_SPACE, ScanButton } from "../../../components/ScanButton";
 import { SwipeToDelete, closeOpenSwipe } from "../../../components/SwipeToDelete";
 import { ReceiptSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
-import { locale, s } from "../../../i18n";
+import { fill, locale, s } from "../../../i18n";
 import { useHome } from "../../../lib/HomeProvider";
 import { UndoToast, useReceiptActions } from "../../../lib/ReceiptActions";
 import { useScans } from "../../../lib/scans/ScanProvider";
 import { buildSections } from "../../../lib/sections";
-import { categoryCounts, filterByCategory, type PeriodKey } from "../../../lib/summary";
-import type { ReceiptCategory } from "@/lib/types";
+import { applyFilter, categoryCounts, categorySections, type ListFilter, type PeriodKey, type TotalLine } from "../../../lib/summary";
+import { formatMoney } from "../../../lib/format";
 import { colors, durations, radius, space } from "../../../theme";
 
 function Notice({ text }: { text: string }) {
@@ -86,6 +89,20 @@ function PendingList() {
   );
 }
 
+type ListSection = {
+  key: string;
+  title: string;
+  attention: boolean;
+  data: MobileReceipt[];
+  /** By category: the section's total. */
+  totals?: TotalLine[];
+};
+
+/** "1 305,00 kr + €18.50", with "≈" before an ECB estimate. */
+function totalText(lines: TotalLine[]): string {
+  return lines.map((l) => (l.estimate ? "≈ " : "") + formatMoney(l.amount, l.currency, locale)).join(" + ");
+}
+
 // A receipt that has just arrived (a scan read, a forward) fades in.
 const FRESH_MS = 30_000;
 
@@ -96,16 +113,25 @@ export default function Receipts() {
   const receipts = home?.state === "ready" ? home.receipts : null;
   // null: this month, so the default follows the calendar.
   const [period, setPeriod] = useState<PeriodKey | null>(null);
-  const [chosenCategory, setCategory] = useState<ReceiptCategory | null>(null);
+  const [chosenFilter, setFilter] = useState<ListFilter>("all");
+  const [view, setView] = useState<ListView>("date");
   const counts = useMemo(() => (receipts ? categoryCounts(receipts) : []), [receipts]);
-  const filtered = useMemo(
-    () => filterByCategory(receipts ?? [], chosenCategory),
-    [receipts, chosenCategory],
-  );
-  const sections = useMemo(
-    () => (receipts ? buildSections(filtered.receipts, s, locale) : []),
-    [receipts, filtered],
-  );
+  const toConfirm = useMemo(() => (receipts ?? []).filter((r) => r.status === "pending_review").length, [receipts]);
+  const filtered = useMemo(() => applyFilter(receipts ?? [], chosenFilter), [receipts, chosenFilter]);
+  const homeCurrency = home?.state === "ready" ? home.homeCurrency : "SEK";
+  const sections = useMemo((): ListSection[] => {
+    if (!receipts) return [];
+    if (view === "category") {
+      return categorySections(filtered.receipts, homeCurrency).map((c) => ({
+        key: c.key,
+        title: s.categories[c.category],
+        attention: false,
+        data: c.data,
+        totals: c.totals,
+      }));
+    }
+    return buildSections(filtered.receipts, s, locale);
+  }, [receipts, filtered, view, homeCurrency]);
 
   let body: React.ReactNode;
   if (!home && loading) {
@@ -151,22 +177,39 @@ export default function Receipts() {
             {home.accountantInvites.map((invite) => (
               <InviteCard key={invite.id} invite={invite} />
             ))}
+            {home.access === "pilot" ? <PilotBox /> : null}
+            {/* The website's page title: "Your receipts" and who is signed in. */}
+            <View style={styles.heading}>
+              <Text variant="displayLg" accessibilityRole="header">
+                {s.summary.yourReceipts}
+              </Text>
+              <Text variant="caption" color={colors.inkMuted} numberOfLines={1}>
+                {home.email}
+              </Text>
+            </View>
             {home.receipts.length > 0 ? (
               <>
-                <SummaryCard
-                  receipts={filtered.receipts}
-                  allReceipts={home.receipts}
+                <StatCards
+                  receipts={home.receipts}
                   homeCurrency={home.homeCurrency}
                   period={period ?? ""}
                   onPeriod={setPeriod}
                 />
+                <ViewToggle
+                  view={view}
+                  onChange={(v) => {
+                    closeOpenSwipe();
+                    setView(v);
+                  }}
+                />
                 <CategoryChips
                   counts={counts}
                   total={home.receipts.length}
-                  selected={filtered.category}
-                  onSelect={(c) => {
+                  toConfirm={toConfirm}
+                  selected={filtered.filter}
+                  onSelect={(f) => {
                     closeOpenSwipe();
-                    setCategory(c);
+                    setFilter(f);
                   }}
                 />
               </>
@@ -183,8 +226,17 @@ export default function Receipts() {
             accessibilityRole="header"
           >
             {section.title}
-            {section.attention ? (
-              <Text variant="micro" style={styles.count} color={colors.attentionDeep}>{`  ${section.data.length}`}</Text>
+            {section.attention || section.totals ? (
+              <Text
+                variant="micro"
+                style={styles.count}
+                color={section.attention ? colors.attentionDeep : colors.inkMuted}
+              >{`  ${section.data.length}`}</Text>
+            ) : null}
+            {section.totals && section.totals.length > 0 ? (
+              <Text variant="micro" style={styles.count} color={colors.inkMuted}>
+                {`  ·  ${totalText(section.totals)}`}
+              </Text>
             ) : null}
           </Text>
         )}
@@ -225,6 +277,7 @@ const styles = StyleSheet.create({
   center: { textAlign: "center" },
   count: { fontVariant: ["tabular-nums"] },
   pending: { marginTop: space.lg },
+  heading: { marginHorizontal: space.lg, marginTop: space.lg, gap: 2 },
   sectionLabel: {
     marginHorizontal: space.lg,
     marginTop: space.xl,

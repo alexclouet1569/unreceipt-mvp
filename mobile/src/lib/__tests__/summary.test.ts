@@ -3,7 +3,8 @@ import type { MobileReceipt } from "@/lib/mobile/types";
 import {
   ALL_TIME,
   categoryCounts,
-  filterByCategory,
+  applyFilter,
+  categorySections,
   inPeriod,
   periodsFor,
   receiptMonthKey,
@@ -107,9 +108,28 @@ describe("category filter", () => {
     ]);
   });
 
-  it("filters, and falls back to all when the category has no receipt left", () => {
-    expect(filterByCategory(list, "transport").receipts.map((x) => x.id)).toEqual(["b", "c"]);
-    expect(filterByCategory(list, "software")).toEqual({ category: null, receipts: list });
-    expect(filterByCategory(list, null).category).toBeNull();
+  it("filters by chip, and falls back to All when the chip has no receipt left", () => {
+    expect(applyFilter(list, "transport").receipts.map((x) => x.id)).toEqual(["b", "c"]);
+    expect(applyFilter(list, "software")).toEqual({ filter: "all", receipts: list });
+    expect(applyFilter(list, "review")).toEqual({ filter: "all", receipts: list });
+    const withReview = [...list, r("e", { status: "pending_review" })];
+    expect(applyFilter(withReview, "review").receipts.map((x) => x.id)).toEqual(["e"]);
+  });
+
+  it("groups by category, most used first, each with its own total", () => {
+    const sections = categorySections(
+      [
+        r("a", { total: 10, homeTotal: 10 }),
+        r("b", { category: "transport", total: 20, homeTotal: 20 }),
+        r("c", { category: "transport", currency: "EUR", total: 5, homeTotal: null, homeCurrency: null }),
+      ],
+      "SEK",
+    );
+    expect(sections.map((x) => x.category)).toEqual(["transport", "meals"]);
+    expect(sections[0].totals).toEqual([
+      { amount: 20, currency: "SEK", estimate: false },
+      { amount: 5, currency: "EUR", estimate: false },
+    ]);
+    expect(sections[1].totals).toEqual([{ amount: 10, currency: "SEK", estimate: false }]);
   });
 });

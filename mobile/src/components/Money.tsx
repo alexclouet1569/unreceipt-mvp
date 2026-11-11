@@ -25,11 +25,14 @@ export function Money({
   currency,
   size = "card",
   color = colors.ink,
+  fit = false,
 }: {
   amount: number | null;
   currency: string;
   size?: Size;
   color?: string;
+  /** In a narrow box: the digits shrink a little instead of being cut. */
+  fit?: boolean;
 }) {
   const base = VALUE[size];
   if (amount == null) {
@@ -59,6 +62,8 @@ export function Money({
         style={[value, styles.tabular]}
         color={color}
         numberOfLines={1}
+        adjustsFontSizeToFit={fit}
+        minimumFontScale={fit ? 0.75 : undefined}
         maxFontSizeMultiplier={scale}
       >
         {p.value}

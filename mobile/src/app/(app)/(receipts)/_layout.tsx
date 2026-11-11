@@ -1,8 +1,9 @@
-// The Receipts tab: a native stack with the large iOS title that shrinks
-// into the bar as you scroll; a receipt slides in from the right and swipes
-// back with the thumb.
+// The Receipts tab: a native stack with the UnReceipt wordmark in the bar
+// (like the website's header); a receipt slides in from the right and
+// swipes back with the thumb.
 
 import { Stack } from "expo-router";
+import { HeaderBrand } from "../../../components/Brand";
 import { s } from "../../../i18n";
 import { colors, fonts, radius } from "../../../theme";
 import { EDIT_DETENTS } from "../../../lib/edits";
@@ -22,7 +23,9 @@ export default function ReceiptsStack() {
         headerBackButtonDisplayMode: "minimal",
       }}
     >
-      <Stack.Screen name="index" options={{ title: s.receipts.title, headerLargeTitleEnabled: true }} />
+      {/* The website's header: the UnReceipt wordmark on top; "Your receipts"
+          and the email open the list below it. */}
+      <Stack.Screen name="index" options={{ title: s.receipts.title, headerTitle: () => <HeaderBrand /> }} />
       <Stack.Screen name="receipt/[id]" options={{ title: s.detail.title }} />
       {/* A field is edited in iOS's own bottom sheet, dragged away to cancel. */}
       <Stack.Screen

@@ -92,3 +92,17 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row" },
   word: { fontFamily: fonts.extrabold },
 });
+
+/** The website's header mark: the isotype next to the wordmark, for the Receipts bar. */
+export function HeaderBrand() {
+  return (
+    <View style={headerStyles.row} accessible accessibilityRole="header" accessibilityLabel="UnReceipt">
+      <BrandMark size={24} />
+      <Wordmark size={19} />
+    </View>
+  );
+}
+
+const headerStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 6 },
+});
