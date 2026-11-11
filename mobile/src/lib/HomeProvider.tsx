@@ -26,6 +26,14 @@ type HomeState = {
   mutateReceipts: (change: (receipts: MobileReceipt[]) => MobileReceipt[]) => void;
   /** Same, for anything else on the home data (an answered invite). */
   mutateHome: (change: (home: ReadyHome) => ReadyHome) => void;
+  /**
+   * Receipts opened from Insights that aren't in the list (older than the
+   * newest 50): kept so their screen, edits and Confirm work as for any
+   * other. Never counted in the list's totals.
+   */
+  extra: MobileReceipt[];
+  rememberReceipts: (receipts: MobileReceipt[]) => void;
+  mutateExtra: (change: (receipts: MobileReceipt[]) => MobileReceipt[]) => void;
 };
 
 export type ReadyHome = Extract<MobileHome, { state: "ready" }>;
@@ -38,6 +46,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<HomeState["error"]>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [extra, setExtra] = useState<MobileReceipt[]>([]);
   const inFlight = useRef<Promise<void> | null>(null);
   // Bumped by every local change.
   const version = useRef(0);
@@ -98,6 +107,16 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     [mutateHome],
   );
 
+  const rememberReceipts = useCallback((receipts: MobileReceipt[]) => {
+    setExtra((current) => {
+      const byId = new Map(current.map((r) => [r.id, r]));
+      for (const r of receipts) byId.set(r.id, r);
+      return [...byId.values()];
+    });
+  }, []);
+
+  const mutateExtra = useCallback<HomeState["mutateExtra"]>((change) => setExtra((current) => change(current)), []);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -114,16 +133,24 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
       sub.remove();
+      setExtra([]);
     };
   }, [userId, refresh]);
 
   // A new value only when something in it changed: every screen reading
   // the home data re-renders on each change of this object.
   const value = useMemo(
-    () => ({ home, error, refreshing, loading, refresh, mutateReceipts, mutateHome }),
-    [home, error, refreshing, loading, refresh, mutateReceipts, mutateHome],
+    () => ({ home, error, refreshing, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra }),
+    [home, error, refreshing, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra],
   );
   return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;
+}
+
+/** A receipt by id: from the list, else one opened from Insights. */
+export function useReceipt(id: string | undefined): MobileReceipt | undefined {
+  const { home, extra } = useHome();
+  if (!id) return undefined;
+  return (home?.state === "ready" ? home.receipts.find((r) => r.id === id) : undefined) ?? extra.find((r) => r.id === id);
 }
 
 export function useHome(): HomeState {

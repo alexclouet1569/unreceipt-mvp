@@ -2,7 +2,7 @@
 // Insights screen: the period's parameters (as /api/mobile/analytics) plus
 // at most one of &category=, &merchant= (the normalised key the analytics
 // returned), &ids= (comma-separated, from an insight) or &quality=
-// (to_complete | unconverted | missing_amount | to_confirm). Newest first,
+// (to_complete | unconverted | missing_amount | to_confirm | vat_to_check). Newest first,
 // at most 200. Only the signed-in user's own receipts.
 
 import * as Sentry from "@sentry/nextjs";

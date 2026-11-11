@@ -21,7 +21,7 @@ import {
   type ReceiptPatch,
 } from "../../../../lib/edits";
 import { formatMoney, parseReceiptDate } from "../../../../lib/format";
-import { useHome } from "../../../../lib/HomeProvider";
+import { useHome, useReceipt } from "../../../../lib/HomeProvider";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
 import { colors, fonts, radius, space } from "../../../../theme";
 
@@ -35,7 +35,7 @@ export default function EditField() {
   const field: Field = (["merchant", "amount", "date", "category"] as const).includes(rawField) ? rawField : "merchant";
   const { home } = useHome();
   const { save } = useReceiptActions();
-  const r = home?.state === "ready" ? home.receipts.find((x) => x.id === id) : undefined;
+  const r = useReceipt(id);
 
   const [merchant, setMerchant] = useState(r?.merchant ?? "");
   const [amount, setAmount] = useState(

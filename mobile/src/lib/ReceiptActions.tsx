@@ -35,23 +35,43 @@ type Actions = {
   undo: () => void;
 };
 
-type PendingDelete = { receipt: MobileReceipt; index: number; timer: ReturnType<typeof setTimeout> };
+type PendingDelete = {
+  receipt: MobileReceipt;
+  index: number;
+  /** "extra": a receipt opened from Insights, not in the list. */
+  where: "list" | "extra";
+  timer: ReturnType<typeof setTimeout>;
+};
 
 const ActionsContext = createContext<Actions | null>(null);
 
 export function ReceiptActionsProvider({ children }: { children: React.ReactNode }) {
-  const { home, mutateReceipts, refresh } = useHome();
+  const { home, mutateReceipts, refresh, extra, mutateExtra } = useHome();
   const [toast, setToast] = useState<string | null>(null);
   const deleting = useRef<PendingDelete | null>(null);
   const receipts = home?.state === "ready" ? home.receipts : [];
   const latest = useRef(receipts);
   latest.current = receipts;
+  const latestExtra = useRef(extra);
+  latestExtra.current = extra;
+
+  /** Where a receipt lives: the list, or the ones opened from Insights. */
+  const locate = useCallback(
+    (id: string) => {
+      const inList = latest.current.find((r) => r.id === id);
+      if (inList) return { receipt: inList, mutate: mutateReceipts, where: "list" as const };
+      const opened = latestExtra.current.find((r) => r.id === id);
+      return opened ? { receipt: opened, mutate: mutateExtra, where: "extra" as const } : null;
+    },
+    [mutateReceipts, mutateExtra],
+  );
 
   const save = useCallback(
     async (id: string, patch: ReceiptPatch) => {
-      const before = latest.current.find((r) => r.id === id);
-      if (!before) return false;
-      mutateReceipts((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, r.status) : r)));
+      const found = locate(id);
+      if (!found) return false;
+      const { receipt: before, mutate } = found;
+      mutate((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, r.status) : r)));
       try {
         const res = await apiResponse(`/api/receipts/${encodeURIComponent(id)}`, {
           method: "PATCH",
@@ -60,27 +80,28 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
         const body = (await res.json().catch(() => null)) as { status?: MobileReceipt["status"] } | null;
         if (!res.ok || !body?.status) throw new ApiError("server");
         const status = body.status;
-        mutateReceipts((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, status) : r)));
+        mutate((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, status) : r)));
         // The server's full row (conversions) a moment later.
         setTimeout(() => void refresh(), 1_000);
         return true;
       } catch {
-        mutateReceipts((rs) => rs.map((r) => (r.id === id ? before : r)));
+        mutate((rs) => rs.map((r) => (r.id === id ? before : r)));
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert(s.edit.saveFailed);
         return false;
       }
     },
-    [mutateReceipts, refresh],
+    [locate, refresh],
   );
 
   const confirm = useCallback(
     (id: string) => {
-      const before = latest.current.find((r) => r.id === id);
-      if (!before) return;
+      const found = locate(id);
+      if (!found) return;
+      const { receipt: before, mutate } = found;
       // Confirmed on screen now (the button never spins); an empty PATCH
       // tells the server, which answers with the status it keeps.
-      mutateReceipts((rs) => rs.map((r) => (r.id === id ? { ...r, status: "verified" } : r)));
+      mutate((rs) => rs.map((r) => (r.id === id ? { ...r, status: "verified" } : r)));
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       AccessibilityInfo.announceForAccessibility(s.edit.confirmed);
       void (async () => {
@@ -92,16 +113,16 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
           const body = (await res.json().catch(() => null)) as { status?: MobileReceipt["status"] } | null;
           if (!res.ok || !body?.status) throw new ApiError("server");
           const status = body.status;
-          mutateReceipts((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
+          mutate((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
           setTimeout(() => void refresh(), 1_000);
         } catch {
-          mutateReceipts((rs) => rs.map((r) => (r.id === id ? before : r)));
+          mutate((rs) => rs.map((r) => (r.id === id ? before : r)));
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           Alert.alert(s.edit.saveFailed);
         }
       })();
     },
-    [mutateReceipts, refresh],
+    [locate, refresh],
   );
 
   const sendDelete = useCallback(
@@ -115,7 +136,7 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
         // Already gone counts as deleted.
         if (!res.ok && res.status !== 404) throw new ApiError("server");
       } catch {
-        mutateReceipts((rs) => {
+        (pending.where === "list" ? mutateReceipts : mutateExtra)((rs) => {
           const next = [...rs];
           next.splice(Math.min(pending.index, next.length), 0, pending.receipt);
           return next;
@@ -123,22 +144,29 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
         Alert.alert(s.edit.deleteFailed);
       }
     },
-    [mutateReceipts],
+    [mutateReceipts, mutateExtra],
   );
 
   const remove = useCallback(
     (id: string) => {
-      const index = latest.current.findIndex((r) => r.id === id);
-      if (index === -1) return;
+      const found = locate(id);
+      if (!found) return;
+      const source = found.where === "list" ? latest.current : latestExtra.current;
+      const index = source.findIndex((r) => r.id === id);
       // One Undo at a time: a second delete sends the first now.
       if (deleting.current) {
         clearTimeout(deleting.current.timer);
         void sendDelete(deleting.current);
       }
-      const receipt = latest.current[index];
-      mutateReceipts((rs) => rs.filter((r) => r.id !== id));
+      const receipt = found.receipt;
+      found.mutate((rs) => rs.filter((r) => r.id !== id));
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const pending: PendingDelete = { receipt, index, timer: setTimeout(() => void sendDelete(pending), UNDO_MS) };
+      const pending: PendingDelete = {
+        receipt,
+        index,
+        where: found.where,
+        timer: setTimeout(() => void sendDelete(pending), UNDO_MS),
+      };
       deleting.current = pending;
       void AccessibilityInfo.isScreenReaderEnabled().then((on) => {
         if (!on || deleting.current !== pending) return;
@@ -149,7 +177,7 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
       setToast(message);
       AccessibilityInfo.announceForAccessibility(message);
     },
-    [mutateReceipts, sendDelete],
+    [locate, sendDelete],
   );
 
   const undo = useCallback(() => {
@@ -158,14 +186,14 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
     clearTimeout(pending.timer);
     deleting.current = null;
     setToast(null);
-    mutateReceipts((rs) => {
+    (pending.where === "list" ? mutateReceipts : mutateExtra)((rs) => {
       const next = [...rs];
       next.splice(Math.min(pending.index, next.length), 0, pending.receipt);
       return next;
     });
     void Haptics.selectionAsync();
     AccessibilityInfo.announceForAccessibility(s.edit.restored);
-  }, [mutateReceipts]);
+  }, [mutateReceipts, mutateExtra]);
 
   // Leaving the app ends the Undo window: send the delete now.
   useEffect(() => {

@@ -23,6 +23,18 @@ export function isSwedishVat(country: string, home: string): boolean {
   return country === "SE" && home === INPUT_VAT_CURRENCY;
 }
 
+/**
+ * "To check" in the VAT block: a receipt in the company's currency with
+ * VAT that is unconfirmed, or at a rate that isn't Swedish or couldn't be
+ * read. Swedish companies in kronor only.
+ */
+export function needsVatCheck(r: AnalyticsRow, home: string, country: string): boolean {
+  if (!isSwedishVat(country, home) || r.currency !== home) return false;
+  const lines = vatLinesFor(r);
+  if (lines.length === 1 && lines[0].source === "none") return false;
+  return r.status !== "verified" || lines.some((l) => !isSwedishRate(l.rate));
+}
+
 export function vatFor(rows: AnalyticsRow[], home: string, country: string): AnalyticsVat {
   const se = isSwedishVat(country, home);
   const byRate = new Map<string, { rate: number | null; net: number; netKnown: boolean; vat: number }>();

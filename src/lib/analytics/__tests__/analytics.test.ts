@@ -5,7 +5,7 @@ import { buildAnalytics, olderSummary } from "../aggregate";
 import { merchantKey } from "../merchants";
 import { contribution, purchaseDay, Sum, type AnalyticsRow } from "../money";
 import { bucketsFor, granularityFor, minusYear, resolvePeriod } from "../periods";
-import { vatFor } from "../vat";
+import { needsVatCheck, vatFor } from "../vat";
 import { DUPLICATE_NOTE } from "@/lib/receipts/notes";
 
 let n = 0;
@@ -329,5 +329,17 @@ describe("representation insight", () => {
       "FR"
     );
     expect(fr.insights.find((i) => i.kind === "representation")).toBeUndefined();
+  });
+});
+
+describe("needsVatCheck", () => {
+  it("picks exactly the receipts behind \"to check\"", () => {
+    expect(needsVatCheck(row({ tax_amount: 25, tax_rate: 25 }), "SEK", "SE")).toBe(false);
+    expect(needsVatCheck(row({ tax_amount: 25, tax_rate: 25, status: "pending_review" }), "SEK", "SE")).toBe(true);
+    expect(needsVatCheck(row({ tax_amount: 20, tax_rate: 20 }), "SEK", "SE")).toBe(true);
+    expect(needsVatCheck(row({ tax_amount: 9 }), "SEK", "SE")).toBe(true);
+    expect(needsVatCheck(row({}), "SEK", "SE")).toBe(false);
+    expect(needsVatCheck(row({ currency: "EUR", tax_amount: 2 }), "SEK", "SE")).toBe(false);
+    expect(needsVatCheck(row({ tax_amount: 20, tax_rate: 20 }), "EUR", "FR")).toBe(false);
   });
 });
