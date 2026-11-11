@@ -78,7 +78,14 @@ export async function apiResponse(path: string, init: RequestInit = {}, opts: Ca
   const { data, error } = await supabase.auth.getSession();
   if (!data.session) throw new ApiError(isAuthRetryableFetchError(error) ? "offline" : "unauthorized");
 
+  const read401 = async (r: Response) =>
+    opts.keep401 ? opts.keep401((await r.clone().json().catch(() => ({}))) as { error?: string }) : false;
+
   let res = await send(path, data.session.access_token, init, opts.timeoutMs);
+  // A 401 the caller reads (account deletion's "sign in again") comes back
+  // at once: a refreshed token keeps the old sign-in time, so resending
+  // would only spend the route's rate limit.
+  if (res.status === 401 && (await read401(res))) return res;
   if (res.status === 401) {
     const refreshed = await supabase.auth.refreshSession();
     if (refreshed.data.session) {
@@ -88,9 +95,7 @@ export async function apiResponse(path: string, init: RequestInit = {}, opts: Ca
     }
   }
   if (res.status === 401) {
-    // A 401 that isn't "signed out" (account deletion asks for a fresh
-    // sign-in with one): the caller reads it.
-    if (opts.keep401 && opts.keep401((await res.clone().json().catch(() => ({}))) as { error?: string })) return res;
+    if (await read401(res)) return res;
     throw new ApiError("unauthorized");
   }
   return res;

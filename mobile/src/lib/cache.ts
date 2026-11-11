@@ -4,6 +4,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
+import { Directory, Paths } from "expo-file-system";
 import type { MobileAccount, MobileHome } from "@/lib/mobile/types";
 import { deleteAllScans } from "./scans/files";
 
@@ -52,6 +53,7 @@ export async function writeAccount(userId: string, account: MobileAccount): Prom
  */
 export async function clearAll({ keepScans = false }: { keepScans?: boolean } = {}): Promise<void> {
   if (!keepScans) deleteAllScans();
+  deleteExports();
   await Promise.all([Image.clearDiskCache(), Image.clearMemoryCache()]).catch(() => {});
   try {
     const keys = await AsyncStorage.getAllKeys();
@@ -61,5 +63,15 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
     );
   } catch {
     // Nothing more to do: the next sign-in overwrites it.
+  }
+}
+
+/** Exported ZIPs (src/lib/exports.ts) are copies of every receipt: they leave with the session. */
+function deleteExports(): void {
+  try {
+    const dir = new Directory(Paths.cache, "exports");
+    if (dir.exists) dir.delete();
+  } catch {
+    // Best effort: iOS may also clear the cache folder by itself.
   }
 }
