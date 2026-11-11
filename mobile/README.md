@@ -83,6 +83,14 @@ Both happen by themselves: `.eas/workflows/deploy-to-production.yml` runs on eve
 
 By hand, from `mobile/` (signed in once with `npx eas-cli@latest login`): `npx eas-cli@latest update --channel production --platform ios --message "…"` for an update (with the three `EXPO_PUBLIC_*` values set), or `npm run build:testflight` for a build. Apple allows updates that fix and improve the app; never use one to change what the app is for (App Store 2.5.2), and never to show anything about prices.
 
+## App Review account
+
+Apple's reviewers (TestFlight external testing and the App Store) can't receive our email codes, so one address signs in with a password instead: `appreview@unreceipt.com` (`REVIEW_EMAIL` in `src/config.ts`). The sign-in screen shows a password field for that address only; every other address gets the code as before.
+
+- The account is created by the founder in Supabase (Authentication → Users → Add user → Create new user, that address, a long random password, Auto Confirm on). The password goes only into App Store Connect (TestFlight → Test Information, and App Review Information), never into git or a chat.
+- It holds sample receipts only (seeded with SQL by its `user_id`), never real data. It is a normal company account: no admin rights (not in `CONCIERGE_ADMIN_EMAILS`), no firm.
+- Reviewers try Delete account (Apple 5.1.1(v)) and may delete it. Before each submission, check it still exists; if not, create it again the same way and re-seed.
+
 ## What to check on every TestFlight build
 
 1. **Start:** the splash (brand icon on cream) fades into the sign-in or the receipts. No white flash.

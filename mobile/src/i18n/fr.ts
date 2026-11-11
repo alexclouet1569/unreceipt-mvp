@@ -14,6 +14,8 @@ export const fr: Strings = {
     emailLabel: "Votre e-mail professionnel",
     emailPlaceholder: "vous@entreprise.fr",
     continue: "Continuer",
+    passwordLabel: "Mot de passe",
+    wrongPassword: "Ce mot de passe n’est pas le bon.",
     invalidEmail: "Cette adresse e-mail ne semble pas valide.",
     rateLimited: "Patientez une minute avant de demander un nouveau code.",
     sendFailed: "Nous n’avons pas pu envoyer de code. Réessayez dans un instant.",

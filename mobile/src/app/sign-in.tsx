@@ -11,14 +11,18 @@ import { useAuth } from "../auth/AuthProvider";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { Button } from "../components/Button";
 import { Text } from "../components/Text";
+import { REVIEW_EMAIL } from "../config";
 import { s } from "../i18n";
 import { colors, durations, fonts, radius, space } from "../theme";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function SignIn() {
-  const { requestCode } = useAuth();
+  const { requestCode, signInWithPassword } = useAuth();
   const [email, setEmail] = useState("");
+  // App Review's address asks for its password instead of a code.
+  const [password, setPassword] = useState("");
+  const reviewer = email.trim().toLowerCase() === REVIEW_EMAIL;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
@@ -29,6 +33,22 @@ export default function SignIn() {
       setError(s.signIn.invalidEmail);
       AccessibilityInfo.announceForAccessibility(s.signIn.invalidEmail);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+    if (value === REVIEW_EMAIL) {
+      if (!password) return;
+      setBusy(true);
+      setError(null);
+      const signedIn = await signInWithPassword(value, password);
+      setBusy(false);
+      if (signedIn === "ok") {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return;
+      }
+      const message = signedIn === "unreachable" ? s.common.unreachable : s.signIn.wrongPassword;
+      setError(message);
+      AccessibilityInfo.announceForAccessibility(message);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
     setBusy(true);
@@ -88,6 +108,31 @@ export default function SignIn() {
             accessibilityLabel={s.signIn.emailLabel}
             style={[styles.input, focused && styles.inputFocused, error && styles.inputError]}
           />
+          {reviewer ? (
+            <Animated.View entering={FadeIn.duration(durations.short)} style={styles.password}>
+              <Text variant="micro" color={colors.inkMuted}>
+                {s.signIn.passwordLabel}
+              </Text>
+              <TextInput
+                value={password}
+                onChangeText={(t) => {
+                  setPassword(t);
+                  if (error) setError(null);
+                }}
+                onSubmitEditing={() => void submit()}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                returnKeyType="go"
+                editable={!busy}
+                maxFontSizeMultiplier={1.4}
+                accessibilityLabel={s.signIn.passwordLabel}
+                style={[styles.input, error && styles.inputError]}
+              />
+            </Animated.View>
+          ) : null}
           {error ? (
             <Animated.View entering={FadeIn.duration(durations.short)}>
               <Text variant="caption" color={colors.attentionDeep}>
@@ -128,4 +173,5 @@ const styles = StyleSheet.create({
   // Not a destructive error: honey, never red (DESIGN.md decisions 2026-10-15, 2026-11-08).
   inputError: { borderColor: colors.attention },
   button: { marginTop: space.sm, marginBottom: space.sm },
+  password: { gap: space.sm, marginTop: space.sm },
 });
