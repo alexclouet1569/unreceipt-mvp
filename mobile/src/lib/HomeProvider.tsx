@@ -24,7 +24,11 @@ type HomeState = {
   refresh: () => Promise<void>;
   /** Change the list on the phone right away (and in the saved copy). */
   mutateReceipts: (change: (receipts: MobileReceipt[]) => MobileReceipt[]) => void;
+  /** Same, for anything else on the home data (an answered invite). */
+  mutateHome: (change: (home: ReadyHome) => ReadyHome) => void;
 };
+
+export type ReadyHome = Extract<MobileHome, { state: "ready" }>;
 
 const HomeContext = createContext<HomeState | null>(null);
 
@@ -74,19 +78,24 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     return run;
   }, [userId, signOut]);
 
-  const mutateReceipts = useCallback<HomeState["mutateReceipts"]>(
+  const mutateHome = useCallback<HomeState["mutateHome"]>(
     (change) => {
       version.current += 1;
       // Rows slide into their new places (iOS's own animation).
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setHome((current) => {
         if (!current || current.state !== "ready") return current;
-        const next = { ...current, receipts: change(current.receipts) };
+        const next = change(current);
         if (userId) void writeHome(userId, next);
         return next;
       });
     },
     [userId],
+  );
+
+  const mutateReceipts = useCallback<HomeState["mutateReceipts"]>(
+    (change) => mutateHome((current) => ({ ...current, receipts: change(current.receipts) })),
+    [mutateHome],
   );
 
   useEffect(() => {
@@ -109,7 +118,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   }, [userId, refresh]);
 
   return (
-    <HomeContext.Provider value={{ home, error, refreshing, loading, refresh, mutateReceipts }}>
+    <HomeContext.Provider value={{ home, error, refreshing, loading, refresh, mutateReceipts, mutateHome }}>
       {children}
     </HomeContext.Provider>
   );

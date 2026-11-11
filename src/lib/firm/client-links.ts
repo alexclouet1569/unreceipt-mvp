@@ -74,6 +74,7 @@ export async function loadAccountantLinks(user: User): Promise<AccountantLink[]>
     firmName: firmName(r),
     status,
     since: status === "active" && r.accepted_at ? formatDate(r.accepted_at) : null,
+    acceptedAt: status === "active" ? r.accepted_at : null,
     ...(status === "active"
       ? { reminders: { optedOut: Boolean(r.reminders_opted_out_at), firmOn: r.weekly_reminder !== false } }
       : {}),

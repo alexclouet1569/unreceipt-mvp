@@ -13,6 +13,8 @@ export type AccountantLink = {
   // then the address it went to). active: the firm sees our receipts.
   status: "invited" | "active" | "sent";
   since: string | null;
+  /** accepted_at as stored (ISO), for screens that format dates themselves (the iPhone app). */
+  acceptedAt?: string | null;
   // Active links: the Monday reminder email from the firm. optedOut is the
   // client's own choice (this page); firmOn the firm's switch.
   reminders?: { optedOut: boolean; firmOn: boolean };

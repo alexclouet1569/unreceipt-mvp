@@ -1,32 +1,37 @@
-// Account: who is signed in, the receipt address, the language, sign out.
-// Account deletion (App Store 5.1.1(v)) and the accountant link come in
-// phase 3 (docs/plans/unreceipt-ios-native-plan.md).
+// Account: the receipt address and its setup guide, the company (export,
+// currency, accountant), who is signed in, sign out, delete the account.
+// Each row pushes its own screen, like iOS Settings. Opens on the saved
+// copy; pull down to refresh.
 
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { router } from "expo-router";
 import Constants from "expo-constants";
 import { useAuth } from "../../../auth/AuthProvider";
 import { Button } from "../../../components/Button";
 import { ForwardingCard } from "../../../components/ForwardingCard";
+import { Group, Row, Section } from "../../../components/Grouped";
 import { Text } from "../../../components/Text";
 import { fill, s } from "../../../i18n";
+import type { MobileAccount } from "@/lib/mobile/types";
+import { useAccount } from "../../../lib/AccountProvider";
 import { useHome } from "../../../lib/HomeProvider";
 import { useScans } from "../../../lib/scans/ScanProvider";
 import { colors, radius, space } from "../../../theme";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <Text variant="micro" color={colors.inkMuted} accessibilityRole="header">
-        {title}
-      </Text>
-      {children}
-    </View>
-  );
+function accountantValue(account: MobileAccount | null): string | null {
+  if (!account) return null;
+  const links = account.accountant;
+  const active = links.find((l) => l.status === "active");
+  if (active) return active.name;
+  if (links.some((l) => l.status === "invited")) return s.account.accountantInvited;
+  if (links.some((l) => l.status === "sent")) return s.account.accountantSent;
+  return s.account.accountantNone;
 }
 
 export default function Account() {
   const { email, signOut } = useAuth();
-  const { home } = useHome();
+  const { home, refresh: refreshHome } = useHome();
+  const { account, error, refreshing, refresh } = useAccount();
 
   const { pending } = useScans();
   // Everything not yet a receipt, "Try again" ones included.
@@ -38,31 +43,76 @@ export default function Account() {
       { text: s.account.signOut, style: "destructive", onPress: () => void signOut() },
     ]);
 
+  const ready = home?.state === "ready" ? home : null;
+  const currency = account?.currency?.value ?? ready?.homeCurrency ?? null;
+
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void Promise.all([refresh(), refreshHome()])}
+          tintColor={colors.inkMuted}
+        />
+      }
+    >
+      {error && !account ? (
+        <Text variant="caption" color={colors.attentionDeep}>
+          {error === "offline" ? s.common.unreachable : s.account.loadFailed}
+        </Text>
+      ) : null}
+
+      {ready ? (
+        <Section title={s.account.forwardingTitle} note={s.account.forwardingBody}>
+          <ForwardingCard address={ready.forwardingEmail} />
+          <Group>
+            <Row
+              first
+              label={s.account.setupForwarding}
+              detail={s.account.setupForwardingNote}
+              onPress={() => router.push("/account/forwarding")}
+            />
+          </Group>
+        </Section>
+      ) : null}
+
+      {ready ? (
+        <Section title={s.account.company}>
+          <Group>
+            <Row first label={s.account.export} onPress={() => router.push("/account/export")} />
+            <Row
+              label={s.account.currency}
+              value={currency}
+              disabled={!account?.currency}
+              onPress={() => router.push("/account/currency")}
+            />
+            <Row
+              label={s.account.accountant}
+              value={accountantValue(account)}
+              disabled={!account}
+              onPress={() => router.push("/account/accountant")}
+            />
+          </Group>
+        </Section>
+      ) : null}
+
       <Section title={s.account.signedInAs}>
         <View style={styles.card}>
           <Text variant="merchant">{email}</Text>
         </View>
       </Section>
 
-      {home?.state === "ready" ? (
-        <Section title={s.account.forwardingTitle}>
-          <ForwardingCard address={home.forwardingEmail} />
-          <Text variant="caption" color={colors.inkMuted}>
-            {s.account.forwardingBody}
-          </Text>
-        </Section>
-      ) : null}
-
-      <Section title={s.account.language}>
-        <Text variant="caption" color={colors.inkMuted}>
-          {s.account.languageNote}
-        </Text>
+      <Section title={s.account.language} note={s.account.languageNote}>
+        {null}
       </Section>
 
-      <View style={styles.signOut}>
+      <View style={styles.end}>
         <Button label={s.account.signOut} kind="destructive" onPress={confirmSignOut} />
+        <Group>
+          <Row first label={s.account.deleteAccount} destructive onPress={() => router.push("/account/delete")} />
+        </Group>
         <Text variant="caption" color={colors.inkFaint} style={styles.center}>
           {fill(s.account.version, { version: Constants.expoConfig?.version ?? "" })}
         </Text>
@@ -73,7 +123,6 @@ export default function Account() {
 
 const styles = StyleSheet.create({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.xl },
-  section: { gap: space.sm },
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -82,6 +131,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
   },
-  signOut: { marginTop: space.lg, gap: space.sm },
+  end: { marginTop: space.sm, gap: space.md },
   center: { textAlign: "center" },
 });

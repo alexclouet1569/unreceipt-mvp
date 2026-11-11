@@ -4,10 +4,11 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
-import type { MobileHome } from "@/lib/mobile/types";
+import type { MobileAccount, MobileHome } from "@/lib/mobile/types";
 import { deleteAllScans } from "./scans/files";
 
 const PREFIX = "home:v1:";
+const ACCOUNT_PREFIX = "account:v1:";
 
 export async function readHome(userId: string): Promise<MobileHome | null> {
   try {
@@ -26,6 +27,23 @@ export async function writeHome(userId: string, home: MobileHome): Promise<void>
   }
 }
 
+export async function readAccount(userId: string): Promise<MobileAccount | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ACCOUNT_PREFIX + userId);
+    return raw ? (JSON.parse(raw) as MobileAccount) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeAccount(userId: string, account: MobileAccount): Promise<void> {
+  try {
+    await AsyncStorage.setItem(ACCOUNT_PREFIX + userId, JSON.stringify(account));
+  } catch {
+    // Only costs the next visit its instant screen.
+  }
+}
+
 /**
  * On sign-out: the saved list and the receipt photos kept by the image
  * cache. A sign-out the user asked for also deletes the scans still waiting
@@ -39,7 +57,7 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
     const keys = await AsyncStorage.getAllKeys();
     // "scans:v1:" is the queue (src/lib/scans/ScanProvider.tsx).
     await AsyncStorage.multiRemove(
-      keys.filter((k) => k.startsWith(PREFIX) || (!keepScans && k.startsWith("scans:v1:"))),
+      keys.filter((k) => k.startsWith(PREFIX) || k.startsWith(ACCOUNT_PREFIX) || (!keepScans && k.startsWith("scans:v1:"))),
     );
   } catch {
     // Nothing more to do: the next sign-in overwrites it.

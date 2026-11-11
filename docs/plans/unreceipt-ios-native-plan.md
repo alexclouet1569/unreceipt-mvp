@@ -37,6 +37,8 @@ What made the wrapper feel solid: every screen was a web page, transitions were 
 - **2026-11-09** Phase 1 built (PR #126): server sign-in for the app, `/api/mobile/home`, sign-in, tab bar, receipts list, receipt page, account, three languages. Design and security reviewed.
 - **2026-11-10** Phase 2 built on the same branch: Apple's document scanner (`react-native-document-scanner-plugin`) and photo picking, an offline scan queue sent to `POST /api/capture/scan`, editing fields in bottom sheets, Confirm, swipe to delete with Undo, the receipt photo with zoom. Not yet run on an iPhone: waiting for the first EAS build.
 
+- **2026-11-11** Build 2 on TestFlight: sign-in works. The founder found the app thin next to the website. Built on the same branch: the Receipts header (month total with a month picker, counts, category filter, the accountant invite card), and phase 3: an Account tab like iOS Settings with export to the share sheet, currency, your accountant (invite, stop sharing, weekly reminder), delete account with a fresh email code (also from the firm-only and inactive screens), and the forwarding guide one step per screen with "email me the steps" and your own addresses. New server routes: `GET /api/mobile/account`, `GET /api/mobile/forwarding`; everything else reuses the website's routes. Not shown in the app on purpose: plan usage (App Store 3.1.3(f)). Also: scan retries wait for the server's Retry-After, and unsent scans older than 30 days are removed from the phone (the LOW finding from phase 2). Not yet run on an iPhone.
+
 ## 3. Phases
 
 ### Phase 1 — Foundation (week 1)

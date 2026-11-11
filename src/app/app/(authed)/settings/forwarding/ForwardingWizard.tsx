@@ -13,6 +13,7 @@ import {
 import { ActionChecklist, ActionHint, plainText } from "./guide/ActionChecklist";
 import { CHAPTERS, Q, clampPosition, type Extra, type Provider } from "./guide/actions";
 import { Picture } from "./guide/Scene";
+import { PROVIDER_LINKS, providerForEmail } from "@/lib/forwarding-providers";
 import { GMAIL_SCENES } from "./guide/scenes/gmail";
 import { GMAIL, MAIL_LANGS, say, type MailLang } from "./guide/ui-labels";
 
@@ -37,11 +38,11 @@ type Status = {
   lastEmailAt: string | null;
 };
 
-const GMAIL_FORWARDING_URL = "https://mail.google.com/mail/u/0/#settings/fwdandpop";
-const GMAIL_FILTERS_URL = "https://mail.google.com/mail/u/0/#settings/filters";
-const OUTLOOK_PERSONAL_RULES_URL = "https://outlook.live.com/mail/0/options/mail/rules";
-const OUTLOOK_WORK_RULES_URL = "https://outlook.office.com/mail/options/mail/rules";
-const ICLOUD_MAIL_URL = "https://www.icloud.com/mail";
+const GMAIL_FORWARDING_URL = PROVIDER_LINKS.gmailForwarding;
+const GMAIL_FILTERS_URL = PROVIDER_LINKS.gmailFilters;
+const OUTLOOK_PERSONAL_RULES_URL = PROVIDER_LINKS.outlookPersonal;
+const OUTLOOK_WORK_RULES_URL = PROVIDER_LINKS.outlookWork;
+const ICLOUD_MAIL_URL = PROVIDER_LINKS.icloud;
 
 const POLL_MS = 4_000;
 const POLL_FOR_MS = 10 * 60 * 1000;
@@ -99,17 +100,7 @@ function subscribeCoarse(cb: () => void) {
 }
 const isCoarse = () => window.matchMedia("(pointer: coarse)").matches;
 
-/** The provider an address most likely uses, from its domain. */
-export function providerForEmail(email: string | null | undefined): Provider | null {
-  const domain = email?.split("@")[1]?.trim().toLowerCase() ?? "";
-  if (domain === "gmail.com" || domain === "googlemail.com") return "gmail";
-  if (/^(outlook|hotmail|live|msn)\.[a-z.]{2,6}$/.test(domain)) return "outlook";
-  if (domain === "icloud.com" || domain === "me.com" || domain === "mac.com") return "icloud";
-  if (/^(yahoo|ymail|rocketmail)\.[a-z.]{2,6}$/.test(domain) || /^(proton\.me|protonmail\.(com|ch)|pm\.me)$/.test(domain)) {
-    return "paid";
-  }
-  return null;
-}
+export { providerForEmail };
 
 export function ForwardingWizard({
   forwardingEmail,

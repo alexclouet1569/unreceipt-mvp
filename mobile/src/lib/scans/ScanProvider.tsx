@@ -14,7 +14,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { s } from "../../i18n";
 import { ApiError, apiResponse } from "../api";
 import { useHome } from "../HomeProvider";
-import { deleteFile, prepareScan } from "./files";
+import { deleteFile, deleteScansOlderThan, prepareScan } from "./files";
 import {
   MAX_ATTEMPTS,
   classifyUpload,
@@ -22,7 +22,10 @@ import {
   nextRetryAt,
   receiptFromScan,
   resumeQueue,
-  retryDelayMs,
+  isExpired,
+  nextAttemptAt,
+  retryAfterMs,
+  SCAN_MAX_AGE_MS,
   type PendingScan,
 } from "./queue";
 
@@ -75,6 +78,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       update(item.id, { state: "uploading", attempts: item.attempts + 1 });
       let status = 0;
       let body: unknown = null;
+      let retryAfter: number | null = null;
       try {
         const form = new FormData();
         // React Native reads the file from its uri when sending.
@@ -84,6 +88,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         form.append("client_id", item.id);
         const res = await apiResponse("/api/capture/scan", { method: "POST", body: form });
         status = res.status;
+        retryAfter = retryAfterMs(res.headers.get("Retry-After"));
         body = await res.json().catch(() => null);
       } catch (err) {
         if (err instanceof ApiError && err.kind === "unauthorized") {
@@ -125,7 +130,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
             update(item.id, { state: "failed" });
             AccessibilityInfo.announceForAccessibility(s.scan.failed);
           } else {
-            update(item.id, { state: "waiting", retryAt: Date.now() + retryDelayMs(item.attempts + 1) });
+            update(item.id, { state: "waiting", retryAt: nextAttemptAt(item.attempts + 1, retryAfter, Date.now()) });
           }
           break;
       }
@@ -154,7 +159,12 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       .then((saved) => {
         if (!alive) return;
         loaded.current = true;
-        commit(resumeQueue([...saved, ...queue.current.filter((q) => !saved.some((x) => x.id === q.id))]));
+        // Very old scans go, with their files (and any other user's left behind).
+        const now = Date.now();
+        for (const old of saved.filter((x) => isExpired(x, now))) deleteFile(old.fileUri);
+        deleteScansOlderThan(SCAN_MAX_AGE_MS, now);
+        const kept = saved.filter((x) => !isExpired(x, now));
+        commit(resumeQueue([...kept, ...queue.current.filter((q) => !kept.some((x) => x.id === q.id))]));
         pump();
       });
     const sub = AppState.addEventListener("change", (state) => {

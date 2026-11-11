@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   classifyUpload,
   dueScans,
+  isExpired,
+  nextAttemptAt,
+  retryAfterMs,
   nextRetryAt,
   receiptFromScan,
   resumeQueue,
@@ -58,5 +61,27 @@ describe("reading the server's answer", () => {
     expect(row).toMatchObject({ id: "r1", merchant: "ICA", total: 245, missing: [], status: "pending_review", source: "paper" });
     const empty = receiptFromScan({ ...saved, merchant: null, total: null, receiptDate: null } as never);
     expect(empty.missing).toEqual(["merchant", "total", "purchased_at"]);
+  });
+});
+
+describe("server pauses and old scans", () => {
+  it("reads Retry-After in seconds, capped at an hour", () => {
+    expect(retryAfterMs("120")).toBe(120_000);
+    expect(retryAfterMs("999999")).toBe(3_600_000);
+    expect(retryAfterMs(null)).toBeNull();
+    expect(retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT")).toBeNull();
+  });
+
+  it("waits for the longer of the backoff and the server's pause", () => {
+    expect(nextAttemptAt(1, null, 1_000)).toBe(6_000);
+    expect(nextAttemptAt(1, 3_600_000, 0)).toBe(3_600_000);
+    expect(nextAttemptAt(8, 1_000, 0)).toBe(300_000);
+  });
+
+  it("drops scans older than 30 days", () => {
+    const now = Date.parse("2026-11-11T12:00:00Z");
+    expect(isExpired({ createdAt: "2026-10-01T12:00:00Z" }, now)).toBe(true);
+    expect(isExpired({ createdAt: "2026-11-01T12:00:00Z" }, now)).toBe(false);
+    expect(isExpired({ createdAt: "garbage" }, now)).toBe(false);
   });
 });
