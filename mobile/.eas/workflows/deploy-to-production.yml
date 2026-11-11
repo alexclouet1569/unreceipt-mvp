@@ -1,0 +1,67 @@
+# Every merge to main that touches the app (mobile/README.md "Releases"):
+# when the native side changed (new native module, permission, app.json
+# setting), Expo builds the iPhone app and sends it to TestFlight; otherwise
+# it publishes an over-the-air update that the installed app picks up by
+# itself. Expo's own example, iOS only:
+# https://docs.expo.dev/eas/workflows/examples/deploy-to-production/
+#
+# Needs the repository connected in expo.dev → project → GitHub, with
+# "Base directory" set to mobile.
+
+name: Deploy to production
+
+on:
+  push:
+    branches: ['main']
+    # The app, and the website code it imports types from. Listed both from
+    # the repository root and from the base directory.
+    paths:
+      - 'mobile/**'
+      - 'src/**'
+      - 'app.json'
+      - 'eas.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'assets/**'
+  workflow_dispatch: {}
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+  get_ios_build:
+    name: Check for an existing iOS build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: production
+  build_ios:
+    name: Build iOS
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit_ios_build:
+    name: Send to TestFlight
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+  publish_ios_update:
+    name: Publish iOS update
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    # An update is bundled here, not by a build, so it doesn't read the build
+    # profile's env in eas.json: the same three public values (no secrets).
+    env:
+      EXPO_PUBLIC_API_URL: https://app.unreceipt.com
+      EXPO_PUBLIC_SUPABASE_URL: https://zkomfxvyrtkwxzvbxxma.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_N--Ps1YU-jiyoVeEBcAnzw_FOan4Kcy
+    params:
+      channel: production
+      platform: ios

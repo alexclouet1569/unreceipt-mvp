@@ -18,6 +18,7 @@ import { Figtree_500Medium_Italic } from "@expo-google-fonts/figtree/500Medium_I
 import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono/400Regular";
 import { GeistMono_500Medium } from "@expo-google-fonts/geist-mono/500Medium";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
+import { useAppUpdates } from "../lib/useAppUpdates";
 import { colors } from "../theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -25,6 +26,7 @@ SplashScreen.setOptions({ duration: 250, fade: true });
 
 function RootNavigator() {
   const { status } = useAuth();
+  useAppUpdates();
   const [fontsLoaded, fontError] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
