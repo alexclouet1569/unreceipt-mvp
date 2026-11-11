@@ -4,6 +4,7 @@
 
 import { NativeTabs } from "expo-router/native-tabs";
 import { StatusScreen } from "../../components/StatusScreen";
+import { AccountProvider } from "../../lib/AccountProvider";
 import { s } from "../../i18n";
 import { HomeProvider, useHome } from "../../lib/HomeProvider";
 import { ReceiptActionsProvider } from "../../lib/ReceiptActions";
@@ -47,11 +48,13 @@ function Tabs() {
 export default function AppLayout() {
   return (
     <HomeProvider>
-      <ScanProvider>
-        <ReceiptActionsProvider>
-          <Tabs />
-        </ReceiptActionsProvider>
-      </ScanProvider>
+      <AccountProvider>
+        <ScanProvider>
+          <ReceiptActionsProvider>
+            <Tabs />
+          </ReceiptActionsProvider>
+        </ScanProvider>
+      </AccountProvider>
     </HomeProvider>
   );
 }

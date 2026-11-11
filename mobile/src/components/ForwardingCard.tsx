@@ -10,7 +10,8 @@ import { colors, fonts, radius, space } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
-export function ForwardingCard({ address }: { address: string }) {
+/** quiet: the Copy button in ink outline, for screens whose green action is elsewhere (the guide's Next). */
+export function ForwardingCard({ address, quiet = false }: { address: string; quiet?: boolean }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -33,9 +34,9 @@ export function ForwardingCard({ address }: { address: string }) {
           AccessibilityInfo.announceForAccessibility(s.common.copied);
           setCopied(true);
         }}
-        style={styles.copy}
+        style={[styles.copy, quiet && styles.copyQuiet]}
       >
-        <Text style={styles.copyLabel} color={colors.white}>
+        <Text style={styles.copyLabel} color={quiet ? colors.ink : colors.white}>
           {copied ? s.common.copied : s.common.copy}
         </Text>
       </PressableScale>
@@ -66,5 +67,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  copyQuiet: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline },
   copyLabel: { fontFamily: fonts.bold, fontSize: 14 },
 });

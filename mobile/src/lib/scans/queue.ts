@@ -39,6 +39,32 @@ export function retryDelayMs(attempts: number): number {
   return Math.min(5_000 * 2 ** Math.max(0, attempts - 1), 5 * 60_000);
 }
 
+/**
+ * The server's own pause before the next try (Retry-After, in seconds, as
+ * rateLimitedResponse() sends it), capped at an hour. null when absent.
+ */
+export function retryAfterMs(header: string | null | undefined): number | null {
+  if (!header || !/^\d{1,6}$/.test(header.trim())) return null;
+  return Math.min(Number(header.trim()) * 1000, 60 * 60_000);
+}
+
+/** When to try again: the backoff, or the server's Retry-After if it asks for longer. */
+export function nextAttemptAt(attempts: number, retryAfter: number | null, now: number): number {
+  return now + Math.max(retryDelayMs(attempts), retryAfter ?? 0);
+}
+
+/**
+ * Scans older than this are dropped from the phone: one left behind when
+ * the server ended a session and its owner never signed in again
+ * shouldn't stay in the documents folder for ever.
+ */
+export const SCAN_MAX_AGE_MS = 30 * 24 * 60 * 60_000;
+
+export function isExpired(scan: Pick<PendingScan, "createdAt">, now: number): boolean {
+  const t = Date.parse(scan.createdAt);
+  return Number.isFinite(t) && now - t > SCAN_MAX_AGE_MS;
+}
+
 /** The scans to send now, oldest first, leaving room for those in flight. */
 export function dueScans(queue: PendingScan[], now: number): PendingScan[] {
   const busy = queue.filter((s) => s.state === "uploading").length;

@@ -59,3 +59,22 @@ export function deleteAllScans(): void {
     // Best effort.
   }
 }
+
+/**
+ * Removes scan files older than `maxAgeMs`, whoever they belonged to: a
+ * scan left behind by a session the server ended (its owner never signed
+ * back in) shouldn't stay on the phone for ever. Best effort.
+ */
+export function deleteScansOlderThan(maxAgeMs: number, now: number = Date.now()): void {
+  try {
+    const dir = new Directory(Paths.document, "pending-scans");
+    if (!dir.exists) return;
+    for (const entry of dir.list()) {
+      if (!(entry instanceof File)) continue;
+      const t = entry.lastModified;
+      if (typeof t === "number" && now - t > maxAgeMs) entry.delete();
+    }
+  } catch {
+    // Best effort: the next start tries again.
+  }
+}

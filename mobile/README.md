@@ -12,6 +12,8 @@ It replaces the Capacitor shell (`ios/`, `capacitor.config.ts`, `native/`), whic
 | `src/auth/AuthProvider.tsx` | Sign-in with the same Supabase email code as the website; session in the iPhone Keychain |
 | `src/lib/api.ts` | Calls `app.unreceipt.com` with `Authorization: Bearer <access token>` (accepted by `getServerUser()` on the server) |
 | `src/lib/HomeProvider.tsx` | The home data: the saved copy at once, then `GET /api/mobile/home` |
+| `src/lib/AccountProvider.tsx` | The Account tab's data: the saved copy, then `GET /api/mobile/account` |
+| `src/app/(app)/account/` | Export, currency, your accountant, delete account, and the forwarding guide (`GET /api/mobile/forwarding`) |
 | `src/i18n/` | English, Swedish, French. English is the reference; the others must have every key (TypeScript and a test check it) |
 | `src/theme.ts` | Tokens from `DESIGN.md` |
 | `../src/lib/mobile/types.ts` | The API's JSON types, shared with the server through `import type` only (`@/…` points at the website's `src/`; `~/…` would be the app's own) |
@@ -87,3 +89,8 @@ The build number goes up by itself (`autoIncrement`). The version the user sees 
 13. **Delete:** swipe a receipt left, tap Delete: it disappears, "Deleted …" with Undo for 5 seconds. Try Undo once.
 14. **Photo:** a scanned receipt shows its photo on top; tap it, pinch and double-tap to zoom, swipe down to close.
 15. **Fonts:** titles in the bar and the large title should be Manrope, like the rest. If they look like the iPhone's own font (San Francisco), tell Claude: it's a known risk with fonts loaded at start.
+16. **Receipts header:** a card with this month's total in your company's currency and "N receipts · N to confirm". Tap the month: iOS's own sheet lists the other months and All time. With receipts in two or more categories, the chips below filter the list (tap the active one again for All); the total follows the filter.
+17. **Accountant invite:** if a firm invited you, "Share your receipts with …?" is at the top of Receipts. Yes, share: "Done." then the card goes.
+18. **Account:** rows like iOS Settings. Export receipts: tap a month, the share sheet opens with the ZIP (try Save to Files). Currency: tap another, the receipts' totals follow. Your accountant: invite by email, stop sharing, the weekly reminder switch.
+19. **Automatic forwarding:** Account → Set up automatic forwarding. "Email me the steps" sends the guide to your inbox. Pick Gmail: one step per screen, Back and Next at the bottom, the button names in your Gmail's language (switch it at the top). The code step waits for Gmail's code by itself.
+20. **Delete account** (try it on a test account only): Account → Delete account. Export everything, turn the switch on, Delete my account, confirm. If you signed in more than 30 minutes ago it asks for a new code from your email first, then deletes and goes back to the sign-in.

@@ -1,7 +1,7 @@
 import { getLocales } from "expo-localization";
 import { pickLocale, stringsFor } from "./core";
 
-export { fill, joinList, type Locale } from "./core";
+export { fill, joinList, LANGUAGE_NAMES, type Locale } from "./core";
 
 /** The app's language, from the phone's preferred languages. */
 export const locale = pickLocale(getLocales().map((l) => l.languageCode));

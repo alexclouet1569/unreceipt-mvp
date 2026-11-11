@@ -2,13 +2,16 @@
 // receipt by day. Opens on the saved list at once, refreshes in the
 // background, pull down to refresh by hand. The big button scans.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BrandMark } from "../../../components/Brand";
 import { Button } from "../../../components/Button";
+import { CategoryChips } from "../../../components/CategoryChips";
+import { InviteCard } from "../../../components/InviteCard";
+import { SummaryCard } from "../../../components/SummaryCard";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { PendingRow } from "../../../components/PendingRow";
 import { PressableScale } from "../../../components/PressableScale";
@@ -22,6 +25,8 @@ import { useHome } from "../../../lib/HomeProvider";
 import { UndoToast, useReceiptActions } from "../../../lib/ReceiptActions";
 import { useScans } from "../../../lib/scans/ScanProvider";
 import { buildSections } from "../../../lib/sections";
+import { categoryCounts, filterByCategory, type PeriodKey } from "../../../lib/summary";
+import type { ReceiptCategory } from "@/lib/types";
 import { colors, durations, radius, space } from "../../../theme";
 
 function Notice({ text }: { text: string }) {
@@ -89,9 +94,17 @@ export default function Receipts() {
   const { pending, scan, pickPhotos } = useScans();
   const actions = useReceiptActions();
   const receipts = home?.state === "ready" ? home.receipts : null;
+  // null: this month, so the default follows the calendar.
+  const [period, setPeriod] = useState<PeriodKey | null>(null);
+  const [chosenCategory, setCategory] = useState<ReceiptCategory | null>(null);
+  const counts = useMemo(() => (receipts ? categoryCounts(receipts) : []), [receipts]);
+  const filtered = useMemo(
+    () => filterByCategory(receipts ?? [], chosenCategory),
+    [receipts, chosenCategory],
+  );
   const sections = useMemo(
-    () => (receipts ? buildSections(receipts, s, locale) : []),
-    [receipts],
+    () => (receipts ? buildSections(filtered.receipts, s, locale) : []),
+    [receipts, filtered],
   );
 
   let body: React.ReactNode;
@@ -135,6 +148,29 @@ export default function Receipts() {
         ListHeaderComponent={
           <View>
             {error ? <Notice text={error === "offline" ? s.common.offline : s.receipts.loadFailed} /> : null}
+            {home.accountantInvites.map((invite) => (
+              <InviteCard key={invite.id} invite={invite} />
+            ))}
+            {home.receipts.length > 0 ? (
+              <>
+                <SummaryCard
+                  receipts={filtered.receipts}
+                  allReceipts={home.receipts}
+                  homeCurrency={home.homeCurrency}
+                  period={period ?? ""}
+                  onPeriod={setPeriod}
+                />
+                <CategoryChips
+                  counts={counts}
+                  total={home.receipts.length}
+                  selected={filtered.category}
+                  onSelect={(c) => {
+                    closeOpenSwipe();
+                    setCategory(c);
+                  }}
+                />
+              </>
+            ) : null}
             <PendingList />
           </View>
         }

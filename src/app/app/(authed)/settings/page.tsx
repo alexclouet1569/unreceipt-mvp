@@ -22,6 +22,7 @@ import { getDefaultOrganizationId } from "@/lib/organizations";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { firmExitNotice, planFirmExit } from "@/lib/firm/account-exit";
 import { getNativeApp } from "@/lib/native-app-server";
+import { loadFirstReceiptDate } from "@/lib/receipts/first-date";
 import { findFirmForUser } from "@/lib/require-firm";
 
 // Settings is reachable without an active subscription on purpose: a
@@ -40,27 +41,6 @@ async function loadProfile(userId: string) {
     return null;
   }
   return data as { full_name: string | null; company_name: string | null } | null;
-}
-
-// Earliest purchase date, so the export can reach every month back to it.
-async function loadFirstReceiptDate(userId: string): Promise<string | null> {
-  // Older rows may only have receipt_date; take the earlier of both columns.
-  const earliest = (column: "purchased_at" | "receipt_date") =>
-    getSupabaseAdmin()
-      .from("receipts")
-      .select(column)
-      .eq("user_id", userId)
-      .not(column, "is", null)
-      .order(column, { ascending: true })
-      .limit(1)
-      .maybeSingle();
-  const [a, b] = await Promise.all([earliest("purchased_at"), earliest("receipt_date")]);
-  const dates = [
-    (a.data as { purchased_at?: string } | null)?.purchased_at,
-    (b.data as { receipt_date?: string } | null)?.receipt_date,
-  ].filter((d): d is string => typeof d === "string" && !Number.isNaN(Date.parse(d)));
-  if (dates.length === 0) return null;
-  return dates.reduce((min, d) => (Date.parse(d) < Date.parse(min) ? d : min));
 }
 
 // An accountant who also has a company deletes here; say what that does to

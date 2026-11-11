@@ -9,34 +9,49 @@ export function Button({
   busy = false,
   disabled = false,
   kind = "primary",
+  selected,
 }: {
   label: string;
   onPress: () => void;
   busy?: boolean;
   disabled?: boolean;
-  kind?: "primary" | "plain" | "destructive";
+  /** ink: a filled button that isn't the screen's green action. outline: a hairline-bordered second choice. */
+  kind?: "primary" | "ink" | "outline" | "plain" | "destructive";
+  /** One of a choice (Yahoo or Proton): told to VoiceOver. */
+  selected?: boolean;
 }) {
   const inactive = disabled || busy;
   const primary = kind === "primary";
+  const filled = primary || kind === "ink";
   return (
     <PressableScale
       accessibilityRole="button"
       // Named even while the spinner replaces the label.
       accessibilityLabel={label}
-      accessibilityState={{ disabled: inactive, busy }}
+      accessibilityState={{ disabled: inactive, busy, selected }}
       disabled={inactive}
-      haptic={primary}
+      haptic={filled}
       scaleTo={0.97}
       onPress={onPress}
-      style={[styles.base, primary ? styles.primary : styles.plain, inactive && styles.inactive]}
+      style={[
+        styles.base,
+        primary ? styles.primary : kind === "ink" ? styles.ink : kind === "outline" ? styles.outline : styles.plain,
+        inactive && styles.inactive,
+      ]}
     >
       {busy ? (
-        <ActivityIndicator color={primary ? colors.white : colors.ink} />
+        <ActivityIndicator color={filled ? colors.white : colors.ink} />
       ) : (
         <Text
           style={styles.label}
           color={
-            primary ? colors.white : kind === "destructive" ? colors.negative : colors.brandAction
+            filled
+              ? colors.white
+              : kind === "destructive"
+                ? colors.negative
+                : kind === "outline"
+                  ? colors.ink
+                  : colors.brandAction
           }
         >
           {label}
@@ -55,6 +70,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   primary: { backgroundColor: colors.brandAction },
+  ink: { backgroundColor: colors.ink },
+  outline: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline },
   plain: { backgroundColor: "transparent" },
   inactive: { opacity: 0.45 },
   label: { fontFamily: fonts.bold, fontSize: 16 },

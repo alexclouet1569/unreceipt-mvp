@@ -97,3 +97,8 @@ export function longDate(date: Date, locale: Locale): string {
   }).format(date);
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
+
+/** "8 November 2026" / "8 novembre 2026" — when something started. */
+export function dayMonthYear(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { day: "numeric", month: "long", year: "numeric" }).format(date);
+}
