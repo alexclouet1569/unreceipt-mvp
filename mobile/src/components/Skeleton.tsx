@@ -12,7 +12,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors, durations, radius, space } from "../theme";
 
-export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
+/** The gentle 480 ms breathing every placeholder shares. */
+export function useBreathing() {
   const opacity = useSharedValue(0.55);
   useEffect(() => {
     opacity.value = withRepeat(
@@ -21,7 +22,32 @@ export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
       true,
     );
   }, [opacity]);
-  const pulse = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return useAnimatedStyle(() => ({ opacity: opacity.value }));
+}
+
+/** Settings-style groups (the Account tab) before anything is known. */
+export function GroupedSkeleton({ groups = [2, 3, 1] }: { groups?: number[] }) {
+  const pulse = useBreathing();
+  return (
+    <Animated.View style={pulse} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {groups.map((rows, g) => (
+        <View key={g} style={styles.group}>
+          <View style={[styles.label, styles.groupLabel]} />
+          <View style={styles.groupCard}>
+            {Array.from({ length: rows }, (_, i) => (
+              <View key={i} style={[styles.groupRow, i > 0 && styles.groupDivider]}>
+                <View style={[styles.line, { width: `${40 + ((i * 23 + g * 11) % 35)}%` }]} />
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </Animated.View>
+  );
+}
+
+export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
+  const pulse = useBreathing();
 
   return (
     <Animated.View style={pulse} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -70,4 +96,15 @@ const styles = StyleSheet.create({
   line: { height: 11, borderRadius: 6, backgroundColor: GREY },
   short: { width: "40%" },
   amount: { width: 64 },
+  group: { marginTop: space.lg },
+  groupLabel: { marginHorizontal: 0, marginTop: 0, marginBottom: space.sm },
+  groupCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  groupRow: { minHeight: 52, justifyContent: "center", paddingHorizontal: space.lg },
+  groupDivider: { borderTopWidth: 1, borderTopColor: colors.hairline },
 });

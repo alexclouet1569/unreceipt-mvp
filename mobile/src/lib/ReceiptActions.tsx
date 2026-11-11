@@ -4,7 +4,7 @@
 // delete, DESIGN.md "Swipe to delete") and is sent at once if the app goes
 // to the background, so it is never lost.
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { HostInstance } from "react-native";
 import { AccessibilityInfo, Alert, AppState, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-screens/experimental";
@@ -27,7 +27,8 @@ const UNDO_MS_SCREEN_READER = 15_000;
 type Actions = {
   /** Saves fields; true when the server kept them. An empty patch confirms. */
   save: (id: string, patch: ReceiptPatch) => Promise<boolean>;
-  confirm: (id: string) => Promise<boolean>;
+  /** Confirms at once on the phone; the server is asked behind it and a refusal undoes it. */
+  confirm: (id: string) => void;
   remove: (id: string) => void;
   /** The Undo bar's text while a delete can still be undone. */
   toast: string | null;
@@ -74,15 +75,33 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
   );
 
   const confirm = useCallback(
-    async (id: string) => {
-      const ok = await save(id, {});
-      if (ok) {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        AccessibilityInfo.announceForAccessibility(s.edit.confirmed);
-      }
-      return ok;
+    (id: string) => {
+      const before = latest.current.find((r) => r.id === id);
+      if (!before) return;
+      // Confirmed on screen now (the button never spins); an empty PATCH
+      // tells the server, which answers with the status it keeps.
+      mutateReceipts((rs) => rs.map((r) => (r.id === id ? { ...r, status: "verified" } : r)));
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      AccessibilityInfo.announceForAccessibility(s.edit.confirmed);
+      void (async () => {
+        try {
+          const res = await apiResponse(`/api/receipts/${encodeURIComponent(id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({}),
+          });
+          const body = (await res.json().catch(() => null)) as { status?: MobileReceipt["status"] } | null;
+          if (!res.ok || !body?.status) throw new ApiError("server");
+          const status = body.status;
+          mutateReceipts((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
+          setTimeout(() => void refresh(), 1_000);
+        } catch {
+          mutateReceipts((rs) => rs.map((r) => (r.id === id ? before : r)));
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert(s.edit.saveFailed);
+        }
+      })();
     },
-    [save],
+    [mutateReceipts, refresh],
   );
 
   const sendDelete = useCallback(
@@ -160,9 +179,9 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
     return () => sub.remove();
   }, [sendDelete]);
 
-  return (
-    <ActionsContext.Provider value={{ save, confirm, remove, toast, undo }}>{children}</ActionsContext.Provider>
-  );
+  // One value object per change, so screens using it don't re-render for nothing.
+  const value = useMemo(() => ({ save, confirm, remove, toast, undo }), [save, confirm, remove, toast, undo]);
+  return <ActionsContext.Provider value={value}>{children}</ActionsContext.Provider>;
 }
 
 /**

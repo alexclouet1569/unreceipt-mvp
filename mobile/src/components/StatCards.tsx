@@ -7,10 +7,11 @@ import { useMemo } from "react";
 import { AccessibilityInfo, ActionSheetIOS, StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
-import type { MobileReceipt } from "@/lib/mobile/types";
+import type { MobileReceipt, OlderSummary } from "@/lib/mobile/types";
 import { fill, locale, s } from "../i18n";
 import { formatMoney } from "../lib/format";
-import { inPeriod, periodsFor, totalsFor, type PeriodKey } from "../lib/summary";
+import { overallCounts, periodTotals, periodsFor, type PeriodKey, type TotalLine } from "../lib/summary";
+import { useAnimatedNumber } from "../lib/useAnimatedNumber";
 import { colors, radius, space } from "../theme";
 import { Money } from "./Money";
 import { PressableScale } from "./PressableScale";
@@ -35,21 +36,45 @@ function Count({ value, label }: { value: number; label: string }) {
   );
 }
 
+/** One line of the total; the company's currency rolls to a new value. */
+function TotalAmount({ line, rolls }: { line: TotalLine; rolls: boolean }) {
+  const animated = useAnimatedNumber(line.amount);
+  return (
+    <View style={styles.total}>
+      {line.estimate ? (
+        <Text variant="amountRow" color={colors.inkMuted} maxFontSizeMultiplier={1.2}>
+          {s.receipts.approx}
+        </Text>
+      ) : null}
+      <Money amount={rolls ? animated : line.amount} currency={line.currency} size="row" fit />
+    </View>
+  );
+}
+
 export function StatCards({
   receipts,
+  older,
   homeCurrency,
   period,
   onPeriod,
 }: {
   receipts: MobileReceipt[];
+  /** Everything beyond the list, summed by the server (missing on old servers). */
+  older?: OlderSummary;
   homeCurrency: string;
   period: PeriodKey;
   onPeriod: (period: PeriodKey) => void;
 }) {
-  const periods = useMemo(() => periodsFor(receipts, locale, s.summary.allTime), [receipts]);
+  const periods = useMemo(
+    () => periodsFor(receipts, locale, s.summary.allTime, new Date(), Object.keys(older?.months ?? {})),
+    [receipts, older],
+  );
   const selected = periods.find((p) => p.key === period) ?? periods[0];
-  const totals = useMemo(() => totalsFor(inPeriod(receipts, selected.key), homeCurrency), [receipts, selected.key, homeCurrency]);
-  const verified = receipts.filter((r) => r.status === "verified").length;
+  const totals = useMemo(
+    () => periodTotals(receipts, older, selected.key, homeCurrency),
+    [receipts, older, selected.key, homeCurrency],
+  );
+  const { count, verified } = useMemo(() => overallCounts(receipts, older), [receipts, older]);
 
   const choose = () => {
     void Haptics.selectionAsync();
@@ -74,7 +99,7 @@ export function StatCards({
 
   return (
     <View style={styles.row}>
-      <Count value={receipts.length} label={s.summary.statReceipts} />
+      <Count value={count} label={s.summary.statReceipts} />
       <Count value={verified} label={s.summary.statVerified} />
       <Box>
         <PressableScale
@@ -86,14 +111,7 @@ export function StatCards({
           style={styles.inner}
         >
           {totals.map((t) => (
-            <View key={t.currency} style={styles.total}>
-              {t.estimate ? (
-                <Text variant="amountRow" color={colors.inkMuted} maxFontSizeMultiplier={1.2}>
-                  {s.receipts.approx}
-                </Text>
-              ) : null}
-              <Money amount={t.amount} currency={t.currency} size="row" fit />
-            </View>
+            <TotalAmount key={t.currency} line={t} rolls={t.currency === homeCurrency} />
           ))}
           <View style={styles.period}>
             <Text variant="caption" color={colors.inkMuted} numberOfLines={1} style={styles.shrink}>
