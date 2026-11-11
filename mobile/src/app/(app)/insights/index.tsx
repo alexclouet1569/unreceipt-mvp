@@ -6,7 +6,7 @@
 // its own arrive, so the screen never blanks.
 
 import { useEffect, useRef, useState } from "react";
-import { Modal, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Modal, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -20,6 +20,7 @@ import { Categories, Findings, Merchants, Quality, VatPanel } from "../../../com
 import { useBreathing } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { locale, s } from "../../../i18n";
+import { formatMoney } from "../../../lib/format";
 import {
   addDays,
   daysBetween,
@@ -95,13 +96,19 @@ function CustomRange({
   const tooLong = daysBetween(from, to) > MAX_DAYS;
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
-        <View style={styles.sheetHeader}>
-          <Text variant="bodyLg" accessibilityRole="header">
-            {s.insights.customTitle}
-          </Text>
+      {/* iOS's sheet header: Cancel leading, the title centred, Show where the thumb confirms. */}
+      <View style={styles.sheetHeader}>
+        <View style={styles.sheetSide}>
           <Button label={s.common.cancel} kind="plain" onPress={onClose} />
         </View>
+        <Text variant="merchant" accessibilityRole="header" style={styles.sheetTitle} numberOfLines={1}>
+          {s.insights.customTitle}
+        </Text>
+        <View style={[styles.sheetSide, styles.sheetRight]}>
+          <Button label={s.insights.show} kind="plain" disabled={tooLong} onPress={() => onPick(from, to)} />
+        </View>
+      </View>
+      <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent}>
         <Text variant="micro" color={colors.inkMuted}>
           {s.insights.from}
         </Text>
@@ -134,11 +141,10 @@ function CustomRange({
           onValueChange={(_e, d) => setTo(toDay(d))}
         />
         {tooLong ? (
-          <Text variant="caption" color={colors.attentionDeep}>
+          <Text variant="caption" color={colors.attentionDeep} accessibilityLiveRegion="polite">
             {s.insights.tooLong}
           </Text>
         ) : null}
-        <Button label={s.insights.show} disabled={tooLong} onPress={() => onPick(from, to)} />
       </ScrollView>
     </Modal>
   );
@@ -176,8 +182,27 @@ export default function Insights() {
     if (filter && a) drill(filter, insightText(i, a.currency, locale, s).title);
   };
 
-  const previous = a ? shiftPeriod(a, -1) : null;
-  const next = a ? shiftPeriod(a, 1) : null;
+  // While a new period loads, the arrows wait: they'd step from the old one.
+  const previous = a && !stale ? shiftPeriod(a, -1) : null;
+  const next = a && !stale ? shiftPeriod(a, 1) : null;
+
+  // VoiceOver hears a new period's total, and a failure.
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    if (data?.state !== "ready") return;
+    const id = `${data.period.kind}:${data.period.key}`;
+    if (announced.current === id) return;
+    const first = announced.current == null;
+    announced.current = id;
+    if (!first) {
+      AccessibilityInfo.announceForAccessibility(
+        `${periodTitle(data.period, locale, s)}: ${formatMoney(data.total.amount, data.currency, locale)}`,
+      );
+    }
+  }, [data]);
+  useEffect(() => {
+    if (error) AccessibilityInfo.announceForAccessibility(error === "offline" ? s.common.unreachable : s.insights.loadFailed);
+  }, [error]);
 
   let body: React.ReactNode;
   if (!a && loading) {
@@ -195,7 +220,7 @@ export default function Insights() {
     const empty = a.total.count === 0;
     body = (
       <Animated.View entering={FadeIn.duration(durations.medium)} style={stale && styles.stale}>
-        <Hero a={a} />
+        <Hero a={a} onOpen={() => drill({}, periodTitle(a.period, locale, s))} />
         {empty ? (
           <View style={styles.empty}>
             <Text variant="bodyLg">{s.insights.emptyTitle}</Text>
@@ -299,5 +324,14 @@ const styles = StyleSheet.create({
   bar: { flex: 1 },
   sheet: { flex: 1, backgroundColor: colors.surface },
   sheetContent: { padding: space.lg, gap: space.md, paddingBottom: space.xxxl },
-  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: space.sm,
+    paddingTop: space.sm,
+    backgroundColor: colors.surface,
+  },
+  sheetSide: { flex: 1, alignItems: "flex-start" },
+  sheetRight: { alignItems: "flex-end" },
+  sheetTitle: { flexShrink: 1, textAlign: "center" },
 });

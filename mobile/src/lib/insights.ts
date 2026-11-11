@@ -13,6 +13,7 @@ import type { ReceiptCategory } from "@/lib/types";
 import { fill, type Locale } from "../i18n/core";
 import type { Strings } from "../i18n/en";
 import { formatMoney } from "./format";
+import { MERCHANT_PALETTE } from "./merchant";
 
 export type ReadyAnalytics = Extract<MobileAnalytics, { state: "ready" }>;
 
@@ -149,6 +150,45 @@ export function shareText(share: number, locale: Locale): string {
   return new Intl.NumberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 0 }).format(share);
 }
 
+/** A VAT rate or a percentage given in percent points (25 → "25 %"), in the app's language. */
+export function percentText(points: number, locale: Locale): string {
+  return new Intl.NumberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 1 }).format(points / 100);
+}
+
+/** A month's long name ("September", "September 2025" in another year than `today`). */
+export function monthName(day: string, today: string, locale: Locale): string {
+  return capital(
+    fmt(day, locale, day.slice(0, 4) === today.slice(0, 4) ? { month: "long" } : { month: "long", year: "numeric" }),
+  );
+}
+
+/** A piece of a sentence: words in Manrope, amounts in Geist Mono (DESIGN.md). */
+export type Part = { text: string; money?: boolean };
+
+/** fill() into parts, keeping each amount its own part. */
+export function fillParts(template: string, words: Record<string, string | number>, amounts: Record<string, string> = {}): Part[] {
+  const parts: Part[] = [];
+  let last = 0;
+  for (const m of template.matchAll(/\{(\w+)\}/g)) {
+    const key = m[1];
+    const at = m.index ?? 0;
+    if (at > last) parts.push({ text: template.slice(last, at) });
+    if (key in amounts) parts.push({ text: amounts[key], money: true });
+    else parts.push({ text: key in words ? String(words[key]) : m[0] });
+    last = at + m[0].length;
+  }
+  if (last < template.length) parts.push({ text: template.slice(last) });
+  // Neighbouring words merge, so a screen reader reads one sentence.
+  return parts.reduce<Part[]>((out, p) => {
+    const prev = out[out.length - 1];
+    if (prev && !prev.money && !p.money) prev.text += p.text;
+    else out.push({ ...p });
+    return out;
+  }, []);
+}
+
+export const partsText = (parts: Part[]) => parts.map((p) => p.text).join("");
+
 /** Running totals, for the month's pace line. */
 export function cumulative(values: number[]): number[] {
   let sum = 0;
@@ -176,36 +216,39 @@ export function plural(count: number, one: string, other: string): string {
   return fill(count === 1 ? one : other, { count });
 }
 
-export type InsightText = { title: string; body: string };
+export type InsightText = { title: string; body: Part[] };
 
-/** The words of a finding, in the app's language. */
+/** The words of a finding, in the app's language; amounts as their own parts. */
 export function insightText(i: AnalyticsInsight, currency: string, locale: Locale, s: Strings): InsightText {
   const money = (n: number) => formatMoney(n, currency, locale);
   const t = s.insights.findings;
   switch (i.kind) {
     case "duplicates":
-      return { title: t.duplicatesTitle, body: plural(i.count, t.duplicatesOne, t.duplicatesOther) };
+      return { title: t.duplicatesTitle, body: [{ text: plural(i.count, t.duplicatesOne, t.duplicatesOther) }] };
     case "category_up":
       return {
-        title: fill(t.categoryUpTitle, { category: s.categories[i.category as ReceiptCategory], pct: `${i.pct} %` }),
-        body: fill(t.categoryUpBody, { amount: money(i.amount), baseline: money(i.baseline) }),
+        title: fill(t.categoryUpTitle, { category: s.categories[i.category as ReceiptCategory], pct: percentText(i.pct, locale) }),
+        body: fillParts(t.categoryUpBody, {}, { amount: money(i.amount), baseline: money(i.baseline) }),
       };
     case "recurring":
       return {
         title: fill(t.recurringTitle, { name: i.name }),
-        body: fill(t.recurringBody, { amount: money(i.amount), months: i.months }),
+        body: fillParts(t.recurringBody, { months: i.months }, { amount: money(i.amount) }),
       };
     case "new_merchant":
-      return { title: fill(t.newMerchantTitle, { name: i.name }), body: fill(t.newMerchantBody, { amount: money(i.amount) }) };
+      return {
+        title: fill(t.newMerchantTitle, { name: i.name }),
+        body: fillParts(t.newMerchantBody, {}, { amount: money(i.amount) }),
+      };
     case "largest":
       return {
         title: t.largestTitle,
-        body: fill(t.largestBody, { name: i.name || "—", amount: money(i.amount), share: shareText(i.share, locale) }),
+        body: fillParts(t.largestBody, { name: i.name || "—", share: shareText(i.share, locale) }, { amount: money(i.amount) }),
       };
     case "representation":
       return {
         title: t.representationTitle,
-        body: fill(t.representationBody, { vat: money(i.vat), amount: money(i.amount) }),
+        body: fillParts(t.representationBody, {}, { vat: money(i.vat), amount: money(i.amount) }),
       };
   }
 }
@@ -225,16 +268,20 @@ export function insightFilter(i: AnalyticsInsight): Record<string, string> | nul
   }
 }
 
-/** Order of the categories' colours: the merchant palette (src/lib/merchant.ts), never new hues. */
+/**
+ * One colour per category, from the merchant palette (src/lib/merchant.ts)
+ * without its action green (the screen's one green is the chart's) and its
+ * honey (it means "needs you"); "other" takes --ink-faint, the neutral.
+ */
 const CATEGORY_COLORS: Record<ReceiptCategory, string> = {
-  travel: "#3B5B8C",
-  transport: "#2F6B7A",
-  meals: "#8C6320",
-  accommodation: "#6B4E8C",
-  software: "#1A7F52",
-  office_supplies: "#303568",
-  client_entertainment: "#A0405A",
-  other: "#5A5F7A",
+  travel: MERCHANT_PALETTE[2],
+  transport: MERCHANT_PALETTE[5],
+  meals: MERCHANT_PALETTE[4],
+  accommodation: MERCHANT_PALETTE[3],
+  software: MERCHANT_PALETTE[1],
+  office_supplies: MERCHANT_PALETTE[8],
+  client_entertainment: MERCHANT_PALETTE[7],
+  other: "#9CA0B8",
 };
 
 export function categoryColor(c: ReceiptCategory): string {

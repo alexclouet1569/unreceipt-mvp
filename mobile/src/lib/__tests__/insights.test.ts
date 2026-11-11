@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { en } from "../../i18n/en";
 import { sv } from "../../i18n/sv";
 import {
+  categoryColor,
+  fillParts,
   bucketLabel,
   changeText,
   cumulative,
@@ -116,15 +118,39 @@ describe("findings", () => {
   it("writes each finding and knows which receipts are behind it", () => {
     const up = { kind: "category_up" as const, category: "travel" as const, amount: 1400, baseline: 400, pct: 250 };
     expect(insightText(up, "SEK", "en", en)).toEqual({
-      title: "Travel up 250 %",
-      body: "1,400.00 kr in this period, against about 400.00 kr usually.",
+      title: "Travel up 250%",
+      body: [
+        { text: "1,400.00 kr", money: true },
+        { text: " in this period, against about " },
+        { text: "400.00 kr", money: true },
+        { text: " usually." },
+      ],
     });
     expect(insightFilter(up)).toEqual({ category: "travel" });
     const dup = { kind: "duplicates" as const, count: 1, ids: ["a"] };
-    expect(insightText(dup, "SEK", "en", en).body).toMatch(/^1 receipt looks like another one/);
+    expect(insightText(dup, "SEK", "en", en).body[0].text).toMatch(/^1 receipt looks like another one/);
     expect(insightFilter(dup)).toEqual({ ids: "a" });
     expect(insightFilter({ kind: "recurring", merchant: "figma", name: "Figma", amount: 150, months: 4, ids: [] })).toEqual({
       merchant: "figma",
     });
+  });
+});
+
+describe("parts and colours", () => {
+  it("keeps amounts as their own parts", () => {
+    expect(fillParts("{a} on {b} ({n})", { n: 3 }, { a: "10 kr", b: "8 kr" })).toEqual([
+      { text: "10 kr", money: true },
+      { text: " on " },
+      { text: "8 kr", money: true },
+      { text: " (3)" },
+    ]);
+  });
+
+  it("never colours a category with the action green or honey", () => {
+    const all = ["travel", "transport", "meals", "accommodation", "software", "office_supplies", "client_entertainment", "other"] as const;
+    const used = all.map(categoryColor);
+    expect(used).not.toContain("#1A7F52");
+    expect(used).not.toContain("#8C6320");
+    expect(new Set(used).size).toBe(all.length);
   });
 });

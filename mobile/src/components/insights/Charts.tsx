@@ -5,16 +5,26 @@
 // to read a bar (a tick in the hand per bar); VoiceOver swipes up and down
 // through them. The chart grows in once per period.
 
-import { useEffect, useMemo, useState } from "react";
-import { AccessibilityInfo, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibilityInfo, PanResponder, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { fill, locale, s } from "../../i18n";
 import { formatMoney } from "../../lib/format";
-import { bucketLabel, cumulative, todayIndex, type ReadyAnalytics } from "../../lib/insights";
+import {
+  bucketLabel,
+  cumulative,
+  monthName,
+  partsText,
+  previousLabel,
+  todayIndex,
+  type Part,
+  type ReadyAnalytics,
+} from "../../lib/insights";
 import { colors, durations, fonts, space } from "../../theme";
 import { Text } from "../Text";
+import { Parts } from "./Parts";
 
 const HEIGHT = 140;
 
@@ -32,48 +42,88 @@ function useGrowIn(token: string) {
   return useAnimatedStyle(() => ({ transform: [{ scaleY: grow.value }], transformOrigin: "bottom" }));
 }
 
-/** Touch, slide and VoiceOver selection of one of `count` columns. */
-function useScrub(count: number, width: number) {
+/**
+ * Slide sideways over the chart to read it (a tick per column); a vertical
+ * swipe stays the list's scroll. The selection clears a moment after the
+ * finger lifts, so today's bar comes back. `last`: the last column that
+ * can be read (the future has nothing).
+ */
+function useScrub(count: number, width: number, last: number) {
   const [selected, setSelected] = useState<number | null>(null);
+  const current = useRef<number | null>(null);
+  const clear = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const geometry = useRef({ count, width, last });
+  geometry.current = { count, width, last };
   const pick = (i: number | null) => {
-    if (i === selected) return;
+    if (clear.current) clearTimeout(clear.current);
+    if (i === current.current) return;
     if (i != null) void Haptics.selectionAsync();
+    current.current = i;
     setSelected(i);
   };
-  const at = (e: GestureResponderEvent) => {
-    if (width <= 0 || count === 0) return null;
-    const i = Math.floor((e.nativeEvent.locationX / width) * count);
-    return Math.max(0, Math.min(count - 1, i));
+  const pickRef = useRef(pick);
+  pickRef.current = pick;
+  const at = (x: number) => {
+    const g = geometry.current;
+    if (g.width <= 0 || g.count === 0) return null;
+    return Math.max(0, Math.min(g.last, Math.floor((x / g.width) * g.count)));
   };
-  const handlers = {
-    onStartShouldSetResponder: () => true,
-    onMoveShouldSetResponder: () => true,
-    // Keep the finger while sliding sideways; the list scrolls elsewhere.
-    onResponderTerminationRequest: () => false,
-    onResponderGrant: (e: GestureResponderEvent) => pick(at(e)),
-    onResponderMove: (e: GestureResponderEvent) => pick(at(e)),
-  };
-  return { selected, pick, handlers };
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: (e) => pickRef.current(at(e.nativeEvent.locationX)),
+        onPanResponderMove: (e) => pickRef.current(at(e.nativeEvent.locationX)),
+        onPanResponderRelease: () => {
+          clear.current = setTimeout(() => pickRef.current(null), 1_600);
+        },
+        onPanResponderTerminate: () => pickRef.current(null),
+      }),
+    [],
+  );
+  useEffect(() => () => {
+    if (clear.current) clearTimeout(clear.current);
+  }, []);
+  return { selected: selected != null ? Math.min(selected, last) : null, pick, handlers: responder.panHandlers };
 }
 
-/** What the finger is on: words in Manrope, amounts in Geist Mono (DESIGN.md). */
-type Part = { text: string; money?: boolean };
-
+/** What the finger is on (two lines at most, so no amount is ever cut). */
 function Readout({ parts }: { parts: Part[] | null }) {
   return (
-    <Text variant="caption" color={colors.inkMuted} numberOfLines={1} style={styles.readout}>
-      {parts
-        ? parts.map((p, i) => (
-            <Text key={i} variant={p.money ? "amountRow" : "caption"} color={p.money ? colors.ink : colors.inkMuted}>
-              {p.text}
-            </Text>
-          ))
-        : " "}
-    </Text>
+    <View style={styles.readout}>
+      {parts ? <Parts parts={parts} numberOfLines={2} maxFontSizeMultiplier={1.2} /> : null}
+    </View>
   );
 }
 
-const spoken = (parts: Part[] | null) => (parts ? parts.map((p) => p.text).join("") : null);
+const spoken = (parts: Part[] | null) => (parts ? partsText(parts) : null);
+
+/** Bar labels laid out on their bar, every `every`th one, never cut. */
+function AxisLabels({ labels, width }: { labels: string[]; width: number }) {
+  const n = labels.length;
+  const slot = width / Math.max(1, n);
+  // About 6 pt per character at 10 pt: room for the longest label.
+  const longest = Math.max(1, ...labels.map((l) => l.length));
+  const every = Math.max(1, Math.ceil((longest * 6 + 6) / Math.max(1, slot)));
+  return (
+    <View style={[styles.labels, { width }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+      {labels.map((l, i) =>
+        i % every === 0 ? (
+          <Text
+            key={i}
+            style={[styles.label, { left: i * slot + slot / 2 - (slot * every) / 2, width: slot * every }]}
+            color={colors.inkMuted}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.1}
+          >
+            {l}
+          </Text>
+        ) : null,
+      )}
+    </View>
+  );
+}
 
 /** Bars per day, week or month, with the period before as ghosts. */
 export function BarChart({ a }: { a: ReadyAnalytics }) {
@@ -84,8 +134,8 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
   const max = Math.max(1, ...a.buckets.map((b) => b.amount), ...a.previousBuckets);
   const grow = useGrowIn(a.period.key + a.period.kind);
   const money = (v: number) => formatMoney(v, a.currency, locale);
-  const scrub = useScrub(n, width);
-  const sel = scrub.selected != null && scrub.selected < n ? scrub.selected : null;
+  const scrub = useScrub(n, width, Math.max(0, visible - 1));
+  const sel = scrub.selected;
 
   const highest = a.buckets.reduce((best, b, i) => (b.amount > a.buckets[best].amount ? i : best), 0);
   const summary = fill(s.insights.chartSummary, {
@@ -101,7 +151,6 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
 
   const slot = width / Math.max(1, n);
   const barW = Math.max(2, Math.min(28, slot * 0.62));
-  const labelEvery = n <= 12 ? 1 : n <= 16 ? 2 : Math.ceil(n / 6);
 
   return (
     <View style={styles.wrap}>
@@ -116,7 +165,7 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={(e) => {
           const cur = sel ?? -1;
-          scrub.pick(Math.max(0, Math.min(n - 1, cur + (e.nativeEvent.actionName === "increment" ? 1 : -1))));
+          scrub.pick(Math.max(0, Math.min(visible - 1, cur + (e.nativeEvent.actionName === "increment" ? 1 : -1))));
         }}
         {...scrub.handlers}
       >
@@ -144,13 +193,7 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
           </Animated.View>
         ) : null}
       </View>
-      <View style={styles.labels} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        {a.buckets.map((b, i) => (
-          <Text key={i} style={styles.label} color={colors.inkMuted} numberOfLines={1}>
-            {i % labelEvery === 0 ? bucketLabel(b, a.granularity, locale) : ""}
-          </Text>
-        ))}
-      </View>
+      {width > 0 ? <AxisLabels labels={a.buckets.map((b) => bucketLabel(b, a.granularity, locale))} width={width} /> : null}
     </View>
   );
 }
@@ -169,8 +212,10 @@ export function PaceChart({ a }: { a: ReadyAnalytics }) {
   const max = Math.max(1, ...now.slice(0, lastDay + 1), ...before);
   const grow = useGrowIn(a.period.key + a.period.kind);
   const money = (v: number) => formatMoney(v, a.currency, locale);
-  const scrub = useScrub(n, width);
-  const sel = scrub.selected != null ? Math.min(scrub.selected, n - 1) : null;
+  const scrub = useScrub(n, width, lastDay);
+  const sel = scrub.selected;
+  const nowName = monthName(a.period.from, a.today, locale);
+  const beforeName = previousLabel(a, locale, s);
 
   const x = (i: number) => (n <= 1 ? 0 : (i / (n - 1)) * (width - 8) + 4);
   const y = (v: number) => HEIGHT - 4 - (v / max) * (HEIGHT - 12);
@@ -188,16 +233,20 @@ export function PaceChart({ a }: { a: ReadyAnalytics }) {
       ? [
           { text: `${fill(s.insights.byDay, { day: dayName })} · ` },
           { text: money(now[at]), money: true },
-          ...(shownBefore != null
-            ? [{ text: ` · ${s.insights.legendBefore} ` }, { text: money(shownBefore), money: true }]
-            : []),
+          ...(shownBefore != null ? [{ text: ` · ${beforeName} ` }, { text: money(shownBefore), money: true }] : []),
         ]
       : null;
   const readout = spoken(parts);
+  const lastName = bucketLabel(a.buckets[lastDay], "day", locale, true);
   const summary =
-    shownBefore != null
-      ? fill(s.insights.paceSummary, { amount: money(now[lastDay]), before: money(before[Math.min(lastDay, before.length - 1)]) })
-      : fill(s.insights.paceSummaryNoBefore, { amount: money(now[lastDay]) });
+    before.length > 0
+      ? fill(s.insights.paceSummary, {
+          amount: money(now[lastDay]),
+          day: lastName,
+          previous: beforeName,
+          before: money(before[Math.min(lastDay, before.length - 1)]),
+        })
+      : fill(s.insights.paceSummaryNoBefore, { amount: money(now[lastDay]), day: lastName });
 
   return (
     <View style={styles.wrap}>
@@ -221,7 +270,7 @@ export function PaceChart({ a }: { a: ReadyAnalytics }) {
             <Svg width={width} height={HEIGHT}>
               <Line x1={0} x2={width} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke={colors.hairline} strokeWidth={1} />
               {before.length > 1 ? (
-                <Path d={path(before, before.length - 1)} stroke={colors.hairline} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+                <Path d={path(before, before.length - 1)} stroke={colors.inkFaint} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
               ) : null}
               <Path d={path(now, lastDay)} stroke={colors.brandAction} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
               {sel != null ? (
@@ -235,13 +284,13 @@ export function PaceChart({ a }: { a: ReadyAnalytics }) {
       <View style={styles.legend} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <View style={[styles.key, { backgroundColor: colors.brandAction }]} />
         <Text variant="caption" color={colors.inkMuted}>
-          {s.insights.legendNow}
+          {nowName}
         </Text>
         {before.length > 1 ? (
           <>
-            <View style={[styles.key, styles.keyGap, { backgroundColor: colors.hairline }]} />
+            <View style={[styles.key, styles.keyGap, { backgroundColor: colors.inkFaint }]} />
             <Text variant="caption" color={colors.inkMuted}>
-              {s.insights.legendBefore}
+              {beforeName}
             </Text>
           </>
         ) : null}
@@ -252,10 +301,10 @@ export function PaceChart({ a }: { a: ReadyAnalytics }) {
 
 const styles = StyleSheet.create({
   wrap: { marginHorizontal: space.lg, marginTop: space.lg },
-  readout: { minHeight: 20, marginBottom: space.xs },
+  readout: { minHeight: 38, justifyContent: "flex-end", marginBottom: space.xs },
   plot: { height: HEIGHT },
-  labels: { flexDirection: "row", marginTop: space.xs },
-  label: { flex: 1, textAlign: "center", fontFamily: fonts.medium, fontSize: 10, lineHeight: 13 },
+  labels: { height: 16, marginTop: space.xs },
+  label: { position: "absolute", top: 0, textAlign: "center", fontFamily: fonts.medium, fontSize: 10, lineHeight: 13 },
   legend: { flexDirection: "row", alignItems: "center", marginTop: space.sm, gap: 6 },
   key: { width: 14, height: 3, borderRadius: 2 },
   keyGap: { marginLeft: space.md },

@@ -11,7 +11,11 @@ import { formatMoney } from "../../lib/format";
 import {
   categoryColor,
   changeText,
+  fillParts,
+  insightFilter,
   insightText,
+  partsText,
+  percentText,
   plural,
   shareText,
   type ReadyAnalytics,
@@ -21,6 +25,7 @@ import { colors, fonts, radius, space } from "../../theme";
 import { Money } from "../Money";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
+import { Parts } from "./Parts";
 
 export function SectionTitle({ children }: { children: string }) {
   return (
@@ -68,7 +73,7 @@ function Row({
         <Text variant="merchant" numberOfLines={1}>
           {title}
         </Text>
-        <Text variant="caption" color={colors.inkMuted} numberOfLines={1}>
+        <Text variant="caption" color={colors.inkMuted} numberOfLines={2}>
           {detail}
         </Text>
       </View>
@@ -187,13 +192,15 @@ export function Findings({
           const t = insightText(i, a.currency, locale, s);
           // Duplicates ask for something: honey, as every "needs you" in the app.
           const attention = i.kind === "duplicates";
+          const opens = insightFilter(i) != null;
           return (
             <PressableScale
               key={`${i.kind}-${n}`}
-              scaleTo={0.985}
+              scaleTo={opens ? 0.985 : 1}
+              disabled={!opens}
               onPress={() => onOpen(i)}
-              accessibilityRole="button"
-              accessibilityLabel={`${t.title}. ${t.body}`}
+              accessibilityRole={opens ? "button" : "text"}
+              accessibilityLabel={`${t.title}. ${partsText(t.body)}`}
               style={[styles.finding, attention && styles.findingAttention]}
             >
               <View style={styles.findingIcon}>
@@ -208,11 +215,9 @@ export function Findings({
                 <Text variant="merchant" color={attention ? colors.attentionDeep : colors.ink}>
                   {t.title}
                 </Text>
-                <Text variant="caption" color={colors.inkMuted}>
-                  {t.body}
-                </Text>
+                <Parts parts={t.body} />
               </View>
-              <Chevron />
+              {opens ? <Chevron /> : null}
             </PressableScale>
           );
         })}
@@ -227,14 +232,13 @@ function Leader({ label, amount, currency, strong = false }: { label: string; am
       <Text variant={strong ? "merchant" : "caption"} color={strong ? colors.ink : colors.inkMuted} style={styles.leaderLabel}>
         {label}
       </Text>
-      <View style={styles.dots} />
       <Money amount={amount} currency={currency} size="row" />
     </View>
   );
 }
 
 const rateText = (rate: number | null) =>
-  rate == null ? s.insights.vatRateUnknown : fill(s.insights.vatRate, { rate: `${new Intl.NumberFormat(locale).format(rate)} %` });
+  rate == null ? s.insights.vatRateUnknown : fill(s.insights.vatRate, { rate: percentText(rate, locale) });
 
 export function VatPanel({ a, onToCheck }: { a: ReadyAnalytics; onToCheck: () => void }) {
   const v = a.vat;
@@ -248,9 +252,11 @@ export function VatPanel({ a, onToCheck }: { a: ReadyAnalytics; onToCheck: () =>
           <View key={String(r.rate)} style={styles.rateRow}>
             <Leader label={rateText(r.rate)} amount={r.vat} currency={a.currency} />
             {r.net != null ? (
-              <Text variant="caption" color={colors.inkMuted} style={styles.net}>
-                {fill(s.insights.vatNet, { amount: formatMoney(r.net, a.currency, locale) })}
-              </Text>
+              <Parts
+                parts={fillParts(s.insights.vatNet, {}, { amount: formatMoney(r.net, a.currency, locale) })}
+                amountColor={colors.inkMuted}
+                style={styles.net}
+              />
             ) : null}
           </View>
         ))}
@@ -259,8 +265,20 @@ export function VatPanel({ a, onToCheck }: { a: ReadyAnalytics; onToCheck: () =>
             {v.swedish != null ? <Leader label={s.insights.vatSwedish} amount={v.swedish} currency={a.currency} /> : null}
             {v.representation ? <Leader label={s.insights.vatRepresentation} amount={v.representation} currency={a.currency} /> : null}
             {v.toCheck && v.toCheck.count > 0 ? (
-              <PressableScale scaleTo={0.99} onPress={onToCheck} accessibilityRole="button" style={styles.toCheck}>
-                <Leader label={`${s.insights.vatToCheck} (${v.toCheck.count})`} amount={v.toCheck.amount} currency={a.currency} />
+              <PressableScale
+                scaleTo={0.99}
+                onPress={onToCheck}
+                accessibilityRole="button"
+                accessibilityLabel={`${s.insights.vatToCheck} (${v.toCheck.count}): ${formatMoney(v.toCheck.amount, a.currency, locale)}`}
+                style={styles.toCheck}
+              >
+                <View style={styles.leader} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                  <Text variant="caption" color={colors.ink} style={styles.leaderLabel}>
+                    {`${s.insights.vatToCheck} (${v.toCheck.count})`}
+                  </Text>
+                  <Money amount={v.toCheck.amount} currency={a.currency} size="row" />
+                  <Chevron />
+                </View>
               </PressableScale>
             ) : null}
           </View>
@@ -390,20 +408,18 @@ const styles = StyleSheet.create({
     padding: space.lg,
     gap: space.sm,
   },
-  leader: { flexDirection: "row", alignItems: "baseline", gap: space.sm },
+  leader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: space.md },
   leaderLabel: { flexShrink: 1 },
-  dots: { flex: 1, borderBottomWidth: 1, borderStyle: "dotted", borderColor: colors.inkMuted, opacity: 0.4, marginBottom: 4 },
   rateRow: { gap: 0 },
   net: { textAlign: "right" },
   vatSplit: {
     gap: space.sm,
     borderTopWidth: 1,
-    borderStyle: "dashed",
     borderTopColor: colors.attentionMint,
     paddingTop: space.sm,
     marginTop: space.xs,
   },
-  toCheck: { minHeight: 32, justifyContent: "center" },
+  toCheck: { minHeight: 44, justifyContent: "center" },
   vatNote: { marginTop: space.xs },
   qualityRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 52, paddingVertical: 10, paddingHorizontal: 14 },
 });
