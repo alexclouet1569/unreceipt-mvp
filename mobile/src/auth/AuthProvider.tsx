@@ -18,6 +18,8 @@ type AuthState = {
   email: string | null;
   requestCode: (email: string) => Promise<RequestResult>;
   verifyCode: (email: string, code: string) => Promise<VerifyResult>;
+  /** App Review's account only (REVIEW_EMAIL); everyone else uses the code. */
+  signInWithPassword: (email: string, password: string) => Promise<"ok" | "wrong" | "unreachable">;
   /** keepScans: the server ended the session; unsent scans stay for the next sign-in. */
   signOut: (options?: { keepScans?: boolean }) => Promise<void>;
 };
@@ -83,6 +85,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return msg.includes("expired") || error.code === "otp_expired" ? "expired" : "wrong";
   }, []);
 
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) {
+      finishSignIn();
+      return "ok" as const;
+    }
+    return isUnreachable(error) ? ("unreachable" as const) : ("wrong" as const);
+  }, []);
+
   const signOut = useCallback(async (options?: { keepScans?: boolean }) => {
     await clearAll(options);
     // This iPhone only: the user stays signed in on their computer.
@@ -96,9 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: session?.user.email ?? null,
       requestCode,
       verifyCode,
+      signInWithPassword,
       signOut,
     }),
-    [session, requestCode, verifyCode, signOut],
+    [session, requestCode, verifyCode, signInWithPassword, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

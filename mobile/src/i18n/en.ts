@@ -15,6 +15,8 @@ export const en = {
     emailLabel: "Your work email",
     emailPlaceholder: "you@company.com",
     continue: "Continue",
+    passwordLabel: "Password",
+    wrongPassword: "That password isn't right.",
     invalidEmail: "That doesn't look like an email address.",
     rateLimited: "Please wait a minute before asking for another code.",
     sendFailed: "We couldn't send a code. Try again in a moment.",

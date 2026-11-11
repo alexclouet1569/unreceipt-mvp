@@ -19,5 +19,14 @@ export const SUPABASE_KEY = required(
   process.env.EXPO_PUBLIC_SUPABASE_KEY,
 );
 
+/**
+ * Apple's App Review signs in with this one address and a password (given
+ * in the App Store Connect review notes, never in the code): reviewers
+ * can't receive our email codes. Every other address signs in with the
+ * code. The account holds sample receipts only (mobile/README.md "App
+ * Review account").
+ */
+export const REVIEW_EMAIL = "appreview@unreceipt.com";
+
 /** Same length as the website's code step (src/app/app/login/_auth-lib.ts). */
 export const CODE_LENGTH = 6;

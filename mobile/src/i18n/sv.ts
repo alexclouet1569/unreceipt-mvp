@@ -14,6 +14,8 @@ export const sv: Strings = {
     emailLabel: "Din jobbmejl",
     emailPlaceholder: "du@foretag.se",
     continue: "Fortsätt",
+    passwordLabel: "Lösenord",
+    wrongPassword: "Lösenordet stämmer inte.",
     invalidEmail: "Det ser inte ut som en mejladress.",
     rateLimited: "Vänta en minut innan du ber om en ny kod.",
     sendFailed: "Vi kunde inte skicka någon kod. Försök igen om en stund.",
