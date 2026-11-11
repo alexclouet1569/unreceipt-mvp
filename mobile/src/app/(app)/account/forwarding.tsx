@@ -168,7 +168,12 @@ export default function ForwardingScreen() {
             phone(s.forwarding.hand3, "to", "to"),
             [{ text: s.forwarding.hand4, strong: false }],
           ].map((pieces, i) => (
-            <View key={i} style={styles.handRow}>
+            <View
+              key={i}
+              style={styles.handRow}
+              accessible
+              accessibilityLabel={`${i + 1}. ${pieces.map((p) => p.text).join("")}${i === 2 ? `. ${s.forwarding.hand3Hint}` : ""}`}
+            >
               <Text style={styles.number} color={colors.inkMuted}>
                 {i + 1}
               </Text>

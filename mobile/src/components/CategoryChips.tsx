@@ -33,6 +33,7 @@ function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={`${label}, ${count}`}
+      accessibilityHint={s.summary.filterLabel}
       style={styles.target}
     >
       <View style={[styles.chip, active && styles.active]}>
@@ -65,7 +66,6 @@ export function CategoryChips({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
-      accessibilityLabel={s.summary.filterLabel}
       style={styles.scroller}
     >
       <Chip label={s.summary.filterAll} count={total} active={selected == null} onPress={() => onSelect(null)} />

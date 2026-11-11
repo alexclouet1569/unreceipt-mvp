@@ -19,6 +19,7 @@ import { colors, fonts, radius, space } from "../theme";
 import { Button } from "./Button";
 import { CodeField, type CodeFieldHandle } from "./CodeField";
 import { ExportResult } from "./ExportResult";
+import { ReceiptSkeleton } from "./Skeleton";
 import { Text } from "./Text";
 
 function firmNotice(exit: MobileAccount["firmExit"]): string | null {
@@ -49,6 +50,14 @@ export function DeleteAccount() {
   const [checking, setChecking] = useState(false);
   const field = useRef<CodeFieldHandle>(null);
 
+  if (!account && !loadError) {
+    // Shaped like content, never a lone spinner on an empty screen (DESIGN.md).
+    return (
+      <View style={styles.loading}>
+        <ReceiptSkeleton rows={2} />
+      </View>
+    );
+  }
   if (!account) {
     return (
       <View style={styles.center}>
@@ -59,9 +68,7 @@ export function DeleteAccount() {
             </Text>
             <Button label={s.common.retry} busy={refreshing} onPress={() => void refresh()} />
           </>
-        ) : (
-          <ActivityIndicator color={colors.inkMuted} />
-        )}
+        ) : null}
       </View>
     );
   }
@@ -77,6 +84,7 @@ export function DeleteAccount() {
 
   const run = async () => {
     setPhase("deleting");
+    AccessibilityInfo.announceForAccessibility(s.deletion.deleting);
     try {
       const res = await deleteAccountNow();
       if (res.ok) {
@@ -135,7 +143,7 @@ export function DeleteAccount() {
 
   if (phase === "deleting") {
     return (
-      <View style={styles.center} accessibilityLiveRegion="polite">
+      <View style={styles.center}>
         <ActivityIndicator color={colors.inkMuted} />
         <Text variant="body" color={colors.inkMuted}>
           {s.deletion.deleting}
@@ -201,7 +209,7 @@ export function DeleteAccount() {
             value={understood}
             onValueChange={setUnderstood}
             disabled={blocked}
-            trackColor={{ true: colors.negative }}
+            trackColor={{ true: colors.ink, false: colors.inkFaint }}
             accessibilityLabel={company ? s.deletion.savedSwitch : s.deletion.firmSwitch}
           />
         </View>
@@ -221,6 +229,7 @@ const styles = StyleSheet.create({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.lg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.lg, padding: space.xl },
   centerText: { textAlign: "center" },
+  loading: { paddingTop: space.lg },
   card: {
     gap: space.md,
     backgroundColor: colors.card,

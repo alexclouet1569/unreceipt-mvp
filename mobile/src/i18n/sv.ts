@@ -52,8 +52,7 @@ export const sv: Strings = {
     about: "cirka {amount}",
     receiptOne: "1 kvitto",
     receiptMany: "{count} kvitton",
-    toConfirm: "{count} att bekräfta",
-    allComplete: "Alla klara",
+    complete: "{count} klara",
     filterAll: "Alla",
     filterLabel: "Kategori",
   },
@@ -222,7 +221,7 @@ export const sv: Strings = {
   },
   deletion: {
     title: "Radera ditt konto",
-    body: "Det här raderar ditt konto, alla kvitton och alla originalfiler vi lagrar för alltid. Det går inte att ångra. Ett eventuellt abonnemang avslutas direkt.",
+    body: "Det här raderar ditt konto, alla kvitton och alla originalfiler vi lagrar för alltid. Det går inte att ångra.",
     firmBody: "Det här raderar din UnReceipt-inloggning för alltid. Det går inte att ångra. Dina klienters kvitton är deras och finns kvar på deras egna konton.",
     firmStays: "Du lämnar {firm}. Dina kollegor behåller åtkomsten till alla klienter.",
     firmHandover: "Du är den enda administratören för {firm}. {email} blir administratör när du lämnar och behåller åtkomsten till alla klienter.",

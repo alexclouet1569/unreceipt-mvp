@@ -9,6 +9,7 @@ export function Button({
   busy = false,
   disabled = false,
   kind = "primary",
+  selected,
 }: {
   label: string;
   onPress: () => void;
@@ -16,6 +17,8 @@ export function Button({
   disabled?: boolean;
   /** ink: a filled button that isn't the screen's green action. outline: a hairline-bordered second choice. */
   kind?: "primary" | "ink" | "outline" | "plain" | "destructive";
+  /** One of a choice (Yahoo or Proton): told to VoiceOver. */
+  selected?: boolean;
 }) {
   const inactive = disabled || busy;
   const primary = kind === "primary";
@@ -25,7 +28,7 @@ export function Button({
       accessibilityRole="button"
       // Named even while the spinner replaces the label.
       accessibilityLabel={label}
-      accessibilityState={{ disabled: inactive, busy }}
+      accessibilityState={{ disabled: inactive, busy, selected }}
       disabled={inactive}
       haptic={filled}
       scaleTo={0.97}

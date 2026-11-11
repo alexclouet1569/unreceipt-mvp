@@ -74,7 +74,6 @@ export function InviteCard({ invite }: { invite: { id: string; firmName: string 
       entering={FadeIn.duration(durations.medium)}
       exiting={FadeOut.duration(durations.short)}
       style={styles.card}
-      accessibilityRole="summary"
     >
       {done ? (
         <Text variant="bodyLg" accessibilityLiveRegion="polite">

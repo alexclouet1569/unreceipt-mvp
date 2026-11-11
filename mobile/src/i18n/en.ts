@@ -53,8 +53,7 @@ export const en = {
     about: "about {amount}",
     receiptOne: "1 receipt",
     receiptMany: "{count} receipts",
-    toConfirm: "{count} to confirm",
-    allComplete: "All complete",
+    complete: "{count} complete",
     filterAll: "All",
     filterLabel: "Category",
   },
@@ -223,7 +222,7 @@ export const en = {
   },
   deletion: {
     title: "Delete your account",
-    body: "This permanently deletes your account, every receipt and every original file we store. It can't be undone. Any subscription is cancelled straight away.",
+    body: "This permanently deletes your account, every receipt and every original file we store. It can't be undone.",
     firmBody: "This permanently deletes your UnReceipt sign-in. It can't be undone. Your clients' receipts are theirs and stay in their own accounts.",
     firmStays: "You'll leave {firm}. Your colleagues keep access to every client.",
     firmHandover: "You're the only admin of {firm}. {email} becomes admin when you leave, and keeps access to every client.",

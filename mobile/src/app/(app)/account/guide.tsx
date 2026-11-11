@@ -22,17 +22,13 @@ import { ForwardingCard } from "../../../components/ForwardingCard";
 import { PressableScale } from "../../../components/PressableScale";
 import { RichText } from "../../../components/RichText";
 import { Text } from "../../../components/Text";
-import { fill, locale, s, type Locale } from "../../../i18n";
+import { fill, LANGUAGE_NAMES, locale, s, type Locale } from "../../../i18n";
 import { getForwardingStatus } from "../../../lib/api";
 import { GUIDE, HAS_MAIL_LANGUAGE, stepPieces, type GuideProvider, type GuideStep } from "../../../lib/forwarding-guide";
 import { useForwarding } from "../../../lib/useForwarding";
 import { colors, durations, fonts, radius, space } from "../../../theme";
 
-const LANGS: { id: Locale; label: string }[] = [
-  { id: "en", label: "English" },
-  { id: "sv", label: "Svenska" },
-  { id: "fr", label: "Français" },
-];
+const LANGS: Locale[] = ["en", "sv", "fr"];
 const POLL_MS = 4_000;
 const POLL_FOR_MS = 10 * 60_000;
 
@@ -130,6 +126,22 @@ function Words({ words }: { words: string[] }) {
 
 function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
   const c = status?.confirmation ?? null;
+  // Said once when Gmail's email lands (the screen polls for it).
+  const state = c?.autoConfirmed ? "auto" : !c ? "waiting" : c.code ? "code" : "unreadable";
+  useEffect(() => {
+    if (state === "waiting") return;
+    void Haptics.notificationAsync(
+      state === "unreadable" ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success,
+    );
+    AccessibilityInfo.announceForAccessibility(
+      state === "auto"
+        ? fill(s.forwarding.codeAuto, { address: c?.forAddress ?? "" })
+        : state === "unreadable"
+          ? s.forwarding.codeUnreadable
+          : `${s.forwarding.codeLabel}: ${(c?.code ?? "").split("").join(" ")}`,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per state change
+  }, [state]);
   if (c?.autoConfirmed) {
     return (
       <Text variant="body" color={colors.ink}>
@@ -139,7 +151,7 @@ function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
   }
   if (!c) {
     return (
-      <Text variant="body" color={colors.inkMuted} accessibilityLiveRegion="polite">
+      <Text variant="body" color={colors.inkMuted}>
         {s.forwarding.codeWaiting}
       </Text>
     );
@@ -190,7 +202,12 @@ function PaidCheck() {
       <View style={styles.buttons}>
         {(["yahoo", "proton"] as const).map((id) => (
           <View key={id} style={styles.flex}>
-            <Button label={s.forwarding[id]} kind={which === id ? "ink" : "outline"} onPress={() => setWhich(id)} />
+            <Button
+              label={s.forwarding[id]}
+              kind={which === id ? "ink" : "outline"}
+              selected={which === id}
+              onPress={() => setWhich(id)}
+            />
           </View>
         ))}
       </View>
@@ -243,7 +260,7 @@ function StepExtra({
   }
   switch (extra) {
     case "copyAddress":
-      return data.address ? <ForwardingCard address={data.address} /> : null;
+      return data.address ? <ForwardingCard address={data.address} quiet /> : null;
     case "copyFilter":
       return <CopyBlock text={data.gmailFilter} />;
     case "outlookWords":
@@ -253,7 +270,7 @@ function StepExtra({
     case "otherWords":
       return (
         <View style={styles.extra}>
-          {data.address ? <ForwardingCard address={data.address} /> : null}
+          {data.address ? <ForwardingCard address={data.address} quiet /> : null}
           <Words words={data.allWords} />
         </View>
       );
@@ -317,6 +334,18 @@ export default function GuideScreen() {
     [data, step, mailLang],
   );
 
+  // VoiceOver hears the new step after Back or Next (focus stays on the button).
+  const spoken = `${fill(s.forwarding.stepOf, { n: Math.min(index, steps.length - 1) + 1, count: steps.length })}. ${pieces
+    .map((p) => p.text)
+    .join("")}`;
+  const [announced, setAnnounced] = useState<string | null>(null);
+  useEffect(() => {
+    if (!data || done) return;
+    if (announced !== null && announced !== step.id) AccessibilityInfo.announceForAccessibility(spoken);
+    setAnnounced(step.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per step
+  }, [step.id, data, done]);
+
   if (!data) return null;
 
   const name = s.forwarding.providers[provider];
@@ -366,23 +395,23 @@ export default function GuideScreen() {
             <Text variant="caption" color={colors.inkMuted}>
               {fill(s.forwarding.mailIn, { provider: name })}
             </Text>
-            {LANGS.map((l) => (
+            {LANGS.map((id) => (
               <PressableScale
-                key={l.id}
+                key={id}
                 scaleTo={0.94}
                 onPress={() => {
                   void Haptics.selectionAsync();
-                  setMailLang(l.id);
-                  void AsyncStorage.setItem("guide:v1:lang", l.id).catch(() => {});
+                  setMailLang(id);
+                  void AsyncStorage.setItem("guide:v1:lang", id).catch(() => {});
                 }}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: mailLang === l.id }}
-                accessibilityLabel={l.label}
+                accessibilityState={{ selected: mailLang === id }}
+                accessibilityLabel={LANGUAGE_NAMES[id]}
                 style={styles.langTarget}
               >
-                <View style={[styles.lang, mailLang === l.id && styles.langActive]}>
-                  <Text style={styles.langText} color={mailLang === l.id ? colors.ink : colors.inkMuted}>
-                    {l.label}
+                <View style={[styles.lang, mailLang === id && styles.langActive]}>
+                  <Text style={styles.langText} color={mailLang === id ? colors.ink : colors.inkMuted}>
+                    {LANGUAGE_NAMES[id]}
                   </Text>
                 </View>
               </PressableScale>
@@ -478,5 +507,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: 14,
   },
-  code: { fontFamily: fonts.bold, fontSize: 32, letterSpacing: 4, color: colors.ink },
+  code: { fontFamily: fonts.bold, fontSize: 32, letterSpacing: 4, color: colors.ink, fontVariant: ["tabular-nums"] },
 });

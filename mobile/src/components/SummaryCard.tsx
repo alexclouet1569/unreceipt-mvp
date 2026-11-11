@@ -1,7 +1,9 @@
 // The top of the receipts list: a month's total in the company's currency
 // (the month switches with iOS's own action sheet), how many receipts it
-// holds and how many still need the user. Compact on purpose: one card, so
-// the receipts start high on the screen.
+// holds and how many of them are complete. What still needs the user is
+// counted once, by the "To confirm" section and the tab badge, so this card
+// shows no second honey number. Compact on purpose: one card, so the
+// receipts start high on the screen.
 
 import { useMemo } from "react";
 import { ActionSheetIOS, StyleSheet, View } from "react-native";
@@ -11,7 +13,7 @@ import type { MobileReceipt } from "@/lib/mobile/types";
 import { fill, locale, s } from "../i18n";
 import { formatMoney } from "../lib/format";
 import { inPeriod, periodsFor, totalsFor, type PeriodKey } from "../lib/summary";
-import { colors, fonts, radius, space } from "../theme";
+import { colors, radius, space } from "../theme";
 import { Money } from "./Money";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
@@ -35,7 +37,7 @@ export function SummaryCard({
   const selected = periods.find((p) => p.key === period) ?? periods[0];
   const shown = useMemo(() => inPeriod(receipts, selected.key), [receipts, selected.key]);
   const totals = useMemo(() => totalsFor(shown, homeCurrency), [shown, homeCurrency]);
-  const toConfirm = shown.filter((r) => r.status === "pending_review").length;
+  const complete = shown.filter((r) => r.status === "verified").length;
   const count = shown.length === 1 ? s.summary.receiptOne : fill(s.summary.receiptMany, { count: shown.length });
 
   const choose = () => {
@@ -86,19 +88,19 @@ export function SummaryCard({
           </View>
         ))}
       </PressableScale>
-      <View style={styles.right} accessible accessibilityLabel={toConfirm > 0 ? `${count}, ${fill(s.summary.toConfirm, { count: toConfirm })}` : `${count}, ${s.summary.allComplete}`}>
+      <View
+        style={styles.right}
+        accessible
+        accessibilityLabel={shown.length > 0 ? `${count}, ${fill(s.summary.complete, { count: complete })}` : count}
+      >
         <Text variant="caption" color={colors.inkMuted} numberOfLines={1}>
           {count}
         </Text>
-        {shown.length === 0 ? null : toConfirm > 0 ? (
-          <Text variant="caption" color={colors.attentionDeep} style={styles.strong} numberOfLines={1}>
-            {fill(s.summary.toConfirm, { count: toConfirm })}
-          </Text>
-        ) : (
+        {shown.length > 0 ? (
           <Text variant="caption" color={colors.inkMuted} numberOfLines={1}>
-            {s.summary.allComplete}
+            {fill(s.summary.complete, { count: complete })}
           </Text>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -123,5 +125,4 @@ const styles = StyleSheet.create({
   periodRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   totalRow: { flexDirection: "row", alignItems: "baseline" },
   right: { alignItems: "flex-end", gap: 2, flexShrink: 0, maxWidth: "45%" },
-  strong: { fontFamily: fonts.semibold },
 });

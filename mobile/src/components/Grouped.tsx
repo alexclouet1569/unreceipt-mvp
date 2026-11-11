@@ -106,7 +106,11 @@ export function Row({
   );
   if (!onPress) {
     return (
-      <View accessible={!right} accessibilityLabel={[label, detail, value].filter(Boolean).join(", ")}>
+      <View
+        accessible={!right}
+        accessibilityLabel={[label, detail, value].filter(Boolean).join(", ")}
+        accessibilityState={checked !== undefined ? { selected: checked, disabled } : undefined}
+      >
         {content}
       </View>
     );

@@ -3,15 +3,14 @@
 // Each row pushes its own screen, like iOS Settings. Opens on the saved
 // copy; pull down to refresh.
 
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import Constants from "expo-constants";
 import { useAuth } from "../../../auth/AuthProvider";
-import { Button } from "../../../components/Button";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { Group, Row, Section } from "../../../components/Grouped";
 import { Text } from "../../../components/Text";
-import { fill, s } from "../../../i18n";
+import { fill, LANGUAGE_NAMES, locale, s } from "../../../i18n";
 import type { MobileAccount } from "@/lib/mobile/types";
 import { useAccount } from "../../../lib/AccountProvider";
 import { useHome } from "../../../lib/HomeProvider";
@@ -104,12 +103,24 @@ export default function Account() {
         </View>
       </Section>
 
-      <Section title={s.account.language} note={s.account.languageNote}>
-        {null}
+      {/* The app follows the iPhone's language; its page in the Settings app can change it. */}
+      <Section note={s.account.languageNote}>
+        <Group>
+          <Row
+            first
+            label={s.account.language}
+            value={LANGUAGE_NAMES[locale]}
+            onPress={() => void Linking.openSettings()}
+          />
+        </Group>
       </Section>
 
+      <Group>
+        <Row first label={s.account.signOut} destructive chevron={false} onPress={confirmSignOut} />
+      </Group>
+
+      {/* Kept apart from Sign out, at the very end, like iOS Settings. */}
       <View style={styles.end}>
-        <Button label={s.account.signOut} kind="destructive" onPress={confirmSignOut} />
         <Group>
           <Row first label={s.account.deleteAccount} destructive onPress={() => router.push("/account/delete")} />
         </Group>
@@ -131,6 +142,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
   },
-  end: { marginTop: space.sm, gap: space.md },
+  end: { marginTop: space.xl, gap: space.md },
   center: { textAlign: "center" },
 });

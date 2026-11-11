@@ -38,7 +38,7 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
       </View>
       <Button
         label={s.account.signOut}
-        kind="destructive"
+        kind="outline"
         onPress={() =>
           Alert.alert(s.account.signOutConfirm, unsent > 0 ? fill(s.account.signOutPending, { count: unsent }) : undefined, [
             { text: s.common.cancel, style: "cancel" },
@@ -55,11 +55,15 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
         onRequestClose={() => setDeleting(false)}
       >
         <View style={styles.sheet}>
+          {/* iOS page-sheet bar: Cancel leading, the title centred. */}
           <View style={styles.sheetHeader}>
-            <Text variant="bodyLg" accessibilityRole="header">
+            <View style={styles.sheetSide}>
+              <Button label={s.common.cancel} kind="plain" onPress={() => setDeleting(false)} />
+            </View>
+            <Text variant="merchant" accessibilityRole="header" numberOfLines={1} style={styles.sheetTitle}>
               {s.deletion.title}
             </Text>
-            <Button label={s.common.cancel} kind="plain" onPress={() => setDeleting(false)} />
+            <View style={styles.sheetSide} />
           </View>
           <DeleteAccount />
         </View>
@@ -76,8 +80,10 @@ const styles = StyleSheet.create({
   sheetHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingLeft: space.lg,
     paddingTop: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
   },
+  sheetSide: { width: 110, alignItems: "flex-start" },
+  sheetTitle: { flex: 1, textAlign: "center" },
 });

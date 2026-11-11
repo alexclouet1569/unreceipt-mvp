@@ -13,6 +13,8 @@ import { prepareExport, shareFile } from "./exports";
 export type ExportState = {
   busy: string | null;
   message: string | null;
+  /** The message asks for attention (originals missing), rather than just telling. */
+  warn: boolean;
   /** Several parts: the screen lists them with a Share button each. */
   parts: { uri: string; filename: string }[];
   done: boolean;
@@ -25,11 +27,13 @@ export function useExport(): ExportState {
   const [message, setMessage] = useState<string | null>(null);
   const [parts, setParts] = useState<{ uri: string; filename: string }[]>([]);
   const [done, setDone] = useState(false);
+  const [warn, setWarn] = useState(false);
 
   // A note on a finished export stays on the screen; a problem is an alert,
   // so it's seen wherever the tapped row was in a long list.
-  const say = (text: string) => {
+  const say = (text: string, attention = false) => {
     setMessage(text);
+    setWarn(attention);
     AccessibilityInfo.announceForAccessibility(text);
   };
   const fail = (text: string) => {
@@ -57,12 +61,16 @@ export function useExport(): ExportState {
           case "ready": {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setDone(true);
-            if (outcome.missing > 0) say(fill(s.exporting.missing, { count: outcome.missing }));
+            if (outcome.missing > 0) say(fill(s.exporting.missing, { count: outcome.missing }), true);
             if (outcome.files.length === 1) {
               await share(outcome.files[0].uri);
             } else {
               setParts(outcome.files);
-              say(fill(s.exporting.parts, { count: outcome.files.length }));
+              const parts = fill(s.exporting.parts, { count: outcome.files.length });
+              say(
+                outcome.missing > 0 ? `${fill(s.exporting.missing, { count: outcome.missing })} ${parts}` : parts,
+                outcome.missing > 0,
+              );
             }
             break;
           }
@@ -92,5 +100,5 @@ export function useExport(): ExportState {
     [busy, share],
   );
 
-  return { busy, message, parts, done, run, share };
+  return { busy, message, warn, parts, done, run, share };
 }

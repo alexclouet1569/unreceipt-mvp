@@ -44,7 +44,11 @@ export default function AccountantScreen() {
   const { email: ownEmail } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
   const [email, setEmail] = useState("");
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteError, setShownError] = useState<string | null>(null);
+  const setInviteError = (text: string | null) => {
+    setShownError(text);
+    if (text) AccessibilityInfo.announceForAccessibility(text);
+  };
   const [sentTo, setSentTo] = useState<string | null>(null);
   if (!account) return null;
 
@@ -148,7 +152,7 @@ export default function AccountantScreen() {
                 <Switch
                   value={!link.reminders.optedOut}
                   disabled={busy !== null}
-                  trackColor={{ true: colors.brandAction }}
+                  trackColor={{ true: colors.ink, false: colors.inkFaint }}
                   accessibilityLabel={fill(s.accountant.remindersTitle, { firm: link.name })}
                   accessibilityHint={remindersText(link.reminders)}
                   onValueChange={(on) =>
@@ -246,12 +250,12 @@ export default function AccountantScreen() {
       ) : null}
 
       {inviteError ? (
-        <Text variant="caption" color={colors.attentionDeep} accessibilityLiveRegion="polite">
+        <Text variant="caption" color={colors.attentionDeep}>
           {inviteError}
         </Text>
       ) : null}
       {sentTo ? (
-        <Text variant="caption" color={colors.ink} accessibilityLiveRegion="polite">
+        <Text variant="caption" color={colors.ink}>
           {fill(s.accountant.sent, { email: sentTo })}
         </Text>
       ) : null}

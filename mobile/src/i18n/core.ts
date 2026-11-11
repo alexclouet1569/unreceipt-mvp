@@ -23,6 +23,9 @@ export function pickLocale(languageCodes: ReadonlyArray<string | null | undefine
   return "en";
 }
 
+/** Each language in its own name (the same in every language of the app). */
+export const LANGUAGE_NAMES: Record<Locale, string> = { en: "English", sv: "Svenska", fr: "Français" };
+
 export function stringsFor(locale: Locale): Strings {
   return STRINGS[locale];
 }

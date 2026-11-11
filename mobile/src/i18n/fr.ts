@@ -52,8 +52,7 @@ export const fr: Strings = {
     about: "environ {amount}",
     receiptOne: "1 reçu",
     receiptMany: "{count} reçus",
-    toConfirm: "{count} à confirmer",
-    allComplete: "Tous complets",
+    complete: "{count} complets",
     filterAll: "Tous",
     filterLabel: "Catégorie",
   },
@@ -222,7 +221,7 @@ export const fr: Strings = {
   },
   deletion: {
     title: "Supprimer votre compte",
-    body: "Cela supprime définitivement votre compte, tous vos reçus et tous les fichiers d’origine que nous conservons. C’est irréversible. Tout abonnement est résilié immédiatement.",
+    body: "Cela supprime définitivement votre compte, tous vos reçus et tous les fichiers d’origine que nous conservons. C’est irréversible.",
     firmBody: "Cela supprime définitivement votre accès à UnReceipt. C’est irréversible. Les reçus de vos clients leur appartiennent et restent dans leurs propres comptes.",
     firmStays: "Vous quittez {firm}. Vos collègues gardent l’accès à tous les clients.",
     firmHandover: "Vous êtes le seul administrateur de {firm}. {email} devient administrateur à votre départ et garde l’accès à tous les clients.",

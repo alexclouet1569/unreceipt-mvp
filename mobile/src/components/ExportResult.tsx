@@ -14,7 +14,7 @@ export function ExportResult({ state }: { state: ExportState }) {
   return (
     <Animated.View entering={FadeIn.duration(durations.short)} style={styles.wrap}>
       {state.message ? (
-        <Text variant="caption" color={colors.inkMuted}>
+        <Text variant="caption" color={state.warn ? colors.attentionDeep : colors.inkMuted}>
           {state.message}
         </Text>
       ) : null}
