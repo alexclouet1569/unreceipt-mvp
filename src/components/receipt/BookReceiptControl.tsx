@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BookCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDate } from "@/lib/receipt-format";
+import { formatInstantDate } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 
 /**
@@ -50,7 +50,7 @@ export function BookReceiptControl({ receipt }: { receipt: Receipt }) {
       <div className="space-y-2">
         <p className="flex items-center gap-1.5 text-[var(--ink)]" style={{ fontSize: "14px" }}>
           <BookCheck className="w-4 h-4 text-[var(--ink)]" aria-hidden="true" />
-          Booked {formatDate(receipt.booked_at)}
+          Booked {formatInstantDate(receipt.booked_at)}
           {receipt.booked_ref ? ` · ref ${receipt.booked_ref}` : ""}
         </p>
         <Button type="button" variant="outline" className="w-full h-11" onClick={() => call(false)} disabled={busy}>

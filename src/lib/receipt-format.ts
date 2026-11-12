@@ -8,6 +8,7 @@
  * in supabase/schema.sql.
  */
 
+import { dayOf, localDate } from "@/lib/receipts/printed-day";
 import type { ReceiptCategory } from "./types";
 
 export type CategoryKey = ReceiptCategory;
@@ -122,9 +123,30 @@ export function formatQty(qty: number): string {
  */
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
+  // The printed day as written (src/lib/receipts/printed-day.ts): a
+  // purchased_at is the receipt's own clock with a "Z", so it is formatted
+  // in UTC, never moved into the reader's time zone.
+  const day = dayOf(dateStr);
+  if (!day) return dateStr;
+  return new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * A real moment (when something was booked, uploaded or accepted) as a
+ * date in Swedish time, the product's day. Not for a receipt's own date,
+ * which is printed and never shifted: use formatDate() for that.
+ */
+export function formatInstantDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-US", {
+    timeZone: "Europe/Stockholm",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -145,8 +167,11 @@ export function relativeDayGroup(
   now: Date = new Date()
 ): string {
   if (!dateStr) return "Earlier";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "Earlier";
+  // The printed day as a local calendar date: "Today" is the reader's
+  // today, and the receipt's day is never shifted (printed-day.ts).
+  const day = dayOf(dateStr);
+  if (!day) return "Earlier";
+  const d = localDate(day);
 
   const startOfDay = (dt: Date) => {
     const x = new Date(dt);

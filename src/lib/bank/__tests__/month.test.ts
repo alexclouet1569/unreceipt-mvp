@@ -44,10 +44,11 @@ describe("month helpers", () => {
     });
   });
 
-  it("reads the receipt's day from receipt_date, else purchased_at in Stockholm", () => {
+  it("reads the receipt's day from receipt_date, else purchased_at's date as printed", () => {
     expect(receiptDay({ receipt_date: "2026-11-03", purchased_at: null })).toBe("2026-11-03");
-    // 23:30 UTC on the 2nd is the 3rd in Stockholm.
-    expect(receiptDay({ receipt_date: null, purchased_at: "2026-11-02T23:30:00Z" })).toBe("2026-11-03");
+    // purchased_at is the receipt's own clock with a "Z": 23:30 on the 2nd
+    // is the 2nd, not the 3rd (it used to be shifted into Stockholm time).
+    expect(receiptDay({ receipt_date: null, purchased_at: "2026-11-02T23:30:00Z" })).toBe("2026-11-02");
     expect(receiptDay({ receipt_date: null, purchased_at: null })).toBeNull();
   });
 });

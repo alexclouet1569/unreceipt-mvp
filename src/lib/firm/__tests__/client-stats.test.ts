@@ -5,6 +5,8 @@ import {
   monthBounds,
   monthKey,
   monthLabel,
+  printedMonthFilter,
+  receiptMonth,
   resolveMonth,
 } from "@/lib/firm/client-stats";
 
@@ -76,5 +78,18 @@ describe("month helpers", () => {
 
   it("labels a month", () => {
     expect(monthLabel("2026-11")).toBe("November 2026");
+  });
+});
+
+describe("printed month (firm pages)", () => {
+  it("filters on receipt_date, else purchased_at's printed day, across the year end", () => {
+    expect(printedMonthFilter("2026-12")).toBe(
+      "and(receipt_date.gte.2026-12-01,receipt_date.lt.2027-01-01)," +
+        "and(receipt_date.is.null,purchased_at.gte.2026-12-01T00:00:00Z,purchased_at.lt.2027-01-01T00:00:00Z)",
+    );
+  });
+
+  it("files a receipt dated only by receipt_date in its printed month, not the month it arrived", () => {
+    expect(receiptMonth({ receipt_date: "2026-09-14", purchased_at: null, created_at: "2026-11-02T08:00:00Z" })).toBe("2026-09");
   });
 });
