@@ -65,6 +65,30 @@ function Line({ label, value, mono = false, wrap = false }: { label: string; val
   );
 }
 
+/** An item: its name (× quantity) in Manrope, the unit price and line total in Geist Mono. */
+function Item({ label, unit, value }: { label: string; unit: string | null; value: string }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <View style={styles.line} accessible accessibilityLabel={`${label}${unit ? ` @ ${unit}` : ""}: ${value}`}>
+      <Text variant="caption" color={colors.inkMuted} style={styles.lineLabelWrap}>
+        {label}
+        {unit ? (
+          <>
+            {" @ "}
+            <Text variant="amountRow" color={colors.inkMuted}>
+              {unit}
+            </Text>
+          </>
+        ) : null}
+      </Text>
+      <Text variant="amountRow" color={colors.ink} style={styles.lineValue}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 function Stamp({ stamp }: { stamp: MobileReceiptDetail["stamp"] }) {
   const styles = useStyles();
   const colors = useColors();
@@ -99,13 +123,7 @@ export function DigitalReceipt({
   const colors = useColors();
   const money = (n: number) => formatMoney(n, r.currency, locale);
   const date = parseReceiptDate(r.date);
-  const when = [
-    date ? longDate(date, locale) : null,
-    d?.time ?? null,
-    d?.cardLastFour ? fill(s.detail.card, { last4: d.cardLastFour }) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const when = [date ? longDate(date, locale) : null, d?.time ?? null].filter(Boolean).join(" · ");
   const converted =
     r.homeCurrency && r.homeCurrency !== r.currency && r.homeTotal != null
       ? {
@@ -159,6 +177,7 @@ export function DigitalReceipt({
         <View style={styles.tags}>
           <PressableScale
             scaleTo={0.96}
+            hitSlop={{ top: 5, bottom: 5 }}
             onPress={() => onEdit("category")}
             accessibilityRole="button"
             accessibilityLabel={`${s.edit.category}: ${s.categories[r.category]}`}
@@ -170,31 +189,32 @@ export function DigitalReceipt({
           </PressableScale>
           <PressableScale
             scaleTo={0.96}
+            hitSlop={{ top: 5, bottom: 5 }}
             onPress={() => onEdit("date")}
             accessibilityRole="button"
             accessibilityLabel={`${s.edit.date}: ${when || s.edit.addDate}`}
             style={styles.tag}
           >
-            <Text variant="caption" style={styles.tabular} color={date ? colors.ink : colors.negative}>
+            <Text variant="caption" style={styles.tabular} color={date ? colors.ink : colors.negative} numberOfLines={1}>
               {when || s.edit.addDate}
             </Text>
           </PressableScale>
         </View>
+        {d?.cardLastFour ? (
+          <Text variant="caption" style={styles.tabular} color={colors.inkMuted}>
+            {fill(s.detail.card, { last4: d.cardLastFour })}
+          </Text>
+        ) : null}
 
         {d && d.items.length > 0 ? (
           <>
             <Rule />
             <View style={styles.block} accessibilityLabel={s.detail.items}>
               {d.items.map((item, i) => (
-                <Line
+                <Item
                   key={i}
-                  wrap
-                  mono
-                  label={
-                    item.qty != null && item.qty !== 1
-                      ? `${item.label} × ${item.qty}${item.unitAmount != null ? ` @ ${money(item.unitAmount)}` : ""}`
-                      : item.label
-                  }
+                  label={item.qty != null && item.qty !== 1 ? `${item.label} × ${item.qty}` : item.label}
+                  unit={item.qty != null && item.qty !== 1 && item.unitAmount != null ? money(item.unitAmount) : null}
                   value={formatMoney(item.total, "XXX", locale).replace(/\s*XXX$/, "")}
                 />
               ))}

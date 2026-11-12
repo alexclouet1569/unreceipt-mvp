@@ -50,6 +50,10 @@ export default function EditField() {
   const initialDate = parseReceiptDate(r?.date ?? null);
   const [date, setDate] = useState<Date>(initialDate ?? new Date());
   const [dateTouched, setDateTouched] = useState(false);
+  // Edit-all on a receipt without a date: "Add date" until tapped, so the
+  // picker never shows today as if it were the receipt's day.
+  const [dateOpen, setDateOpen] = useState(initialDate != null);
+  const [focused, setFocused] = useState<"merchant" | "amount" | null>(null);
   const [category, setCategory] = useState<ReceiptPatch["category"]>(r?.category);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,13 +141,15 @@ export default function EditField() {
             placeholder={s.edit.merchantPlaceholder}
             placeholderTextColor={colors.inkFaint}
             autoFocus={!all}
+            onFocus={() => setFocused("merchant")}
+            onBlur={() => setFocused(null)}
             autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={onSave}
             maxLength={200}
             maxFontSizeMultiplier={1.4}
             accessibilityLabel={s.edit.merchant}
-            style={styles.input}
+            style={[styles.input, all && focused !== "merchant" && styles.inputQuiet]}
           />
         ) : null}
 
@@ -163,10 +169,17 @@ export default function EditField() {
               placeholder={s.edit.amountPlaceholder}
               placeholderTextColor={colors.inkFaint}
               autoFocus={!all}
+              onFocus={() => setFocused("amount")}
+              onBlur={() => setFocused(null)}
               keyboardType="decimal-pad"
               maxFontSizeMultiplier={1.2}
               accessibilityLabel={s.edit.amount}
-              style={[styles.input, styles.amountInput, error && styles.inputError]}
+              style={[
+                styles.input,
+                styles.amountInput,
+                all && focused !== "amount" && styles.inputQuiet,
+                error && styles.inputError,
+              ]}
             />
             {error ? (
               <Text variant="caption" color={colors.attentionDeep}>
@@ -207,21 +220,41 @@ export default function EditField() {
 
         {all ? (
           <View style={styles.inlineRow}>
-            <Text variant="micro" color={colors.inkMuted}>
+            <Text variant="micro" color={colors.inkMuted} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               {s.edit.date}
             </Text>
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="compact"
-              maximumDate={new Date()}
-              locale={INTL_LOCALE[locale]}
-              accentColor={colors.brandAction}
-              onValueChange={(_e, d) => {
-                setDate(d);
-                setDateTouched(true);
-              }}
-            />
+            {dateOpen ? (
+              <DateTimePicker
+                value={date}
+                mode="date"
+                display="compact"
+                maximumDate={new Date()}
+                locale={INTL_LOCALE[locale]}
+                accentColor={colors.brandAction}
+                accessibilityLabel={s.edit.date}
+                onValueChange={(_e, d) => {
+                  setDate(d);
+                  setDateTouched(true);
+                }}
+              />
+            ) : (
+              <PressableScale
+                scaleTo={0.96}
+                onPress={() => {
+                  // Today until another day is picked.
+                  setDateOpen(true);
+                  setDateTouched(true);
+                  void Haptics.selectionAsync();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${s.edit.date}: ${s.edit.addDate}`}
+                style={styles.addDate}
+              >
+                <Text variant="body" style={styles.addDateText} color={colors.negative}>
+                  {s.edit.addDate}
+                </Text>
+              </PressableScale>
+            )}
           </View>
         ) : null}
         {field === "date" ? (
@@ -299,6 +332,10 @@ const useStyles = makeStyles((colors) => ({
   // An amount is money: Geist Mono (DESIGN.md).
   amountInput: { fontFamily: fonts.mono, fontSize: 28, minHeight: 64, fontVariant: ["tabular-nums"] },
   inputError: { borderColor: colors.attention },
+  // Edit-all: only the field being typed in is green (one green per screen).
+  inputQuiet: { borderWidth: 1, borderColor: colors.hairline },
+  addDate: { minHeight: 44, justifyContent: "center" },
+  addDateText: { fontFamily: fonts.semibold },
   chips: { flexDirection: "row", gap: space.sm },
   chip: {
     minHeight: 44,

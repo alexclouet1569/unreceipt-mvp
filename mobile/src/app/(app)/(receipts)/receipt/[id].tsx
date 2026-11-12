@@ -59,6 +59,7 @@ function Action({
   onPress,
   busy = false,
   muted = false,
+  hint,
   destructive = false,
 }: {
   icon: SFSymbol;
@@ -67,6 +68,8 @@ function Action({
   busy?: boolean;
   /** Looks unavailable but still answers (it explains why). */
   muted?: boolean;
+  /** Why it is unavailable, told to VoiceOver before the tap. */
+  hint?: string;
   destructive?: boolean;
 }) {
   const styles = useStyles();
@@ -79,7 +82,8 @@ function Action({
       disabled={busy}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ busy, disabled: muted }}
+      accessibilityHint={muted ? hint : undefined}
+      accessibilityState={{ busy }}
       style={styles.action}
     >
       <View style={styles.actionIcon}>
@@ -253,6 +257,7 @@ export default function ReceiptDetail() {
           label={s.detail.pdf}
           busy={busy === "pdf"}
           muted={!pdfReady}
+          hint={s.detail.pdfNotReady}
           onPress={() => (pdfReady ? void run("pdf") : Alert.alert(s.detail.pdfNotReady))}
         />
         <Action
@@ -260,6 +265,7 @@ export default function ReceiptDetail() {
           label={s.detail.original}
           busy={busy === "original"}
           muted={!r.original}
+          hint={s.detail.noOriginal}
           onPress={() => (r.original ? void run("original") : Alert.alert(s.detail.noOriginal))}
         />
         <Action icon="pencil" label={s.detail.editShort} onPress={() => edit(routes.edit, r.id, "all")} />

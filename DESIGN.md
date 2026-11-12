@@ -121,7 +121,7 @@ Per mode, not per token:
 - **Tab badge:** iOS draws its text white, so the badge keeps the light `--attention-deep` `#8C6320` in both modes (5.4:1).
 - **Photo viewer:** always on a dark ground (`#303568` light, `#0F1124` dark), never on cream.
 - **Wordmark, header and empty-state marks** use the brand book's on-dark set: cream receipt with green lines and arrow, one cream colour for the wordmark. The **app-icon tile** (sign-in, status screens) is the same in both modes: navy tile, cream receipt, as the splash before it.
-- **Charts:** while a bar is chosen the other bars and their previous-period outlines dim to 45 %; the chosen pair stays full, so the choice reads by lightness and not only by hue (on dark the green and the muted bars are almost equally light). Both modes.
+- **Charts:** while a bar is chosen the other bars dim to 45 % (on the website, their previous-period outlines too; the iPhone app draws none); the chosen bar (pair, on the website) stays full, so the choice reads by lightness and not only by hue (on dark the green and the muted bars are almost equally light). Both modes.
 - **Date pickers** follow the appearance (iOS draws the inline calendar).
 - **Category colours** keep their hues, lightened to at least 5.5:1 on the dark card: travel `#7D9CCB`, transport `#6AAAB8`, meals `#C98473`, accommodation `#A78BC9`, software `#8C92D6`, office supplies `#A4A8C0`, client entertainment `#D67A92`, other `--ink-faint`. Merchant initials blocks keep the light palette (white initials at AA on every colour).
 - **Splash:** the navy app tile on `#0F1124`.
