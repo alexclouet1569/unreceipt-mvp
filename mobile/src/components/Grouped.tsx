@@ -4,7 +4,7 @@
 
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SymbolView } from "expo-symbols";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
@@ -17,6 +17,8 @@ export function Section({
   note?: string | null;
   children: React.ReactNode;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.section}>
       {title ? (
@@ -36,6 +38,7 @@ export function Section({
 
 /** The white card that holds rows. */
 export function Group({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.group}>{children}</View>;
 }
 
@@ -71,6 +74,8 @@ export function Row({
   /** A control on the right instead of value/chevron (a Switch). */
   right?: React.ReactNode;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const content = (
     <View style={[styles.row, !first && styles.divider]}>
       <View style={styles.texts}>
@@ -130,7 +135,7 @@ export function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   section: { gap: space.sm },
   title: { marginLeft: 4 },
   note: { marginHorizontal: 4 },
@@ -154,4 +159,4 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20 },
   end: { flexDirection: "row", alignItems: "center", gap: space.sm, maxWidth: "55%" },
   value: { flexShrink: 1 },
-});
+}));

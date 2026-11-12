@@ -22,7 +22,7 @@ import {
   type Part,
   type ReadyAnalytics,
 } from "../../lib/insights";
-import { colors, durations, fonts, space } from "../../theme";
+import { durations, fonts, space, useColors } from "../../theme";
 import { Text } from "../Text";
 import { Parts } from "./Parts";
 
@@ -101,6 +101,7 @@ const spoken = (parts: Part[] | null) => (parts ? partsText(parts) : null);
 
 /** Bar labels laid out on their bar, every `every`th one, never cut. */
 function AxisLabels({ labels, width }: { labels: string[]; width: number }) {
+  const colors = useColors();
   const n = labels.length;
   const slot = width / Math.max(1, n);
   // About 6 pt per character at 10 pt: room for the longest label.
@@ -127,6 +128,7 @@ function AxisLabels({ labels, width }: { labels: string[]; width: number }) {
 
 /** Bars per day, week or month, with the period before as ghosts. */
 export function BarChart({ a }: { a: ReadyAnalytics }) {
+  const colors = useColors();
   const [width, setWidth] = useState(0);
   const n = a.buckets.length;
   const today = todayIndex(a);
@@ -185,8 +187,20 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
                 if (h <= 0) return null;
                 const x = i * slot + (slot - barW) / 2;
                 const on = sel != null ? i === sel : i === today;
+                // While a bar is chosen the others dim, so the choice reads by
+                // lightness too, not only by hue (on dark the green and the
+                // muted bars are almost equally light).
                 return (
-                  <Rect key={i} x={x} y={HEIGHT - h} width={barW} height={h} rx={3} fill={on ? colors.brandAction : colors.inkMuted} />
+                  <Rect
+                    key={i}
+                    x={x}
+                    y={HEIGHT - h}
+                    width={barW}
+                    height={h}
+                    rx={3}
+                    fill={on ? colors.brandAction : colors.inkMuted}
+                    opacity={sel != null && !on ? 0.45 : 1}
+                  />
                 );
               })}
             </Svg>
@@ -203,6 +217,7 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
  * as a hairline behind it, so "am I spending faster?" reads at a glance.
  */
 export function PaceChart({ a }: { a: ReadyAnalytics }) {
+  const colors = useColors();
   const [width, setWidth] = useState(0);
   const n = a.buckets.length;
   const today = todayIndex(a);

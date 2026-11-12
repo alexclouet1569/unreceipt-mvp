@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet } from "react-native";
-import { colors, fonts, radius } from "../theme";
+import { fonts, radius, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
@@ -20,6 +20,8 @@ export function Button({
   /** One of a choice (Yahoo or Proton): told to VoiceOver. */
   selected?: boolean;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const inactive = disabled || busy;
   const primary = kind === "primary";
   const filled = primary || kind === "ink";
@@ -40,13 +42,15 @@ export function Button({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={filled ? colors.white : colors.ink} />
+        <ActivityIndicator color={primary ? colors.onBrandAction : filled ? colors.onInk : colors.ink} />
       ) : (
         <Text
           style={styles.label}
           color={
-            filled
-              ? colors.white
+            primary
+              ? colors.onBrandAction
+              : filled
+                ? colors.onInk
               : kind === "destructive"
                 ? colors.negative
                 : kind === "outline"
@@ -61,7 +65,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   base: {
     minHeight: 52,
     borderRadius: radius.md,
@@ -70,9 +74,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   primary: { backgroundColor: colors.brandAction },
-  ink: { backgroundColor: colors.ink },
+  ink: { backgroundColor: colors.inkFill },
   outline: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline },
   plain: { backgroundColor: "transparent" },
   inactive: { opacity: 0.45 },
   label: { fontFamily: fonts.bold, fontSize: 16 },
-});
+}));

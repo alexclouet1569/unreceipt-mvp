@@ -13,7 +13,7 @@ import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reani
 import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
@@ -29,6 +29,8 @@ export function closeOpenSwipe() {
 }
 
 function DeleteAction({ progress, onPress }: { progress: SharedValue<number>; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const visible = useAnimatedStyle(() => ({ opacity: progress.value > 0.01 ? 1 : 0 }));
   return (
     <Animated.View
@@ -47,6 +49,7 @@ function DeleteAction({ progress, onPress }: { progress: SharedValue<number>; on
 }
 
 export function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children: React.ReactNode }) {
+  const styles = useStyles();
   const ref = useRef<SwipeableMethods>(null);
   return (
     <Swipeable
@@ -80,17 +83,17 @@ export function SwipeToDelete({ onDelete, children }: { onDelete: () => void; ch
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { overflow: "visible" },
   actionWrap: { width: ACTION_WIDTH + space.lg, paddingRight: space.lg, marginBottom: space.sm },
   action: {
     flex: 1,
     borderRadius: radius.lg,
-    backgroundColor: colors.negative,
+    backgroundColor: colors.destructiveFill,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
     paddingHorizontal: space.xs,
   },
   label: { fontFamily: fonts.bold, fontSize: 13 },
-});
+}));

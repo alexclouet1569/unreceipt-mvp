@@ -10,9 +10,10 @@ import { HomeProvider, useHome } from "../../lib/HomeProvider";
 import { ReceiptActionsProvider } from "../../lib/ReceiptActions";
 import { ScanProvider } from "../../lib/scans/ScanProvider";
 import { overallCounts } from "../../lib/summary";
-import { colors } from "../../theme";
+import { useColors } from "../../theme";
 
 function Tabs() {
+  const colors = useColors();
   const { home } = useHome();
   if (home?.state === "firm_only") {
     return <StatusScreen title={s.states.firmOnlyTitle} body={s.states.firmOnlyBody} />;
@@ -26,8 +27,9 @@ function Tabs() {
   return (
     <NativeTabs
       tintColor={colors.brandAction}
-      // Review-needed is honey, never red (DESIGN.md); white on attentionDeep is 5.4:1.
-      badgeBackgroundColor={colors.attentionDeep}
+      // Review-needed is honey, never red (DESIGN.md); the system draws the
+      // badge text white, 5.4:1 on this honey in both modes.
+      badgeBackgroundColor={colors.badge}
       minimizeBehavior="onScrollDown"
     >
       <NativeTabs.Trigger name="(receipts)">

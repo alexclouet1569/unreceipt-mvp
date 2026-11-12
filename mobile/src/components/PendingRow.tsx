@@ -9,7 +9,7 @@ import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { s } from "../i18n";
 import type { PendingScan } from "../lib/scans/queue";
-import { colors, durations, fonts, radius, space } from "../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
@@ -27,6 +27,7 @@ function message(scan: PendingScan): string {
 }
 
 function SmallButton({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+  const styles = useStyles();
   return (
     <PressableScale
       scaleTo={0.94}
@@ -52,6 +53,8 @@ export function PendingRow({
   onRemove: () => void;
   onRetry: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const stuck = scan.state === "notReceipt" || scan.state === "failed";
   const offline = scan.state === "waiting" && scan.attempts > 0;
   return (
@@ -96,7 +99,7 @@ export function PendingRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -118,4 +121,4 @@ const styles = StyleSheet.create({
   buttons: { flexDirection: "row", gap: space.lg },
   button: { minHeight: 44, justifyContent: "center" },
   buttonLabel: { fontFamily: fonts.bold },
-});
+}));

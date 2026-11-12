@@ -12,7 +12,7 @@ import * as Haptics from "expo-haptics";
 import { fill, s } from "../i18n";
 import { ApiError, respondToInvite } from "../lib/api";
 import { useHome } from "../lib/HomeProvider";
-import { colors, durations, radius, space } from "../theme";
+import { durations, radius, space, makeStyles, useColors } from "../theme";
 import { Button } from "./Button";
 import { Text } from "./Text";
 
@@ -27,6 +27,8 @@ function errorText(status: number, code: string | null): string {
 }
 
 export function InviteCard({ invite }: { invite: { id: string; firmName: string } }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { mutateHome, refresh } = useHome();
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +122,7 @@ export function InviteCard({ invite }: { invite: { id: string; firmName: string 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     gap: space.md,
     backgroundColor: colors.card,
@@ -135,4 +137,4 @@ const styles = StyleSheet.create({
   text: { gap: space.xs },
   buttons: { flexDirection: "row", gap: space.sm },
   button: { flex: 1 },
-});
+}));

@@ -11,9 +11,10 @@ import { locale, s } from "../../../i18n";
 import { useAccount } from "../../../lib/AccountProvider";
 import { exportPeriods } from "../../../lib/export-periods";
 import { useExport } from "../../../lib/useExport";
-import { colors, space } from "../../../theme";
+import { space, useColors } from "../../../theme";
 
 export default function ExportScreen() {
+  const colors = useColors();
   const { account } = useAccount();
   const exporter = useExport();
   const { months, years } = useMemo(() => exportPeriods(account?.firstMonth ?? null, locale), [account?.firstMonth]);

@@ -25,6 +25,11 @@ function originalOf(r: Receipt): MobileReceipt["original"] {
   return r.image_url ? kindOf(r.image_url, null) : null;
 }
 
+/** The home list's sort key of a receipt: "<purchased_at>|<created_at>|<id>" (purchased_at may be empty). */
+export function listKeyOf(r: Pick<Receipt, "purchased_at" | "created_at" | "id">): string {
+  return `${r.purchased_at ?? ""}|${r.created_at}|${r.id}`;
+}
+
 export function toMobileReceipt(r: Receipt): MobileReceipt {
   return {
     id: r.id,
@@ -42,6 +47,7 @@ export function toMobileReceipt(r: Receipt): MobileReceipt {
     // when purchased_at is on that same day, as the app shows the time.
     date: dayOf(r.purchased_at) != null && dayOf(r.purchased_at) === printedDay(r) ? r.purchased_at : printedDay(r),
     createdAt: r.created_at,
+    listKey: listKeyOf(r),
     original: originalOf(r),
     notes: userNotes(r.notes),
     possibleDuplicate: isPossibleDuplicate(r.notes),

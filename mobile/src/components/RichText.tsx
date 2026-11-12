@@ -2,15 +2,17 @@
 
 import type { TextProps } from "react-native";
 import type { Piece } from "../lib/forwarding-guide";
-import { colors, fonts } from "../theme";
+import { fonts, useColors } from "../theme";
 import { Text } from "./Text";
 
 export function RichText({
   pieces,
   variant = "bodyLg",
-  color = colors.ink,
+  color: colorProp,
   ...rest
 }: { pieces: Piece[]; variant?: "bodyLg" | "body" | "caption"; color?: string } & TextProps) {
+  const colors = useColors();
+  const color = colorProp ?? colors.ink;
   return (
     <Text variant={variant} color={color} {...rest}>
       {pieces.map((p, i) =>

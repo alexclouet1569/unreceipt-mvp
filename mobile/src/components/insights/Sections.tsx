@@ -21,13 +21,15 @@ import {
   type ReadyAnalytics,
 } from "../../lib/insights";
 import { getMerchantColor, getMerchantInitials } from "../../lib/merchant";
-import { colors, fonts, radius, space } from "../../theme";
+import { fonts, radius, space, makeStyles, useColors, useScheme } from "../../theme";
 import { Money } from "../Money";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
 import { Parts } from "./Parts";
 
 export function SectionTitle({ children }: { children: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Text variant="micro" color={colors.inkMuted} accessibilityRole="header" style={styles.sectionTitle}>
       {children}
@@ -36,6 +38,7 @@ export function SectionTitle({ children }: { children: string }) {
 }
 
 function Chevron() {
+  const colors = useColors();
   return <SymbolView name="chevron.right" size={12} weight="semibold" tintColor={colors.inkFaint} />;
 }
 
@@ -59,6 +62,8 @@ function Row({
   onPress: () => void;
   label: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <PressableScale
       scaleTo={0.99}
@@ -98,6 +103,8 @@ export function Categories({
   a: ReadyAnalytics;
   onOpen: (c: AnalyticsCategory) => void;
 }) {
+  const scheme = useScheme();
+  const styles = useStyles();
   const shown = a.categories.filter((c) => c.count > 0);
   if (shown.length === 0) return null;
   const withAmount = shown.filter((c) => c.amount > 0);
@@ -107,7 +114,7 @@ export function Categories({
       {withAmount.length > 0 ? (
         <View style={styles.stack} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {withAmount.map((c) => (
-            <View key={c.category} style={{ flex: Math.max(c.share, 0.01), backgroundColor: categoryColor(c.category) }} />
+            <View key={c.category} style={{ flex: Math.max(c.share, 0.01), backgroundColor: categoryColor(c.category, scheme) }} />
           ))}
         </View>
       ) : null}
@@ -119,7 +126,7 @@ export function Categories({
             <Row
               key={c.category}
               first={i === 0}
-              left={<View style={[styles.dot, { backgroundColor: categoryColor(c.category) }]} />}
+              left={<View style={[styles.dot, { backgroundColor: categoryColor(c.category, scheme) }]} />}
               title={name}
               detail={detail}
               amount={c.amount}
@@ -135,6 +142,8 @@ export function Categories({
 }
 
 export function Merchants({ a, onOpen }: { a: ReadyAnalytics; onOpen: (m: AnalyticsMerchant) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   if (a.merchants.length === 0) return null;
   return (
     <View>
@@ -183,6 +192,8 @@ export function Findings({
   a: ReadyAnalytics;
   onOpen: (i: AnalyticsInsight) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   if (a.insights.length === 0) return null;
   return (
     <View>
@@ -227,6 +238,8 @@ export function Findings({
 }
 
 function Leader({ label, amount, currency, strong = false }: { label: string; amount: number; currency: string; strong?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.leader} accessible accessibilityLabel={`${label}: ${formatMoney(amount, currency, locale)}`}>
       <Text variant={strong ? "merchant" : "caption"} color={strong ? colors.ink : colors.inkMuted} style={styles.leaderLabel}>
@@ -241,6 +254,8 @@ const rateText = (rate: number | null) =>
   rate == null ? s.insights.vatRateUnknown : fill(s.insights.vatRate, { rate: percentText(rate, locale) });
 
 export function VatPanel({ a, onToCheck }: { a: ReadyAnalytics; onToCheck: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const v = a.vat;
   if (v.total === 0 && v.withoutVat === 0 && v.foreign === 0) return null;
   return (
@@ -308,6 +323,8 @@ export function Quality({
   a: ReadyAnalytics;
   onOpen: (which: "missing_amount" | "unconverted") => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const q = a.quality;
   const items: { key: string; text: string; open?: () => void }[] = [];
   if (q.missingAmount > 0)
@@ -355,7 +372,7 @@ export function Quality({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   sectionTitle: { marginHorizontal: space.lg, marginTop: space.xl, marginBottom: space.sm },
   card: {
     marginHorizontal: space.lg,
@@ -422,4 +439,4 @@ const styles = StyleSheet.create({
   toCheck: { minHeight: 44, justifyContent: "center" },
   vatNote: { marginTop: space.xs },
   qualityRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 52, paddingVertical: 10, paddingHorizontal: 14 },
-});
+}));

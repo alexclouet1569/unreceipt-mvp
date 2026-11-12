@@ -8,7 +8,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
 import type { CategoryCount, ListFilter } from "../lib/summary";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
@@ -25,6 +25,8 @@ function Chip({
   attention?: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <PressableScale
       scaleTo={0.94}
@@ -63,6 +65,7 @@ export function CategoryChips({
   selected: ListFilter;
   onSelect: (filter: ListFilter) => void;
 }) {
+  const styles = useStyles();
   // Nothing to filter: every chip would show the same list.
   if (counts.length < 2 && toConfirm === 0) return null;
   return (
@@ -95,7 +98,7 @@ export function CategoryChips({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   scroller: { marginTop: space.sm, flexGrow: 0 },
   row: { paddingHorizontal: space.lg, gap: space.xs },
   target: { minHeight: 44, justifyContent: "center" },
@@ -114,4 +117,4 @@ const styles = StyleSheet.create({
   activeAttention: { backgroundColor: colors.card, borderColor: colors.attention },
   label: { fontFamily: fonts.semibold, fontSize: 14 },
   count: { fontVariant: ["tabular-nums"] },
-});
+}));

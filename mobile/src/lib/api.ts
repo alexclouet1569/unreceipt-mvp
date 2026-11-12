@@ -11,6 +11,7 @@ import type {
   MobileForwarding,
   MobileForwardingStatus,
   MobileHome,
+  MobileReceiptsPage,
 } from "@/lib/mobile/types";
 import { API_URL } from "../config";
 import { supabase } from "./supabase";
@@ -141,6 +142,15 @@ export const getAnalytics = (query: string) => api<MobileAnalytics>(`/api/mobile
 /** The receipts behind a number on the Insights screen. */
 export const getAnalyticsReceipts = (query: string) =>
   api<MobileAnalyticsReceipts>(`/api/mobile/analytics/receipts?${query}`);
+
+/** "Load more": the next page of older receipts after the last one shown (its listKey). */
+export const getOlderReceipts = (after: string) =>
+  api<MobileReceiptsPage>(`/api/mobile/receipts?after=${encodeURIComponent(after)}`);
+
+/** The first-run screens were finished or skipped (the website's call). Best effort. */
+export function markOnboarded(): void {
+  api("/api/profile/onboarded", { method: "POST" }).catch(() => {});
+}
 
 /** One ZIP (or a few parts) of a month, a year or everything, as on the website. */
 export const exportReceipts = (period: string) =>

@@ -15,7 +15,7 @@ import { fill, s } from "../i18n";
 import { ApiError, deleteAccountNow } from "../lib/api";
 import { useAccount } from "../lib/AccountProvider";
 import { useExport } from "../lib/useExport";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { Button } from "./Button";
 import { CodeField, type CodeFieldHandle } from "./CodeField";
 import { ExportResult } from "./ExportResult";
@@ -40,6 +40,8 @@ function firmNotice(exit: MobileAccount["firmExit"]): string | null {
 }
 
 export function DeleteAccount() {
+  const styles = useStyles();
+  const colors = useColors();
   const { email, requestCode, verifyCode, signOut } = useAuth();
   const { account, error: loadError, refreshing, refresh } = useAccount();
   const exporter = useExport();
@@ -210,6 +212,7 @@ export function DeleteAccount() {
             onValueChange={setUnderstood}
             disabled={blocked}
             trackColor={{ true: colors.ink, false: colors.inkFaint }}
+            thumbColor={colors.switchThumb}
             accessibilityLabel={company ? s.deletion.savedSwitch : s.deletion.firmSwitch}
           />
         </View>
@@ -225,7 +228,7 @@ export function DeleteAccount() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.lg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.lg, padding: space.xl },
   centerText: { textAlign: "center" },
@@ -240,4 +243,4 @@ const styles = StyleSheet.create({
   },
   switchRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   switchLabel: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
-});
+}));

@@ -5,11 +5,12 @@ import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { fill, s } from "../i18n";
 import type { ExportState } from "../lib/useExport";
-import { colors, durations, space } from "../theme";
+import { durations, space, useColors } from "../theme";
 import { Group, Row } from "./Grouped";
 import { Text } from "./Text";
 
 export function ExportResult({ state }: { state: ExportState }) {
+  const colors = useColors();
   if (!state.message && state.parts.length === 0) return null;
   return (
     <Animated.View entering={FadeIn.duration(durations.short)} style={styles.wrap}>

@@ -12,16 +12,19 @@ import { fill, locale, s } from "../i18n";
 import { formatMoney } from "../lib/format";
 import { overallCounts, periodTotals, periodsFor, type PeriodKey, type TotalLine } from "../lib/summary";
 import { useAnimatedNumber } from "../lib/useAnimatedNumber";
-import { colors, radius, space } from "../theme";
+import { radius, space, makeStyles, useColors } from "../theme";
 import { Money } from "./Money";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 function Box({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.box}>{children}</View>;
 }
 
 function Count({ value, label }: { value: number; label: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Box>
       <View accessible accessibilityLabel={`${label}: ${value}`} style={styles.inner}>
@@ -38,6 +41,8 @@ function Count({ value, label }: { value: number; label: string }) {
 
 /** One line of the total; the company's currency rolls to a new value. */
 function TotalAmount({ line, rolls }: { line: TotalLine; rolls: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   const animated = useAnimatedNumber(line.amount);
   return (
     <View style={styles.total}>
@@ -65,6 +70,8 @@ export function StatCards({
   period: PeriodKey;
   onPeriod: (period: PeriodKey) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const periods = useMemo(
     () => periodsFor(receipts, locale, s.summary.allTime, new Date(), Object.keys(older?.months ?? {})),
     [receipts, older],
@@ -125,7 +132,7 @@ export function StatCards({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", gap: space.md, marginHorizontal: space.lg, marginTop: space.lg },
   box: {
     flex: 1,
@@ -141,4 +148,4 @@ const styles = StyleSheet.create({
   period: { flexDirection: "row", alignItems: "center", gap: 3, maxWidth: "100%" },
   shrink: { flexShrink: 1 },
   center: { textAlign: "center" },
-});
+}));

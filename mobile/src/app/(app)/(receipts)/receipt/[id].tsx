@@ -22,7 +22,7 @@ import { useReceipt } from "../../../../lib/HomeProvider";
 import { useReceiptRoutes } from "../../../../lib/routes";
 import { photoCacheKey, useReceiptPhoto } from "../../../../lib/original";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
-import { colors, durations, fonts, radius, space } from "../../../../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../../../../theme";
 
 type Field = "merchant" | "amount" | "date" | "category";
 
@@ -37,6 +37,7 @@ function edit(path: string, id: string, field: Field) {
 }
 
 function Chevron() {
+  const colors = useColors();
   return <SymbolView name="chevron.right" size={13} tintColor={colors.inkFaint} weight="semibold" />;
 }
 
@@ -52,6 +53,8 @@ function Row({
   addLabel?: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const shown = value ?? addLabel ?? "—";
   return (
     <PressableScale
@@ -81,6 +84,7 @@ function Row({
 
 /** The photo's frame breathes while the picture loads (as the list's placeholders). */
 function PhotoPlaceholder() {
+  const styles = useStyles();
   const opacity = useSharedValue(0.55);
   useEffect(() => {
     opacity.value = withRepeat(withTiming(1, { duration: durations.long, easing: Easing.inOut(Easing.quad) }), -1, true);
@@ -90,6 +94,8 @@ function PhotoPlaceholder() {
 }
 
 export default function ReceiptDetail() {
+  const styles = useStyles();
+  const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { confirm, remove } = useReceiptActions();
   const routes = useReceiptRoutes();
@@ -276,7 +282,7 @@ export default function ReceiptDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.lg },
   flex: { flex: 1 },
   photoFrame: {
@@ -334,4 +340,4 @@ const styles = StyleSheet.create({
   },
   actions: { gap: space.sm },
   missingScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl },
-});
+}));

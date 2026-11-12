@@ -8,12 +8,14 @@ import { SafeAreaView } from "react-native-screens/experimental";
 import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
-import { colors, space } from "../theme";
+import { space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 
 export const SCAN_BUTTON_SPACE = 64 + space.lg * 2;
 
 export function ScanButton({ onScan, onPickPhotos }: { onScan: () => void; onPickPhotos: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <SafeAreaView edges={{ bottom: true }} style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <View style={styles.place} pointerEvents="box-none">
@@ -36,14 +38,14 @@ export function ScanButton({ onScan, onPickPhotos }: { onScan: () => void; onPic
           }}
           style={styles.fab}
         >
-          <SymbolView name="doc.viewfinder" size={28} tintColor={colors.white} weight="semibold" />
+          <SymbolView name="doc.viewfinder" size={28} tintColor={colors.onBrandAction} weight="semibold" />
         </PressableScale>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   place: { flex: 1, justifyContent: "flex-end", alignItems: "center", paddingBottom: space.lg },
   fab: {
     width: 64,
@@ -58,4 +60,4 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
   },
-});
+}));
