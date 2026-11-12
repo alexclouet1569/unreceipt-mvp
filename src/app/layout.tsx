@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL, TITLE } from "@/lib/seo";
+import { MARKETING_PATHS } from "@/lib/marketing-pages";
 import "./globals.css";
 import { NativeAppBridge } from "./_native-app-bridge";
 
@@ -92,6 +93,9 @@ export const metadata: Metadata = {
   },
 };
 
+/** Marketing paths, which stay light (DESIGN.md "Dark mode"). */
+const LIGHT_PATHS = [...MARKETING_PATHS, "/privacy"];
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -104,6 +108,8 @@ export default async function RootLayout({
   // previews see the PWA assets too so dev still works.
   const headerList = await headers();
   const host = (headerList.get("host") ?? "").toLowerCase();
+  // Hosts that serve the product and the marketing site from one origin.
+  const sharedHost = host.startsWith("localhost") || host.endsWith(".vercel.app") || host.startsWith("127.0.0.1");
   const isAppHost =
     host === APP_HOST ||
     host.startsWith("localhost") ||
@@ -111,7 +117,17 @@ export default async function RootLayout({
     host.startsWith("127.0.0.1");
 
   return (
-    <html lang="en" className={`${manrope.variable} ${figtree.variable} ${geistMono.variable} h-full antialiased`}>
+    // data-theme="auto": the product follows the device's light or dark
+    // setting (globals.css). The marketing apex stays light; local and
+    // preview addresses serve both surfaces, so there both follow it.
+    <html
+      lang="en"
+      data-theme={isAppHost ? "auto" : undefined}
+      data-theme-default={isAppHost ? "auto" : undefined}
+      // A marketing page on a shared (local / preview) host removes it before paint.
+      suppressHydrationWarning
+      className={`${manrope.variable} ${figtree.variable} ${geistMono.variable} h-full antialiased`}
+    >
       <head>
         {isAppHost ? (
           <>
@@ -123,6 +139,17 @@ export default async function RootLayout({
           </>
         ) : null}
         <meta name="theme-color" content="#27BE7B" />
+        {isAppHost ? <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1124" /> : null}
+        {sharedHost ? (
+          // Local and preview addresses serve the marketing site too, which
+          // has no dark design: drop the dark-mode mark before the first
+          // paint on its paths (LightOnly covers client navigations).
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if(${JSON.stringify(LIGHT_PATHS)}.indexOf(location.pathname)>-1)document.documentElement.removeAttribute("data-theme")`,
+            }}
+          />
+        ) : null}
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <TooltipProvider>{children}</TooltipProvider>

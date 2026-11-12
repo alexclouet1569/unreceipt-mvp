@@ -89,7 +89,7 @@ Restrained palette. Brand green is an accent, not a background.
 
 ### Dark mode
 
-Follows the device's appearance. The iPhone app has it since 2026-11-12 (`mobile/src/palette.ts`, `app.json` `userInterfaceStyle: "automatic"`); the website follows in its own PR with the same values. Ratios are on `--card` `#1A1D33` unless said otherwise.
+Follows the device's appearance. The iPhone app has it since 2026-11-12 (`mobile/src/palette.ts`, `app.json` `userInterfaceStyle: "automatic"`); the website too (`globals.css`): the root layout marks the product host with `data-theme="auto"`, and the tokens below apply under `prefers-color-scheme: dark`. The marketing site has no dark design and stays light: its headers remove the mark on local and preview addresses, which serve both surfaces. Tailwind's `dark:` variant follows the same rule. Ratios are on `--card` `#1A1D33` unless said otherwise.
 
 | Token | Hex | Role |
 |---|---|---|
@@ -125,6 +125,7 @@ Per mode, not per token:
 - **Date pickers** follow the appearance (iOS draws the inline calendar).
 - **Category colours** keep their hues, lightened to at least 5.5:1 on the dark card: travel `#7D9CCB`, transport `#6AAAB8`, meals `#C98473`, accommodation `#A78BC9`, software `#8C92D6`, office supplies `#A4A8C0`, client entertainment `#D67A92`, other `--ink-faint`. Merchant initials blocks keep the light palette (white initials at AA on every colour).
 - **Splash:** the navy app tile on `#0F1124`.
+- **Website specifics:** the delete button and the swipe's Delete action fill with the dark `--negative` and takes Deep Space text (`--destructive-foreground`), where the iPhone keeps the red `#C73E4E` fill with white; ink-filled buttons (the demo tour's Next, Yes, share) use `--ink-fill` / `--on-ink`; the full-screen photo sits on `--photo-ground`; the wordmark reads `--mark-*` variables, which carry the on-dark set; the receipt PDF stays on white (it is a document); an email's text in the Original tab follows the theme. The sheet scrim deepens to 55 % black so a sheet's edge reads without a shadow. Pages outside this file's scope on the app host (`/admin`, `/subscribe`) follow the tokens too; their palette colours (`text-red-700`…) are not reworked. The Capacitor shell's cream status-bar bands (`capacitor.config.ts`) stay until the shell is removed.
 
 ### shadcn token mapping (so the component library inherits the system automatically)
 
@@ -136,7 +137,7 @@ Per mode, not per token:
 --popover: var(--card);
 --popover-foreground: var(--ink);
 --primary: var(--brand-action);
---primary-foreground: #FFFFFF;
+--primary-foreground: var(--on-brand-action);
 --secondary: var(--brand-tint);
 --secondary-foreground: var(--ink);
 --muted: var(--brand-tint);
@@ -174,7 +175,7 @@ xl   24px   Section gutters
 - **Header and tabs (2026-11-12).** One compact sticky header (56px, hairline under it, `--background` at 90 % with a blur) with the `UnReceipt` wordmark on the left, shared by every signed-in page (`src/app/app/(authed)/layout.tsx`, `src/components/AppNav.tsx`). The tabs — Receipts, Insights, Settings — are text links on the right of the header from 640px up, the current one with a 2px `--ink` rule on the header's hairline, and a solid bottom tab bar below 640px (`--background`, 56px plus the home-indicator inset, icon over an 11px label, hairline on top). Current tab in `--ink`, others `--ink-muted`: no green, so the capture button stays the screen's one green. The header keeps the blur it already had (the one exception to "no glassmorphism", as the iPhone's system tab bar). During a tab change the header and bar stay still above the fading page. A page inside a tab (the forwarding guide) starts with a `‹ Settings` back link instead of its own header. Replaces "No nav tabs in v1".
 - **List.** Receipt cards in a single column with `8px` gaps. Date groups (`Today`, `Yesterday`, `This week`, `Earlier in May`) as `micro` labels above the relevant cluster.
 - **Group and filter.** A two-option segmented control (`By date` / `By category`, 44px buttons with `aria-pressed`, `--surface` track, `--card` thumb) sits above the filter chips. By category, sections are ordered most-used first and the micro label carries the count and the total in the company's currency: a foreign receipt counts with its converted amount (`home_total`), and the total gets a leading `≈` when it includes an ECB-rate estimate. A receipt not converted yet is listed apart (`1,305.00 kr + €18.50`), never added in. The chip row (All, Review needed, then each used category) scrolls sideways; each chip is a 36px pill inside a 44px tap target, `aria-pressed`, active = `--card` with an ink border (honey for Review needed — never mint). Counts in Manrope `tabular-nums`. Tapping the active category chip again goes back to All.
-- **FAB.** Fixed bottom-center, `64×64`, `--brand-action` green, white `+` icon. Safe-area-inset aware (Capacitor).
+- **FAB.** Fixed bottom-center, `64×64`, `--brand-action` green, `+` icon in `--on-brand-action` (white; Deep Space in dark mode). Safe-area-inset aware (Capacitor).
 - **Detail view.** The digital receipt (see "Digital receipt") on a `--surface` backdrop, with the edit / PDF / delete actions below it.
 - **Empty state.** Calm illustrated mark in a `64×64 brand-tint` square, short pitch, then a `card` showing the user's unique `u-XXXX@unreceipt.com` email and a `Copy` button.
 
@@ -272,7 +273,7 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 
 ### Switch (`src/components/Switch.tsx`)
 
-The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when on and `--ink-muted` when off (faint was 2.6:1, under the 3:1 a control needs) (so a screen's primary action stays its one green), white 20px thumb, colour 100ms, thumb 200ms on the entrance curve. Labelled by the visible title (`aria-labelledby`) and described by the line under it. While saving it stays focusable (`aria-disabled`) and ignores presses. Used for Include VAT, the firm's weekly reminder per client, and the client's own weekly-reminder opt-out.
+The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when on and `--ink-muted` when off (faint was 2.6:1, under the 3:1 a control needs) (so a screen's primary action stays its one green), 20px `--card` thumb (white; navy on the cream track of dark mode), colour 100ms, thumb 200ms on the entrance curve. Labelled by the visible title (`aria-labelledby`) and described by the line under it. While saving it stays focusable (`aria-disabled`) and ignores presses. Used for Include VAT, the firm's weekly reminder per client, and the client's own weekly-reminder opt-out.
 
 ### Swipe to delete
 
@@ -285,7 +286,7 @@ The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when o
 
 `src/components/receipt/PhotoViewer.tsx` + `ZoomableImage.tsx`. Opens when the photo thumbnail in the capture sheet, or the photo in a saved receipt's **Original** tab, is tapped, so the details can be checked against the photo.
 
-- Full screen on `--ink` (Deep Space), white text: the photo is the only thing on screen, and the dark ground lets a white receipt stand out. Header: "Your photo" (15/700) and a 44px close button.
+- Full screen on `--photo-ground` (Deep Space; `#0F1124` in dark mode), white text: the photo is the only thing on screen, and the dark ground lets a white receipt stand out. Header: "Your photo" (15/700) and a 44px close button.
 - Pinch to zoom (100–500 %), double-tap to zoom to 250 % at the tapped point and back, drag when zoomed; the photo never leaves its frame. Below it, 44px **−** / **+** buttons with the zoom level, for a mouse or one-handed use.
 - In the capture sheet only: **Delete photo** (white button, `--destructive` text, trash icon) removes the photo and closes the viewer, same as the thumbnail's remove control; focus moves to "Take photo". A saved receipt's original is its evidence and has no delete here (title "Original" there).
 - Content on `--ink` is white: text, the 1px white/40 border of the ± buttons, and the focus ring (white/60, because `--ring` on `--ink` is 2.3:1). Icon buttons use radius md (10). Opens and closes with a short (200ms) fade.
@@ -315,7 +316,7 @@ Drawn close-ups of another app's screen (Gmail, Outlook, iCloud, a phone mail ap
 
 - `64×64` circular, `bg: --brand-action` (via `--primary`), `border: none`.
 - `box-shadow: 0 8px 24px -8px rgba(31, 157, 99, 0.45), 0 2px 6px -2px rgba(23, 26, 46, 0.08)` — only place shadow exists in the system.
-- Icon: white `+`, 28×28, stroke 2.5.
+- Icon: `+` in `--on-brand-action` (white; Deep Space on the dark-mode green), 28×28, stroke 2.5.
 - Position: `fixed`, `bottom: env(safe-area-inset-bottom) + 32px` (on a phone with the tab bar: 16px above it, `--fab-bottom` in globals.css), `left: 50%`, `transform: translateX(-50%)`.
 - Press: `scale(0.92)` then spring back to 1.0 over 240ms.
 
@@ -330,7 +331,7 @@ Lives in `src/components/brand/Wordmark.tsx`. Four variants follow the brand boo
 | `wordmark` | Text-only — when the icon is already established on the page |
 | `icon` | Isotype-only — PWA icon, favicon, social profile |
 
-- The wordmark text is **Manrope ExtraBold (800)** with `letter-spacing: -0.02em`. `Un` renders in `#303568` (Deep Space) and `Receipt` in `#27BE7B` (Green Mint) on light surfaces — the brand-book two-color split.
+- The wordmark text is **Manrope ExtraBold (800)** with `letter-spacing: -0.02em`. `Un` renders in `#303568` (Deep Space) and `Receipt` in `#27BE7B` (Green Mint) on light surfaces — the brand-book two-color split. In the product's dark mode the default set switches by itself to the on-dark set (`--mark-*` variables in `globals.css`).
 - The receipt-glyph isotype is rendered inline as SVG so it scales cleanly without an asset round-trip.
 - The `on` prop switches the color set for non-default surfaces:
   - `on="light"` (default) — green receipt body, navy arrow, two-color wordmark
@@ -416,6 +417,7 @@ The Insights tab (iPhone first, `mobile/src/app/(app)/insights/`; the website fo
 | 2026-11-11 | **Insights tab** (`mobile/`): a third tab with spending by period, a running-total chart for a month and bars for longer periods, findings, categories and merchants in the merchant palette, and the VAT on the receipts on the mint panel. Change chips are ink, not red/green. See "Charts and Insights". | The founder asked for statistics people can analyse. Charts take their colour from tokens already in the system; a running total shows "am I spending faster than last month?" better than 30 thin daily bars for a business with 15 receipts a month. VAT wording reviewed: never a deduction claim. |
 | 2026-11-12 | **Dark mode in the iPhone app**: it follows the iPhone's appearance (`userInterfaceStyle: "automatic"`, a new build). The dark table above gains the action green, honey and red values and the per-mode rules (labels on green and ink fills, Undo, switch thumb, badge, photo ground, on-dark marks, category colours). A test checks the contrast of every pair the app draws in both palettes. | iPhone users run dark mode at night; a cream screen at 23:00 was the most visible "not premium" gap left. The dark action green is the brand green because the light one is too dark to read on navy, and a green fill then takes dark text, never white. |
 | 2026-11-12 | **Website foundations**: one shared header with tabs (bottom bar below 640px), `loading.tsx` skeletons on `--skeleton`, saved edits and deletes shown at once while the page refreshes behind them, the receipt as a bottom sheet on phones, a crossfade between tabs, 540px content width, the FAB 32px above the home indicator (16px above the tab bar on phones) pressing down without overshoot, the list fading in once. `--hairline` and `--ink-faint` back to their table values (they had drifted to a 12 % navy and to the muted colour). Every use of faint that carries information now says `--ink-muted`, so it looks as before; placeholders become truly faint (they no longer read like typed values); the switch's off track becomes `--ink-muted` by rule (faint failed 3:1). The type-scale utilities are named `type-*` so tailwind-merge doesn't drop them as colours. Non-destructive errors in the receipt sheet are honey, no shadows on sheets or menus. | Insights needs a second place to go, and a settings icon in the corner doesn't scale to three. The bottom bar is where the thumb is; links in the header are what a laptop expects. The rest are the off-spec gaps found in the 2026-11-11 review. |
+| 2026-11-12 | **Dark mode on the website** (product only): the same dark values as the iPhone app in `globals.css`, switched by the device setting on the product host (`data-theme="auto"` from the root layout); `--on-brand-action`, `--ink-fill`/`--on-ink`, `--photo-ground` and the wordmark's `--mark-*` added so no surface keeps a light-only colour; category colours lightened as on the iPhone. The marketing site stays light. | Same reason as the app: a cream page at night was the most visible "not premium" gap. The marketing pages were never designed dark and are out of this file's scope, so they don't follow. |
 
 ---
 

@@ -89,7 +89,7 @@ export function RespondButtons({
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          className={quietAccept ? "h-11 bg-[var(--ink)] text-[var(--surface)] hover:bg-[var(--ink)]/90" : "h-11"}
+          className={quietAccept ? "h-11 bg-[var(--ink-fill)] text-[var(--on-ink)] hover:bg-[var(--ink-fill)]/90" : "h-11"}
           onClick={() => respond("accept")}
           disabled={busy !== null}
         >

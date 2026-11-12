@@ -37,12 +37,15 @@ const COLOR_SETS: Record<
     receipt: string;
   }
 > = {
+  // The default set reads CSS variables, so the product's dark mode
+  // (globals.css, data-theme="auto") switches to the on-dark set by itself;
+  // without them (the marketing site) it is the light set.
   light: {
-    receiptFill: BRAND,
-    receiptLine: SURFACE,
-    arrow: INK,
-    un: INK,
-    receipt: BRAND,
+    receiptFill: `var(--mark-receipt, ${BRAND})`,
+    receiptLine: `var(--mark-line, ${SURFACE})`,
+    arrow: `var(--mark-arrow, ${INK})`,
+    un: `var(--mark-un, ${INK})`,
+    receipt: `var(--mark-word, ${BRAND})`,
   },
   dark: {
     receiptFill: SURFACE,
@@ -83,10 +86,10 @@ function ReceiptIsotype({
       {/* Receipt body — rounded top corners, serrated bottom edge */}
       <path
         d="M30 14 H56 A2 2 0 0 1 58 16 V49 L55.5 52 L52.5 49 L49.5 52 L46.5 49 L43.5 52 L40.5 49 L37.5 52 L34.5 49 L31.5 52 L30 49 Z"
-        fill={fill}
+        style={{ fill }}
       />
       {/* Text lines inside the receipt */}
-      <g fill={line}>
+      <g style={{ fill: line }}>
         <rect x="36" y="22" width="14" height="2.6" rx="1.3" />
         <rect x="33" y="29" width="20" height="2.6" rx="1.3" />
         <rect x="33" y="36" width="17" height="2.6" rx="1.3" />
@@ -97,14 +100,14 @@ function ReceiptIsotype({
           around to a right-pointing arrowhead at the top. */}
       <path
         d="M30 26 A12 12 0 1 1 23 11"
-        stroke={arrow}
+        style={{ stroke: arrow }}
         strokeWidth="3.5"
         strokeLinecap="round"
         fill="none"
       />
       <path
         d="M19.5 11 L25.5 7.5 L25.5 14.5 Z"
-        fill={arrow}
+        style={{ fill: arrow }}
       />
     </svg>
   );

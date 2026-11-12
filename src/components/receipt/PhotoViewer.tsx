@@ -29,7 +29,7 @@ export function PhotoViewer({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Popup
           data-testid="photo-viewer"
-          className="fixed inset-0 z-[70] flex flex-col bg-[var(--ink)] px-4 transition-opacity duration-200 data-starting-style:opacity-0 data-ending-style:opacity-0 pt-[max(12px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] text-white outline-none"
+          className="fixed inset-0 z-[70] flex flex-col bg-[var(--photo-ground)] px-4 transition-opacity duration-200 data-starting-style:opacity-0 data-ending-style:opacity-0 pt-[max(12px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] text-white outline-none"
         >
           <div className="flex items-center justify-between gap-3 pb-3">
             <DialogPrimitive.Title className="text-[15px] font-bold">{title}</DialogPrimitive.Title>
@@ -51,7 +51,7 @@ export function PhotoViewer({
                 onDelete();
                 onOpenChange(false);
               }}
-              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-card text-[14px] font-semibold text-destructive outline-none focus-visible:ring-3 focus-visible:ring-white/60"
+              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-white/40 bg-card text-[14px] font-semibold text-destructive outline-none focus-visible:ring-3 focus-visible:ring-white/60"
             >
               <Trash2 className="size-4" aria-hidden="true" />
               Delete photo
