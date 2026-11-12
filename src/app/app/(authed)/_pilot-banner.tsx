@@ -45,7 +45,7 @@ export function PilotBanner({ inStoreApp = false }: { inStoreApp?: boolean }) {
 
   return (
     <div className="bg-[var(--brand-tint)] border-b border-[var(--hairline)]">
-      <div className="max-w-2xl mx-auto px-4 py-1 flex items-center gap-3">
+      <div className="max-w-[540px] mx-auto px-4 py-1 flex items-center gap-3">
         <Sparkles className="w-4 h-4 text-[var(--ink-muted)] shrink-0" aria-hidden="true" />
         <p className="text-[13px] leading-[1.45] text-[var(--ink)] flex-1 py-1.5">
           {/* The store apps never mention paid access (App Store 3.1.3(f),

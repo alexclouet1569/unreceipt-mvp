@@ -16,7 +16,7 @@ export function DbWarningBanner() {
 
   return (
     <div className="bg-amber-50 border-b border-amber-200">
-      <div className="max-w-2xl mx-auto px-4 py-2 flex items-start gap-3">
+      <div className="max-w-[540px] mx-auto px-4 py-2 flex items-start gap-3">
         <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-900 flex-1">
           We&apos;re having trouble verifying your account status right now.

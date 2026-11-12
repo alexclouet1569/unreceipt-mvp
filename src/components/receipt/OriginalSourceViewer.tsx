@@ -212,23 +212,23 @@ function ArtifactBody({
     return (
       <div className="rounded-md border border-[var(--hairline)] bg-card overflow-hidden">
         <dl className="px-3 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-[var(--hairline)] text-[12px]">
-          <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
+          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
             From
           </dt>
           <dd className="text-[var(--ink)] break-words">
             {eml?.from ?? "—"}
           </dd>
-          <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
+          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
             To
           </dt>
           <dd className="text-[var(--ink)] break-words">{eml?.to ?? "—"}</dd>
-          <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
+          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
             Subject
           </dt>
           <dd className="text-[var(--ink)] break-words">
             {eml?.subject ?? "—"}
           </dd>
-          <dt className="font-semibold text-[var(--ink-faint)] uppercase tracking-[0.06em]">
+          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
             Date
           </dt>
           <dd className="text-[var(--ink)] break-words">
@@ -247,7 +247,7 @@ function ArtifactBody({
     return (
       <div className="space-y-2">
         {smsFromHint ? (
-          <p className="text-[11px] uppercase tracking-[0.06em] font-semibold text-[var(--ink-faint)]">
+          <p className="text-[11px] uppercase tracking-[0.06em] font-semibold text-[var(--ink-muted)]">
             From {smsFromHint}
           </p>
         ) : null}

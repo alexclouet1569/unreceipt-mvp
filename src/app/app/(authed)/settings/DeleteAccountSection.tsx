@@ -156,7 +156,7 @@ export function DeleteAccountSection({
       {variant === "firm" ? (
         <div className="space-y-2">
           <p
-            className="uppercase text-[var(--ink-faint)]"
+            className="uppercase text-[var(--ink-muted)]"
             style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
           >
             1 · Your firm
@@ -180,7 +180,7 @@ export function DeleteAccountSection({
       ) : (
         <div className="space-y-2">
           <p
-            className="uppercase text-[var(--ink-faint)]"
+            className="uppercase text-[var(--ink-muted)]"
             style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
           >
             1 · Download your data first
@@ -211,7 +211,7 @@ export function DeleteAccountSection({
       <div className="space-y-2">
         <label
           htmlFor="delete-account-confirm"
-          className="block uppercase text-[var(--ink-faint)]"
+          className="block uppercase text-[var(--ink-muted)]"
           style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
         >
           2 · Type {CONFIRM_WORD} to confirm

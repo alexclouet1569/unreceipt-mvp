@@ -3,6 +3,7 @@
 import { inspectPdf } from "@/lib/receipts/pdf-inspect";
 import { useEffect, useRef, useState } from "react";
 import { Dashboard } from "@/app/app/(authed)/dashboard";
+import { AppHeader } from "@/components/AppNav";
 import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Receipt } from "@/lib/types";
@@ -315,12 +316,16 @@ export function CompanyTour({ step }: { step: number }) {
       <TourBar steps={STEPS} step={step} hrefFor={(n) => `/demo/company?step=${n}`} />
       <DemoNotice notice={notice} onClose={closeNotice} />
       {step <= 2 ? (
-        <Dashboard
-          userEmail="maja@nordljusdesign.se"
-          receipts={receipts}
-          forwardingEmail="receipts+nordljus@in.unreceipt.com"
-          intakeSmsNumber={null}
-        />
+        <>
+          {/* The app's header, without tabs that would leave the tour. */}
+          <AppHeader tabs={[]} homeHref="/demo/company?step=1" />
+          <Dashboard
+            userEmail="maja@nordljusdesign.se"
+            receipts={receipts}
+            forwardingEmail="receipts+nordljus@in.unreceipt.com"
+            intakeSmsNumber={null}
+          />
+        </>
       ) : step === 3 ? (
         <main className="max-w-[540px] mx-auto px-4 pt-16 pb-24">
           <InviteCard

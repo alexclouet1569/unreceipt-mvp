@@ -47,7 +47,7 @@ export function FirstRun({
       style={{ paddingTop: "48px", paddingBottom: "48px" }}
     >
       <p
-        className="text-[var(--ink-faint)]"
+        className="text-[var(--ink-muted)]"
         style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}
       >
         Step {step} of 3

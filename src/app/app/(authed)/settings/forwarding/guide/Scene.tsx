@@ -200,7 +200,7 @@ export function Mark({
         <span
           data-mark="leave"
           className={`${block ? "flex w-full" : "inline-flex"} min-w-0`}
-          style={{ borderRadius: radius, outline: "1.5px dashed var(--ink-faint)", outlineOffset: 2 }}
+          style={{ borderRadius: radius, outline: "1.5px dashed var(--ink-muted)", outlineOffset: 2 }}
         >
           {children}
         </span>
@@ -350,7 +350,7 @@ export function Field({
         padding: "5px 8px",
         fontSize: 12,
         background: "var(--card)",
-        color: value ? "var(--ink)" : "var(--ink-faint)",
+        color: value ? "var(--ink)" : "var(--ink-muted)",
         minHeight: 26,
       }}
     >
@@ -401,7 +401,7 @@ export function Check({ label, checked = false, ...m }: { label: React.ReactNode
           width: 13,
           height: 13,
           borderRadius: 3,
-          border: checked ? "1px solid var(--ink)" : "1px solid var(--ink-faint)",
+          border: checked ? "1px solid var(--ink)" : "1px solid var(--ink-muted)",
           background: checked ? "var(--ink)" : "var(--card)",
           color: "var(--card)",
           fontSize: 9,
@@ -421,7 +421,7 @@ export function Radio({ label, checked = false, ...m }: { label: React.ReactNode
     <span className="inline-flex items-center gap-2 min-w-0" style={{ fontSize: 12, color: "var(--ink)", padding: "1px 2px", overflowWrap: "anywhere" }}>
       <span
         className="inline-flex items-center justify-center shrink-0 rounded-full"
-        style={{ width: 13, height: 13, border: "1px solid var(--ink-faint)", background: "var(--card)" }}
+        style={{ width: 13, height: 13, border: "1px solid var(--ink-muted)", background: "var(--card)" }}
       >
         {checked ? <span className="block rounded-full" style={{ width: 7, height: 7, background: "var(--ink)" }} /> : null}
       </span>

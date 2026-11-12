@@ -136,7 +136,7 @@ export function ExportPanel({
         <div className="space-y-2">
           <label
             htmlFor="export-period"
-            className="block uppercase text-[var(--ink-faint)]"
+            className="block uppercase text-[var(--ink-muted)]"
             style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}
           >
             Period
@@ -229,7 +229,7 @@ export function ExportPanel({
                     }}
                   >
                     <span className="truncate font-semibold">{p.filename}</span>
-                    <span className="shrink-0 text-[var(--ink-faint)]" style={{ fontSize: "13px" }}>
+                    <span className="shrink-0 text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
                       {sizeLabel(p.bytes)}
                     </span>
                   </a>
