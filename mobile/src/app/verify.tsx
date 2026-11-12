@@ -27,11 +27,13 @@ import { Button } from "../components/Button";
 import { Text } from "../components/Text";
 import { CODE_LENGTH } from "../config";
 import { fill, s } from "../i18n";
-import { colors, durations, fonts, radius, space } from "../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
 
 const RESEND_AFTER_S = 30;
 
 export default function Verify() {
+  const styles = useStyles();
+  const colors = useColors();
   const { email = "" } = useLocalSearchParams<{ email: string }>();
   const { verifyCode, requestCode } = useAuth();
   const [code, setCode] = useState("");
@@ -178,7 +180,7 @@ export default function Verify() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
   fill: { flex: 1, paddingHorizontal: space.xl, paddingTop: space.xxxl, gap: space.md },
   top: { gap: space.sm, marginBottom: space.lg },
@@ -200,4 +202,4 @@ const styles = StyleSheet.create({
   digit: { fontFamily: fonts.bold, fontSize: 26, color: colors.ink },
   hiddenInput: { ...StyleSheet.absoluteFill, opacity: 0.02, color: "transparent" },
   spacer: { flex: 1 },
-});
+}));

@@ -7,7 +7,7 @@ import type { MobileReceipt } from "@/lib/mobile/types";
 import { fill, joinList, locale, s } from "../i18n";
 import { formatMoney, parseReceiptDate, shortDate } from "../lib/format";
 import { getMerchantColor, getMerchantInitials } from "../lib/merchant";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { Money } from "./Money";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
@@ -45,6 +45,8 @@ export function ReceiptRow({
   /** Offered to VoiceOver as an action (the swipe's equivalent). */
   onDelete?: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const date = parseReceiptDate(r.date);
   const missing = missingText(r);
   const review = r.status === "pending_review";
@@ -111,7 +113,7 @@ export function ReceiptRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -137,4 +139,4 @@ const styles = StyleSheet.create({
   middle: { flex: 1, gap: 2 },
   flag: { fontFamily: fonts.semibold },
   right: { alignItems: "flex-end", gap: 2, maxWidth: "45%" },
-});
+}));

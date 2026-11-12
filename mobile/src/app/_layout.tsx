@@ -5,6 +5,7 @@
 import { useEffect } from "react";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as SystemUI from "expo-system-ui";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
@@ -19,12 +20,13 @@ import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono/400Regular";
 import { GeistMono_500Medium } from "@expo-google-fonts/geist-mono/500Medium";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { useAppUpdates } from "../lib/useAppUpdates";
-import { colors } from "../theme";
+import { useColors } from "../theme";
 
 void SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 250, fade: true });
 
 function RootNavigator() {
+  const colors = useColors();
   const { status } = useAuth();
   useAppUpdates();
   const [fontsLoaded, fontError] = useFonts({
@@ -44,6 +46,12 @@ function RootNavigator() {
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();
   }, [ready]);
+
+  // The window behind every screen (seen behind sheets and during a swipe
+  // back) follows the appearance too; app.json can only give it one colour.
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.surface);
+  }, [colors.surface]);
 
   if (!ready) return null;
   const signedIn = status === "signedIn";
@@ -78,7 +86,8 @@ export default function RootLayout() {
     // Swipe gestures (SwipeToDelete) need this at the root.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <StatusBar style="dark" />
+        {/* Dark text on cream, light text on the dark palette. */}
+        <StatusBar style="auto" />
         <RootNavigator />
       </AuthProvider>
     </GestureHandlerRootView>

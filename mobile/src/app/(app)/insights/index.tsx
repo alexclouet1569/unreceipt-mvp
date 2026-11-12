@@ -33,7 +33,7 @@ import {
   type ReadyAnalytics,
 } from "../../../lib/insights";
 import { useInsights } from "../../../lib/useInsights";
-import { colors, durations, radius, space } from "../../../theme";
+import { durations, radius, space, makeStyles, useColors } from "../../../theme";
 
 type Kind = PeriodQuery["kind"];
 
@@ -55,6 +55,7 @@ function queryOf(a: ReadyAnalytics): PeriodQuery {
 
 /** Shapes of the screen while the very first answer loads. */
 function InsightsSkeleton() {
+  const styles = useStyles();
   const pulse = useBreathing();
   return (
     <Animated.View style={[styles.skeleton, pulse]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -85,6 +86,8 @@ function CustomRange({
   onClose: () => void;
   onPick: (from: string, to: string) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   useEffect(() => {
@@ -119,7 +122,6 @@ function CustomRange({
           maximumDate={fromDay(today)}
           locale={INTL_LOCALE[locale]}
           accentColor={colors.brandAction}
-          themeVariant="light"
           onValueChange={(_e, d) => {
             const day = toDay(d);
             setFrom(day);
@@ -137,7 +139,6 @@ function CustomRange({
           maximumDate={fromDay(today)}
           locale={INTL_LOCALE[locale]}
           accentColor={colors.brandAction}
-          themeVariant="light"
           onValueChange={(_e, d) => setTo(toDay(d))}
         />
         {tooLong ? (
@@ -151,6 +152,8 @@ function CustomRange({
 }
 
 export default function Insights() {
+  const styles = useStyles();
+  const colors = useColors();
   const [query, setQuery] = useState<PeriodQuery>({ kind: "month" });
   const [picking, setPicking] = useState(false);
   const { data, error, refreshing, loading, refresh } = useInsights(query);
@@ -295,7 +298,7 @@ export default function Insights() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingBottom: space.xxxl },
   center: { textAlign: "center" },
   stale: { opacity: 0.45 },
@@ -334,4 +337,4 @@ const styles = StyleSheet.create({
   sheetSide: { flex: 1, alignItems: "flex-start" },
   sheetRight: { alignItems: "flex-end" },
   sheetTitle: { flexShrink: 1, textAlign: "center" },
-});
+}));

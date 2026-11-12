@@ -7,13 +7,15 @@ import { fill, locale, s } from "../../i18n";
 import { formatMoney } from "../../lib/format";
 import { changeText, fillParts, plural, previousLabel, type ReadyAnalytics } from "../../lib/insights";
 import { useAnimatedNumber } from "../../lib/useAnimatedNumber";
-import { colors, radius, space } from "../../theme";
+import { radius, space, makeStyles, useColors } from "../../theme";
 import { Money } from "../Money";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
 import { Parts } from "./Parts";
 
 function Chip({ text }: { text: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.chip}>
       <Text variant="caption" color={colors.ink} numberOfLines={2}>
@@ -25,6 +27,8 @@ function Chip({ text }: { text: string }) {
 
 /** The total, its comparisons and what it includes; tapping it opens the period's receipts. */
 export function Hero({ a, onOpen }: { a: ReadyAnalytics; onOpen: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const shown = useAnimatedNumber(a.total.amount);
   const vsPrevious = changeText(a.total.amount, a.compare.previous, locale);
   const vsLastYear = changeText(a.total.amount, a.compare.lastYear, locale);
@@ -67,7 +71,7 @@ export function Hero({ a, onOpen }: { a: ReadyAnalytics; onOpen: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   hero: { marginHorizontal: space.lg, marginTop: space.lg, gap: space.xs },
   amount: { flexDirection: "row", alignItems: "baseline" },
   approx: { fontSize: 26 },
@@ -82,4 +86,4 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   meta: { marginTop: space.xs },
-});
+}));
