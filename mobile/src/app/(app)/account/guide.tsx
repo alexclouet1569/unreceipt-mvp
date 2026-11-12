@@ -26,7 +26,7 @@ import { fill, LANGUAGE_NAMES, locale, s, type Locale } from "../../../i18n";
 import { getForwardingStatus } from "../../../lib/api";
 import { GUIDE, HAS_MAIL_LANGUAGE, stepPieces, type GuideProvider, type GuideStep } from "../../../lib/forwarding-guide";
 import { useForwarding } from "../../../lib/useForwarding";
-import { colors, durations, fonts, radius, space } from "../../../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../../../theme";
 
 const LANGS: Locale[] = ["en", "sv", "fr"];
 const POLL_MS = 4_000;
@@ -75,6 +75,7 @@ function copy(text: string) {
 }
 
 function CopyBlock({ text }: { text: string }) {
+  const styles = useStyles();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -99,6 +100,8 @@ function CopyBlock({ text }: { text: string }) {
 }
 
 function Words({ words }: { words: string[] }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.words}>
       <Text variant="caption" color={colors.inkMuted}>
@@ -125,6 +128,8 @@ function Words({ words }: { words: string[] }) {
 }
 
 function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
+  const styles = useStyles();
+  const colors = useColors();
   const c = status?.confirmation ?? null;
   // Said once when Gmail's email lands (the screen polls for it).
   const state = c?.autoConfirmed ? "auto" : !c ? "waiting" : c.code ? "code" : "unreadable";
@@ -177,6 +182,8 @@ function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
 }
 
 function TestBox({ status, since }: { status: MobileForwardingStatus | null; since: number }) {
+  const styles = useStyles();
+  const colors = useColors();
   const arrived = status?.lastEmailAt ? Date.parse(status.lastEmailAt) >= since - 5_000 : false;
   useEffect(() => {
     if (!arrived) return;
@@ -196,6 +203,8 @@ function TestBox({ status, since }: { status: MobileForwardingStatus | null; sin
 }
 
 function PaidCheck() {
+  const styles = useStyles();
+  const colors = useColors();
   const [which, setWhich] = useState<"yahoo" | "proton" | null>(null);
   return (
     <View style={styles.extra}>
@@ -241,6 +250,7 @@ function StepExtra({
   status: MobileForwardingStatus | null;
   since: number;
 }) {
+  const styles = useStyles();
   const extra = step.extra;
   if (!extra) return null;
   if (typeof extra === "object") {
@@ -284,6 +294,8 @@ function StepExtra({
 }
 
 export default function GuideScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const params = useLocalSearchParams<{ provider: string }>();
   const provider: GuideProvider = isProvider(params.provider) ? params.provider : "other";
   const steps = GUIDE[provider];
@@ -445,7 +457,7 @@ export default function GuideScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
   content: { padding: space.lg, paddingBottom: space.xxl, gap: space.lg },
   step: { gap: space.md },
@@ -508,4 +520,4 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   code: { fontFamily: fonts.bold, fontSize: 32, letterSpacing: 4, color: colors.ink, fontVariant: ["tabular-nums"] },
-});
+}));

@@ -24,7 +24,7 @@ import { useAccount } from "../../../lib/AccountProvider";
 import { useAuth } from "../../../auth/AuthProvider";
 import { dayMonthYear } from "../../../lib/format";
 import { useHome } from "../../../lib/HomeProvider";
-import { colors, fonts, radius, space } from "../../../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../../../theme";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -39,6 +39,8 @@ function remindersText(r: NonNullable<MobileAccountantLink["reminders"]>): strin
 }
 
 export default function AccountantScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { account, refresh } = useAccount();
   const home = useHome();
   const { email: ownEmail } = useAuth();
@@ -153,6 +155,7 @@ export default function AccountantScreen() {
                   value={!link.reminders.optedOut}
                   disabled={busy !== null}
                   trackColor={{ true: colors.ink, false: colors.inkFaint }}
+                  thumbColor={colors.switchThumb}
                   accessibilityLabel={fill(s.accountant.remindersTitle, { firm: link.name })}
                   accessibilityHint={remindersText(link.reminders)}
                   onValueChange={(on) =>
@@ -263,7 +266,7 @@ export default function AccountantScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.xl },
   card: {
     gap: space.sm,
@@ -289,4 +292,4 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   inputError: { borderColor: colors.attention },
-});
+}));

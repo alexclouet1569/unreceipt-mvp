@@ -13,6 +13,7 @@
 // found the receipt has no home_total yet, and screens list it apart
 // instead of adding it in.
 
+import { printedDay } from "@/lib/receipts/printed-day";
 import { getSupabaseAdmin } from "./supabase-admin";
 import {
   FX_CONVERTED_CURRENCIES,
@@ -69,8 +70,8 @@ const round8 = (n: number) => roundTo(n, 8);
  * a receipt waits until it has a date.
  */
 export function conversionDate(r: Pick<Receipt, "purchased_at" | "receipt_date">): string | null {
-  const d = (r.purchased_at ?? r.receipt_date)?.slice(0, 10);
-  return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+  // The rate of the day printed on the receipt (src/lib/receipts/printed-day.ts).
+  return printedDay(r);
 }
 
 const today = () => new Date().toISOString().slice(0, 10);

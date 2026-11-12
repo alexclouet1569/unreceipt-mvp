@@ -36,8 +36,9 @@ describe("fx", () => {
     expect(crossRate(perEur, "JPY", "SEK")).toBeNull();
   });
 
-  it("converts on the purchase day, else the receipt date, and never on the upload day", () => {
-    expect(conversionDate({ purchased_at: "2026-11-02T12:00:00Z", receipt_date: "2026-11-01" })).toBe("2026-11-02");
+  it("converts on the printed day (receipt_date, else purchased_at's date), never on the upload day", () => {
+    expect(conversionDate({ purchased_at: "2026-11-02T12:00:00Z", receipt_date: "2026-11-01" })).toBe("2026-11-01");
+    expect(conversionDate({ purchased_at: "2026-11-02T23:30:00Z", receipt_date: null })).toBe("2026-11-02");
     expect(conversionDate({ purchased_at: null, receipt_date: "2026-11-01" })).toBe("2026-11-01");
     expect(conversionDate({ purchased_at: null, receipt_date: null })).toBeNull();
   });

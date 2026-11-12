@@ -18,7 +18,7 @@ import { useAccount } from "../../../lib/AccountProvider";
 import { dayTime } from "../../../lib/format";
 import { useHome } from "../../../lib/HomeProvider";
 import { useScans } from "../../../lib/scans/ScanProvider";
-import { colors, radius, space } from "../../../theme";
+import { radius, space, makeStyles, useColors } from "../../../theme";
 
 function accountantValue(account: MobileAccount | null): string | null {
   if (!account) return null;
@@ -31,6 +31,8 @@ function accountantValue(account: MobileAccount | null): string | null {
 }
 
 export default function Account() {
+  const styles = useStyles();
+  const colors = useColors();
   const { email, signOut } = useAuth();
   const { home, refresh: refreshHome } = useHome();
   const { account, error, refreshing, refresh } = useAccount();
@@ -143,7 +145,7 @@ export default function Account() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.xl },
   card: {
     backgroundColor: colors.card,
@@ -155,4 +157,4 @@ const styles = StyleSheet.create({
   },
   end: { marginTop: space.xl, gap: space.md },
   center: { textAlign: "center" },
-});
+}));

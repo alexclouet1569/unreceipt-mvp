@@ -5,13 +5,15 @@
 import { StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 export type ListView = "date" | "category";
 
 export function ViewToggle({ view, onChange }: { view: ListView; onChange: (v: ListView) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const options: { value: ListView; label: string }[] = [
     { value: "date", label: s.summary.byDate },
     { value: "category", label: s.summary.byCategory },
@@ -44,7 +46,7 @@ export function ViewToggle({ view, onChange }: { view: ListView; onChange: (v: L
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   track: {
     flexDirection: "row",
     marginHorizontal: space.lg,
@@ -66,4 +68,4 @@ const styles = StyleSheet.create({
   },
   active: { backgroundColor: colors.card, borderColor: colors.hairline },
   label: { fontFamily: fonts.semibold, fontSize: 14 },
-});
+}));

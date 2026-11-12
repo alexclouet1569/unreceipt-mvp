@@ -7,9 +7,10 @@ import { Stack } from "expo-router";
 import { UndoToast } from "../../../lib/ReceiptActions";
 import { s } from "../../../i18n";
 import { EDIT_DETENTS } from "../../../lib/edits";
-import { colors, fonts, radius } from "../../../theme";
+import { fonts, radius, useColors } from "../../../theme";
 
 export default function InsightsStack() {
+  const colors = useColors();
   // A receipt deleted here gets the same Undo bar as in Receipts.
   return (
     <View style={styles.fill}>
@@ -44,7 +45,7 @@ export default function InsightsStack() {
         />
         <Stack.Screen
           name="receipt/photo"
-          options={{ presentation: "modal", headerShown: false, contentStyle: { backgroundColor: colors.ink } }}
+          options={{ presentation: "modal", headerShown: false, contentStyle: { backgroundColor: colors.photoGround } }}
         />
       </Stack>
       <UndoToast />

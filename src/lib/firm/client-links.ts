@@ -5,7 +5,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "./../supabase-admin";
-import { formatDate } from "./../receipt-format";
+import { formatInstantDate } from "./../receipt-format";
 import type { AccountantLink } from "@/app/app/(authed)/settings/AccountantSection";
 
 type Row = {
@@ -73,7 +73,7 @@ export async function loadAccountantLinks(user: User): Promise<AccountantLink[]>
     id: r.id,
     firmName: firmName(r),
     status,
-    since: status === "active" && r.accepted_at ? formatDate(r.accepted_at) : null,
+    since: status === "active" && r.accepted_at ? formatInstantDate(r.accepted_at) : null,
     acceptedAt: status === "active" ? r.accepted_at : null,
     ...(status === "active"
       ? { reminders: { optedOut: Boolean(r.reminders_opted_out_at), firmOn: r.weekly_reminder !== false } }

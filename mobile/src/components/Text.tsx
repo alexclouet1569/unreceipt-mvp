@@ -1,19 +1,20 @@
 import { Text as RNText, type TextProps } from "react-native";
-import { colors, type as typeScale } from "../theme";
+import { type as typeScale, useColors } from "../theme";
 
 type Variant = keyof typeof typeScale;
 
 export function Text({
   variant = "body",
-  color = colors.ink,
+  color,
   style,
   ...rest
 }: TextProps & { variant?: Variant; color?: string }) {
+  const colors = useColors();
   return (
     <RNText
       // Respect the user's text size, but keep the layout intact.
       maxFontSizeMultiplier={1.4}
-      style={[typeScale[variant], { color }, style]}
+      style={[typeScale[variant], { color: color ?? colors.ink }, style]}
       {...rest}
     />
   );

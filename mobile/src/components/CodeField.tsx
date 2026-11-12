@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, TextInput, View, type TextInputInstance } from "
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
 import { CODE_LENGTH } from "../config";
 import { s } from "../i18n";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles } from "../theme";
 import { Text } from "./Text";
 
 export type CodeFieldHandle = { shake: () => void; focus: () => void };
@@ -16,6 +16,7 @@ export const CodeField = forwardRef<
   CodeFieldHandle,
   { value: string; onChange: (digits: string) => void; disabled?: boolean; error?: boolean }
 >(function CodeField({ value, onChange, disabled = false, error = false }, ref) {
+  const styles = useStyles();
   const input = useRef<TextInputInstance>(null);
   const offset = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
@@ -61,7 +62,7 @@ export const CodeField = forwardRef<
   );
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   cells: { flexDirection: "row", gap: space.sm, justifyContent: "space-between" },
   cell: {
     flex: 1,
@@ -78,4 +79,4 @@ const styles = StyleSheet.create({
   cellError: { borderColor: colors.attention },
   digit: { fontFamily: fonts.bold, fontSize: 26, color: colors.ink },
   hiddenInput: { ...StyleSheet.absoluteFill, opacity: 0.02, color: "transparent" },
-});
+}));

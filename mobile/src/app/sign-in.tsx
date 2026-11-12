@@ -13,11 +13,13 @@ import { Button } from "../components/Button";
 import { Text } from "../components/Text";
 import { REVIEW_EMAIL } from "../config";
 import { s } from "../i18n";
-import { colors, durations, fonts, radius, space } from "../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function SignIn() {
+  const styles = useStyles();
+  const colors = useColors();
   const { requestCode, signInWithPassword } = useAuth();
   const [email, setEmail] = useState("");
   // App Review's address asks for its password instead of a code.
@@ -152,7 +154,7 @@ export default function SignIn() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.surface },
   fill: { flex: 1, paddingHorizontal: space.xl },
   hero: { flex: 1, justifyContent: "center", alignItems: "center", gap: space.md },
@@ -174,4 +176,4 @@ const styles = StyleSheet.create({
   inputError: { borderColor: colors.attention },
   button: { marginTop: space.sm, marginBottom: space.sm },
   password: { gap: space.sm, marginTop: space.sm },
-});
+}));

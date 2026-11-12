@@ -1,6 +1,6 @@
 import { requireFirmClientAccess, requireFirmMemberPage, FirmAuthError } from "@/lib/require-firm";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { monthBounds, receiptMonth, resolveMonth } from "@/lib/firm/client-stats";
+import { monthBounds, printedMonthFilter, receiptMonth, resolveMonth } from "@/lib/firm/client-stats";
 import type { Receipt } from "@/lib/types";
 import { ClientView } from "../../_views";
 import { notFound } from "next/navigation";
@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 
 const MAX_ROWS = 500;
 
-// Every receipt of the client dated in the month (Stockholm time), newest
-// first. Scoped by the organisation id that requireFirmClientAccess()
+// Every receipt of the client printed in the month (printed-day.ts), and
+// those still without a date that arrived in it, newest first. Scoped by the organisation id that requireFirmClientAccess()
 // returned; nothing else may scope this query.
 async function loadMonthReceipts(organizationId: string, month: string): Promise<Receipt[]> {
   const { from, to } = monthBounds(month);
@@ -23,8 +23,7 @@ async function loadMonthReceipts(organizationId: string, month: string): Promise
       .from("receipts")
       .select("*")
       .eq("organization_id", organizationId)
-      .gte("purchased_at", from)
-      .lt("purchased_at", to)
+      .or(printedMonthFilter(month))
       .order("purchased_at", { ascending: false })
       .limit(MAX_ROWS),
     // Rows still waiting for a date (review needed) sort by creation time.
@@ -33,6 +32,7 @@ async function loadMonthReceipts(organizationId: string, month: string): Promise
       .select("*")
       .eq("organization_id", organizationId)
       .is("purchased_at", null)
+      .is("receipt_date", null)
       .gte("created_at", from)
       .lt("created_at", to)
       .order("created_at", { ascending: false })

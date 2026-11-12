@@ -272,6 +272,8 @@ export function insightFilter(i: AnalyticsInsight): Record<string, string> | nul
  * One colour per category, from the merchant palette (src/lib/merchant.ts)
  * without its action green (the screen's one green is the chart's) and its
  * honey (it means "needs you"); "other" takes --ink-faint, the neutral.
+ * On the dark palette the same hues, lightened to at least 5.5:1 on the dark
+ * card (the light ones are 1.5–2.4:1 there): DESIGN.md "Dark mode".
  */
 const CATEGORY_COLORS: Record<ReceiptCategory, string> = {
   travel: MERCHANT_PALETTE[2],
@@ -284,6 +286,18 @@ const CATEGORY_COLORS: Record<ReceiptCategory, string> = {
   other: "#9CA0B8",
 };
 
-export function categoryColor(c: ReceiptCategory): string {
-  return CATEGORY_COLORS[c] ?? CATEGORY_COLORS.other;
+const CATEGORY_COLORS_DARK: Record<ReceiptCategory, string> = {
+  travel: "#7D9CCB",
+  transport: "#6AAAB8",
+  meals: "#C98473",
+  accommodation: "#A78BC9",
+  software: "#8C92D6",
+  office_supplies: "#A4A8C0",
+  client_entertainment: "#D67A92",
+  other: "#6A6E88",
+};
+
+export function categoryColor(c: ReceiptCategory, scheme: "light" | "dark" = "light"): string {
+  const table = scheme === "dark" ? CATEGORY_COLORS_DARK : CATEGORY_COLORS;
+  return table[c] ?? table.other;
 }

@@ -1,8 +1,9 @@
 import { Stack } from "expo-router";
 import { s } from "../../../i18n";
-import { colors, fonts } from "../../../theme";
+import { fonts, useColors } from "../../../theme";
 
 export default function AccountStack() {
+  const colors = useColors();
   return (
     <Stack
       screenOptions={{

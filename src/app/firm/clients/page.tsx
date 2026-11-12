@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   computeClientStats,
   monthBounds,
+  printedMonthFilter,
   resolveMonth,
   type ClientStats,
   type StatRow,
@@ -78,24 +79,32 @@ async function loadStats(
   const { from, to } = monthBounds(month);
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const supabase = getSupabaseAdmin();
-  const cols = "organization_id, status, exported_at, created_at, purchased_at";
-  const [inMonth, recent] = await Promise.all([
+  const cols = "organization_id, status, exported_at, created_at, purchased_at, receipt_date";
+  const [inMonth, undated, recent] = await Promise.all([
     supabase
       .from("receipts")
       .select(cols)
       .in("organization_id", organizationIds)
-      .gte("purchased_at", from)
-      .lt("purchased_at", to),
+      .or(printedMonthFilter(month)),
+    // Still without a date: counted in the month they arrived (receiptMonth()).
+    supabase
+      .from("receipts")
+      .select(cols)
+      .in("organization_id", organizationIds)
+      .is("receipt_date", null)
+      .is("purchased_at", null)
+      .gte("created_at", from)
+      .lt("created_at", to),
     supabase
       .from("receipts")
       .select(cols)
       .in("organization_id", organizationIds)
       .gte("created_at", weekAgo),
   ]);
-  if (inMonth.error || recent.error) {
+  if (inMonth.error || undated.error || recent.error) {
     console.error(
       "[/firm/clients] stats failed",
-      inMonth.error ?? recent.error,
+      inMonth.error ?? undated.error ?? recent.error,
     );
     return new Map();
   }
@@ -105,9 +114,10 @@ async function loadStats(
   const rows: StatRow[] = [];
   for (const r of [
     ...(inMonth.data ?? []),
+    ...(undated.data ?? []),
     ...(recent.data ?? []),
   ] as StatRow[]) {
-    const key = `${r.organization_id}|${r.created_at}|${r.purchased_at}`;
+    const key = `${r.organization_id}|${r.created_at}|${r.purchased_at}|${r.receipt_date}`;
     if (seen.has(key)) continue;
     seen.add(key);
     rows.push(r);

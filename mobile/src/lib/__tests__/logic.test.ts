@@ -143,3 +143,27 @@ describe("receipt sections", () => {
     expect(buildSections([], en, "en", now)).toEqual([]);
   });
 });
+
+describe("parseReceiptDate keeps the printed day and clock", () => {
+  it("reads purchased_at's clock as written, never as UTC (23:30 on 31 Dec stays 31 Dec)", () => {
+    for (const [value, day, hour] of [
+      ["2026-12-31T23:30:00Z", 31, 23],
+      ["2026-03-31T23:30:00Z", 31, 23],
+      ["2026-06-30T23:30:00Z", 30, 23],
+      ["2026-10-25T02:30:00Z", 25, 2],
+    ] as const) {
+      const d = parseReceiptDate(value)!;
+      expect(d.getDate(), value).toBe(day);
+      expect(d.getHours(), value).toBe(hour);
+    }
+    // 02:30 doesn't exist in Stockholm the night the clocks go forward: the
+    // phone shows 03:30 then, but the day stays the 29th.
+    expect(parseReceiptDate("2026-03-29T02:30:00Z")!.getDate()).toBe(29);
+    expect(parseReceiptDate("2026-11-08")!.getDate()).toBe(8);
+    expect(parseReceiptDate("nope")).toBeNull();
+  });
+
+  it("puts last evening's receipt in Yesterday just after midnight", () => {
+    expect(dayGroup(parseReceiptDate("2026-06-30T23:30:00Z"), new Date(2026, 6, 1, 0, 10))).toEqual({ kind: "yesterday" });
+  });
+});

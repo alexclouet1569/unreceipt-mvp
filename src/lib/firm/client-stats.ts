@@ -1,16 +1,20 @@
 // Pure helpers for the firm portal's client list: per-client counts for a
 // month from a flat list of receipt rows. No I/O so it's trivially tested.
 
+import { printedMonth } from "@/lib/receipts/printed-day";
+
 export interface StatRow {
   organization_id: string | null;
   status: "verified" | "pending_review" | string;
   exported_at: string | null;
   created_at: string;
   purchased_at: string | null;
+  receipt_date?: string | null;
 }
 
 export interface ClientStats {
-  // Receipts dated in the month (purchased_at, falling back to created_at).
+  // Receipts printed in the month (receipt_date, else purchased_at's date,
+  // never shifted); a receipt still without a date in the month it arrived.
   total: number;
   reviewNeeded: number;
   ready: number;
@@ -49,8 +53,15 @@ export function resolveMonth(requested: string | undefined, now = new Date()): s
   return monthKey(now.toISOString());
 }
 
-export function receiptMonth(row: Pick<StatRow, "purchased_at" | "created_at">): string {
-  return monthKey(row.purchased_at ?? row.created_at);
+/**
+ * The month a receipt belongs to: its printed month (src/lib/receipts/
+ * printed-day.ts), never shifted into Stockholm time (that moved a receipt
+ * bought at 23:30 on the 31st into the next month). A receipt still waiting
+ * for a date is listed in the month it arrived (created_at is a real instant,
+ * read in Stockholm), so the accountant sees it to complete it.
+ */
+export function receiptMonth(row: Pick<StatRow, "purchased_at" | "receipt_date" | "created_at">): string {
+  return printedMonth(row) ?? monthKey(row.created_at);
 }
 
 export function computeClientStats(
@@ -79,6 +90,22 @@ export function computeClientStats(
     out.set(row.organization_id, stats);
   }
   return out;
+}
+
+/**
+ * A PostgREST or() filter for receipts printed in a "YYYY-MM" month (the
+ * same rule as the export, src/lib/export/build-export.ts): receipt_date in
+ * the month, else purchased_at (the receipt's clock written with a "Z") in
+ * it. `month` must already be checked (resolveMonth()).
+ */
+export function printedMonthFilter(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  const start = `${month}-01`;
+  const end = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  return (
+    `and(receipt_date.gte.${start},receipt_date.lt.${end}),` +
+    `and(receipt_date.is.null,purchased_at.gte.${start}T00:00:00Z,purchased_at.lt.${end}T00:00:00Z)`
+  );
 }
 
 /** The first and last instant of a "YYYY-MM" month, as ISO strings (UTC). */

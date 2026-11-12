@@ -33,7 +33,8 @@ import {
   type ReadyAnalytics,
 } from "../../../lib/insights";
 import { useInsights } from "../../../lib/useInsights";
-import { colors, durations, radius, space } from "../../../theme";
+import { usePeriodSwipe } from "../../../lib/usePeriodSwipe";
+import { durations, radius, space, makeStyles, useColors } from "../../../theme";
 
 type Kind = PeriodQuery["kind"];
 
@@ -55,6 +56,7 @@ function queryOf(a: ReadyAnalytics): PeriodQuery {
 
 /** Shapes of the screen while the very first answer loads. */
 function InsightsSkeleton() {
+  const styles = useStyles();
   const pulse = useBreathing();
   return (
     <Animated.View style={[styles.skeleton, pulse]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -85,6 +87,8 @@ function CustomRange({
   onClose: () => void;
   onPick: (from: string, to: string) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   useEffect(() => {
@@ -119,7 +123,6 @@ function CustomRange({
           maximumDate={fromDay(today)}
           locale={INTL_LOCALE[locale]}
           accentColor={colors.brandAction}
-          themeVariant="light"
           onValueChange={(_e, d) => {
             const day = toDay(d);
             setFrom(day);
@@ -137,7 +140,6 @@ function CustomRange({
           maximumDate={fromDay(today)}
           locale={INTL_LOCALE[locale]}
           accentColor={colors.brandAction}
-          themeVariant="light"
           onValueChange={(_e, d) => setTo(toDay(d))}
         />
         {tooLong ? (
@@ -151,6 +153,8 @@ function CustomRange({
 }
 
 export default function Insights() {
+  const styles = useStyles();
+  const colors = useColors();
   const [query, setQuery] = useState<PeriodQuery>({ kind: "month" });
   const [picking, setPicking] = useState(false);
   const { data, error, refreshing, loading, refresh } = useInsights(query);
@@ -185,6 +189,12 @@ export default function Insights() {
   // While a new period loads, the arrows wait: they'd step from the old one.
   const previous = a && !stale ? shiftPeriod(a, -1) : null;
   const next = a && !stale ? shiftPeriod(a, 1) : null;
+  const goPrevious = previous ? () => setQuery(previous) : null;
+  const goNext = next ? () => setQuery(next) : null;
+  // Or swipe sideways anywhere below the period switch (not on a chart,
+  // which reads the finger itself).
+  const [swiping, setSwiping] = useState(false);
+  const swipe = usePeriodSwipe(goPrevious, goNext, setSwiping);
 
   // VoiceOver hears a new period's total, and a failure.
   const announced = useRef<string | null>(null);
@@ -254,6 +264,8 @@ export default function Insights() {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
+      // Still while a sideways swipe changes the period.
+      scrollEnabled={!swiping}
       refreshControl={<RefreshControl refreshing={refreshing && !!a && !stale} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />}
     >
       {error && a ? (
@@ -275,12 +287,10 @@ export default function Insights() {
           if (kind !== query.kind) setQuery({ kind });
         }}
       />
-      <PeriodHeader
-        title={a ? periodTitle(a.period, locale, s) : " "}
-        onPrevious={previous ? () => setQuery(previous) : null}
-        onNext={next ? () => setQuery(next) : null}
-      />
-      {body}
+      <Animated.View style={swipe.style} {...swipe.handlers}>
+        <PeriodHeader title={a ? periodTitle(a.period, locale, s) : " "} onPrevious={goPrevious} onNext={goNext} />
+        {body}
+      </Animated.View>
       <CustomRange
         visible={picking}
         initial={customInitial}
@@ -295,7 +305,7 @@ export default function Insights() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingBottom: space.xxxl },
   center: { textAlign: "center" },
   stale: { opacity: 0.45 },
@@ -334,4 +344,4 @@ const styles = StyleSheet.create({
   sheetSide: { flex: 1, alignItems: "flex-start" },
   sheetRight: { alignItems: "flex-end" },
   sheetTitle: { flexShrink: 1, textAlign: "center" },
-});
+}));
