@@ -148,9 +148,32 @@ describe("parts and colours", () => {
 
   it("never colours a category with the action green or honey", () => {
     const all = ["travel", "transport", "meals", "accommodation", "software", "office_supplies", "client_entertainment", "other"] as const;
-    const used = all.map(categoryColor);
+    const used = all.map((c) => categoryColor(c));
     expect(used).not.toContain("#1A7F52");
     expect(used).not.toContain("#8C6320");
     expect(new Set(used).size).toBe(all.length);
+  });
+
+  it("gives every category its own colour on the dark palette, never the dark action green or honey", () => {
+    const all = ["travel", "transport", "meals", "accommodation", "software", "office_supplies", "client_entertainment", "other"] as const;
+    const used = all.map((c) => categoryColor(c, "dark"));
+    expect(used).not.toContain("#27BE7B");
+    expect(used).not.toContain("#E8B566");
+    expect(new Set(used).size).toBe(all.length);
+  });
+
+  it("keeps every dark category colour but Other at 5.5:1 or more on the dark card (DESIGN.md)", () => {
+    const lum = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => {
+        const v = parseInt(hex.slice(i, i + 2), 16) / 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const card = lum("#1A1D33");
+    const named = ["travel", "transport", "meals", "accommodation", "software", "office_supplies", "client_entertainment"] as const;
+    for (const c of named) {
+      expect((lum(categoryColor(c, "dark")) + 0.05) / (card + 0.05), c).toBeGreaterThanOrEqual(5.5);
+    }
   });
 });

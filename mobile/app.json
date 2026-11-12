@@ -14,7 +14,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "unreceipt",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#FAFAF7",
     "ios": {
       "bundleIdentifier": "com.unreceipt.app",
@@ -40,7 +40,11 @@
         {
           "backgroundColor": "#FAFAF7",
           "image": "./assets/splash-icon.png",
-          "imageWidth": 96
+          "imageWidth": 96,
+          "dark": {
+            "backgroundColor": "#0F1124",
+            "image": "./assets/splash-icon.png"
+          }
         }
       ],
       [

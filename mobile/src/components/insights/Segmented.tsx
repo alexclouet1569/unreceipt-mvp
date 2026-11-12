@@ -3,7 +3,7 @@
 
 import { StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import { colors, fonts, radius, space } from "../../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../../theme";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
 
@@ -19,6 +19,8 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
   label: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.track} accessibilityRole="tablist" accessibilityLabel={label}>
       {options.map((o) => {
@@ -46,7 +48,7 @@ export function Segmented<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   track: {
     flexDirection: "row",
     marginHorizontal: space.lg,
@@ -69,4 +71,4 @@ const styles = StyleSheet.create({
   },
   active: { backgroundColor: colors.card, borderColor: colors.hairline },
   label: { fontFamily: fonts.semibold, fontSize: 14 },
-});
+}));

@@ -12,9 +12,10 @@ import { Text } from "../../../components/Text";
 import { s } from "../../../i18n";
 import { ApiError, getAnalyticsReceipts } from "../../../lib/api";
 import { useHome } from "../../../lib/HomeProvider";
-import { colors, space } from "../../../theme";
+import { space, useColors } from "../../../theme";
 
 export default function InsightsList() {
+  const colors = useColors();
   const { q, title } = useLocalSearchParams<{ q: string; title?: string }>();
   const { home, extra, rememberReceipts } = useHome();
   const [ids, setIds] = useState<string[] | null>(null);

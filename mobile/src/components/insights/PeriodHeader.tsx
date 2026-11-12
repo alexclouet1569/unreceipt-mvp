@@ -4,11 +4,12 @@ import { StyleSheet, View } from "react-native";
 import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
 import { s } from "../../i18n";
-import { colors, space } from "../../theme";
+import { space, useColors } from "../../theme";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
 
 function Arrow({ dir, onPress }: { dir: "left" | "right"; onPress: (() => void) | null }) {
+  const colors = useColors();
   return (
     <PressableScale
       scaleTo={0.9}

@@ -7,13 +7,15 @@ import { StyleSheet, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SymbolView } from "expo-symbols";
 import { s } from "../i18n";
-import { colors, radius, space } from "../theme";
+import { radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 const KEY = "pilot-box:hidden";
 
 export function PilotBox() {
+  const styles = useStyles();
+  const colors = useColors();
   // Hidden until we know it wasn't dismissed, so it never flashes.
   const [hidden, setHidden] = useState(true);
   useEffect(() => {
@@ -45,7 +47,7 @@ export function PilotBox() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   box: {
     flexDirection: "row",
     alignItems: "center",
@@ -59,4 +61,4 @@ const styles = StyleSheet.create({
   },
   text: { flex: 1, color: colors.ink, paddingVertical: space.sm },
   close: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-});
+}));

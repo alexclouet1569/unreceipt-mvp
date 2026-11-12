@@ -15,7 +15,7 @@ import { PressableScale } from "../components/PressableScale";
 import { Text } from "../components/Text";
 import { fill, s } from "../i18n";
 import { SCAN_BUTTON_SPACE } from "../components/ScanButton";
-import { colors, durations, fonts, radius, space } from "../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
 import { ApiError, apiResponse } from "./api";
 import { applyPatch, type ReceiptPatch } from "./edits";
 import { useHome } from "./HomeProvider";
@@ -218,6 +218,8 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
  * knows the bar's height). VoiceOver focus moves to Undo when it appears.
  */
 export function UndoToast() {
+  const styles = useStyles();
+  const colors = useColors();
   const { toast, undo } = useReceiptActions();
   const undoRef = useRef<HostInstance>(null);
   useEffect(() => {
@@ -238,7 +240,7 @@ export function UndoToast() {
             exiting={FadeOutDown.duration(durations.short)}
             style={styles.toast}
           >
-            <Text variant="body" color={colors.white} style={styles.toastText} numberOfLines={2}>
+            <Text variant="body" color={colors.onInk} style={styles.toastText} numberOfLines={2}>
               {toast}
             </Text>
             <View ref={undoRef} collapsable={false}>
@@ -252,7 +254,7 @@ export function UndoToast() {
               >
                 {/* --brand, not --brand-action: 4.8:1 on ink, where
                     --brand-action is 2.3:1 (DESIGN.md, native app). */}
-                <Text style={styles.undoLabel} color={colors.brand}>
+                <Text style={styles.undoLabel} color={colors.undo}>
                   {s.edit.undo}
                 </Text>
               </PressableScale>
@@ -270,12 +272,12 @@ export function useReceiptActions(): Actions {
   return ctx;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   place: { flex: 1, justifyContent: "flex-end", paddingHorizontal: space.lg, paddingBottom: SCAN_BUTTON_SPACE },
   toast: {
     minHeight: 52,
     borderRadius: radius.lg,
-    backgroundColor: colors.ink,
+    backgroundColor: colors.inkFill,
     flexDirection: "row",
     alignItems: "center",
     paddingLeft: space.lg,
@@ -284,4 +286,4 @@ const styles = StyleSheet.create({
   toastText: { flex: 1, fontFamily: fonts.semibold },
   undo: { minHeight: 44, minWidth: 64, alignItems: "center", justifyContent: "center", paddingHorizontal: space.md },
   undoLabel: { fontFamily: fonts.bold, fontSize: 15 },
-});
+}));

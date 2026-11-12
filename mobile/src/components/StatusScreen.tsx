@@ -9,13 +9,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
 import { fill, s } from "../i18n";
 import { useScans } from "../lib/scans/ScanProvider";
-import { colors, space } from "../theme";
+import { space, makeStyles, useColors } from "../theme";
 import { BrandMark } from "./Brand";
 import { Button } from "./Button";
 import { DeleteAccount } from "./DeleteAccount";
 import { Text } from "./Text";
 
 export function StatusScreen({ title, body }: { title: string; body: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { email, signOut } = useAuth();
   const { pending } = useScans();
   const unsent = pending.filter((p) => p.state !== "notReceipt").length;
@@ -72,7 +74,7 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.surface, padding: space.xl },
   middle: { flex: 1, justifyContent: "center", alignItems: "center", gap: space.lg },
   center: { textAlign: "center" },
@@ -86,4 +88,4 @@ const styles = StyleSheet.create({
   },
   sheetSide: { width: 110, alignItems: "flex-start" },
   sheetTitle: { flex: 1, textAlign: "center" },
-});
+}));
