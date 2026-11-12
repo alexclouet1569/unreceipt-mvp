@@ -101,6 +101,15 @@ export async function finishSignIn(next: string = "/app"): Promise<void> {
   window.location.assign(next);
 }
 
+/**
+ * Which email "Send a new code" asks for. A sign-up resend sends nothing for
+ * an address that already has an account, so that case (and every sign-in)
+ * asks for a sign-in code instead, without creating an account.
+ */
+export function resendAsSignInCode(p: { purpose: "signup" | "signin"; existingAccount?: boolean }): boolean {
+  return p.purpose === "signin" || p.existingAccount === true;
+}
+
 // ─── Email helpers ──────────────────────────────────────────────────────────
 
 const DOMAIN_TYPOS: Record<string, string> = {

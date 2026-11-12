@@ -14,6 +14,7 @@ import {
   finishSignIn,
   isRateLimited,
   isUnreachable,
+  resendAsSignInCode,
   shake,
   signInSchema,
   signUpSchema,
@@ -58,7 +59,11 @@ type AuthCardProps = {
   next?: string;
 };
 
-type PendingCode = { email: string; purpose: "signup" | "signin" };
+// existingAccount: a sign-up for an address that already has an account.
+// The screen still reads as a sign-up (nothing reveals the account exists),
+// but "Send again" must ask for a sign-in code: Supabase sends nothing on a
+// sign-up resend for a confirmed address.
+type PendingCode = { email: string; purpose: "signup" | "signin"; existingAccount?: boolean };
 type EntryFocus = "first" | "email" | null;
 type SignUpDetails = { fullName: string; companyName: string; password: string };
 
@@ -100,7 +105,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
         };
 
   const resendFor = (p: PendingCode) => () =>
-    p.purpose === "signup"
+    !resendAsSignInCode(p)
       ? callAuth("resend", () =>
           getSupabaseClient().auth.resend({
             type: "signup",
@@ -111,7 +116,10 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
       : callAuth("signInWithOtp", () =>
           getSupabaseClient().auth.signInWithOtp({
             email: p.email,
-            options: { emailRedirectTo: callbackUrl(next) },
+            options: {
+              emailRedirectTo: callbackUrl(next),
+              ...(p.existingAccount ? { shouldCreateUser: false } : {}),
+            },
           })
         );
 
@@ -189,7 +197,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                     setDetails={setDetails}
                     entryFocus={entryFocus}
                     next={next}
-                    onCodeSent={(e) => setPendingCode({ email: e, purpose: "signup" })}
+                    onCodeSent={(e, existingAccount) => setPendingCode({ email: e, purpose: "signup", existingAccount })}
                     onSignIn={() => switchMode("signin")}
                   />
                 )}
@@ -557,7 +565,7 @@ function SignUpPanel({
   details: SignUpDetails;
   setDetails: React.Dispatch<React.SetStateAction<SignUpDetails>>;
   entryFocus: EntryFocus;
-  onCodeSent: (email: string) => void;
+  onCodeSent: (email: string, existingAccount?: boolean) => void;
   onSignIn: () => void;
   next: string;
 }) {
@@ -650,7 +658,7 @@ function SignUpPanel({
         );
         return;
       }
-      onCodeSent(parsed.data.email);
+      onCodeSent(parsed.data.email, true);
       return;
     }
 

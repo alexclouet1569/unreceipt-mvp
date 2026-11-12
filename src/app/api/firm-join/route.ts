@@ -35,6 +35,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  // JSON only: a cross-site <form> can only send form or text/plain bodies,
+  // and a cross-site fetch with application/json needs a preflight we never
+  // grant. A forced Join would be the very thing this route guards against.
+  const contentType = (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
+    return NextResponse.json({ error: "unsupported_media_type" }, { status: 415 });
+  }
+
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 

@@ -66,6 +66,18 @@ describe("POST /api/firm-join", () => {
     expect(mocks.claim).not.toHaveBeenCalled();
   });
 
+  it("accepts only a JSON body (a cross-site form can't send one)", async () => {
+    const res = await POST(
+      new NextRequest("https://app.unreceipt.com/api/firm-join", {
+        method: "POST",
+        headers: { "content-type": "text/plain", host: "app.unreceipt.com" },
+        body: '{"action":"join","x":"="}',
+      })
+    );
+    expect(res.status).toBe(415);
+    expect(mocks.claim).not.toHaveBeenCalled();
+  });
+
   it("needs a session", async () => {
     mocks.user = null;
     expect((await call({ action: "join" })).status).toBe(401);
