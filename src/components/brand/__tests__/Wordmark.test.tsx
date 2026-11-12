@@ -23,8 +23,9 @@ describe("Wordmark", () => {
     const receipt = Array.from(spans).find((s) => s.textContent === "Receipt");
     expect(un).toBeDefined();
     expect(receipt).toBeDefined();
-    expect((un as HTMLElement).style.color).toBe("rgb(48, 53, 104)");
-    expect((receipt as HTMLElement).style.color).toBe("rgb(39, 190, 123)");
+    // Through the dark-mode variables, falling back to the brand-book light set.
+    expect((un as HTMLElement).style.color).toBe("var(--mark-un, #303568)");
+    expect((receipt as HTMLElement).style.color).toBe("var(--mark-word, #27BE7B)");
   });
 
   it("renders icon-only variant with no text", () => {

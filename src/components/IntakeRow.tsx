@@ -70,7 +70,7 @@ export function IntakeRow({
           onClick={handleCopy}
           className={cn(
             "shrink-0 inline-flex items-center gap-1.5 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2",
-            quiet ? "text-[var(--ink)] bg-card" : "text-white",
+            quiet ? "text-[var(--ink)] bg-card" : "text-[var(--primary-foreground)]",
           )}
           style={{
             background: quiet

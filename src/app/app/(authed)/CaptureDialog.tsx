@@ -599,7 +599,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       <SheetContent
         side="bottom"
         showCloseButton={false}
-        className="mx-auto w-full max-w-[540px] gap-0 rounded-t-[16px] bg-card p-0 text-[var(--ink)] shadow-none duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:ease-[cubic-bezier(0.4,0,1,1)] data-[side=bottom]:h-[min(92dvh,760px)] data-[side=bottom]:border-t-0 data-[side=bottom]:data-ending-style:translate-y-full data-[side=bottom]:data-starting-style:translate-y-full"
+        className="mx-auto w-full max-w-[540px] gap-0 rounded-t-[16px] bg-card p-0 text-[var(--ink)] shadow-none duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:ease-[cubic-bezier(0.4,0,1,1)] data-[side=bottom]:h-[min(92dvh,760px)] data-[side=bottom]:data-ending-style:translate-y-full data-[side=bottom]:data-starting-style:translate-y-full"
       >
         <div className="flex items-center gap-3 px-4 pt-4 pb-2">
           {stage === "review" && !imageFile ? (

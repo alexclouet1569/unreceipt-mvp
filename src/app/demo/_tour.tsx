@@ -63,7 +63,7 @@ export function TourBar({
           {!last ? (
             <Link
               href={hrefFor(step + 1)}
-              className="inline-flex items-center gap-1 h-11 px-5 rounded-[10px] bg-[var(--ink)] text-[var(--surface)] font-semibold hover:opacity-90"
+              className="inline-flex items-center gap-1 h-11 px-5 rounded-[10px] bg-[var(--ink-fill)] text-[var(--on-ink)] font-semibold hover:opacity-90"
               style={{ fontSize: "15px" }}
             >
               Next

@@ -71,7 +71,7 @@ export default async function SubscribePage({
 
             {pilot ? (
               <div className="space-y-3">
-                <p className="text-sm text-foreground bg-amber-50 border border-amber-200 rounded-md px-3 py-2.5">
+                <p className="text-sm text-[var(--attention-deep)] bg-[var(--attention-tint)] border border-[var(--attention)] rounded-md px-3 py-2.5">
                   We&apos;re running a free pilot right now — no subscription
                   needed. After the pilot, plans start at €5.99 per month (excl.
                   VAT) for the whole company.

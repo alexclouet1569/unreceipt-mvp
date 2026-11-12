@@ -272,7 +272,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
     >
       <div className="flex justify-between" style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", padding: "0 6px 6px" }}>
         <span>9:41</span>
-        <span className="block rounded-full" style={{ width: 54, height: 14, background: "var(--ink)" }} />
+        <span className="block rounded-full" style={{ width: 54, height: 14, background: "var(--ink-fill)" }} />
         <span>100%</span>
       </div>
       {children}

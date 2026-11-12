@@ -15,10 +15,10 @@ export function DbWarningBanner() {
   if (dismissed) return null;
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200">
+    <div className="bg-[var(--attention-tint)] border-b border-[var(--attention)]">
       <div className="max-w-[540px] mx-auto px-4 py-2 flex items-start gap-3">
-        <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-900 flex-1">
+        <AlertTriangle className="w-4 h-4 text-[var(--attention-deep)] shrink-0 mt-0.5" />
+        <p className="text-xs text-[var(--attention-deep)] flex-1">
           We&apos;re having trouble verifying your account status right now.
           You can keep using the dashboard — if you see anything off, email{" "}
           <a
@@ -32,7 +32,7 @@ export function DbWarningBanner() {
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-amber-700 hover:text-amber-900 p-0.5 -m-0.5"
+          className="text-[var(--attention-deep)] hover:opacity-80 p-0.5 -m-0.5"
           aria-label="Dismiss"
         >
           <X className="w-4 h-4" />

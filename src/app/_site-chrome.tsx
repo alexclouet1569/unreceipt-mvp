@@ -7,6 +7,7 @@ import { MARKETING_PAGES, pagePath, type MarketingPageId } from "@/lib/marketing
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
+import { LightOnly } from "./_light-only";
 
 
 // Same look as the shared Button, without importing that client module
@@ -48,6 +49,8 @@ export function SiteHeader({
 
   return (
     <header className="sticky top-0 z-50 bg-[#FAFAF7] border-b border-[#E8E5DD]">
+      {/* The marketing site has no dark design: keep it light on shared hosts. */}
+      <LightOnly />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
         <a href={home} aria-label={`UnReceipt — ${t.home}`} className="py-1">
           <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[24px]" />

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { LightOnly } from "../_light-only";
 
 export const metadata: Metadata = {
   title: "Privacy & data",
@@ -15,6 +16,7 @@ const SUPPORT_EMAIL = "support@unreceipt.com";
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-[#ECF7E7]">
+      <LightOnly />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
         <Link
           href="/"

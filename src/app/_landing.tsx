@@ -23,6 +23,7 @@ import {
   Globe,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
@@ -245,6 +246,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
 
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
+      {/* The marketing site has no dark design: keep it light on shared hosts. */}
+      <LightOnly />
       {/* ─── NAV ─── */}
       {/* Solid cream bar from the first pixel so the full-color primary
           lockup never has to swap variants mid-scroll. Only the hairline
