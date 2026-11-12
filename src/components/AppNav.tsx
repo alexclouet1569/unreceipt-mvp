@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Receipt, Settings, type LucideIcon } from "lucide-react";
+import { ChartColumn, Receipt, Settings, type LucideIcon } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -14,6 +14,7 @@ export type NavTab = { href: string; label: string; icon: LucideIcon };
 
 export const APP_TABS: NavTab[] = [
   { href: "/app", label: "Receipts", icon: Receipt },
+  { href: "/app/insights", label: "Insights", icon: ChartColumn },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 

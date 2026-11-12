@@ -7,6 +7,13 @@ import { AppHeader } from "@/components/AppNav";
 import { InviteCard } from "@/app/app/accountant/accept/_invite-card";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Receipt } from "@/lib/types";
+import { buildAnalytics } from "@/lib/analytics/aggregate";
+import { periodSearch, type PeriodQuery } from "@/lib/analytics/display";
+import { stockholmDay } from "@/lib/analytics/money";
+import { resolvePeriod, type PeriodInput } from "@/lib/analytics/periods";
+import { InsightsBody } from "@/app/app/(authed)/insights/InsightsView";
+import { PeriodHeader } from "@/app/app/(authed)/insights/PeriodHeader";
+import { PendingBody, PeriodScope } from "@/app/app/(authed)/insights/PeriodPending";
 import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
 
 // Public guided tour for a client company: the real receipts screen and
@@ -26,6 +33,10 @@ const STEPS: TourStep[] = [
         Tap the <b>+</b> button and pick any photo. Watch it fill in by itself.
       </>
     ),
+  },
+  {
+    title: "Where it goes",
+    text: "This month's spending, where it goes and the VAT on the receipts, added up for you. Try Quarter or Year.",
   },
   {
     title: "Your accountant asks",
@@ -206,7 +217,34 @@ const json = (body: unknown) =>
 const num = (v: FormDataEntryValue | null) =>
   typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : null;
 
-export function CompanyTour({ step }: { step: number }) {
+/**
+ * The Insights page for the tour's sample receipts, added up in the browser
+ * by the real engine (src/lib/analytics/aggregate.ts): no route is called.
+ * The numbers don't open anything here (there is no receipts page in the tour).
+ */
+function DemoInsights({ receipts, period }: { receipts: Receipt[]; period: PeriodInput }) {
+  const today = stockholmDay(new Date());
+  const resolved = resolvePeriod(period, today) ?? resolvePeriod({ kind: "month" }, today);
+  if (!resolved) return null;
+  const a = buildAnalytics(receipts, "SEK", resolved, today, "SE");
+  if (a.state !== "ready") return null;
+  const href = (q: PeriodQuery) => `/demo/company?step=3&${periodSearch(q)}`;
+  return (
+    <main className="mx-auto max-w-[540px] px-4 py-6 pb-16">
+      <h1 className="mb-4 type-display-lg text-[var(--ink)]">Insights</h1>
+      <PeriodScope>
+        <PeriodHeader a={a} href={href} dates={{ action: "/demo/company", keep: { step: "3" } }} />
+        <div className="mt-6">
+          <PendingBody>
+            <InsightsBody a={a} href={() => null} />
+          </PendingBody>
+        </div>
+      </PeriodScope>
+    </main>
+  );
+}
+
+export function CompanyTour({ step, period = { kind: "month" } }: { step: number; period?: PeriodInput }) {
   const [notice, closeNotice] = useDemoLinkGuard();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
@@ -327,6 +365,11 @@ export function CompanyTour({ step }: { step: number }) {
           />
         </>
       ) : step === 3 ? (
+        <>
+          <AppHeader tabs={[]} homeHref="/demo/company?step=1" />
+          <DemoInsights receipts={receipts} period={period} />
+        </>
+      ) : step === 4 ? (
         <main className="max-w-[540px] mx-auto px-4 pt-16 pb-24">
           <InviteCard
             invite={{ id: "11111111-1111-4111-8111-0000000000aa", firmName: "Bergström Redovisning", clientName: "Nordljus Design AB", state: "open" }}

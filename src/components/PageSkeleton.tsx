@@ -95,3 +95,38 @@ export function GuideSkeleton() {
     </Frame>
   );
 }
+
+/** Insights: the period switch, the hero and the chart's bars. */
+export function InsightsSkeleton() {
+  return (
+    <Frame label="Loading your insights">
+      <Block className="mb-4 h-7 w-32" />
+      <Block className="h-[54px] w-full rounded-[10px]" />
+      <Block className="mx-auto mt-5 mb-6 h-5 w-36" />
+      <Block className="h-3 w-12" />
+      <Block className="mt-2 h-10 w-52" />
+      <Block className="mt-3 mb-8 h-7 w-40 rounded-full" />
+      <div aria-hidden="true" className="flex h-[140px] items-end gap-2 border-b border-[var(--hairline)]">
+        {[40, 72, 55, 96, 30, 64, 88, 48, 110, 60, 35, 78].map((h, i) => (
+          <div key={i} className="skeleton flex-1 rounded-t-[3px]" style={{ height: h }} />
+        ))}
+      </div>
+    </Frame>
+  );
+}
+
+/** A list behind a number on Insights: the way back, a title, the cards. */
+export function ListSkeleton() {
+  return (
+    <Frame label="Loading the receipts">
+      <Block className="mb-3 h-4 w-20" />
+      <Block className="h-7 w-44" />
+      <Block className="mt-2 mb-6 h-3.5 w-28" />
+      <div className="space-y-2">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <CardShape key={i} />
+        ))}
+      </div>
+    </Frame>
+  );
+}
