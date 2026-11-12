@@ -3,6 +3,9 @@
 
 export const en = {
   common: {
+    updateReady: "A new version is ready",
+    updateLater: "Later",
+    updateRestart: "Restart",
     retry: "Try again",
     cancel: "Cancel",
     copy: "Copy",

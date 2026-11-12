@@ -169,8 +169,12 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       });
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
-      // Back in the app: whatever was waiting may go now.
-      commit(queue.current.map((x) => (x.state === "waiting" ? { ...x, retryAt: 0 } : x)));
+      // Back in the app: whatever was waiting for a retry may go now. Only
+      // when something is (the queue is almost always empty): no new array,
+      // render or saved-copy write for nothing.
+      if (queue.current.some((x) => x.state === "waiting" && x.retryAt > 0)) {
+        commit(queue.current.map((x) => (x.state === "waiting" ? { ...x, retryAt: 0 } : x)));
+      }
       pump();
     });
     return () => {

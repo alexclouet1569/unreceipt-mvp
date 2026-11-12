@@ -2,6 +2,9 @@ import type { Strings } from "./en";
 
 export const sv: Strings = {
   common: {
+    updateReady: "En ny version är klar",
+    updateLater: "Senare",
+    updateRestart: "Starta om",
     retry: "Försök igen",
     cancel: "Avbryt",
     copy: "Kopiera",

@@ -127,12 +127,6 @@ export function previousLabel(a: ReadyAnalytics): string {
   }
 }
 
-/** The same, starting with a capital, for a legend. */
-export const previousLegend = (a: ReadyAnalytics) => {
-  const t = previousLabel(a);
-  return t.charAt(0).toUpperCase() + t.slice(1);
-};
-
 /** "+12%", "−8%", or null when there is nothing to compare with. */
 export function changeText(current: number, previous: number | null): string | null {
   if (previous == null || previous <= 0) return null;

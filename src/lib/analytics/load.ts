@@ -83,7 +83,7 @@ async function convert(rows: AnalyticsRow[], home: string): Promise<AnalyticsRow
   })) as unknown as AnalyticsRow[];
 }
 
-type Access =
+export type Access =
   | { kind: "firm_only" }
   | { kind: "inactive" }
   | { kind: "ready"; home: string; country: string };
@@ -142,8 +142,17 @@ export function periodFromParams(params: URLSearchParams, today: string): Resolv
   return period;
 }
 
-export async function loadAnalytics(user: User, period: ResolvedPeriod, today: string): Promise<MobileAnalytics> {
-  const access = await analyticsAccess(user);
+/**
+ * `accessed`: the caller's own analyticsAccess() result, when it started it
+ * beside the rate limit (the routes), so it isn't read twice.
+ */
+export async function loadAnalytics(
+  user: User,
+  period: ResolvedPeriod,
+  today: string,
+  accessed?: Access,
+): Promise<MobileAnalytics> {
+  const access = accessed ?? (await analyticsAccess(user));
   if (access.kind !== "ready") return { state: access.kind };
   const rows = await loadAnalyticsRows(user.id, access.home);
   return buildAnalytics(rows, access.home, period, today, access.country);
@@ -215,9 +224,10 @@ function matches(r: AnalyticsRow, f: DrillFilter, home: string, country: string)
 export async function loadDrillReceipts(
   user: User,
   period: ResolvedPeriod,
-  filter: DrillFilter
+  filter: DrillFilter,
+  accessed?: Access,
 ): Promise<{ receipts: MobileReceipt[]; truncated: boolean } | { state: "firm_only" | "inactive" }> {
-  const result = await loadDrillRows(user, period, filter);
+  const result = await loadDrillRows(user, period, filter, accessed);
   if ("state" in result) return result;
   return { receipts: result.rows.map(toMobileReceipt), truncated: result.truncated };
 }
@@ -229,9 +239,10 @@ export async function loadDrillReceipts(
 export async function loadDrillRows(
   user: User,
   period: ResolvedPeriod,
-  filter: DrillFilter
+  filter: DrillFilter,
+  accessed?: Access,
 ): Promise<{ rows: Receipt[]; truncated: boolean } | { state: "firm_only" | "inactive" }> {
-  const access = await analyticsAccess(user);
+  const access = accessed ?? (await analyticsAccess(user));
   if (access.kind !== "ready") return { state: access.kind };
   const rows = await loadAnalyticsRows(user.id, access.home);
   const hits = rows

@@ -158,6 +158,14 @@ export default function Insights() {
   const [query, setQuery] = useState<PeriodQuery>({ kind: "month" });
   const [picking, setPicking] = useState(false);
   const { data, error, refreshing, loading, refresh } = useInsights(query);
+  // The spinner only for a pull. The screen also loads by itself when it
+  // opens; a spinner started from code under a large title made iOS keep
+  // the title's space but not draw the title ("Insights" was blank).
+  const [pulled, setPulled] = useState(false);
+  const pull = () => {
+    setPulled(true);
+    void refresh().finally(() => setPulled(false));
+  };
 
   // The last answer stays on screen (dimmed) while a new period loads.
   const lastReady = useRef<ReadyAnalytics | null>(null);
@@ -266,7 +274,7 @@ export default function Insights() {
       contentContainerStyle={styles.content}
       // Still while a sideways swipe changes the period.
       scrollEnabled={!swiping}
-      refreshControl={<RefreshControl refreshing={refreshing && !!a && !stale} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />}
+      refreshControl={<RefreshControl refreshing={pulled} onRefresh={pull} tintColor={colors.inkMuted} />}
     >
       {error && a ? (
         <View style={styles.notice}>

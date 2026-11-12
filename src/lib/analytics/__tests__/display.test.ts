@@ -9,7 +9,6 @@ import {
   periodSearch,
   periodTitle,
   previousLabel,
-  previousLegend,
   shiftPeriod,
   type ReadyAnalytics,
 } from "../display";
@@ -109,11 +108,6 @@ describe("texts", () => {
     expect(bucketLabel({ from: "2026-10-05", to: "2026-10-11" }, "week")).toBe("5 Oct");
     expect(bucketLabel({ from: "2026-10-05", to: "2026-10-11" }, "week", true)).toBe("Week of 5 October");
     expect(bucketLabel({ from: "2026-09-28", to: "2026-10-04" }, "week")).toMatch(/^28 Sep/);
-  });
-
-  it("capitalises the period before in the legend", () => {
-    expect(previousLegend(analytics({ kind: "custom", key: "x" }))).toBe("The period before");
-    expect(previousLegend(analytics({}))).toBe("October");
   });
 
   it("colours categories from CSS variables, Other neutral", () => {
