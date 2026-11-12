@@ -63,7 +63,7 @@ const newItem = (fields: Omit<Item, "id" | "clientId">): Item => ({ id: nextId()
 export function rateLimitMessage(retryAfter: string | null): string {
   const seconds = retryAfter !== null && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) : null;
   if (seconds === null || seconds <= 0) {
-    return "You've scanned a lot in the last hour. Try again later; the files below stay here until then.";
+    return "You've scanned a lot in the last hour. Keep this open and press Try again later, or close it and add the files again.";
   }
   const minutes = Math.ceil(seconds / 60);
   const wait =
@@ -72,7 +72,7 @@ export function rateLimitMessage(retryAfter: string | null): string {
       : minutes < 90
         ? `about ${minutes} minutes`
         : `about ${Math.round(minutes / 60)} hours`;
-  return `You've reached the reading limit for now. Try again in ${wait}.`;
+  return `You've reached the reading limit for now. Keep this open and press Try again in ${wait}.`;
 }
 
 export type Expanded =

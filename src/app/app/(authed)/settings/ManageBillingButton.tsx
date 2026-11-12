@@ -13,6 +13,9 @@ export function ManageBillingButton() {
   const [error, setError] = useState<string | null>(null);
 
   const open = async () => {
+    // Stays focusable while opening (aria-disabled), so keyboard focus and
+    // the announced label aren't lost; a second press is ignored.
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -20,9 +23,13 @@ export function ManageBillingButton() {
       const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !body.url) {
         setError(
-          res.status === 429
-            ? "Too many tries just now. Wait a minute, then try again."
-            : body.error ?? "Couldn't open billing. Try again in a moment."
+          res.status === 401
+            ? "You were signed out. Sign in again, then open billing."
+            : res.status === 429
+              ? "Too many tries just now. Wait a minute, then try again."
+              : res.status === 404
+                ? "There's no billing account for this sign-in yet."
+                : "Couldn't open billing. Try again in a moment."
         );
         setBusy(false);
         return;
@@ -39,8 +46,9 @@ export function ManageBillingButton() {
       <button
         type="button"
         onClick={open}
-        disabled={busy}
-        className="type-body font-semibold w-full h-12 inline-flex items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink)] hover:bg-[var(--surface)] transition-colors duration-100 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+        aria-disabled={busy || undefined}
+        aria-live="polite"
+        className="type-body font-semibold w-full h-12 inline-flex items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink)] hover:bg-[var(--surface)] transition-colors duration-100 aria-disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
       >
         <CreditCard className="w-4 h-4" aria-hidden="true" />
         {busy ? "Opening billing…" : "Manage billing"}

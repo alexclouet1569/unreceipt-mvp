@@ -45,10 +45,13 @@ export type HomeData = {
 };
 
 export type HomeLoad =
-  // Firm staff with no company of their own, or someone a firm added as
-  // staff (seat not claimed yet) who has no company: their place is /firm,
-  // which claims the seat (requireFirmMemberPage()).
+  // Firm staff with no company of their own: their place is /firm.
   | { kind: "firm_only" }
+  // Website only (askAboutFirmSeat): a firm added this confirmed address as
+  // staff and it has no company yet. /app/firm-join asks "Join <firm>?" —
+  // being added never makes anyone a member by itself (any firm admin can
+  // add any address).
+  | { kind: "firm_pending"; firmName: string }
   // No active plan (and not pilot mode).
   | { kind: "subscribe" }
   // Back from Stripe Checkout before the webhook landed (website only).
@@ -201,7 +204,15 @@ async function readDefaultOrganization(userId: string): Promise<{ id: string; cu
  * The signed-in user's home screen. `sessionId` is Stripe Checkout's
  * ?session_id on the website's return; the app passes null.
  */
-export async function loadHome(user: User, sessionId: string | null): Promise<HomeLoad> {
+export async function loadHome(
+  user: User,
+  sessionId: string | null,
+  // The website asks a user with a waiting firm seat whether to join before
+  // creating a company for them. The iPhone app (companies only; accountants
+  // use /firm on the web) doesn't: it goes on as a customer, and the seat
+  // stays offered as "Join <firm>" in the website's Settings.
+  { askAboutFirmSeat = false }: { askAboutFirmSeat?: boolean } = {}
+): Promise<HomeLoad> {
   // Everything the screen reads, at once rather than one query after the
   // other. All reads: nothing is created until the checks below pass. The
   // profile (alias) and company (currency) are read here too, so a normal
@@ -220,12 +231,16 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
   // Checked before the gate's answer and before any lazy mint below.
   if (firmMembership && !(await hasAnyMembership(user.id))) return { kind: "firm_only" };
   // A firm added this confirmed address as staff and it has no company of
-  // its own yet (no default organisation, the first load): /firm claims the
-  // seat (AGENTS.md, firm portal rule 4). Without this the accountant would
-  // get a "My company" minted below, or be sent to /subscribe. Someone who
-  // already has a company keeps it and sees "Join <firm>" in Settings.
-  if (!firmMembership && !existingOrg && (await findPendingFirmSeat(user)) && !(await hasAnyMembership(user.id))) {
-    return { kind: "firm_only" };
+  // its own yet (no default organisation, the first load): ask before
+  // anything is created (AGENTS.md, firm portal rule 4). Without this the
+  // accountant would get a "My company" minted below, or be sent to
+  // /subscribe. Someone who already has a company keeps it and sees
+  // "Join <firm>" in Settings.
+  if (askAboutFirmSeat && !firmMembership && !existingOrg) {
+    const seat = await findPendingFirmSeat(user);
+    if (seat && !(await hasAnyMembership(user.id))) {
+      return { kind: "firm_pending", firmName: seat.firmName };
+    }
   }
   if (gate.kind === "redirect_subscribe") return { kind: "subscribe" };
   if (gate.kind === "self_heal") return { kind: "self_heal", sessionId: gate.sessionId };

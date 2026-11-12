@@ -24,7 +24,9 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { normalizedSessionEmail } from "./email-address";
 import type { FirmMemberRole } from "./types";
 
-export type FirmAuthReason = "no_user" | "not_member" | "no_access";
+// pending_seat: not a member yet, but a firm added this confirmed address as
+// staff. Joining is the user's own step (/app/firm-join), never automatic.
+export type FirmAuthReason = "no_user" | "not_member" | "pending_seat" | "no_access";
 
 export class FirmAuthError extends Error {
   reason: FirmAuthReason;
@@ -32,7 +34,7 @@ export class FirmAuthError extends Error {
     super(
       reason === "no_user"
         ? "Not authenticated"
-        : reason === "not_member"
+        : reason === "not_member" || reason === "pending_seat"
           ? "Not a firm member"
           : "No access to this client"
     );
@@ -116,9 +118,10 @@ async function readPendingSeat(user: SessionAddress): Promise<MemberRow | null> 
 
 /**
  * The firm whose seat waits to be claimed by this user's confirmed address,
- * or null. Read-only: never claims (that happens only when /firm itself is
- * opened, requireFirmMember(), so joining a firm is always the user's own
- * step: any firm admin can add any address).
+ * or null. Read-only: never claims. Claiming happens only through
+ * claimPendingFirmSeat(), called by POST /api/firm-join when the user
+ * presses Join on /app/firm-join: any firm admin can add any address as
+ * staff, so being added must never make someone a member by itself.
  */
 export async function findPendingFirmSeat(
   user: SessionAddress
@@ -129,7 +132,8 @@ export async function findPendingFirmSeat(
 
 // A pending row for this confirmed email gets this user. The partial unique
 // index on user_id means two firms can't both claim the same person.
-async function claimPendingMembership(
+// Only for an explicit Join (POST /api/firm-join); never on a page load.
+export async function claimPendingFirmSeat(
   user: User
 ): Promise<Omit<FirmContext, "user"> | null> {
   const pending = await readPendingSeat(user);
@@ -148,8 +152,7 @@ async function claimPendingMembership(
     return error.code === "23505" ? getFirmMembership(user.id) : null;
   }
   // No row: someone claimed it between the read and the update — normally
-  // this user's own parallel request (the /firm layout and page both call
-  // requireFirmMemberPage()). Re-read instead of sending them to /app.
+  // this user's own second press of Join. Re-read instead of failing.
   if (!data) return getFirmMembership(user.id);
   const row = data as unknown as MemberRow;
   return {
@@ -161,11 +164,32 @@ async function claimPendingMembership(
 }
 
 /**
+ * "Not me" on /app/firm-join: removes every waiting seat for this user's
+ * confirmed address, so no firm stays offered to someone who doesn't work
+ * there. Only unclaimed rows; a firm can add the address again. True on
+ * success.
+ */
+export async function declinePendingFirmSeats(user: SessionAddress): Promise<boolean> {
+  const email = normalizedSessionEmail(user);
+  if (!email) return false;
+  const { error } = await getSupabaseAdmin()
+    .from("firm_members")
+    .delete()
+    .eq("email", email)
+    .is("user_id", null);
+  if (error) {
+    console.error("[require-firm] decline failed", error.code);
+    return false;
+  }
+  return true;
+}
+
+/**
  * The firm this user works in or is invited to, for a link to /firm from the
  * company side (in the store app there's no address bar to type /firm).
- * Read-only: a pending invite is claimed only when /firm itself is opened
- * (requireFirmMember), and only for the confirmed address it was sent to;
- * the caller shows it as "Join", so opening it is the user's choice.
+ * Read-only: a pending seat is claimed only by the Join button on
+ * /app/firm-join (where /firm sends a user with a pending seat), and only
+ * for the confirmed address it was sent to.
  */
 export async function findFirmForUser(
   user: User,
@@ -179,21 +203,16 @@ export async function findFirmForUser(
   return { firmName: firmName(pending), pending: true };
 }
 
-/** The user's firm membership, claiming a pending invite row if there is one. */
-export async function resolveFirmMembership(
-  user: User
-): Promise<Omit<FirmContext, "user"> | null> {
-  return (await getFirmMembership(user.id)) ?? (await claimPendingMembership(user));
-}
-
 /** Throws FirmAuthError unless the session user is a firm member. */
 export async function requireFirmMember(): Promise<FirmContext> {
   const user = await getServerUser();
   if (!user) throw new FirmAuthError("no_user");
 
-  const membership =
-    (await getFirmMembership(user.id)) ?? (await claimPendingMembership(user));
-  if (!membership) throw new FirmAuthError("not_member");
+  const membership = await getFirmMembership(user.id);
+  if (!membership) {
+    // Never claims: a waiting seat is joined only by an explicit Join.
+    throw new FirmAuthError((await readPendingSeat(user)) ? "pending_seat" : "not_member");
+  }
 
   return { user, ...membership };
 }
@@ -212,7 +231,13 @@ export async function requireFirmMemberPage(): Promise<FirmContext> {
       // /app sends firm-only users (and pending seats) back here; the flag
       // stops the two pages redirecting to each other when the seat can't
       // be read or claimed. /app ignores it for everyone else.
-      redirect(err.reason === "no_user" ? "/app/login?next=/firm" : "/app?firm=unavailable");
+      redirect(
+        err.reason === "no_user"
+          ? "/app/login?next=/firm"
+          : err.reason === "pending_seat"
+            ? "/app/firm-join"
+            : "/app?firm=unavailable"
+      );
     }
     throw err;
   }
@@ -265,7 +290,7 @@ export function firmAuthResponse(err: FirmAuthError): Response {
   if (err.reason === "no_user") {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (err.reason === "not_member") {
+  if (err.reason === "not_member" || err.reason === "pending_seat") {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
   // A client the firm isn't linked to looks exactly like one that doesn't

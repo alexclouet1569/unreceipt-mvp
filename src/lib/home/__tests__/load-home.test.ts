@@ -143,20 +143,36 @@ describe("loadHome", () => {
     expect(home.data.forwardingEmail).toBeNull();
   });
 
-  it("sends a confirmed address with a pending firm seat and no company to /firm, minting nothing", async () => {
+  it("asks a confirmed address with a pending firm seat and no company (website), minting nothing", async () => {
     const accountant = { ...USER, email: "Eva.Lind@googlemail.com", email_confirmed_at: "2026-11-01" } as User;
     m.tables.profiles = { data: { onboarded_at: null, email_alias_hash: null }, error: null };
     m.tables.organizations = { data: null, error: null };
     m.tables.receipts = { data: [], error: null };
     m.findPendingFirmSeat.mockResolvedValue({ firmName: "Byrån AB" });
-    expect((await loadHome(accountant, null)).kind).toBe("firm_only");
+    expect(await loadHome(accountant, null, { askAboutFirmSeat: true })).toEqual({
+      kind: "firm_pending",
+      firmName: "Byrån AB",
+    });
     expect(m.findPendingFirmSeat).toHaveBeenCalledWith(accountant);
     expect(m.getOrCreateAliasForUser).not.toHaveBeenCalled();
     expect(m.getOrCreateDefaultOrganization).not.toHaveBeenCalled();
 
-    // Paid mode too: /firm, not /subscribe.
+    // Paid mode too: the question, not /subscribe.
     m.checkSubscriptionGate.mockResolvedValue({ kind: "redirect_subscribe" });
-    expect((await loadHome(accountant, null)).kind).toBe("firm_only");
+    expect((await loadHome(accountant, null, { askAboutFirmSeat: true })).kind).toBe("firm_pending");
+  });
+
+  it("never treats a pending seat as firm membership: without the website's question it goes on as a customer", async () => {
+    // The iPhone app's call: a seat a firm added can't pull anyone into it.
+    const user = { ...USER, email_confirmed_at: "2026-11-01" } as User;
+    m.tables.organizations = { data: null, error: null };
+    m.findPendingFirmSeat.mockResolvedValue({ firmName: "Byrån AB" });
+    m.getOrCreateDefaultOrganization.mockResolvedValue("org-new");
+    m.homeCurrencyOf.mockResolvedValue("SEK");
+    const home = await loadHome(user, null);
+    expect(home.kind).toBe("ready");
+    expect(m.findPendingFirmSeat).not.toHaveBeenCalled();
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id);
   });
 
   it("keeps the company of someone with a pending seat who already has one", async () => {

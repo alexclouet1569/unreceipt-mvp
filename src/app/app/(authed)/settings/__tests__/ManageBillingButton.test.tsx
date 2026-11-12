@@ -48,4 +48,15 @@ describe("ManageBillingButton", () => {
     expect(screen.getByRole("button", { name: "Manage billing" })).toBeEnabled();
     expect(assign).not.toHaveBeenCalled();
   });
+
+  it("never shows the route's error code; a 401 asks the person to sign in again", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const user = userEvent.setup();
+    render(<ManageBillingButton />);
+    await user.click(screen.getByRole("button", { name: "Manage billing" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("You were signed out");
+    expect(alert).not.toHaveTextContent("unauthorized");
+  });
 });

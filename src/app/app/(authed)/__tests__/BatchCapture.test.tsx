@@ -159,11 +159,11 @@ describe("BatchCapture", () => {
 
 describe("rateLimitMessage", () => {
   it("names the wait from Retry-After, and says it plainly without one", () => {
-    expect(rateLimitMessage("30")).toBe("You've reached the reading limit for now. Try again in about a minute.");
-    expect(rateLimitMessage("3600")).toBe("You've reached the reading limit for now. Try again in about 60 minutes.");
-    expect(rateLimitMessage("36000")).toBe("You've reached the reading limit for now. Try again in about 10 hours.");
+    expect(rateLimitMessage("30")).toBe("You've reached the reading limit for now. Keep this open and press Try again in about a minute.");
+    expect(rateLimitMessage("3600")).toBe("You've reached the reading limit for now. Keep this open and press Try again in about 60 minutes.");
+    expect(rateLimitMessage("36000")).toBe("You've reached the reading limit for now. Keep this open and press Try again in about 10 hours.");
     for (const missing of [null, "", "soon", "0"]) {
-      expect(rateLimitMessage(missing)).toMatch(/You've scanned a lot in the last hour\. Try again later/);
+      expect(rateLimitMessage(missing)).toMatch(/You.ve scanned a lot in the last hour\. Keep this open and press Try again later/);
     }
   });
 });

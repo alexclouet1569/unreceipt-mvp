@@ -609,8 +609,10 @@ function SignUpPanel({
       hasSession = Boolean(res.data?.session);
       // An address that already has a confirmed account: Supabase answers
       // without an error (so the reply doesn't reveal which addresses are
-      // registered) and with no identities, and sends no email. Showing the
-      // code step would wait for a code that never comes.
+      // registered) and with no identities, and sends no email. We keep that
+      // protection: instead of saying "already registered", we send a normal
+      // sign-in code below, so both cases show the same code step and the
+      // person who owns the address is signed in either way.
       existingAccount = res.data?.user?.identities?.length === 0;
       return res;
     });
@@ -629,8 +631,26 @@ function SignUpPanel({
     }
 
     if (existingAccount) {
+      const { error: otpError } = await callAuth("signInWithOtp", () =>
+        getSupabaseClient().auth.signInWithOtp({
+          email: parsed.data.email,
+          // Never create an account here: the address has one.
+          options: { emailRedirectTo: callbackUrl(next), shouldCreateUser: false },
+        })
+      );
       setSubmit("idle");
-      setAlreadyRegistered(true);
+      if (otpError) {
+        errors.failForm(
+          isUnreachable(otpError)
+            ? UNREACHABLE
+            : isRateLimited(otpError)
+              ? "We just sent you a code. Wait a minute before asking for another."
+              : "We couldn't create your account. Try again in a moment.",
+          "email"
+        );
+        return;
+      }
+      onCodeSent(parsed.data.email);
       return;
     }
 

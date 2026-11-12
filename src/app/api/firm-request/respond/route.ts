@@ -9,8 +9,9 @@
 // is never claimed here: any firm admin can add any address, so claiming
 // it as a side effect would hand this company's receipts to a firm the
 // accountant never chose. The accept is refused (409 "join_firm_first")
-// until they join that firm themselves by opening /firm, where it's
-// shown by name; the request then also waits in their firm portal.
+// until they join that firm themselves (Join on /app/firm-join, where /firm
+// sends them; the firm is shown by name); the request then also waits in
+// their firm portal.
 //
 // Accepting makes the link active, so the company's other client-sent
 // requests (to other accountants) are withdrawn. A company already

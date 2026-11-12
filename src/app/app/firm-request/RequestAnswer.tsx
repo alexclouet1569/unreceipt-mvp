@@ -36,6 +36,7 @@ export function RequestAnswer({
 }) {
   const [firmName, setFirmName] = useState("");
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
+  const [joinFirst, setJoinFirst] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<"active" | "revoked" | null>(null);
 
@@ -58,6 +59,7 @@ export function RequestAnswer({
         status?: "active" | "revoked";
       };
       if (!res.ok) {
+        setJoinFirst(body.error === "join_firm_first");
         setError(body.error === "join_firm_first" && body.message ? body.message : errorText(body.error));
         return;
       }
@@ -115,6 +117,14 @@ export function RequestAnswer({
       {error ? (
         <p role="alert" className="text-sm rounded-[10px] px-3 py-2 text-[var(--attention-deep)]" style={{ background: "var(--attention-tint)" }}>
           {error}
+          {joinFirst ? (
+            <>
+              {" "}
+              <Link href="/firm" className="inline-flex items-center min-h-11 underline text-[var(--ink)]">
+                Open the firm portal
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
     </div>

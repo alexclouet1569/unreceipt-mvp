@@ -371,20 +371,29 @@ describe("/app/login — create account", () => {
     expect(screen.getByLabelText(/Email address/i)).toHaveValue("alex@example.se");
   });
 
-  it("says the email has an account when Supabase answers with no identities (no email is sent)", async () => {
-    // A confirmed address: no error, a user with identities: [], no session.
+  it("sends a sign-in code when the address already has an account, without saying so", async () => {
+    // A confirmed address: no error, a user with identities: [], no session,
+    // and Supabase sends no email. We send a normal sign-in code instead, so
+    // the screen is the same as for a new address (no account enumeration).
     mocks.signUp.mockResolvedValue({
       data: { session: null, user: { id: "u1", identities: [] } },
       error: null,
     });
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
     const user = userEvent.setup();
     renderCard({ initialMode: "signup" });
     await fillSignUp(user);
     await user.click(screen.getByRole("button", { name: /Create account/i }));
 
-    expect(await screen.findByText("That email already has an account.")).toBeInTheDocument();
-    expect(screen.queryByText(/Confirm your email/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Sign in instead/i })).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(mocks.signInWithOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "alex@example.se",
+          options: expect.objectContaining({ shouldCreateUser: false }),
+        })
+      )
+    );
+    expect(screen.queryByText("That email already has an account.")).not.toBeInTheDocument();
   });
 });
 

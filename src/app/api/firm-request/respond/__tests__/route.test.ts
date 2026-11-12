@@ -20,7 +20,7 @@ vi.mock("@/lib/require-firm", () => ({
   getFirmMembership: async () => mocks.membership,
   findPendingFirmSeat: async () => mocks.pendingSeat,
   // Must never be used here: answering a request never claims a seat.
-  resolveFirmMembership: mocks.claimed,
+  claimPendingFirmSeat: mocks.claimed,
 }));
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin: () => mocks.db.client }));
 

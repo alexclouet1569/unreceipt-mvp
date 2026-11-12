@@ -39,13 +39,15 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   const { session_id, firm } = await searchParams;
   // Reads, firm-only and subscription checks, then the alias and company:
   // shared with the iPhone app's GET /api/mobile/home (src/lib/home).
-  const home = await loadHome(user, session_id ?? null);
+  const home = await loadHome(user, session_id ?? null, { askAboutFirmSeat: true });
 
   // Firm staff with no company of their own (or a firm seat waiting for this
   // address) belong on the firm portal, which claims the seat.
-  // `?firm=unavailable` is /firm sending the user back because it couldn't
-  // claim or read the seat (a database error): show a notice instead of
+  // `?firm=unavailable` is /firm sending a firm-only user back because it
+  // couldn't read their membership (a database error): show a notice instead of
   // redirecting again, which would loop between the two pages.
+  // A firm added this address as staff and there's no company yet: ask.
+  if (home.kind === "firm_pending") redirect("/app/firm-join");
   if (home.kind === "firm_only") {
     if (firm === "unavailable") return <FirmUnavailable />;
     redirect("/firm");

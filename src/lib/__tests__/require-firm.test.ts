@@ -56,6 +56,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 }));
 
 import {
+  claimPendingFirmSeat,
   FirmAuthError,
   findFirmForUser,
   firmAuthResponse,
@@ -110,42 +111,15 @@ describe("requireFirmMember", () => {
     expect(mocks.claim).not.toHaveBeenCalled();
   });
 
-  it("claims exactly one pending row for the confirmed, lowercased email", async () => {
+  it("never claims a waiting seat: it answers pending_seat (any firm admin can add any address)", async () => {
     mocks.getServerUser.mockResolvedValue(USER);
-    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1" }, error: null });
-    mocks.claim.mockResolvedValue({ data: { ...MEMBER_ROW, role: "admin" }, error: null });
-    const ctx = await requireFirmMember();
-    expect(ctx.role).toBe("admin");
-    expect(mocks.pendingRead).toHaveBeenCalledWith({ email: "eva@byran.se", user_id: null });
-    expect(mocks.updatePayload).toMatchObject({ user_id: USER.id });
-    expect((mocks.updatePayload as { claimed_at: string }).claimed_at).toMatch(/^\d{4}-/);
+    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1", firms: { name: "Byrån AB" } }, error: null });
+    await expect(requireFirmMember()).rejects.toMatchObject({ reason: "pending_seat" });
+    expect(mocks.claim).not.toHaveBeenCalled();
+    expect(mocks.updatePayload).toBeNull();
   });
 
-  it("claims a seat stored normalised for a dotted Gmail or googlemail.com sign-in", async () => {
-    for (const email of ["Eva.Lind+work@Gmail.com", "eva.lind@googlemail.com"]) {
-      mocks.pendingRead.mockReset().mockResolvedValue({ data: { id: "fm-1" }, error: null });
-      mocks.claim.mockReset().mockResolvedValue({ data: MEMBER_ROW, error: null });
-      mocks.getServerUser.mockResolvedValue({ ...USER, email });
-      const ctx = await requireFirmMember();
-      expect(ctx.firmId).toBe("firm-1");
-      expect(mocks.pendingRead).toHaveBeenCalledWith({ email: "evalind@gmail.com", user_id: null });
-    }
-  });
-
-  it("re-reads the membership when a parallel request claimed the seat first", async () => {
-    mocks.getServerUser.mockResolvedValue(USER);
-    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1" }, error: null });
-    // The update finds the row already claimed: no row comes back.
-    mocks.claim.mockResolvedValue({ data: null, error: null });
-    mocks.memberRead
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: MEMBER_ROW, error: null });
-    const ctx = await requireFirmMember();
-    expect(ctx).toMatchObject({ firmId: "firm-1", memberId: "fm-1" });
-    expect(mocks.memberRead).toHaveBeenCalledTimes(2);
-  });
-
-  it("never claims for an unconfirmed address", async () => {
+  it("answers not_member for an unconfirmed address, without looking for a seat to claim", async () => {
     mocks.getServerUser.mockResolvedValue({ ...USER, email_confirmed_at: null });
     await expect(requireFirmMember()).rejects.toMatchObject({ reason: "not_member" });
     expect(mocks.claim).not.toHaveBeenCalled();
@@ -157,7 +131,50 @@ describe("requireFirmMember", () => {
   });
 });
 
+describe("claimPendingFirmSeat (only POST /api/firm-join calls it)", () => {
+  it("claims exactly one pending row for the confirmed, lowercased email", async () => {
+    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1" }, error: null });
+    mocks.claim.mockResolvedValue({ data: { ...MEMBER_ROW, role: "admin" }, error: null });
+    const ctx = await claimPendingFirmSeat(USER as never);
+    expect(ctx?.role).toBe("admin");
+    expect(mocks.pendingRead).toHaveBeenCalledWith({ email: "eva@byran.se", user_id: null });
+    expect(mocks.updatePayload).toMatchObject({ user_id: USER.id });
+    expect((mocks.updatePayload as { claimed_at: string }).claimed_at).toMatch(/^\d{4}-/);
+  });
+
+  it("claims a seat stored normalised for a dotted Gmail or googlemail.com sign-in", async () => {
+    for (const email of ["Eva.Lind+work@Gmail.com", "eva.lind@googlemail.com"]) {
+      mocks.pendingRead.mockReset().mockResolvedValue({ data: { id: "fm-1" }, error: null });
+      mocks.claim.mockReset().mockResolvedValue({ data: MEMBER_ROW, error: null });
+      const ctx = await claimPendingFirmSeat({ ...USER, email } as never);
+      expect(ctx?.firmId).toBe("firm-1");
+      expect(mocks.pendingRead).toHaveBeenCalledWith({ email: "evalind@gmail.com", user_id: null });
+    }
+  });
+
+  it("re-reads the membership when a second press already claimed the seat", async () => {
+    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1" }, error: null });
+    // The update finds the row already claimed: no row comes back.
+    mocks.claim.mockResolvedValue({ data: null, error: null });
+    mocks.memberRead.mockResolvedValueOnce({ data: MEMBER_ROW, error: null });
+    const ctx = await claimPendingFirmSeat(USER as never);
+    expect(ctx).toMatchObject({ firmId: "firm-1", memberId: "fm-1" });
+  });
+
+  it("never claims for an unconfirmed address", async () => {
+    expect(await claimPendingFirmSeat({ ...USER, email_confirmed_at: null } as never)).toBeNull();
+    expect(mocks.claim).not.toHaveBeenCalled();
+  });
+});
+
 describe("requireFirmMemberPage", () => {
+  it("sends a user with a waiting seat to the Join question, never into the firm", async () => {
+    mocks.getServerUser.mockResolvedValue(USER);
+    mocks.pendingRead.mockResolvedValue({ data: { id: "fm-1", firms: { name: "Byrån AB" } }, error: null });
+    await expect(requireFirmMemberPage()).rejects.toThrow("NEXT_REDIRECT:/app/firm-join");
+    expect(mocks.claim).not.toHaveBeenCalled();
+  });
+
   it("sends signed-out users to login and back to /firm", async () => {
     mocks.getServerUser.mockResolvedValue(null);
     await expect(requireFirmMemberPage()).rejects.toThrow("NEXT_REDIRECT:/app/login?next=/firm");

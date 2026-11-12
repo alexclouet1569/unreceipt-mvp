@@ -26,6 +26,7 @@ import { firmExitNotice, planFirmExit } from "@/lib/firm/account-exit";
 import { getNativeApp } from "@/lib/native-app-server";
 import { loadFirstReceiptDate } from "@/lib/receipts/first-date";
 import { findFirmForUser } from "@/lib/require-firm";
+import { ForwardingUnavailable } from "../_forwarding-unavailable";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -155,10 +156,7 @@ export default async function SettingsPage() {
                 copyLabel="Copy forwarding address"
               />
             ) : (
-              <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-                Your forwarding address isn&apos;t ready yet. Reload this page
-                in a moment.
-              </p>
+              <ForwardingUnavailable />
             )}
             {intakeSmsNumber ? (
               <IntakeRow

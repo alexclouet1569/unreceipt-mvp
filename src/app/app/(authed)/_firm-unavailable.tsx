@@ -8,10 +8,10 @@ import Link from "next/link";
  */
 export function FirmUnavailable() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="text-center max-w-sm" role="status">
-        <h2 className="font-semibold text-lg mb-1">The firm portal didn&apos;t open</h2>
-        <p className="text-sm text-muted-foreground mb-4">
+    <div className="flex justify-center px-4 py-16">
+      <div className="text-center max-w-sm">
+        <h1 className="type-display-lg font-display text-[var(--ink)] mb-2">The firm portal didn&apos;t open</h1>
+        <p className="type-body text-[var(--ink-muted)] mb-5">
           We couldn&apos;t load your firm just now. Try again in a moment.
         </p>
         <Link
