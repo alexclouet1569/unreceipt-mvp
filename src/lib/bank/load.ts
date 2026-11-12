@@ -33,8 +33,8 @@ export async function loadBankMonth(
     const transactions = (lines.data ?? []) as BankTransaction[];
     if (transactions.length === 0) return buildBankMonth([], [], month);
 
-    // A receipt's day is its printed date, else its purchase time: the
-    // timestamps get a day of slack each side for the Stockholm day.
+    // A receipt's day is its printed date (printed-day.ts); the timestamps
+    // keep a day of slack each side, harmless now that nothing is shifted.
     const tsFrom = new Date(Date.parse(`${w.receiptFrom}T00:00:00Z`) - 86_400_000).toISOString();
     const tsTo = new Date(Date.parse(`${w.receiptTo}T00:00:00Z`) + 2 * 86_400_000).toISOString();
     const receipts = await db

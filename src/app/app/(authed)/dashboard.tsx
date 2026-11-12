@@ -20,6 +20,7 @@ import {
   type CategoryKey,
 } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
+import { printedDay, printedMonth } from "@/lib/receipts/printed-day";
 import type { MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
@@ -265,7 +266,7 @@ export function Dashboard({
     const order = ["Today", "Yesterday", "This week"];
     const groups = new Map<string, typeof receipts>();
     for (const r of visibleReceipts) {
-      const label = relativeDayGroup(r.purchased_at ?? r.receipt_date);
+      const label = relativeDayGroup(printedDay(r));
       if (!groups.has(label)) groups.set(label, []);
       groups.get(label)!.push(r);
     }
@@ -582,15 +583,9 @@ function monthKey(year: number, index: number): string {
   return `${year}-${String(index + 1).padStart(2, "0")}`;
 }
 
-/** The month a receipt was bought in ("2026-10"), as printed on it. */
+/** The month a receipt was bought in ("2026-10"), as printed on it (printed-day.ts). */
 function receiptMonthKey(r: Receipt): string | null {
-  // The printed month (src/lib/analytics/money.ts purchaseDay): purchased_at
-  // holds the receipt's own clock time with a "Z", so it isn't shifted into
-  // the browser's time zone, and the server's totals agree.
-  for (const v of [r.receipt_date, r.purchased_at]) {
-    if (v && /^\d{4}-\d{2}/.test(v)) return v.slice(0, 7);
-  }
-  return null;
+  return printedMonth(r);
 }
 
 /**

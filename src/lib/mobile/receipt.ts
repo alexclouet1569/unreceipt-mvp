@@ -1,6 +1,7 @@
 // Server rows → what the iPhone app shows. Only display fields: no storage
 // paths, edit history, verification codes or OCR internals.
 
+import { dayOf, printedDay } from "@/lib/receipts/printed-day";
 import { missingRequiredFields } from "@/lib/receipts/status";
 import { isPossibleDuplicate, userNotes } from "@/lib/receipts/notes";
 import type { Receipt } from "@/lib/types";
@@ -37,7 +38,9 @@ export function toMobileReceipt(r: Receipt): MobileReceipt {
     homeCurrency: r.home_currency,
     homeTotal: r.home_total,
     fxSource: r.fx_source,
-    date: r.purchased_at ?? r.receipt_date,
+    // The printed day (src/lib/receipts/printed-day.ts); with its clock time
+    // when purchased_at is on that same day, as the app shows the time.
+    date: dayOf(r.purchased_at) != null && dayOf(r.purchased_at) === printedDay(r) ? r.purchased_at : printedDay(r),
     createdAt: r.created_at,
     original: originalOf(r),
     notes: userNotes(r.notes),
