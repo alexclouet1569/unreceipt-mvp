@@ -86,12 +86,22 @@ describe("csv", () => {
 });
 
 describe("receiptDate", () => {
-  it("uses the Swedish calendar day", async () => {
+  it("books on the printed day: an evening receipt stays in its month, quarter and year", async () => {
     const { receiptDate } = await import("@/lib/export/csv");
-    // 23:30 UTC on Oct 31 is 00:30 on Nov 1 in Stockholm.
-    expect(receiptDate({ purchased_at: "2026-10-31T23:30:00Z", receipt_date: null })).toBe(
-      "2026-11-01",
-    );
+    // purchased_at is the receipt's own clock with a "Z", never shifted.
+    for (const [at, day] of [
+      ["2026-12-31T23:30:00Z", "2026-12-31"],
+      ["2026-03-31T23:30:00Z", "2026-03-31"],
+      ["2026-06-30T23:30:00Z", "2026-06-30"],
+      ["2026-10-31T23:30:00Z", "2026-10-31"],
+    ]) {
+      expect(receiptDate({ purchased_at: at, receipt_date: null })).toBe(day);
+    }
     expect(receiptDate({ purchased_at: null, receipt_date: "2026-10-03" })).toBe("2026-10-03");
+  });
+
+  it("prefers the printed receipt_date when the two dates disagree (same day as the export's period)", async () => {
+    const { receiptDate } = await import("@/lib/export/csv");
+    expect(receiptDate({ purchased_at: "2026-04-01T09:00:00Z", receipt_date: "2026-03-31" })).toBe("2026-03-31");
   });
 });

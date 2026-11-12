@@ -4,6 +4,7 @@
 // the same as DOM elements, so this file MUST NOT be imported from a
 // `"use client"` component or anything that pulls into the client bundle.
 
+import { printedDay } from "@/lib/receipts/printed-day";
 import path from "node:path";
 import {
   Document,
@@ -305,7 +306,7 @@ export function ReceiptPdf({ receipt }: ReceiptPdfProps) {
 
   const merchant = receipt.merchant_name ?? "Unknown merchant";
   const categoryLabel = CATEGORY_CONFIG[receipt.category]?.label ?? "Other";
-  const dateLabel = formatDate(receipt.purchased_at ?? receipt.receipt_date);
+  const dateLabel = formatDate(printedDay(receipt));
   const showSubtotal = receipt.subtotal != null;
   const showTax = receipt.tax_amount != null && receipt.tax_amount > 0;
   const showTip = receipt.tip_amount != null && receipt.tip_amount > 0;
@@ -535,7 +536,7 @@ export function pdfFilenameSlug(input: string | null | undefined): string {
 
 export function pdfFilenameFor(receipt: Receipt): string {
   const merchant = pdfFilenameSlug(receipt.merchant_name ?? "receipt");
-  const date = (receipt.purchased_at ?? receipt.receipt_date ?? "").slice(0, 10);
+  const date = printedDay(receipt) ?? "";
   const datePart = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "undated";
   return `unreceipt-${merchant}-${datePart}.pdf`;
 }

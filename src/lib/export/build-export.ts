@@ -135,11 +135,13 @@ async function loadReceipts(
   const range = periodRange(period);
   if (range) {
     const { start, end } = range;
-    // Purchase date decides the month; rows from before purchased_at
-    // existed fall back to receipt_date.
+    // The printed day decides the period (src/lib/receipts/printed-day.ts):
+    // receipt_date, else purchased_at, which holds the receipt's own clock
+    // written with a "Z" — so comparing it with the period's dates as UTC
+    // is comparing printed days, and 23:30 on the 31st stays in its month.
     query = query.or(
-      `and(purchased_at.gte.${start},purchased_at.lt.${end}),` +
-        `and(purchased_at.is.null,receipt_date.gte.${start},receipt_date.lt.${end})`,
+      `and(receipt_date.gte.${start},receipt_date.lt.${end}),` +
+        `and(receipt_date.is.null,purchased_at.gte.${start}T00:00:00Z,purchased_at.lt.${end}T00:00:00Z)`,
     );
   }
   const { data, error } = await query

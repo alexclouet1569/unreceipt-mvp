@@ -40,15 +40,25 @@ export function formatMoney(amount: number, currency: string, locale: Locale): s
 }
 
 /**
- * A receipt's date as a local calendar day. A plain "2026-11-08"
- * (receipt_date) is that day wherever the phone is; `new Date()` would read
- * it as UTC midnight and show the day before west of Greenwich.
+ * A receipt's printed date (and time) as written on it, as a local date. A
+ * plain "2026-11-08" is that day wherever the phone is. A timestamp
+ * ("2026-11-08T23:30:00Z") is the receipt's own clock written with a "Z",
+ * not a real UTC instant: read as UTC it moved an evening receipt to the
+ * next day (and month) and showed the wrong time, so its clock is read as
+ * written. Same rule as the website's src/lib/receipts/printed-day.ts.
  */
 export function parseReceiptDate(value: string | null): Date | null {
   if (!value) return null;
-  const plain = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (plain) return new Date(Number(plain[1]), Number(plain[2]) - 1, Number(plain[3]));
-  const d = new Date(value);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(value);
+  if (!m) return null;
+  const d = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4] ?? 0),
+    Number(m[5] ?? 0),
+    Number(m[6] ?? 0),
+  );
   return Number.isNaN(d.getTime()) ? null : d;
 }
 

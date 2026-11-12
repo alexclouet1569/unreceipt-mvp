@@ -38,7 +38,9 @@ describe("toMobileReceipt", () => {
 
   it("falls back to the plain receipt date", () => {
     expect(toMobileReceipt(base).date).toBe("2026-11-08");
-    expect(toMobileReceipt({ ...base, purchased_at: "2026-11-07T12:00:00Z" }).date).toBe("2026-11-07T12:00:00Z");
+    // The printed receipt_date wins; purchased_at's time comes along only on that same day.
+    expect(toMobileReceipt({ ...base, purchased_at: "2026-11-07T12:00:00Z" }).date).toBe("2026-11-08");
+    expect(toMobileReceipt({ ...base, purchased_at: "2026-11-08T19:45:00Z" }).date).toBe("2026-11-08T19:45:00Z");
   });
 
   it("keeps the user's words and flags a duplicate instead of showing the server's English", () => {
