@@ -87,9 +87,11 @@ export function applyPatch(r: MobileReceipt, patch: ReceiptPatch, status: Mobile
 }
 
 /** Each edit sheet's height, set by the stack before it opens (no jump). */
-export const EDIT_DETENTS: Record<"merchant" | "amount" | "date" | "category", number[]> = {
+export const EDIT_DETENTS: Record<"merchant" | "amount" | "date" | "category" | "all", number[]> = {
   merchant: [0.45],
   amount: [0.5],
   date: [0.75],
   category: [0.75],
+  // Every field in one sheet (the receipt screen's Edit).
+  all: [1.0],
 };

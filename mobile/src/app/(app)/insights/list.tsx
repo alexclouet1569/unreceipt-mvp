@@ -12,6 +12,7 @@ import { Text } from "../../../components/Text";
 import { s } from "../../../i18n";
 import { ApiError, getAnalyticsReceipts } from "../../../lib/api";
 import { useHome } from "../../../lib/HomeProvider";
+import { UndoToast } from "../../../lib/ReceiptActions";
 import { space, useColors } from "../../../theme";
 
 export default function InsightsList() {
@@ -49,43 +50,49 @@ export default function InsightsList() {
     .map((id) => list.find((r) => r.id === id) ?? extra.find((r) => r.id === id))
     .filter((r): r is MobileReceipt => r != null);
 
+  // A receipt deleted from here comes back to this screen: the same Undo
+  // bar as in Receipts.
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing && ids != null} onRefresh={() => void load()} tintColor={colors.inkMuted} />}
-    >
-      <Stack.Screen options={{ title: title || s.insights.listTitle }} />
-      {error ? (
-        <Text variant="caption" color={colors.attentionDeep} style={styles.note}>
-          {error}
-        </Text>
-      ) : null}
-      {ids == null && !error ? <ReceiptSkeleton rows={5} /> : null}
-      {ids != null && receipts.length === 0 ? (
-        <Text variant="body" color={colors.inkMuted} style={styles.note}>
-          {s.insights.listEmpty}
-        </Text>
-      ) : null}
-      <View style={styles.list}>
-        {receipts.map((r) => (
-          <ReceiptRow
-            key={r.id}
-            receipt={r}
-            onPress={() => router.push({ pathname: "/insights/receipt/[id]", params: { id: r.id } })}
-          />
-        ))}
-      </View>
-      {truncated ? (
-        <Text variant="caption" color={colors.inkMuted} style={styles.note}>
-          {s.insights.truncated}
-        </Text>
-      ) : null}
-    </ScrollView>
+    <View style={styles.fill}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing && ids != null} onRefresh={() => void load()} tintColor={colors.inkMuted} />}
+      >
+        <Stack.Screen options={{ title: title || s.insights.listTitle }} />
+        {error ? (
+          <Text variant="caption" color={colors.attentionDeep} style={styles.note}>
+            {error}
+          </Text>
+        ) : null}
+        {ids == null && !error ? <ReceiptSkeleton rows={5} /> : null}
+        {ids != null && receipts.length === 0 ? (
+          <Text variant="body" color={colors.inkMuted} style={styles.note}>
+            {s.insights.listEmpty}
+          </Text>
+        ) : null}
+        <View style={styles.list}>
+          {receipts.map((r) => (
+            <ReceiptRow
+              key={r.id}
+              receipt={r}
+              onPress={() => router.push({ pathname: "/insights/receipt/[id]", params: { id: r.id } })}
+            />
+          ))}
+        </View>
+        {truncated ? (
+          <Text variant="caption" color={colors.inkMuted} style={styles.note}>
+            {s.insights.truncated}
+          </Text>
+        ) : null}
+      </ScrollView>
+      <UndoToast />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   content: { paddingBottom: space.xxxl },
   list: { marginTop: space.lg },
   note: { marginHorizontal: space.lg, marginTop: space.lg },

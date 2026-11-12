@@ -300,6 +300,11 @@ export default function Receipts() {
         sections={sections}
         keyExtractor={(r) => r.id}
         stickySectionHeadersEnabled={false}
+        // A screen and a bit first, then the rest as it scrolls near: the
+        // defaults mounted nearly every row (each with its swipe) at once.
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={7}
         onScrollBeginDrag={closeOpenSwipe}
         refreshControl={
           <RefreshControl refreshing={refreshing && !loading} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />

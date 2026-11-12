@@ -1,9 +1,8 @@
 // The Insights chart, drawn with react-native-svg (no chart library, no
-// native change). DESIGN.md "Charts and Insights": bars in --ink-muted, the
-// bar you're on (or the current one) in --brand-action, the period before
-// as a 1.5 pt --ink-muted outline beside each bar when there are few, a
-// 2 pt --ink mark at its level across each bar when many;
-// no gradients, no shadows, amounts in Geist Mono. Slide sideways to read a
+// native change). DESIGN.md "Charts and Insights": the chosen period only
+// (the change against the period before is the hero's chip, not a second
+// set of bars); bars in --ink-muted, the bar you're on (or the current one)
+// in --brand-action; no gradients, no shadows, amounts in Geist Mono. Slide sideways to read a
 // bar (a tick in the hand per bar); VoiceOver swipes up and down through
 // them. The chart grows in once per period.
 
@@ -16,10 +15,7 @@ import { fill, locale, s } from "../../i18n";
 import { formatMoney } from "../../lib/format";
 import {
   bucketLabel,
-  capital,
   partsText,
-  periodTitle,
-  previousLabel,
   todayIndex,
   type Part,
   type ReadyAnalytics,
@@ -128,14 +124,14 @@ function AxisLabels({ labels, width }: { labels: string[]; width: number }) {
   );
 }
 
-/** Bars per day, week or month, with the period before beside or behind them. */
+/** Bars per day, week or month of the chosen period. */
 export function BarChart({ a }: { a: ReadyAnalytics }) {
   const colors = useColors();
   const [width, setWidth] = useState(0);
   const n = a.buckets.length;
   const today = todayIndex(a);
   const visible = a.period.current ? (today >= 0 ? today + 1 : n) : n;
-  const max = Math.max(1, ...a.buckets.map((b) => b.amount), ...a.previousBuckets);
+  const max = Math.max(1, ...a.buckets.map((b) => b.amount));
   const grow = useGrowIn(a.period.key + a.period.kind);
   const money = (v: number) => formatMoney(v, a.currency, locale);
   const scrub = useScrub(n, width, Math.max(0, visible - 1));
@@ -143,31 +139,22 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
 
   const blocks = a.period.kind === "month";
   const label = (i: number, long = false) => bucketLabel(a.buckets[i], a.granularity, locale, long, blocks);
-  const compared = a.previousBuckets.length > 0;
   const highest = a.buckets.reduce((best, b, i) => (b.amount > a.buckets[best].amount ? i : best), 0);
-  const summary =
-    fill(s.insights.chartSummary, { count: n, label: label(highest, true), amount: money(a.buckets[highest].amount) }) +
-    (compared ? ` ${fill(s.insights.chartCompared, { previous: previousLabel(a, locale, s) })}` : "");
-  const before = sel != null && a.previousBuckets.length > sel ? a.previousBuckets[sel] : null;
+  const summary = fill(s.insights.chartSummary, {
+    count: n,
+    label: label(highest, true),
+    amount: money(a.buckets[highest].amount),
+  });
   const parts: Part[] | null =
-    sel != null
-      ? [
-          { text: `${label(sel, true)} · ` },
-          { text: money(a.buckets[sel].amount), money: true },
-          ...(before != null ? [{ text: ` · ${previousLabel(a, locale, s)} ` }, { text: money(before), money: true }] : []),
-        ]
-      : null;
+    sel != null ? [{ text: `${label(sel, true)} · ` }, { text: money(a.buckets[sel].amount), money: true }] : null;
   const readout = spoken(parts);
 
   const slot = width / Math.max(1, n);
-  // Few bars (a month's 7-day blocks): last period's bar stands beside this
-  // one. Many (a quarter's weeks, a year's months): it sits behind, wider.
-  const paired = compared && n <= 8;
-  const barW = paired ? Math.min(30, slot * 0.34) : Math.max(2, Math.min(28, slot * 0.62));
-  const gap = 4;
-  // While a bar is chosen everything else dims, its own previous bar included,
-  // so the chosen pair reads by lightness too, not only by hue (on dark the
-  // green and the muted bars are almost equally light).
+  // Few bars (a month's 7-day blocks) stay slim, so five don't read as blocks.
+  const barW = n <= 8 ? Math.min(36, slot * 0.42) : Math.max(2, Math.min(28, slot * 0.62));
+  // While a bar is chosen the others dim, so the chosen one reads by
+  // lightness too, not only by hue (on dark the green and the muted bars
+  // are almost equally light).
   const dim = (i: number, on: boolean) => (sel != null && !on && i !== sel ? 0.45 : 1);
 
   return (
@@ -193,34 +180,11 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
           <Animated.View style={grow}>
             <Svg width={width} height={HEIGHT}>
               <Line x1={0} x2={width} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke={colors.hairline} strokeWidth={1} />
-              {paired
-                ? a.previousBuckets.slice(0, n).map((v, i) => {
-                    // Beside: an outline (1.5 pt, inside its box; at least 6 pt
-                    // tall so it stays hollow). An --ink-faint fill was 2.5:1
-                    // on cream, under the 3:1 a chart mark needs.
-                    const h = Math.max(v > 0 ? 6 : 0, (v / max) * (HEIGHT - 8));
-                    if (h <= 0) return null;
-                    return (
-                      <Rect
-                        key={`p${i}`}
-                        x={i * slot + slot / 2 - gap / 2 - barW + 0.75}
-                        y={HEIGHT - h + 0.75}
-                        width={Math.max(0, barW - 1.5)}
-                        height={h - 1.5}
-                        rx={2.5}
-                        fill="none"
-                        stroke={colors.inkMuted}
-                        strokeWidth={1.5}
-                        opacity={dim(i, false)}
-                      />
-                    );
-                  })
-                : null}
               {a.buckets.map((b, i) => {
                 if (i >= visible) return null;
                 const h = Math.max(b.amount > 0 ? 3 : 0, (b.amount / max) * (HEIGHT - 8));
                 if (h <= 0) return null;
-                const x = paired ? i * slot + slot / 2 + gap / 2 : i * slot + (slot - barW) / 2;
+                const x = i * slot + (slot - barW) / 2;
                 const on = sel != null ? i === sel : i === today;
                 return (
                   <Rect
@@ -235,51 +199,11 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
                   />
                 );
               })}
-              {!paired
-                ? a.previousBuckets.slice(0, n).map((v, i) => {
-                    // Many bars: a 2 pt --ink mark at last period's level,
-                    // across the bar and a little wider (a bullet chart's
-                    // target line), never wider than its slot.
-                    if (v <= 0) return null;
-                    const y = Math.max(0, HEIGHT - (v / max) * (HEIGHT - 8) - 1);
-                    const w = Math.max(barW, Math.min(barW + 6, slot - 2));
-                    return (
-                      <Rect
-                        key={`m${i}`}
-                        x={i * slot + (slot - w) / 2}
-                        y={Math.min(y, HEIGHT - 2)}
-                        width={w}
-                        height={2}
-                        rx={1}
-                        fill={colors.ink}
-                        opacity={dim(i, false)}
-                      />
-                    );
-                  })
-                : null}
             </Svg>
           </Animated.View>
         ) : null}
       </View>
       {width > 0 ? <AxisLabels labels={a.buckets.map((_, i) => label(i))} width={width} /> : null}
-      {compared ? (
-        <View style={styles.legend} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-          <View style={styles.legendItem}>
-            <View style={[styles.key, { backgroundColor: colors.inkMuted }]} />
-            <Text variant="caption" color={colors.inkMuted} style={styles.legendText}>
-              {periodTitle(a.period, locale, s)}
-            </Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View
-              style={paired ? [styles.key, styles.keyOutline, { borderColor: colors.inkMuted }] : [styles.keyMark, { backgroundColor: colors.ink }]}
-            />
-            <Text variant="caption" color={colors.inkMuted} style={styles.legendText}>
-              {capital(previousLabel(a, locale, s))}
-            </Text>
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -290,10 +214,4 @@ const styles = StyleSheet.create({
   plot: { height: HEIGHT },
   labels: { height: 16, marginTop: space.xs },
   label: { position: "absolute", top: 0, textAlign: "center", fontFamily: fonts.medium, fontSize: 10, lineHeight: 13 },
-  legend: { flexDirection: "row", flexWrap: "wrap", marginTop: space.sm, columnGap: space.md, rowGap: space.xs },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: space.sm, maxWidth: "100%" },
-  legendText: { flexShrink: 1 },
-  key: { width: 10, height: 10, borderRadius: 3 },
-  keyOutline: { borderWidth: 1.5 },
-  keyMark: { width: 12, height: 2, borderRadius: 1 },
 });

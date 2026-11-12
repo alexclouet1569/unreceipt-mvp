@@ -13,6 +13,7 @@ import type { MobileHome, MobileReceipt } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, getHome, getOlderReceipts } from "./api";
 import { readHome, writeHome } from "./cache";
+import { shareHome, shareReceipts } from "./share";
 
 type HomeState = {
   home: MobileHome | null;
@@ -69,6 +70,8 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   const olderIdsRef = useRef<string[]>([]);
   // Bumped by every local change.
   const version = useRef(0);
+  // When the server last answered (a return to the app soon after doesn't ask again).
+  const lastFetched = useRef(0);
 
   const refresh = useCallback((): Promise<void> => {
     if (!userId) return Promise.resolve();
@@ -94,10 +97,16 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
               setOlderIds((ids) => [...pushed.map((r) => r.id).filter((id) => !ids.includes(id)), ...ids]);
             }
           }
-          setHome(next);
+          // The same answer as before keeps the same objects: nothing
+          // renders again and the saved copy isn't rewritten.
+          const shared = shareHome(homeRef.current, next);
+          lastFetched.current = Date.now();
           setFromServer(true);
           setError(null);
-          void writeHome(userId, next);
+          if (shared !== homeRef.current) {
+            setHome(shared);
+            void writeHome(userId, shared);
+          }
           return;
         }
         again = true;
@@ -143,7 +152,8 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     setExtra((current) => {
       const byId = new Map(current.map((r) => [r.id, r]));
       for (const r of receipts) byId.set(r.id, r);
-      return [...byId.values()];
+      // Nothing new: the same array, so screens reading `extra` don't render again.
+      return shareReceipts(current, [...byId.values()]);
     });
   }, []);
 
@@ -202,8 +212,14 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
     void refresh();
+    // Back from the background (not from Control Centre, Face ID or a
+    // permission prompt, which only pass through "inactive"), and only
+    // when the last answer is more than 30 s old.
+    let previous = AppState.currentState;
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void refresh();
+      const wasAway = previous === "background";
+      previous = state;
+      if (state === "active" && wasAway && Date.now() - lastFetched.current > 30_000) void refresh();
     });
     return () => {
       alive = false;

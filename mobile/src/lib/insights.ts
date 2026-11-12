@@ -14,6 +14,7 @@ import { fill, type Locale } from "../i18n/core";
 import type { Strings } from "../i18n/en";
 import { formatMoney } from "./format";
 import { MERCHANT_PALETTE } from "./merchant";
+import { dateFormat, numberFormat } from "./intl";
 
 export type ReadyAnalytics = Extract<MobileAnalytics, { state: "ready" }>;
 
@@ -90,7 +91,7 @@ const asDate = (day: string) => new Date(`${day}T12:00:00Z`);
 export const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 function fmt(day: string, locale: Locale, options: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...options }).format(asDate(day));
+  return dateFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...options }).format(asDate(day));
 }
 
 /** "November 2026", "Q4 2026", "2026", "3 Mar – 19 Apr 2026". */
@@ -138,7 +139,7 @@ export function previousLabel(a: ReadyAnalytics, locale: Locale, s: Strings): st
 export function changeText(current: number, previous: number | null, locale: Locale): string | null {
   if (previous == null || previous <= 0) return null;
   const change = current / previous - 1;
-  return new Intl.NumberFormat(INTL_LOCALE[locale], {
+  return numberFormat(INTL_LOCALE[locale], {
     style: "percent",
     maximumFractionDigits: Math.abs(change) < 0.1 ? 1 : 0,
     signDisplay: "exceptZero",
@@ -147,12 +148,12 @@ export function changeText(current: number, previous: number | null, locale: Loc
 
 /** "42 %" of a share between 0 and 1. */
 export function shareText(share: number, locale: Locale): string {
-  return new Intl.NumberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 0 }).format(share);
+  return numberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 0 }).format(share);
 }
 
 /** A VAT rate or a percentage given in percent points (25 → "25 %"), in the app's language. */
 export function percentText(points: number, locale: Locale): string {
-  return new Intl.NumberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 1 }).format(points / 100);
+  return numberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 1 }).format(points / 100);
 }
 
 /** A piece of a sentence: words in Manrope, amounts in Geist Mono (DESIGN.md). */

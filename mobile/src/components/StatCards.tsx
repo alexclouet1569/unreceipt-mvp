@@ -1,20 +1,29 @@
 // The website's three boxes above the receipts (dashboard.tsx StatCard and
 // PeriodTotalCard): how many receipts, how many verified, and a month's
-// total in the company's currency. The third box is a button: iOS's own
-// action sheet picks another month or All time.
+// total in the company's currency. The third box opens Apple's own
+// pull-down menu (SwiftUI Menu through @expo/ui), anchored to the box, to
+// pick another month or All time; the chosen one carries a tick.
 
 import { useMemo } from "react";
-import { AccessibilityInfo, ActionSheetIOS, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, StyleSheet, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
+import { Button as MenuItem, Host, Menu, Rectangle } from "@expo/ui/swift-ui";
+import {
+  accessibilityHint,
+  accessibilityLabel,
+  contentShape,
+  foregroundStyle,
+  frame,
+  shapes,
+} from "@expo/ui/swift-ui/modifiers";
 import type { MobileReceipt, OlderSummary } from "@/lib/mobile/types";
 import { fill, locale, s } from "../i18n";
 import { formatMoney } from "../lib/format";
 import { overallCounts, periodTotals, periodsFor, type PeriodKey, type TotalLine } from "../lib/summary";
 import { useAnimatedNumber } from "../lib/useAnimatedNumber";
-import { radius, space, makeStyles, useColors } from "../theme";
+import { radius, space, makeStyles, useColors, useScheme } from "../theme";
 import { Money } from "./Money";
-import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 function Box({ children }: { children: React.ReactNode }) {
@@ -72,6 +81,7 @@ export function StatCards({
 }) {
   const styles = useStyles();
   const colors = useColors();
+  const scheme = useScheme();
   const periods = useMemo(
     () => periodsFor(receipts, locale, s.summary.allTime, new Date(), Object.keys(older?.months ?? {})),
     [receipts, older],
@@ -83,18 +93,10 @@ export function StatCards({
   );
   const { count, verified } = useMemo(() => overallCounts(receipts, older), [receipts, older]);
 
-  const choose = () => {
+  const choose = (p: (typeof periods)[number]) => {
     void Haptics.selectionAsync();
-    const options = [...periods.map((p) => p.label), s.common.cancel];
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: s.summary.choosePeriod, options, cancelButtonIndex: options.length - 1, tintColor: colors.ink },
-      (index) => {
-        const p = periods[index];
-        if (!p) return;
-        onPeriod(p.key);
-        AccessibilityInfo.announceForAccessibility(fill(s.summary.totalFor, { period: p.label }));
-      },
-    );
+    onPeriod(p.key);
+    AccessibilityInfo.announceForAccessibility(fill(s.summary.totalFor, { period: p.label }));
   };
 
   const spoken = totals
@@ -109,14 +111,7 @@ export function StatCards({
       <Count value={count} label={s.summary.statReceipts} />
       <Count value={verified} label={s.summary.statVerified} />
       <Box>
-        <PressableScale
-          scaleTo={0.97}
-          onPress={choose}
-          accessibilityRole="button"
-          accessibilityLabel={`${fill(s.summary.totalFor, { period: selected.label })}: ${spoken}`}
-          accessibilityHint={s.summary.periodHint}
-          style={styles.inner}
-        >
+        <View style={styles.inner} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
           {totals.map((t) => (
             <TotalAmount key={t.currency} line={t} rolls={t.currency === homeCurrency} />
           ))}
@@ -124,9 +119,35 @@ export function StatCards({
             <Text variant="caption" color={colors.inkMuted} numberOfLines={1} style={styles.shrink}>
               {selected.short}
             </Text>
-            <SymbolView name="chevron.down" size={10} weight="semibold" tintColor={colors.inkMuted} />
+            <SymbolView name="chevron.up.chevron.down" size={10} weight="semibold" tintColor={colors.inkMuted} />
           </View>
-        </PressableScale>
+        </View>
+        {/* The menu's trigger covers the box (an almost clear shape: SwiftUI
+            doesn't hit-test a fully clear one), so the menu grows from it. */}
+        <Host style={StyleSheet.absoluteFill} colorScheme={scheme}>
+          <Menu
+            label={
+              <Rectangle
+                modifiers={[
+                  foregroundStyle("#FFFFFF02"),
+                  frame({ maxWidth: 10_000, maxHeight: 10_000 }),
+                  contentShape(shapes.rectangle()),
+                  accessibilityLabel(`${fill(s.summary.totalFor, { period: selected.label })}: ${spoken}`),
+                  accessibilityHint(s.summary.periodHint),
+                ]}
+              />
+            }
+          >
+            {periods.map((p) => (
+              <MenuItem
+                key={p.key}
+                label={p.label}
+                systemImage={p.key === selected.key ? "checkmark" : undefined}
+                onPress={() => choose(p)}
+              />
+            ))}
+          </Menu>
+        </Host>
       </Box>
     </View>
   );

@@ -3,7 +3,7 @@
 // at once with its picture, turns into the real receipt when the server has
 // read it, and stays on the phone until then.
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Alert, AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
@@ -255,7 +255,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     [update, pump],
   );
 
-  return <ScanContext.Provider value={{ pending, scan, pickPhotos, remove, retry }}>{children}</ScanContext.Provider>;
+  // One value per change of the queue: a new object every render made every
+  // screen reading useScans() render again with each home refresh.
+  const value = useMemo(() => ({ pending, scan, pickPhotos, remove, retry }), [pending, scan, pickPhotos, remove, retry]);
+  return <ScanContext.Provider value={value}>{children}</ScanContext.Provider>;
 }
 
 export function useScans(): ScanState {

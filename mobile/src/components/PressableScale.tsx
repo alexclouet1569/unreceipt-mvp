@@ -24,18 +24,20 @@ export function PressableScale({
   style?: StyleProp<ViewStyle>;
 }) {
   const scale = useSharedValue(1);
-  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  // .get()/.set() rather than .value, so the React Compiler optimises this
+  // component (it's in every row and chip).
+  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
 
   return (
     <AnimatedPressable
       {...rest}
       style={[style, animated]}
       onPressIn={(e) => {
-        scale.value = withSpring(scaleTo, springs.press);
+        scale.set(withSpring(scaleTo, springs.press));
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        scale.value = withSpring(1, springs.press);
+        scale.set(withSpring(1, springs.press));
         onPressOut?.(e);
       }}
       onPress={(e) => {

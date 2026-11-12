@@ -5,7 +5,7 @@ import { dayOf, printedDay } from "@/lib/receipts/printed-day";
 import { missingRequiredFields } from "@/lib/receipts/status";
 import { isPossibleDuplicate, userNotes } from "@/lib/receipts/notes";
 import type { Receipt } from "@/lib/types";
-import type { MobileReceipt } from "./types";
+import type { MobileReceipt, MobileReceiptDetail } from "./types";
 
 // Same resolution as GET /api/receipts/[id]/original: the stored original
 // first, else the paper photo; a kind the row doesn't record is read from
@@ -53,5 +53,45 @@ export function toMobileReceipt(r: Receipt): MobileReceipt {
     possibleDuplicate: isPossibleDuplicate(r.notes),
     exportedAt: r.exported_at,
     bookedAt: r.booked_at,
+  };
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** The digital receipt's fields (same rules as the website's ReceiptDetailCard). */
+export function toMobileReceiptDetail(r: Receipt): MobileReceiptDetail {
+  const vat = r.tax_amount != null && r.tax_amount > 0 ? r.tax_amount : null;
+  const lines = Array.isArray(r.vat_lines) && r.vat_lines.length > 1 ? r.vat_lines : [];
+  const stamp: MobileReceiptDetail["stamp"] = r.is_verified
+    ? r.edited_at
+      ? "verified_edited"
+      : "verified"
+    : r.status === "pending_review"
+      ? "review"
+      : r.source === "paper" || r.source === "manual"
+        ? "checked"
+        : "automatic";
+  return {
+    receipt: toMobileReceipt(r),
+    receiptNumber: r.receipt_number,
+    merchantAddress: r.merchant_address,
+    time: r.receipt_time,
+    cardLastFour: r.card_last_four,
+    items: (Array.isArray(r.items) ? r.items : [])
+      .filter((i) => i && typeof i.label === "string" && typeof i.total_amount === "number")
+      .map((i) => ({ label: i.label, qty: i.qty, unitAmount: i.unit_amount, total: i.total_amount })),
+    subtotal: r.subtotal,
+    tip: r.tip_amount != null && r.tip_amount > 0 ? r.tip_amount : null,
+    vat,
+    vatRate: r.tax_rate,
+    vatLines: lines.map((l) => ({ rate: l.rate, vat: l.vat })),
+    net: vat != null && r.total != null ? round2(r.total - vat) : null,
+    fxDate: r.fx_source === "ecb" ? r.fx_date : null,
+    paymentMethod: r.payment_method,
+    transactionRef: r.transaction_ref,
+    sellerOrgNumber: r.seller_org_number,
+    merchantVatNumber: r.merchant_vat_number,
+    stamp,
+    pdfReady: r.status !== "pending_review",
   };
 }
