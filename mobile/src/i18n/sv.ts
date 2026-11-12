@@ -417,6 +417,7 @@ export const sv: Strings = {
     receiptsOne: "1 kvitto",
     receiptsOther: "{count} kvitton",
     chartSummary: "{count} staplar. Högst: {label}, {amount}.",
+    chartCompared: "Jämförelse: {previous}.",
     whereTitle: "Vart pengarna går",
     merchantsTitle: "Största leverantörer",
     findingsTitle: "Bra att veta",

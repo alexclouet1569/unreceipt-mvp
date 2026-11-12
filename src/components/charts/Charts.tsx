@@ -4,9 +4,9 @@
 // Insights"), the same as the iPhone app's: weekly bars for a month (7-day
 // blocks from the 1st), Monday weeks for a quarter, months for a year.
 // Bars --ink-muted; the chosen bar (or the current one) is the screen's one
-// green; the period before in --ink-faint, beside each bar when there are
-// 8 or fewer, behind it when more, with a legend; a hairline baseline, no
-// grid, no axis numbers, no gradients, no shadows.
+// green; the period before as a 1.5 px --ink-muted outline, beside each bar
+// when there are 8 or fewer, behind it when more, with a legend; a hairline
+// baseline, no grid, no axis numbers, no gradients, no shadows.
 //
 // Reading a chart: move the pointer (or a finger) along it, or focus it and
 // use the arrow keys; the readout above names the bar. It clears 1.6 s after
@@ -18,6 +18,7 @@ import {
   partsText,
   periodTitle,
   previousLabel,
+  previousLegend,
   todayIndex,
   money as formatMoney,
   type Part,
@@ -131,24 +132,34 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
   const money = (v: number) => formatMoney(v, a.currency);
   const { selected: sel, handlers } = useScrub(n, width, Math.max(0, visible - 1));
 
+  const blocks = a.period.kind === "month";
+  const label = (i: number, long = false) => bucketLabel(a.buckets[i], a.granularity, long, blocks);
+  const compared = a.previousBuckets.length > 0;
   const highest = a.buckets.reduce((best, b, i) => (b.amount > a.buckets[best].amount ? i : best), 0);
-  const summary = `${n} bars. Highest: ${bucketLabel(a.buckets[highest], a.granularity, true)}, ${money(a.buckets[highest].amount)}.`;
-  const before = sel != null && a.previousBuckets.length > sel ? a.previousBuckets[sel] : null;
-  const parts: Part[] | null =
-    sel != null
-      ? [
-          { text: `${bucketLabel(a.buckets[sel], a.granularity, true)} · ` },
-          { text: money(a.buckets[sel].amount), money: true },
-          ...(before != null ? [{ text: ` · ${previousLabel(a)} ` }, { text: money(before), money: true }] : []),
-        ]
-      : null;
+  const summary =
+    `${n} bars. Highest: ${label(highest, true)}, ${money(a.buckets[highest].amount)}.` +
+    (compared ? ` Comparison: ${previousLabel(a)}.` : "");
+  const partsAt = (i: number): Part[] => {
+    const before = a.previousBuckets.length > i ? a.previousBuckets[i] : null;
+    return [
+      { text: `${label(i, true)} · ` },
+      { text: money(a.buckets[i].amount), money: true },
+      ...(before != null ? [{ text: ` · ${previousLabel(a)} ` }, { text: money(before), money: true }] : []),
+    ];
+  };
+  const parts = sel != null ? partsAt(sel) : null;
+  // Read out with nothing chosen: today's bar, or the last one.
+  const resting = Math.max(0, today >= 0 ? today : visible - 1);
 
   const slot = width / Math.max(1, n);
-  // Few bars (a month's weeks, a quarter's months…): last period's bar
-  // stands beside this one. Many: it sits behind, a little wider.
-  const paired = a.previousBuckets.length > 0 && n <= 8;
+  // Few bars (a month's 7-day blocks): last period's bar stands beside this
+  // one. Many (a quarter's weeks, a year's months): it sits behind, wider.
+  const paired = compared && n <= 8;
   const barW = paired ? Math.min(30, slot * 0.34) : Math.max(2, Math.min(28, slot * 0.62));
   const gap = 4;
+  // While a bar is chosen everything else dims, its own previous bar included,
+  // so the chosen pair reads by lightness too, not only by hue.
+  const dim = (i: number, on: boolean) => (sel != null && !on && i !== sel ? 0.45 : 1);
 
   return (
     <div>
@@ -163,8 +174,8 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
         aria-roledescription="chart"
         aria-valuemin={0}
         aria-valuemax={Math.max(0, visible - 1)}
-        aria-valuenow={sel ?? Math.max(0, today >= 0 ? today : visible - 1)}
-        aria-valuetext={parts ? partsText(parts) : summary}
+        aria-valuenow={sel ?? resting}
+        aria-valuetext={partsText(parts ?? partsAt(resting))}
         className={plotClass}
         style={{ height: HEIGHT }}
         {...handlers}
@@ -175,9 +186,23 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
             {a.previousBuckets.slice(0, n).map((v, i) => {
               const h = Math.max(v > 0 ? 3 : 0, (v / max) * (HEIGHT - 8));
               if (h <= 0) return null;
-              const x = paired ? i * slot + slot / 2 - gap / 2 - barW : i * slot + (slot - barW) / 2 - 2;
+              const w = paired ? barW : barW + 6;
+              const x = paired ? i * slot + slot / 2 - gap / 2 - barW : i * slot + (slot - w) / 2;
+              // An outline (1.5 px, inside its box): a --ink-faint fill was
+              // 2.5:1 on cream, under the 3:1 a chart mark needs.
               return (
-                <rect key={`p${i}`} x={x} y={HEIGHT - h} width={paired ? barW : barW + 4} height={h} rx={3} fill="var(--ink-faint)" />
+                <rect
+                  key={`p${i}`}
+                  x={x + 0.75}
+                  y={HEIGHT - h + 0.75}
+                  width={Math.max(0, w - 1.5)}
+                  height={Math.max(0, h - 1.5)}
+                  rx={2.5}
+                  fill="none"
+                  stroke="var(--ink-muted)"
+                  strokeWidth={1.5}
+                  opacity={dim(i, false)}
+                />
               );
             })}
             {a.buckets.map((b, i) => {
@@ -195,22 +220,24 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
                   height={h}
                   rx={3}
                   fill={on ? "var(--brand-action)" : "var(--ink-muted)"}
-                  // The others dim while one is chosen, so the choice reads by
-                  // lightness too, not only by hue.
-                  opacity={sel != null && !on ? 0.45 : 1}
+                  opacity={dim(i, on)}
                 />
               );
             })}
           </svg>
         ) : null}
       </div>
-      {width > 0 ? <AxisLabels labels={a.buckets.map((b) => bucketLabel(b, a.granularity))} width={width} /> : null}
-      {a.previousBuckets.length > 0 ? (
-        <div aria-hidden="true" className="mt-2 flex items-center gap-1.5 type-caption text-[var(--ink-muted)]">
-          <span className="h-2.5 w-2.5 rounded-[3px] bg-[var(--ink-muted)]" />
-          {periodTitle(a.period)}
-          <span className="ml-3 h-2.5 w-2.5 rounded-[3px] bg-[var(--ink-faint)]" />
-          {previousLabel(a)}
+      {width > 0 ? <AxisLabels labels={a.buckets.map((_, i) => label(i))} width={width} /> : null}
+      {compared ? (
+        <div aria-hidden="true" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 type-caption text-[var(--ink-muted)]">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-[3px] bg-[var(--ink-muted)]" />
+            {periodTitle(a.period)}
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-[3px] border-[1.5px] border-[var(--ink-muted)]" />
+            {previousLegend(a)}
+          </span>
         </div>
       ) : null}
     </div>

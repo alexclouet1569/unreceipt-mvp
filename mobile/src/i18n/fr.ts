@@ -417,6 +417,7 @@ export const fr: Strings = {
     receiptsOne: "1 reçu",
     receiptsOther: "{count} reçus",
     chartSummary: "{count} barres. La plus haute : {label}, {amount}.",
+    chartCompared: "Comparaison : {previous}.",
     whereTitle: "Où va l'argent",
     merchantsTitle: "Principaux fournisseurs",
     findingsTitle: "À savoir",

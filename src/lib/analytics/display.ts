@@ -127,6 +127,12 @@ export function previousLabel(a: ReadyAnalytics): string {
   }
 }
 
+/** The same, starting with a capital, for a legend. */
+export const previousLegend = (a: ReadyAnalytics) => {
+  const t = previousLabel(a);
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
 /** "+12%", "−8%", or null when there is nothing to compare with. */
 export function changeText(current: number, previous: number | null): string | null {
   if (previous == null || previous <= 0) return null;
@@ -175,12 +181,19 @@ export function fillParts(template: string, words: Record<string, string | numbe
 export const partsText = (parts: Part[]) => parts.map((p) => p.text).join("");
 
 /**
- * A bar's name under the chart: "12", "1–7" (a month's week), "5 Oct" (a
- * quarter's week), "Nov"; long for the readout.
+ * A bar's name under the chart: "12", "1–7" (a month's 7-day block),
+ * "5 Oct" (a Monday week of a quarter or chosen dates), "Nov"; long for the
+ * readout. `monthBlocks`: the bars are a month's blocks (`period.kind ===
+ * "month"`); a Monday week inside one month keeps its month name.
  */
-export function bucketLabel(b: Pick<AnalyticsBucket, "from" | "to">, g: AnalyticsGranularity, long = false): string {
+export function bucketLabel(
+  b: Pick<AnalyticsBucket, "from" | "to">,
+  g: AnalyticsGranularity,
+  long = false,
+  monthBlocks = false,
+): string {
   if (g === "day") return long ? fmt(b.from, { day: "numeric", month: "long" }) : String(Number(b.from.slice(8, 10)));
-  if (g === "week" && b.from.slice(0, 7) === b.to.slice(0, 7)) {
+  if (g === "week" && monthBlocks) {
     const d1 = Number(b.from.slice(8, 10));
     const d2 = Number(b.to.slice(8, 10));
     const days = d1 === d2 ? String(d1) : `${d1}–${d2}`;

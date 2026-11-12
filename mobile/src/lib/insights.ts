@@ -87,7 +87,7 @@ export function daysBetween(from: string, to: string): number {
 const INTL_LOCALE = { en: "en-GB", sv: "sv-SE", fr: "fr-FR" } as const;
 
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`);
-const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+export const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 function fmt(day: string, locale: Locale, options: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...options }).format(asDate(day));
@@ -191,9 +191,12 @@ export function bucketLabel(
   g: AnalyticsGranularity,
   locale: Locale,
   long = false,
+  // The bars are a month's 7-day blocks: name them by their days. A Monday
+  // week (quarter, chosen dates) keeps its month even inside one month.
+  monthBlocks = false,
 ): string {
   if (g === "day") return long ? fmt(b.from, locale, { day: "numeric", month: "long" }) : String(Number(b.from.slice(8, 10)));
-  if (g === "week" && b.from.slice(0, 7) === b.to.slice(0, 7)) {
+  if (g === "week" && monthBlocks) {
     const days = b.from === b.to ? String(Number(b.from.slice(8, 10))) : `${Number(b.from.slice(8, 10))}–${Number(b.to.slice(8, 10))}`;
     return long ? `${days} ${fmt(b.from, locale, { month: "long" })}` : days;
   }

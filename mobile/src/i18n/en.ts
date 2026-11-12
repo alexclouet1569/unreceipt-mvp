@@ -418,6 +418,7 @@ export const en = {
     receiptsOne: "1 receipt",
     receiptsOther: "{count} receipts",
     chartSummary: "{count} bars. Highest: {label}, {amount}.",
+    chartCompared: "Comparison: {previous}.",
     whereTitle: "Where it goes",
     merchantsTitle: "Top merchants",
     findingsTitle: "Worth knowing",
