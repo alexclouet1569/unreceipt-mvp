@@ -3,7 +3,6 @@ import {
   bucketLabel,
   categoryColor,
   changeText,
-  cumulative,
   fillParts,
   insightFilter,
   insightText,
@@ -99,10 +98,14 @@ describe("texts", () => {
     expect(insightFilter({ kind: "duplicates", count: 0, ids: [] })).toBeNull();
   });
 
-  it("adds up a running total and labels bars", () => {
-    expect(cumulative([1, 2.005, 3])).toEqual([1, 3.01, 6.01]);
-    expect(bucketLabel({ from: "2026-11-05" }, "day")).toBe("5");
-    expect(bucketLabel({ from: "2026-11-01" }, "month")).toBe("Nov");
+  it("labels bars, a month's weeks by their days", () => {
+    expect(bucketLabel({ from: "2026-11-05", to: "2026-11-05" }, "day")).toBe("5");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-30" }, "month")).toBe("Nov");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-07" }, "week")).toBe("1–7");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-07" }, "week", true)).toBe("1–7 November");
+    expect(bucketLabel({ from: "2026-11-29", to: "2026-11-30" }, "week")).toBe("29–30");
+    // A quarter's week across two months keeps its first day.
+    expect(bucketLabel({ from: "2026-09-28", to: "2026-10-04" }, "week")).toMatch(/^28 Sep/);
   });
 
   it("colours categories from CSS variables, Other neutral", () => {

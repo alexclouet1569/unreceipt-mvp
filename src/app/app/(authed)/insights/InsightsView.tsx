@@ -24,7 +24,7 @@ import {
   type ReadyAnalytics,
 } from "@/lib/analytics/display";
 import { getMerchantColor, getMerchantInitials } from "@/lib/merchant-display";
-import { BarChart, PaceChart } from "@/components/charts/Charts";
+import { BarChart } from "@/components/charts/Charts";
 
 /** Where a number leads: the receipts behind it, or null (the demo tour). */
 export type DrillHref = (filter: Record<string, string>) => string | null;
@@ -400,7 +400,7 @@ export function InsightsBody({ a, href }: { a: ReadyAnalytics; href: DrillHref }
     <div className="space-y-8">
       <Hero a={a} href={href} />
       <div>
-        {a.period.kind === "month" ? <PaceChart a={a} /> : <BarChart a={a} />}
+        <BarChart a={a} />
         {a.total.count < 3 ? (
           <div className="mt-4">
             <p className="text-[15px] font-bold text-[var(--ink)]">A few more receipts first</p>

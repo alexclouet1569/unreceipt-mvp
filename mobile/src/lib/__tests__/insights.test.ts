@@ -6,7 +6,6 @@ import {
   fillParts,
   bucketLabel,
   changeText,
-  cumulative,
   insightFilter,
   insightText,
   periodCacheKey,
@@ -103,14 +102,16 @@ describe("numbers", () => {
     expect(changeText(100, 100, "en")).toBe("0%");
   });
 
-  it("keeps running totals for the pace line", () => {
-    expect(cumulative([10, 0, 5.5, 0.1])).toEqual([10, 10, 15.5, 15.6]);
-  });
-
   it("labels bars", () => {
-    expect(bucketLabel({ from: "2026-11-05" }, "day", "en")).toBe("5");
-    expect(bucketLabel({ from: "2026-11-01" }, "month", "en")).toBe("Nov");
-    expect(bucketLabel({ from: "2026-11-01" }, "month", "en", true)).toBe("November 2026");
+    expect(bucketLabel({ from: "2026-11-05", to: "2026-11-05" }, "day", "en")).toBe("5");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-30" }, "month", "en")).toBe("Nov");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-30" }, "month", "en", true)).toBe("November 2026");
+    // A month's week: its days.
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-07" }, "week", "en")).toBe("1–7");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-07" }, "week", "en", true)).toBe("1–7 November");
+    expect(bucketLabel({ from: "2026-11-29", to: "2026-11-30" }, "week", "en")).toBe("29–30");
+    // A quarter's week across two months: its first day.
+    expect(bucketLabel({ from: "2026-09-28", to: "2026-10-04" }, "week", "en")).toBe("28 Sept");
   });
 });
 

@@ -98,7 +98,9 @@ export function resolvePeriod(input: PeriodInput, today: string): ResolvedPeriod
       ...range,
       previous: monthRange(py, pm),
       lastYear: monthRange(y - 1, m),
-      granularity: "day",
+      // Weekly bars, in blocks of 7 days from the 1st (founder's choice,
+      // 2026-11-12: daily bars or a running total read as confusing).
+      granularity: "week",
     };
   }
 
@@ -166,14 +168,19 @@ export type Bucket = { from: string; to: string };
 /**
  * The bars of a range: days, Monday-to-Sunday weeks, or calendar months,
  * clipped to the range so the first and last bar may be partial.
+ * `fromStart`: weeks are 7-day blocks from the range's first day instead
+ * (a month: 1–7, 8–14, 15–21, 22–28, 29–end), so two months line up bar
+ * for bar and no week is a single day.
  */
-export function bucketsFor(range: AnalyticsRange, granularity: AnalyticsGranularity): Bucket[] {
+export function bucketsFor(range: AnalyticsRange, granularity: AnalyticsGranularity, fromStart = false): Bucket[] {
   const out: Bucket[] = [];
   let cursor = range.from;
   let guard = 0;
   while (cursor <= range.to && guard++ < 1000) {
     let end: string;
-    if (granularity === "day") {
+    if (granularity === "week" && fromStart) {
+      end = addDays(cursor, 6);
+    } else if (granularity === "day") {
       end = cursor;
     } else if (granularity === "week") {
       const weekday = new Date(`${cursor}T00:00:00Z`).getUTCDay(); // 0 = Sunday

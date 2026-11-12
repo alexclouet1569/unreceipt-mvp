@@ -48,7 +48,7 @@ describe("periods", () => {
       to: "2026-03-31",
       previous: { from: "2026-02-01", to: "2026-02-28" },
       lastYear: { from: "2025-03-01", to: "2025-03-31" },
-      granularity: "day",
+      granularity: "week",
     });
     expect(month("2026-01").previous).toEqual({ from: "2025-12-01", to: "2025-12-31" });
   });
@@ -93,6 +93,15 @@ describe("periods", () => {
     expect(weeks[1]).toEqual({ from: "2026-10-05", to: "2026-10-11" });
     expect(weeks.at(-1)).toEqual({ from: "2026-10-26", to: "2026-10-31" });
     expect(bucketsFor({ from: "2026-01-01", to: "2026-12-31" }, "month")).toHaveLength(12);
+    // A month: 7-day blocks from the 1st, the last one short.
+    expect(bucketsFor({ from: "2026-11-01", to: "2026-11-30" }, "week", true)).toEqual([
+      { from: "2026-11-01", to: "2026-11-07" },
+      { from: "2026-11-08", to: "2026-11-14" },
+      { from: "2026-11-15", to: "2026-11-21" },
+      { from: "2026-11-22", to: "2026-11-28" },
+      { from: "2026-11-29", to: "2026-11-30" },
+    ]);
+    expect(bucketsFor({ from: "2026-02-01", to: "2026-02-28" }, "week", true)).toHaveLength(4);
   });
 });
 
@@ -214,8 +223,8 @@ describe("buildAnalytics", () => {
     });
     expect(a.quality).toEqual({ missingAmount: 1, toComplete: 1, unconverted: 1, undated: 1 });
     expect(a.period.current).toBe(true);
-    expect(a.buckets).toHaveLength(30);
-    expect(a.buckets[1]).toMatchObject({ from: "2026-11-02", amount: 100, count: 1 });
+    expect(a.buckets).toHaveLength(5);
+    expect(a.buckets[0]).toMatchObject({ from: "2026-11-01", to: "2026-11-07", amount: 150, count: 4 });
     // The user's first receipt is in October: no comparison with October.
     expect(a.firstDay).toBe("2026-10-15");
     expect(a.compare).toEqual({ previous: null, lastYear: null });
@@ -232,7 +241,7 @@ describe("buildAnalytics", () => {
     ];
     const a = buildAnalytics(rows, "SEK", month("2026-11"), today);
     expect(a.compare).toEqual({ previous: 200, lastYear: 40 });
-    expect(a.previousBuckets).toHaveLength(31);
+    expect(a.previousBuckets).toHaveLength(5);
     expect(a.previousBuckets[0]).toBe(200);
     expect(a.categories).toEqual([
       { category: "travel", amount: 300, count: 1, share: 0.75, previous: 200 },

@@ -148,11 +148,6 @@ export function percentText(points: number): string {
   return new Intl.NumberFormat("en-GB", { style: "percent", maximumFractionDigits: 1 }).format(points / 100);
 }
 
-/** A month's name ("September", "September 2025" in another year than `today`). */
-export function monthName(day: string, today: string): string {
-  return fmt(day, day.slice(0, 4) === today.slice(0, 4) ? { month: "long" } : { month: "long", year: "numeric" });
-}
-
 /** A piece of a sentence: words in Manrope, amounts in Geist Mono (DESIGN.md). */
 export type Part = { text: string; money?: boolean };
 
@@ -179,18 +174,18 @@ export function fillParts(template: string, words: Record<string, string | numbe
 
 export const partsText = (parts: Part[]) => parts.map((p) => p.text).join("");
 
-/** Running totals, for the month's pace line. */
-export function cumulative(values: number[]): number[] {
-  let sum = 0;
-  return values.map((v) => {
-    sum += v;
-    return Math.round(sum * 100) / 100;
-  });
-}
-
-/** A bar's name under the chart: "12", "5 Oct", "Nov"; long for the readout. */
-export function bucketLabel(b: Pick<AnalyticsBucket, "from">, g: AnalyticsGranularity, long = false): string {
+/**
+ * A bar's name under the chart: "12", "1–7" (a month's week), "5 Oct" (a
+ * quarter's week), "Nov"; long for the readout.
+ */
+export function bucketLabel(b: Pick<AnalyticsBucket, "from" | "to">, g: AnalyticsGranularity, long = false): string {
   if (g === "day") return long ? fmt(b.from, { day: "numeric", month: "long" }) : String(Number(b.from.slice(8, 10)));
+  if (g === "week" && b.from.slice(0, 7) === b.to.slice(0, 7)) {
+    const d1 = Number(b.from.slice(8, 10));
+    const d2 = Number(b.to.slice(8, 10));
+    const days = d1 === d2 ? String(d1) : `${d1}–${d2}`;
+    return long ? `${days} ${fmt(b.from, { month: "long" })}` : days;
+  }
   if (g === "week") return long ? `Week of ${fmt(b.from, { day: "numeric", month: "long" })}` : fmt(b.from, { day: "numeric", month: "short" });
   return fmt(b.from, long ? { month: "long", year: "numeric" } : { month: "short" });
 }
