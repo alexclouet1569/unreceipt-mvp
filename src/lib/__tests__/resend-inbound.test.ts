@@ -79,15 +79,35 @@ describe("fetchReceivedEmail", () => {
     expect((await fetchReceivedEmail(EMAIL_ID))?.authentication).toBeNull();
   });
 
-  it("still returns the body when the .eml download fails", async () => {
+  it("returns null (so the webhook is retried) when the offered .eml can't be downloaded", async () => {
     fetchMock
       .mockResolvedValueOnce(okJson(receivedEmail))
       .mockResolvedValueOnce({ ok: false, status: 403 });
+    await expect(fetchReceivedEmail(EMAIL_ID)).resolves.toBeNull();
 
-    const content = await fetchReceivedEmail(EMAIL_ID);
+    fetchMock
+      .mockResolvedValueOnce(okJson(receivedEmail))
+      .mockRejectedValueOnce(new Error("socket hang up"));
+    await expect(fetchReceivedEmail(EMAIL_ID)).resolves.toBeNull();
+  });
 
-    expect(content?.text).toBe("Total 189 kr");
-    expect(content?.rawEml).toBeNull();
+  it("reads the text alone when Resend offers no .eml, or when it is over the size cap", async () => {
+    fetchMock.mockResolvedValueOnce(okJson({ ...receivedEmail, raw: null }));
+    const none = await fetchReceivedEmail(EMAIL_ID);
+    expect(none?.text).toBe("Total 189 kr");
+    expect(none?.rawEml).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fetchMock
+      .mockResolvedValueOnce(okJson(receivedEmail))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(15 * 1024 * 1024 + 1)),
+      });
+    const huge = await fetchReceivedEmail(EMAIL_ID);
+    expect(huge?.text).toBe("Total 189 kr");
+    expect(huge?.rawEml).toBeNull();
   });
 
   it("returns null when Resend refuses (e.g. sending-only API key)", async () => {

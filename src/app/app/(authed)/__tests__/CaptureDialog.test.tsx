@@ -676,4 +676,46 @@ describe("CaptureDialog", () => {
       { rate: 12, net: 50, vat: 6 },
     ]);
   });
+
+  describe("several receipts at once", () => {
+    const onePagePdf = async (name: string) => {
+      const { PDFDocument } = await import("pdf-lib");
+      const doc = await PDFDocument.create();
+      doc.addPage([200, 300]);
+      return new File([(await doc.save()) as BlobPart], name, { type: "application/pdf" });
+    };
+    const severalInput = () => document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    const scanAnswer = (body: unknown) =>
+      ({ ok: true, status: 200, headers: new Headers(), json: async () => body }) as unknown as Response;
+
+    it("refreshes the list when the sheet is closed with the X after a receipt was saved", async () => {
+      const user = userEvent.setup();
+      const onSaved = vi.fn();
+      mocks.fetch.mockResolvedValue(scanAnswer({ ok: true, merchant: "Byggmax", total: 10, currency: "SEK", missing: null }));
+      const onOpenChange = vi.fn();
+      render(<CaptureDialog open={true} onOpenChange={onOpenChange} onSaved={onSaved} />);
+
+      await user.upload(severalInput(), [await onePagePdf("a.pdf")]);
+      expect(await screen.findByText("1 receipt saved")).toBeInTheDocument();
+      expect(mocks.router.refresh).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Close" }));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+      expect(onSaved).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't refresh on close when nothing was saved", async () => {
+      const user = userEvent.setup();
+      mocks.fetch.mockResolvedValue(scanAnswer({ ok: true, skipped: true, reason: "This doesn't look like a receipt." }));
+      const onOpenChange = vi.fn();
+      render(<CaptureDialog open={true} onOpenChange={onOpenChange} />);
+
+      await user.upload(severalInput(), [await onePagePdf("a.pdf")]);
+      expect(await screen.findByText("This doesn't look like a receipt.")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Done" }));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(mocks.router.refresh).not.toHaveBeenCalled();
+    });
+  });
 });

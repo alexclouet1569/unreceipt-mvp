@@ -5,7 +5,14 @@ import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 
 vi.mock("@/lib/image-resize", () => ({ prepareImageForUpload: async (f: File) => f }));
 
-import { BatchCapture, expandFiles, splitPages } from "@/app/app/(authed)/BatchCapture";
+import { BatchCapture, expandFiles, newClientId, rateLimitMessage, splitPages } from "@/app/app/(authed)/BatchCapture";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const withoutClientId = (fields: Record<string, string>) => {
+  const rest = { ...fields };
+  delete rest.client_id;
+  return rest;
+};
 
 async function pdfWithPages(n: number, opts: { attachment?: boolean } = {}): Promise<File> {
   const doc = await PDFDocument.create();
@@ -101,10 +108,12 @@ describe("BatchCapture", () => {
     await user.click(await screen.findByRole("button", { name: "Each page is a receipt" }));
     await waitFor(() => expect(sent.filter((s) => s.url === "/api/capture/scan")).toHaveLength(2));
     expect(sent[0].url).toBe("/api/capture/scan/original");
-    expect(sent.slice(1).map((s) => s.fields)).toEqual([
+    expect(sent.slice(1).map((s) => withoutClientId(s.fields))).toEqual([
       { scan: "u/scans/s.pdf", page: "1", pages: "2" },
       { scan: "u/scans/s.pdf", page: "2", pages: "2" },
     ]);
+    // Each page is its own receipt, with its own id.
+    expect(sent[1].fields.client_id).not.toBe(sent[2].fields.client_id);
   });
 
   it("sends the whole file once when it's one receipt", async () => {
@@ -112,14 +121,62 @@ describe("BatchCapture", () => {
     render(<BatchCapture initialFiles={[await pdfWithPages(2)]} onDone={() => {}} />);
     await user.click(await screen.findByRole("button", { name: "One receipt" }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ url: "/api/capture/scan", fields: { whole: "1" } });
+    expect(sent[0]).toEqual({ url: "/api/capture/scan", fields: { whole: "1", client_id: expect.stringMatching(UUID) } });
   });
 
-  it("pauses on the rate limit and offers to try again", async () => {
-    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ error: "rate_limited" }), { status: 429 }));
+  it("pauses on the rate limit, says how long from Retry-After, and offers to try again", async () => {
+    fetchMock.mockImplementation(
+      async () => new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { "Retry-After": "1500" } })
+    );
     render(<BatchCapture initialFiles={[photo("1.jpg"), photo("2.jpg"), photo("3.jpg")]} onDone={() => {}} />);
-    await waitFor(() => expect(screen.getByText(/That's a lot at once/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Try again in about 25 minutes/)).toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole("button", { name: /Try again/ })).toBeInTheDocument());
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("sends each file's own client_id, the same one again on Try again, and reports each save", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    let calls = 0;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const fields: Record<string, string> = {};
+      if (init?.body instanceof FormData) for (const [k, v] of init.body.entries()) if (typeof v === "string") fields[k] = v;
+      sent.push({ url, fields });
+      calls++;
+      // The first answer is lost on the way back.
+      if (calls === 1) throw new TypeError("Failed to fetch");
+      return new Response(JSON.stringify({ ok: true, merchant: "Byggmax", total: 10, currency: "SEK", missing: null }), { status: 200 });
+    });
+    render(<BatchCapture initialFiles={[photo("1.jpg")]} onDone={() => {}} onSaved={onSaved} />);
+    await user.click(await screen.findByRole("button", { name: /Try again/ }));
+    await waitFor(() => expect(screen.getByText("1 receipt saved")).toBeInTheDocument());
+    expect(sent).toHaveLength(2);
+    expect(sent[0].fields.client_id).toMatch(UUID);
+    expect(sent[1].fields.client_id).toBe(sent[0].fields.client_id);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("rateLimitMessage", () => {
+  it("names the wait from Retry-After, and says it plainly without one", () => {
+    expect(rateLimitMessage("30")).toBe("You've reached the reading limit for now. Try again in about a minute.");
+    expect(rateLimitMessage("3600")).toBe("You've reached the reading limit for now. Try again in about 60 minutes.");
+    expect(rateLimitMessage("36000")).toBe("You've reached the reading limit for now. Try again in about 10 hours.");
+    for (const missing of [null, "", "soon", "0"]) {
+      expect(rateLimitMessage(missing)).toMatch(/You've scanned a lot in the last hour\. Try again later/);
+    }
+  });
+});
+
+describe("newClientId", () => {
+  it("is a v4 UUID, also without crypto.randomUUID", () => {
+    expect(newClientId()).toMatch(UUID);
+    const original = crypto.randomUUID;
+    try {
+      Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+      expect(newClientId()).toMatch(UUID);
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: original, configurable: true });
+    }
   });
 });

@@ -32,10 +32,48 @@ type ItemState =
   | { kind: "failed"; reason: string };
 
 type Mode = { as: "file" } | { as: "whole" } | { as: "page"; scan: string; page: number; pages: number };
-type Item = { id: string; label: string; file: File; mode: Mode; state: ItemState };
+// `clientId` is sent with every try of the item, so a file whose answer was
+// lost (bad connection, timeout) and is sent again by Try again is answered
+// with the receipt already saved instead of becoming a second one
+// (/api/capture/scan dedupes on it).
+type Item = { id: string; clientId: string; label: string; file: File; mode: Mode; state: ItemState };
 
 let seq = 0;
 const nextId = () => `batch-${++seq}`;
+
+/** A v4 UUID, also where crypto.randomUUID is missing (non-secure origins). */
+export function newClientId(): string {
+  const c = globalThis.crypto;
+  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  const b = new Uint8Array(16);
+  c.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+const newItem = (fields: Omit<Item, "id" | "clientId">): Item => ({ id: nextId(), clientId: newClientId(), ...fields });
+
+/**
+ * What to tell the client after a 429. The scan route counts against the
+ * hourly and daily reading limits (src/lib/rate-limit.ts) and says how long
+ * in Retry-After.
+ */
+export function rateLimitMessage(retryAfter: string | null): string {
+  const seconds = retryAfter !== null && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) : null;
+  if (seconds === null || seconds <= 0) {
+    return "You've scanned a lot in the last hour. Try again later; the files below stay here until then.";
+  }
+  const minutes = Math.ceil(seconds / 60);
+  const wait =
+    minutes <= 1
+      ? "about a minute"
+      : minutes < 90
+        ? `about ${minutes} minutes`
+        : `about ${Math.round(minutes / 60)} hours`;
+  return `You've reached the reading limit for now. Try again in ${wait}.`;
+}
 
 export type Expanded =
   | { label: string; file: File; mode: Mode; choose?: undefined }
@@ -86,11 +124,15 @@ export function BatchCapture({
   initialFiles,
   onDone,
   onBusyChange,
+  onSaved,
 }: {
   initialFiles: File[];
   onDone: () => void;
   // The sheet asks before closing while this is true.
   onBusyChange?: (busy: boolean) => void;
+  // Each time a receipt was saved, so the sheet refreshes the list however
+  // it is closed.
+  onSaved?: () => void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [preparing, setPreparing] = useState(true);
@@ -132,6 +174,7 @@ export function BatchCapture({
       }
       const form = new FormData();
       form.append("file", file);
+      form.append("client_id", item.clientId);
       if (item.mode.as === "whole") form.append("whole", "1");
       if (item.mode.as === "page") {
         form.append("scan", item.mode.scan);
@@ -141,8 +184,8 @@ export function BatchCapture({
       const res = await fetch("/api/capture/scan", { method: "POST", body: form });
       const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (res.status === 429) {
-        stop("That's a lot at once. Wait a few minutes, then press Try again.");
-        update(item.id, { kind: "failed", reason: "Paused: too many at once." });
+        stop(rateLimitMessage(res.headers.get("Retry-After")));
+        update(item.id, { kind: "failed", reason: "Paused: reading limit reached." });
         return;
       }
       if (!res.ok) {
@@ -161,6 +204,7 @@ export function BatchCapture({
         missing: typeof body.missing === "string" ? body.missing : null,
         duplicate: body.duplicate === true,
       });
+      onSaved?.();
     } catch {
       update(item.id, { kind: "failed", reason: "No connection. Try again." });
     }
@@ -185,9 +229,9 @@ export function BatchCapture({
     const expanded = await expandFiles(files);
     const room = Math.max(0, MAX_BATCH - itemsRef.current.length);
     const added: Item[] = expanded.slice(0, room).map((e): Item => {
-      if ("error" in e) return { id: nextId(), label: e.label, file: new File([], e.label), mode: { as: "file" }, state: { kind: "failed", reason: e.error } };
-      if (e.choose !== undefined) return { id: nextId(), label: e.label, file: e.file, mode: { as: "file" }, state: { kind: "choose", pages: e.choose } };
-      return { id: nextId(), label: e.label, file: e.file, mode: e.mode, state: { kind: "waiting" } };
+      if ("error" in e) return newItem({ label: e.label, file: new File([], e.label), mode: { as: "file" }, state: { kind: "failed", reason: e.error } });
+      if (e.choose !== undefined) return newItem({ label: e.label, file: e.file, mode: { as: "file" }, state: { kind: "choose", pages: e.choose } });
+      return newItem({ label: e.label, file: e.file, mode: e.mode, state: { kind: "waiting" } });
     });
     if (expanded.length > room) setNotice(`Up to ${MAX_BATCH} at a time: send the rest after these.`);
     commit([...itemsRef.current, ...added]);
@@ -226,13 +270,14 @@ export function BatchCapture({
         return;
       }
       const pages = await splitPages(item.file);
-      const pageItems: Item[] = pages.map((file, i) => ({
-        id: nextId(),
-        label: `${item.label}, page ${i + 1}`,
-        file,
-        mode: { as: "page", scan: body.scan as string, page: i + 1, pages: body.pages as number },
-        state: { kind: "waiting" },
-      }));
+      const pageItems: Item[] = pages.map((file, i) =>
+        newItem({
+          label: `${item.label}, page ${i + 1}`,
+          file,
+          mode: { as: "page", scan: body.scan as string, page: i + 1, pages: body.pages as number },
+          state: { kind: "waiting" },
+        })
+      );
       commit(itemsRef.current.flatMap((it) => (it.id === item.id ? pageItems : [it])));
       pump();
     } catch {

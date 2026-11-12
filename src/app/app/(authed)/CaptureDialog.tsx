@@ -152,6 +152,15 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // True while BatchCapture is still reading: closing then loses the files
   // not yet sent, so the sheet asks first.
   const [batchBusy, setBatchBusy] = useState(false);
+  // True once BatchCapture saved a receipt in this sheet: the list behind
+  // the sheet is refreshed when it closes, by Done, the X or a swipe.
+  const batchSavedRef = useRef(false);
+  const refreshAfterBatch = () => {
+    if (!batchSavedRef.current) return;
+    batchSavedRef.current = false;
+    onSaved?.();
+    router.refresh();
+  };
   const requestOpenChange = (next: boolean) => {
     if (
       !next &&
@@ -161,6 +170,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     ) {
       return;
     }
+    if (!next) refreshAfterBatch();
     onOpenChange(next);
   };
   // Where focus goes after "Delete photo" in the photo viewer: the viewer and
@@ -645,9 +655,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
           <BatchCapture
             initialFiles={batchFiles}
             onBusyChange={setBatchBusy}
+            onSaved={() => {
+              batchSavedRef.current = true;
+            }}
             onDone={() => {
-              onSaved?.();
-              router.refresh();
+              refreshAfterBatch();
               onOpenChange(false);
             }}
           />

@@ -10,6 +10,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { routeRequestOptions } from "@/lib/ocr";
 
 export type LlmExtractKind = "email" | "sms" | "paper";
 
@@ -127,6 +128,8 @@ export async function llmExtract(
   hint?: string
 ): Promise<LlmExtractResult> {
   const c = getClient();
+  // Same deadline as the OCR call: the email intake chains this after an
+  // attachment read inside its 60 s (src/lib/ocr.ts routeRequestOptions).
   const res = await c.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -143,7 +146,7 @@ export async function llmExtract(
         content: [{ type: "text", text: userTurnFor(kind, body, hint) }],
       },
     ],
-  });
+  }, routeRequestOptions());
 
   const textBlock = res.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {

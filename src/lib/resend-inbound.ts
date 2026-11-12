@@ -29,8 +29,8 @@ function str(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-// null → the email couldn't be loaded; the webhook should answer 5xx so
-// Resend retries later.
+// null → the email (or the original .eml Resend offers for it) couldn't be
+// loaded; the webhook should answer 5xx so Resend retries later.
 export async function fetchReceivedEmail(
   emailId: string
 ): Promise<ReceivedEmailContent | null> {
@@ -62,20 +62,36 @@ export async function fetchReceivedEmail(
     return null;
   }
 
+  // The original .eml is the only copy of the attachments: without it a
+  // forwarded PDF is lost and no original is stored, and a redelivery would
+  // be answered "duplicate", so it could never be fixed. When Resend offers
+  // one and the download fails, the whole load fails (→ 5xx, Resend retries).
+  // Only a message Resend has no raw copy of, or one over MAX_RAW_BYTES, is
+  // read from its text alone.
   const raw = email.raw as { download_url?: unknown } | null | undefined;
   let rawEml: Buffer | null = null;
-  if (raw && typeof raw.download_url === "string") {
+  if (raw && typeof raw.download_url === "string" && raw.download_url.length > 0) {
     try {
       const res = await fetch(raw.download_url);
-      if (res.ok) {
-        const buf = Buffer.from(await res.arrayBuffer());
-        rawEml = buf.length <= MAX_RAW_BYTES ? buf : null;
+      if (!res.ok) {
+        console.error("[resend-inbound] raw .eml download failed", res.status);
+        return null;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length <= MAX_RAW_BYTES) {
+        rawEml = buf;
       } else {
-        console.warn("[resend-inbound] raw .eml download failed", res.status);
+        // Kept as before: the text is still read, without "view original".
+        console.warn("[resend-inbound] raw .eml over the size cap, reading the text only", {
+          bytes: buf.length,
+        });
       }
     } catch (err) {
-      // Soft — the receipt still gets created, just without "view original".
-      console.warn("[resend-inbound] raw .eml download threw", err);
+      console.error(
+        "[resend-inbound] raw .eml download threw",
+        err instanceof Error ? err.message : "unknown"
+      );
+      return null;
     }
   }
 

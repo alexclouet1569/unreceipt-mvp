@@ -20,14 +20,16 @@
 //   7b. An attached PDF or photo (the usual case for a forwarded invoice
 //      or a photographed receipt) is read with Claude OCR instead of the
 //      email text, unless a trusted template already read the mail. The
-//      attachment is then stored as the original, byte for byte, in
-//      place of the .eml; its fields land in Review needed like any
-//      untrusted extraction.
-//   8. Insert row.
+//      attachment is then stored as the original, byte for byte, next to
+//      the .eml; its fields land in Review needed like any untrusted
+//      extraction. When OCR read only part of it, what it read is kept and
+//      the email text fills the gaps (./attachment-fields.ts).
+//   8. Insert row. A failed upload of an original answers 500 before
+//      anything is inserted, so Resend redelivers.
 //
 // Provider needs a 2xx to stop retrying. We return 200 even on logical
 // no-ops (unknown alias still returns 404 — Resend will dead-letter
-// those, which is correct). Signature failures return 401 so the
+// those, which is correct; a failed alias lookup is a 503, retried). Signature failures return 401 so the
 // provider's retry logic kicks in (real signing issues are usually
 // transient config drift on the provider side).
 
@@ -40,6 +42,7 @@ import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
+  AliasLookupError,
   findUserByAliasHash,
   parseAliasFromTo,
 } from "@/lib/email-alias";
@@ -52,8 +55,10 @@ import { buildForwardingAddress } from "@/lib/email-alias";
 import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
 import { loadOwnerAddresses } from "@/lib/owner-addresses";
 import { extractAttachments, pickReceiptAttachment, type EmailAttachment } from "@/lib/email/attachments";
-import { extractReceipt } from "@/lib/ocr";
+import { CLAUDE_CALL_BUDGET_MS, extractReceipt, type OcrResult } from "@/lib/ocr";
 import { fieldsFromOcr } from "@/lib/receipts/ocr-fields";
+import { homeCurrencyOf } from "@/lib/fx";
+import { fillFromText, partialAttachmentFields, type PartialAttachmentFields } from "./attachment-fields";
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
 
@@ -63,6 +68,13 @@ export const dynamic = "force-dynamic";
 // an attachment adds an OCR call. Give it room before Resend's own retry
 // kicks in.
 export const maxDuration = 60;
+
+// A further Claude call (each bounded by CLAUDE_CALL_BUDGET_MS) starts only
+// while it can still finish, with ~10 s left to store the files and insert
+// the row, inside maxDuration. The attachment read comes first; when it
+// took long, the email text isn't read by the LLM as well (its templates
+// still run) and the receipt waits in Review needed.
+const LAST_CLAUDE_CALL_START_MS = maxDuration * 1000 - CLAUDE_CALL_BUDGET_MS - 10_000;
 
 // The attached PDF or photo the email carries, when one fits the upload
 // rules (type, 4 MB, PDF page cap). Null means "read the text".
@@ -173,6 +185,7 @@ function genericNotFound() {
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   const secret = process.env.RESEND_INBOUND_WEBHOOK_SECRET;
   if (!secret) {
     console.error("[intake/email] RESEND_INBOUND_WEBHOOK_SECRET missing");
@@ -234,7 +247,17 @@ export async function POST(request: NextRequest) {
     return genericNotFound();
   }
 
-  const owner = await findUserByAliasHash(aliasHash);
+  let owner: { user_id: string } | null;
+  try {
+    owner = await findUserByAliasHash(aliasHash);
+  } catch (err) {
+    // The database didn't answer: 503 so Resend retries. A 404 here would
+    // dead-letter a real receipt.
+    if (!(err instanceof AliasLookupError)) {
+      Sentry.captureException(err, { tags: { area: "intake-alias-lookup" } });
+    }
+    return NextResponse.json({ error: "temporarily unavailable" }, { status: 503 });
+  }
   if (!owner) {
     console.warn("[intake/email] unknown alias hash", { aliasHash });
     return genericNotFound();
@@ -399,32 +422,55 @@ export async function POST(request: NextRequest) {
   };
   let parseResult: Awaited<ReturnType<typeof parseReceipt>> = await parseText(attachment !== null);
 
+  const organizationId = await getOrCreateDefaultOrganization(userId);
+  // The company's own currency for a receipt whose currency wasn't read
+  // (the column's default would make it EUR), as /api/capture/scan does.
+  let homeCurrency: string | null = null;
+  const home = async () => (homeCurrency ??= await homeCurrencyOf(organizationId));
+
   // A trusted template hit (Uber, Stripe) beats the attachment: it is
-  // verified, the attachment never is. Otherwise OCR the attachment, and
-  // if that can't read it, let the LLM read the text after all.
+  // verified, the attachment never is. Otherwise OCR the attachment. What
+  // it read in full is used as is; what it read in part is kept and only
+  // the gaps are filled from the email text; if it read nothing, the text
+  // is read instead (by the LLM too, while there is time).
   const templateTrusted =
     parseResult.status === "ok" && parseResult.fields.parse_confidence >= 0.75;
   // True once OCR read the attachment: it then becomes the stored original.
   let readFromAttachment = false;
+  let partial: PartialAttachmentFields | null = null;
   if (attachment && !templateTrusted) {
-    let fromAttachment: Awaited<ReturnType<typeof parseReceipt>> | null = null;
+    let ocr: OcrResult | null = null;
     try {
-      const ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType);
-      const fields = fieldsFromOcr(ocr);
-      if (fields) {
-        fromAttachment = { status: "ok", fields };
-        readFromAttachment = true;
-      }
+      ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType);
     } catch (err) {
       console.error("[intake/email] attachment OCR failed", err instanceof Error ? err.message : "unknown");
       Sentry.captureException(err, { tags: { area: "intake-attachment-ocr" } });
     }
-    parseResult = fromAttachment ?? (await parseText(false));
+    const full = ocr ? fieldsFromOcr(ocr) : null;
+    if (full) {
+      parseResult = { status: "ok", fields: full };
+      readFromAttachment = true;
+    } else {
+      const partlyRead = ocr ? partialAttachmentFields(ocr, await home()) : null;
+      // The templates already ran; a second pass adds the LLM, if it fits.
+      const textResult =
+        parseResult.status === "ok"
+          ? parseResult
+          : Date.now() - startedAt < LAST_CLAUDE_CALL_START_MS
+            ? await parseText(false)
+            : parseResult;
+      if (partlyRead) {
+        partial = fillFromText(partlyRead, textResult.status === "ok" ? textResult.fields : null, ocr?.currency);
+        readFromAttachment = true;
+      } else {
+        parseResult = textResult;
+      }
+    }
   }
 
   // Generate the receipt id up front so the storage path and the row both
   // reference the same uuid. If the insert later loses an idempotency race
-  // (23505 on intake_ref), we best-effort delete the storage object.
+  // (23505 on intake_ref), we best-effort delete the storage objects.
   const receiptId = crypto.randomUUID();
   // The original stored for the receipt: the attachment when its fields
   // came from it (what the accountant needs, and what a re-run reads),
@@ -442,7 +488,28 @@ export async function POST(request: NextRequest) {
       : hasRaw
         ? { path: `${userId}/${receiptId}.eml`, bytes: rawEml, contentType: "message/rfc822", kind: "eml" }
         : null;
-  const storagePath = original?.path ?? `${userId}/${receiptId}.eml`;
+
+  // Every file stored for this receipt, removed again if no row points at
+  // them in the end.
+  const stored: string[] = [];
+  const removeStored = async () => {
+    if (stored.length === 0) return;
+    const paths = stored.splice(0);
+    await supabase.storage
+      .from("receipt-originals")
+      .remove(paths)
+      .catch(() => {});
+  };
+  const uploadFailed = async (what: string, error: unknown) => {
+    console.error(`[intake/email] ${what} upload failed`, error);
+    Sentry.captureException(new Error(`intake ${what} upload failed`), {
+      tags: { area: "intake-upload" },
+    });
+    await removeStored();
+    // Nothing is inserted yet: 500 so Resend redelivers and the receipt is
+    // made with its original, instead of a row pointing at a missing file.
+    return NextResponse.json({ error: "upload failed" }, { status: 500 });
+  };
 
   if (original) {
     const { error: uploadError } = await supabase.storage
@@ -452,27 +519,26 @@ export async function POST(request: NextRequest) {
         upsert: false,
         contentType: original.contentType,
       });
-    if (uploadError) {
-      console.error("[intake/email] original upload failed", uploadError);
-      // Soft-fail — keep going, the row is the user-visible artifact.
-      // We just won't have an "Original source" toggle for this one.
-    }
+    if (uploadError) return uploadFailed("original", uploadError);
+    stored.push(original.path);
     if (original.kind !== "eml" && hasRaw) {
+      const emlPath = `${userId}/${receiptId}.eml`;
       const { error: emlError } = await supabase.storage
         .from("receipt-originals")
-        .upload(`${userId}/${receiptId}.eml`, rawEml, {
+        .upload(emlPath, rawEml, {
           cacheControl: "3600",
           upsert: false,
           contentType: "message/rfc822",
         });
-      if (emlError) console.error("[intake/email] eml upload failed", emlError);
+      if (emlError) return uploadFailed("eml", emlError);
+      stored.push(emlPath);
     }
   }
 
   const baseFields = {
     id: receiptId,
     user_id: userId,
-    organization_id: await getOrCreateDefaultOrganization(userId),
+    organization_id: organizationId,
     source: "email" as const,
     intake_ref: intakeRef,
     original_source_url: original ? original.path : null,
@@ -481,15 +547,27 @@ export async function POST(request: NextRequest) {
     notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
   };
 
-  const rowToInsert =
-    parseResult.status === "ok"
+  const rowToInsert = partial
+    ? {
+        ...baseFields,
+        ...partial,
+        items: null,
+        status: computeReceiptStatus({
+          merchant_name: partial.merchant_name,
+          purchased_at: partial.purchased_at,
+          receipt_date: partial.receipt_date,
+          total: partial.total,
+          parse_confidence: partial.parse_confidence,
+        }),
+      }
+    : parseResult.status === "ok"
       ? {
           ...baseFields,
           merchant_name: parseResult.fields.merchant_name,
           purchased_at: parseResult.fields.purchased_at,
           receipt_date: parseResult.fields.purchased_at.slice(0, 10),
           total: parseResult.fields.total,
-          currency: parseResult.fields.currency,
+          currency: parseResult.fields.currency || (await home()),
           subtotal: parseResult.fields.subtotal ?? null,
           tax_amount: parseResult.fields.tax_amount ?? null,
           tax_rate: parseResult.fields.tax_rate ?? null,
@@ -512,7 +590,7 @@ export async function POST(request: NextRequest) {
               ? parseResult.fields.notes
               : baseFields.notes,
         }
-      : { ...baseFields, status: "pending_review" as const };
+      : { ...baseFields, currency: await home(), status: "pending_review" as const };
 
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")
@@ -525,12 +603,7 @@ export async function POST(request: NextRequest) {
     // race. Best-effort delete the orphan blob and return the existing
     // row's id so the provider stops retrying.
     if (insertError && (insertError as { code?: string }).code === "23505") {
-      if (original) {
-        await supabase.storage
-          .from("receipt-originals")
-          .remove([storagePath])
-          .catch(() => {});
-      }
+      await removeStored();
       const { data: winner } = await supabase
         .from("receipts")
         .select("id")
@@ -547,12 +620,7 @@ export async function POST(request: NextRequest) {
       tags: { area: "intake-insert" },
       extra: { code: (insertError as { code?: string } | null)?.code },
     });
-    if (original) {
-      await supabase.storage
-        .from("receipt-originals")
-        .remove([storagePath])
-        .catch(() => {});
-    }
+    await removeStored();
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
   }
 

@@ -149,6 +149,19 @@ export async function getOrCreateAliasForUser(
   return confirmed?.email_alias_hash ?? null;
 }
 
+/** The lookup itself failed (database error), as opposed to "no such alias". */
+export class AliasLookupError extends Error {
+  constructor() {
+    super("alias lookup failed");
+    this.name = "AliasLookupError";
+  }
+}
+
+/**
+ * The user an alias belongs to, or null when no profile has it. Throws
+ * AliasLookupError when the database can't answer, so the webhook answers
+ * a retryable 5xx instead of a 404 that Resend would dead-letter.
+ */
 export async function findUserByAliasHash(
   hash: string
 ): Promise<{ user_id: string } | null> {
@@ -160,7 +173,7 @@ export async function findUserByAliasHash(
     .maybeSingle();
   if (error) {
     console.error("[email-alias] reverse lookup failed", error);
-    return null;
+    throw new AliasLookupError();
   }
   return data ?? null;
 }
