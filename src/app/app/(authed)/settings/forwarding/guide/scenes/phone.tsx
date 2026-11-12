@@ -153,7 +153,7 @@ export const testArrived: SceneFn = () => (
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>Test receipt</span>
             <span style={{ fontSize: 12, color: "var(--attention-deep)" }}>Review needed</span>
           </span>
-          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>now</span>
+          <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>now</span>
         </span>
       </Mark>
       <Lines widths={["70%", "55%"]} />

@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * The product's on/off switch (DESIGN.md): ink when on, --ink-faint when
+ * The product's on/off switch (DESIGN.md): ink when on, --ink-muted when
  * off, so a screen's primary action stays its one green. 44px tall tap
  * target. `busy` keeps focus on the switch (aria-disabled, not disabled)
  * and ignores presses while a save is running.
@@ -37,7 +37,7 @@ export function Switch({
       <span
         className={cn(
           "flex h-[26px] w-11 items-center rounded-full p-[3px] transition-colors duration-100",
-          checked ? "bg-[var(--ink)]" : "bg-[var(--ink-faint)]",
+          checked ? "bg-[var(--ink)]" : "bg-[var(--ink-muted)]",
         )}
       >
         <span

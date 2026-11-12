@@ -45,7 +45,7 @@
 |---|---|---|---|---|
 | `display-2xl` | 44 / 1.05 / -0.03em | Manrope | 800 | Hero / rare |
 | `display-xl` | 32 / 1.10 / -0.02em | Manrope | 700 | Screen titles, large numbers |
-| `display-lg` | 24 / 1.15 / -0.02em | Manrope | 700 | App header `UnReceipt` wordmark |
+| `display-lg` | 24 / 1.15 / -0.02em | Manrope | 700 | Screen titles ("Your receipts", "Settings") |
 | `body-lg` | 18 / 1.45 / -0.01em | Manrope | 600 | Merchant name (detail view) |
 | `body` | 15 / 1.50 / 0 | Manrope | 400 | Default body |
 | `caption` | 13 / 1.40 / 0 | Manrope | 500 | Dates, meta, secondary labels |
@@ -58,6 +58,8 @@
 | `amount-row` | 14 / 1.4 / 0 | Geist Mono | 400 | Line items, VAT rows |
 
 All amounts also apply `font-variant-numeric: tabular-nums`.
+
+On the website each row is a utility in `globals.css` (`text-display-xl`, `text-display-lg`, `text-body-lg`, `text-body`, `text-caption`, `text-micro`, `text-accent`, `text-amount-xl`, `text-amount-row`); new code uses them instead of inline `style={{ fontSize }}`. Older screens are moved over as they are touched.
 
 ## Color
 
@@ -76,13 +78,14 @@ Restrained palette. Brand green is an accent, not a background.
 | `--card` | `#FFFFFF` | Receipt cards, sheets, popovers |
 | `--ink` | `#303568` | Primary text — brand-book "Deep Space" |
 | `--ink-muted` | `#5A5F7A` | Body, secondary labels |
-| `--ink-faint` | `#9CA0B8` | Dates, meta, micro caps |
+| `--ink-faint` | `#9CA0B8` | Placeholders, the "—" of an empty value, chevrons; never text that carries information (2.6:1 on white). Dates, meta and micro caps are `--ink-muted`. |
 | `--hairline` | `#E8E5DD` | 1px borders and dividers — warm gray to match the cream |
 | `--negative` | `#C73E4E` | Destructive actions (delete), and **missing data**: the empty required fields of a receipt under review ("Amount · Missing", red field border) and bank payments without a receipt in the firm portal. For missing data: text and field borders only, never a background (destructive buttons keep the `--destructive` fill). 4.97:1 on white. |
 | `--attention` | `#C99440` | "Needs attention" accent: review-needed left rule on receipt cards, over-the-plan progress bar. Friendly honey, never red. |
 | `--attention-tint` | `#FBF1DE` | Background of attention notices (plan-usage notice above the inbox) |
 | `--attention-deep` | `#8C6320` | Text and icons on `--attention-tint` (≈5:1, passes AA) |
 | `--attention-mint` | `#6B9778` | Desaturated mint badge paired with the review-needed slice |
+| `--skeleton` | `#EFEDE6` | Loading shapes (`loading.tsx`, the iPhone app's first load), breathing slowly; never a spinner on an empty page |
 
 ### Dark mode
 
@@ -137,12 +140,12 @@ xl   24px   Section gutters
 - Card padding: `12 14` (vertical horizontal).
 - Gap between cards: `8`.
 - Page horizontal padding: `16` mobile, `24` tablet+.
-- Max content width: `540px` (centered on tablet+).
+- Max content width: `540px` (centered on tablet+), header and tab bar included.
 
 ## Layout
 
 - **Approach.** Strict single-column. Mobile-first 390px primary canvas. No sidebar, ever.
-- **Header.** Compact 12px-padded top bar with the `UnReceipt` wordmark on the left and a small filter/search icon-button on the right (36px). No nav tabs in v1.
+- **Header and tabs (2026-11-12).** One compact sticky header (56px, hairline under it, `--background` at 90 % with a blur) with the `UnReceipt` wordmark on the left, shared by every signed-in page (`src/app/app/(authed)/layout.tsx`, `src/components/AppNav.tsx`). The tabs — Receipts and Settings, and Insights once its page ships (next PR) — are text links on the right of the header from 640px up, the current one with a 2px `--ink` rule on the header's hairline, and a solid bottom tab bar below 640px (`--background`, 56px plus the home-indicator inset, icon over an 11px label, hairline on top). Current tab in `--ink`, others `--ink-muted`: no green, so the capture button stays the screen's one green. The header keeps the blur it already had (the one exception to "no glassmorphism", as the iPhone's system tab bar). During a tab change the header and bar stay still above the fading page. A page inside a tab (the forwarding guide) starts with a `‹ Settings` back link instead of its own header. Replaces "No nav tabs in v1".
 - **List.** Receipt cards in a single column with `8px` gaps. Date groups (`Today`, `Yesterday`, `This week`, `Earlier in May`) as `micro` labels above the relevant cluster.
 - **Group and filter.** A two-option segmented control (`By date` / `By category`, 44px buttons with `aria-pressed`, `--surface` track, `--card` thumb) sits above the filter chips. By category, sections are ordered most-used first and the micro label carries the count and the total in the company's currency: a foreign receipt counts with its converted amount (`home_total`), and the total gets a leading `≈` when it includes an ECB-rate estimate. A receipt not converted yet is listed apart (`1,305.00 kr + €18.50`), never added in. The chip row (All, Review needed, then each used category) scrolls sideways; each chip is a 36px pill inside a 44px tap target, `aria-pressed`, active = `--card` with an ink border (honey for Review needed — never mint). Counts in Manrope `tabular-nums`. Tapping the active category chip again goes back to All.
 - **FAB.** Fixed bottom-center, `64×64`, `--brand-action` green, white `+` icon. Safe-area-inset aware (Capacitor).
@@ -171,9 +174,11 @@ full 9999   FAB, avatars, pill badges
   - short 200ms (card tap response)
   - medium 320ms (route transitions, sheet open)
   - long 480ms (only for the OCR result reveal)
+- **Route changes.** Moving between tabs crossfades in 320ms in all (old page out in 140ms on the exit curve, new page in over 260ms after 60ms on the entrance curve with a 4px rise), through React's `<ViewTransition>` and the View Transitions API; only tab links carry it, so a save or refresh never fades the page. Browsers without the API, and reduced motion, just switch.
+- **Loading.** Each signed-in page has a `loading.tsx` with `--skeleton` shapes in the page's own layout, inside the shared header.
 - **List items.** Fade-in on mount, no per-item stagger. Premium apps don't stagger; staggers feel app-store-template.
 - **Card tap.** `transform: scale(0.985)` over 120ms, then the detail sheet slides up over 320ms. No shared-element flight (was a "risk" option — dropped to keep things calm).
-- **FAB press.** Scale 0.92 → 1.04 → 1.0 over 240ms.
+- **FAB press.** Down to 0.92 in 100ms on the exit curve (no dip below it), back to 1.0 over 240ms on the gentle-overshoot curve when released.
 - **OCR moment.** Single `Reading your receipt…` status with skeletons laid out like the review (amount, VAT panel, field rows). When the API returns, all fields fade-in together over 480ms (long). No per-field cascade, no typing cursor.
 
 ## Components
@@ -191,9 +196,9 @@ full 9999   FAB, avatars, pill badges
 - **No shadow.** Hairline only.
 - Logo block: `40×40`, `radius md (10)`, either a colored block with merchant initials (white, weight 700, 14px) or a single emoji at 20px on `--surface`.
 - Merchant name: `Manrope 700 / 15 / -0.01em` in `--ink`. Single line, ellipsis.
-- Meta row: `Figtree 500 / 13` in `--ink-faint`. Format: `Category · relative date`. `·` separators with 6px margin.
-- Amount: `Geist Mono 500 / 18 / -0.01em` in `--ink`. Currency suffix `kr` at 11px in `--ink-faint`, 3px left margin, vertically aligned to baseline+1px.
-- Foreign receipt: under the amount, right-aligned on the meta row, `≈ 267.98 kr` in `amount-row` (Geist Mono 14/400) `--ink-faint`, suffix split like the main amount.
+- Meta row: `Figtree 500 / 13` in `--ink-muted`. Format: `Category · relative date`. `·` separators with 6px margin.
+- Amount: `Geist Mono 500 / 18 / -0.01em` in `--ink`. Currency suffix `kr` at 11px in `--ink-muted`, 3px left margin, vertically aligned to baseline+1px.
+- Foreign receipt: under the amount, right-aligned on the meta row, `≈ 267.98 kr` in `amount-row` (Geist Mono 14/400) `--ink-muted`, suffix split like the main amount.
 - Active state: `scale(0.985)` over 120ms.
 - Review needed: 3px `--attention` left rule. The meta row starts with what is missing, `Missing amount and date` (`--negative`, Manrope 600), or `To confirm` (`--attention-deep`, Manrope 600) when every field is there and the receipt only waits for a confirmation. First, so a narrow card truncates the date instead.
 
@@ -241,7 +246,7 @@ Shown right after a capture is saved (the capture sheet's "Receipt saved" step, 
 
 ### Switch (`src/components/Switch.tsx`)
 
-The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when on and `--ink-faint` when off (so a screen's primary action stays its one green), white 20px thumb, colour 100ms, thumb 200ms on the entrance curve. Labelled by the visible title (`aria-labelledby`) and described by the line under it. While saving it stays focusable (`aria-disabled`) and ignores presses. Used for Include VAT, the firm's weekly reminder per client, and the client's own weekly-reminder opt-out.
+The one on/off control: a 44px tap target holding a 44×26 track, `--ink` when on and `--ink-muted` when off (faint was 2.6:1, under the 3:1 a control needs) (so a screen's primary action stays its one green), white 20px thumb, colour 100ms, thumb 200ms on the entrance curve. Labelled by the visible title (`aria-labelledby`) and described by the line under it. While saving it stays focusable (`aria-disabled`) and ignores presses. Used for Include VAT, the firm's weekly reminder per client, and the client's own weekly-reminder opt-out.
 
 ### Swipe to delete
 
@@ -285,7 +290,7 @@ Drawn close-ups of another app's screen (Gmail, Outlook, iCloud, a phone mail ap
 - `64×64` circular, `bg: --brand-action` (via `--primary`), `border: none`.
 - `box-shadow: 0 8px 24px -8px rgba(31, 157, 99, 0.45), 0 2px 6px -2px rgba(23, 26, 46, 0.08)` — only place shadow exists in the system.
 - Icon: white `+`, 28×28, stroke 2.5.
-- Position: `fixed`, `bottom: env(safe-area-inset-bottom) + 32px`, `left: 50%`, `transform: translateX(-50%)`.
+- Position: `fixed`, `bottom: env(safe-area-inset-bottom) + 32px` (on a phone with the tab bar: 16px above it, `--fab-bottom` in globals.css), `left: 50%`, `transform: translateX(-50%)`.
 - Press: `scale(0.92)` then spring back to 1.0 over 240ms.
 
 ### Wordmark (`UnReceipt`)
@@ -328,7 +333,7 @@ The same tokens, fonts and rules, in `mobile/src/theme.ts`. Where iOS draws its 
 - **Photo viewer:** the spec above as a page sheet (swipe down to close) titled "Receipt photo", pinch and double-tap zoom, no ± buttons (VoiceOver zooms by swiping up and down on the photo instead). The close button sits on a 70 % ink circle (`--ink-scrim`) and the title has an ink text shadow, so both stay readable over a zoomed white receipt.
 - **Receipts header (as the website's dashboard, founder's request 2026-11-11):** the bar shows the UnReceipt isotype (the website's light mark: green receipt, cream lines, navy arrow, no tile) and wordmark (no large title on this screen). Under it: the mint pilot box while the pilot runs (sparkles, one line of copy, an × that hides it for good on this phone; never "free", which would imply a price), "Your receipts" (`display-lg`) with the email below (`--ink-muted`), the website's three white hairline stat boxes in a row (Receipts, Verified, and the month's total in `amount-row` Geist Mono, shrinking a little rather than cutting digits; tapping it opens iOS's action sheet with the months and "All time"), the By date / By category switch (cream track, white thumb, 44 pt), and the chips: All, To confirm (honey count, honey border when active), then each category, most used first. By category, each section reads "Travel · 3" in the micro label with its total on the right in Geist Mono 12 pt `--ink-muted` (`≈` when it includes an ECB estimate, an unconverted foreign amount after a `+`). In the stat box the month shows short ("Sep 2025"), the long name in the picker; a long amount steps down to 12 pt and grows at most 1.2× with the user's text size, so its digits stay whole. The list isn't cut by month, as on the website.
 - **Accountant invite card:** under "Your receipts" and the email (the website's order: pilot box, title, invite), white hairline card: "Share your receipts with {firm}?" (`body-lg`), one line of `--ink-muted`, then **Yes, share** filled in ink and **No thanks** outlined, side by side. Not green: the scan button stays the screen's only green action. Its answer replaces the card for 4 s, then it fades.
-- **Account tab:** iOS Settings-style grouped lists: micro section titles, white hairline cards with hairline separators, 52 pt rows (Manrope 600 label, optional `--ink-muted` detail line, value and chevron on the right). Rows push their screen (large title): Export receipts (one tap per month, year or everything; the ZIP opens in the share sheet), Currency (checkmark list in `--brand-action`), Your accountant, Automatic forwarding. Language is a row whose value is the app's language and which opens the app's page in the Settings app. Sign out is a red row in its own group; Delete account is a red row further down, alone at the end above the version, as in iOS Settings. Switches (the accountant's weekly reminder) follow the website: `--ink` on, `--ink-faint` off. Problems are iOS alerts in the app's language, so they are seen wherever the tapped row was.
+- **Account tab:** iOS Settings-style grouped lists: micro section titles, white hairline cards with hairline separators, 52 pt rows (Manrope 600 label, optional `--ink-muted` detail line, value and chevron on the right). Rows push their screen (large title): Export receipts (one tap per month, year or everything; the ZIP opens in the share sheet), Currency (checkmark list in `--brand-action`), Your accountant, Automatic forwarding. Language is a row whose value is the app's language and which opens the app's page in the Settings app. Sign out is a red row in its own group; Delete account is a red row further down, alone at the end above the version, as in iOS Settings. Switches (the accountant's weekly reminder): `--ink` on, `--ink-faint` off (the website moved its off track to `--ink-muted` on 2026-11-12 for 3:1; the app still has to follow). Problems are iOS alerts in the app's language, so they are seen wherever the tapped row was.
 - **Buttons:** besides the green primary and the plain text button, an **ink** filled button (a second action that must not compete with the green one) and an **outline** button (white, hairline border, ink text) for the other choice of a pair.
 - **Forwarding guide:** one step per screen, like the website's wizard: "Step n of N" (micro), the chapter (caption), the step in `body-lg` with the quoted button names in Manrope 700, then what the step needs (the copy card with its Copy button in ink outline, so Next stays the screen's one green; word chips that copy on tap; "Open in Safari"; the Gmail code in Manrope 700 32 pt with tabular figures — a code, not money, so not mono), and a `--ink-muted` hint. **Back** (outline) and **Next** (green) in a bar at the bottom within thumb reach. The mail-language pills (English / Svenska / Français) sit under the step counter for Gmail, Outlook and iCloud.
 - **Delete account:** body text, then two hairline cards: "1 · Save your receipts first" (Export everything, outline) with a switch "I've saved the receipts I need to keep" (ink, like every switch), and "2 · Delete" with the red text button, then an iOS destructive alert. A new email code, when the server asks for one, uses the sign-in's six cells. While the account loads: placeholder shapes, never a spinner. Also reachable from the firm-only and inactive screens (where Sign out becomes the outline button, so the two don't look alike) in a page sheet with Cancel on the leading side and the title centred.
@@ -380,6 +385,7 @@ The Insights tab (iPhone first, `mobile/src/app/(app)/insights/`; the website fo
 | 2026-11-11 | **iPhone app catches up with the website** (`mobile/`): a compact Receipts header (month total with iOS's action sheet for the month, counts, category chips), the accountant invite card (ink accept, not green), an iOS Settings-style Account tab (export to the share sheet, currency, accountant, delete account, forwarding guide one step per screen with a bottom Back/Next bar), ink and outline buttons. See "Native iPhone app". | The founder found build 2 thin next to the website. The website's three stat boxes and By date / By category switch would push the receipts below the fold on a phone; one card and one chip row keep them high. Settings-style lists are what iOS users expect for account options. |
 | 2026-11-11 | **Receipts screen matches the website's dashboard** (`mobile/`): wordmark in the bar, "Your receipts" + email, the pilot box, the three stat boxes, By date / By category, and the chips with To confirm. Replaces the compact one-card header of the same day. | The founder wants the app to look and work like the web app; the compact header was a phone-first guess that read as "less" than the website. |
 | 2026-11-11 | **Insights tab** (`mobile/`): a third tab with spending by period, a running-total chart for a month and bars for longer periods, findings, categories and merchants in the merchant palette, and the VAT on the receipts on the mint panel. Change chips are ink, not red/green. See "Charts and Insights". | The founder asked for statistics people can analyse. Charts take their colour from tokens already in the system; a running total shows "am I spending faster than last month?" better than 30 thin daily bars for a business with 15 receipts a month. VAT wording reviewed: never a deduction claim. |
+| 2026-11-12 | **Website foundations**: one shared header with tabs (bottom bar below 640px), `loading.tsx` skeletons on `--skeleton`, saved edits and deletes shown at once while the page refreshes behind them, the receipt as a bottom sheet on phones, a crossfade between tabs, 540px content width, the FAB 32px above the home indicator (16px above the tab bar on phones) pressing down without overshoot, the list fading in once. `--hairline` and `--ink-faint` back to their table values (they had drifted to a 12 % navy and to the muted colour). Every use of faint that carries information now says `--ink-muted`, so it looks as before; placeholders become truly faint (they no longer read like typed values); the switch's off track becomes `--ink-muted` by rule (faint failed 3:1). The type-scale utilities are named `type-*` so tailwind-merge doesn't drop them as colours. Non-destructive errors in the receipt sheet are honey, no shadows on sheets or menus. | Insights needs a second place to go, and a settings icon in the corner doesn't scale to three. The bottom bar is where the thumb is; links in the header are what a laptop expects. The rest are the off-spec gaps found in the 2026-11-11 review. |
 
 ---
 

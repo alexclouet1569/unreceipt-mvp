@@ -1,7 +1,7 @@
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
@@ -96,27 +96,10 @@ export default async function SettingsPage() {
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
-          <Link
-            href="/app"
-            aria-label="Back to receipts"
-            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
-            style={{ width: "44px", height: "44px", borderRadius: "10px" }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1
-            className="font-display font-bold text-[var(--ink)]"
-            style={{ fontSize: "18px", letterSpacing: "-0.01em" }}
-          >
-            Settings
-          </h1>
-        </div>
-      </header>
-
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+    // The header and tabs come from the (authed) layout (AppNav).
+    <div>
+      <div className="mx-auto max-w-[540px] space-y-8 px-4 py-6 max-sm:pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+        <h1 className="type-display-lg text-[var(--ink)]">Settings</h1>
         {firm ? (
           <section aria-labelledby="firm-portal-heading">
             <SectionLabel id="firm-portal-heading">Firm portal</SectionLabel>
@@ -250,7 +233,7 @@ export default async function SettingsPage() {
             firmNotice={firmNotice}
           />
         </section>
-      </main>
+      </div>
     </div>
   );
 }
@@ -259,7 +242,7 @@ function SectionLabel({ id, children }: { id: string; children: React.ReactNode 
   return (
     <h2
       id={id}
-      className="uppercase text-[var(--ink-faint)]"
+      className="uppercase text-[var(--ink-muted)]"
       style={{
         fontSize: "11px",
         fontWeight: 600,

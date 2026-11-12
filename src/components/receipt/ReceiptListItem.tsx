@@ -87,7 +87,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
             {value}
             {suffix ? (
               <span
-                className="text-[var(--ink-faint)]"
+                className="text-[var(--ink-muted)]"
                 style={{ fontSize: "11px", marginLeft: "3px" }}
               >
                 {suffix}
@@ -100,7 +100,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
           style={{ marginTop: "4px" }}
         >
           <p
-            className="text-[var(--ink-faint)] truncate min-w-0"
+            className="text-[var(--ink-muted)] truncate min-w-0"
             style={{ fontSize: "13px", fontWeight: 500 }}
           >
             {/* First, so a narrow card truncates the date, not this. */}
@@ -134,7 +134,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
           </p>
           {converted ? (
           <p
-            className="font-mono tabular-nums shrink-0 text-[var(--ink-faint)]"
+            className="font-mono tabular-nums shrink-0 text-[var(--ink-muted)]"
             style={{ fontSize: "14px", fontWeight: 400 }}
           >
             ≈ {converted.value}

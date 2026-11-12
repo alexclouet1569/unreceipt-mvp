@@ -18,16 +18,16 @@ export function CaptureFab({ onClick }: CaptureFabProps) {
       onClick={onClick}
       aria-label="Capture receipt"
       data-testid="capture-fab"
-      className="fixed left-1/2 z-50 -translate-x-1/2 active:scale-[0.92] transition-transform duration-[240ms]"
+      // 32 px above the home indicator (DESIGN.md "FAB"), or 16 px above the
+      // tab bar on a phone: --fab-bottom in globals.css. Press: .fab-press.
+      className="fab-press fixed bottom-[var(--fab-bottom)] left-1/2 z-50 -translate-x-1/2"
       style={{
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
         width: "64px",
         height: "64px",
         borderRadius: "9999px",
         background: "var(--primary)",
         boxShadow:
           "0 8px 24px -8px rgba(31, 157, 99, 0.45), 0 2px 6px -2px rgba(23, 26, 46, 0.08)",
-        transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
       }}
     >
       <Plus
@@ -36,7 +36,7 @@ export function CaptureFab({ onClick }: CaptureFabProps) {
           width: "28px",
           height: "28px",
           strokeWidth: 2.5,
-          color: "#FFFFFF",
+          color: "var(--primary-foreground)",
         }}
         aria-hidden="true"
       />

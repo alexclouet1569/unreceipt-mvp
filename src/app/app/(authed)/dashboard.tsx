@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useId, useOptimistic, useRef, useState, useMemo, useTransition } from "react";
 import { AccountantInviteNotice, type PendingAccountantInvite } from "@/components/AccountantInviteNotice";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronDown, Plus, Receipt as ReceiptIcon, Settings } from "lucide-react";
-import { Wordmark } from "@/components/brand/Wordmark";
+import { ChevronDown, Plus, Receipt as ReceiptIcon } from "lucide-react";
 import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { SwipeToDelete } from "@/components/receipt/SwipeToDelete";
 import { FilterChip } from "@/components/receipt/FilterChip";
@@ -20,6 +18,7 @@ import {
   type CategoryKey,
 } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
+import { applyReceiptChange, type ReceiptChange } from "@/lib/receipts/optimistic";
 import type { MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
@@ -57,7 +56,7 @@ type View = "date" | "category";
 
 export function Dashboard({
   userEmail,
-  receipts: allReceipts,
+  receipts: serverReceipts,
   forwardingEmail,
   intakeSmsNumber,
   showOnboarding = false,
@@ -66,6 +65,11 @@ export function Dashboard({
   older = null,
 }: DashboardProps) {
   const router = useRouter();
+  // Saved edits and deletes from the receipt dialog show at once; the
+  // refresh that follows brings the server's rows, which replace them
+  // (src/lib/receipts/optimistic.ts).
+  const [allReceipts, applyOptimistic] = useOptimistic(serverReceipts, applyReceiptChange);
+  const [, startTransition] = useTransition();
   const [captureOpen, setCaptureOpen] = useState(false);
   // Swipe to delete: the row whose Delete button is showing, receipts
   // already gone from the list, and the last one deleted, which can be
@@ -125,6 +129,25 @@ export function Dashboard({
     // The focused Delete button is gone: keyboard and VoiceOver users land
     // on Undo instead of the top of the page.
     if (deleteHadFocus) requestAnimationFrame(() => undoButtonRef.current?.focus());
+  };
+
+  const changeReceipt = (change: ReceiptChange, commit?: () => Promise<void>) => {
+    setDeleteError(null);
+    startTransition(async () => {
+      applyOptimistic(change.kind === "update" ? { ...change, homeCurrency: homeCurrency ?? null } : change);
+      try {
+        await commit?.();
+        // The refresh joins this transition, so React keeps the shown change
+        // until the server's rows commit: no flash of the old values, and no
+        // wait of our own that would hold other navigations back.
+        router.refresh();
+      } catch (err) {
+        // The transition ends, so the receipt comes back by itself.
+        console.error("[/app] receipt change failed", err);
+        const name = serverReceipts.find((r) => r.id === change.id)?.merchant_name ?? "this receipt";
+        setDeleteError(`Couldn't delete ${name}. It's back in the list; try again in a moment.`);
+      }
+    });
   };
 
   const undoDelete = () => {
@@ -286,35 +309,14 @@ export function Dashboard({
   }, [visibleReceipts, view, categoryCounts]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Wordmark />
-          <Link
-            href="/app/settings"
-            aria-label="Settings"
-            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--brand-tint)] transition-colors"
-            style={{ width: "44px", height: "44px", borderRadius: "10px" }}
-          >
-            <Settings className="w-5 h-5" />
-          </Link>
-        </div>
-      </header>
-
-      <div className="max-w-2xl mx-auto px-4 py-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 120px)" }}>
+    // The header and tabs come from the (authed) layout (AppNav).
+    <div>
+      {/* Room at the bottom for the capture button (and the tab bar under it
+          on a phone): --fab-bottom in globals.css. */}
+      <div className="mx-auto max-w-[540px] px-4 py-6 pb-[calc(var(--fab-bottom)+88px)]">
         <div className="mb-6">
-          <h1
-            className="font-display font-bold text-[var(--ink)]"
-            style={{ fontSize: "24px", letterSpacing: "-0.02em" }}
-          >
-            Your receipts
-          </h1>
-          <p
-            className="text-[var(--ink-muted)]"
-            style={{ fontSize: "13px", fontWeight: 500, marginTop: "2px" }}
-          >
-            {userEmail}
-          </p>
+          <h1 className="type-display-lg text-[var(--ink)]">Your receipts</h1>
+          <p className="mt-0.5 type-caption text-[var(--ink-muted)]">{userEmail}</p>
         </div>
 
         <AccountantInviteNotice invites={accountantInvites} />
@@ -336,7 +338,7 @@ export function Dashboard({
             onCapture={() => setCaptureOpen(true)}
           />
         ) : (
-          <>
+          <div className="list-enter">
             <div className="grid grid-cols-3 gap-3 mb-6">
               <StatCard label="Receipts" lines={[String(stats.count)]} />
               <StatCard label="Verified" lines={[String(stats.verified)]} />
@@ -403,25 +405,14 @@ export function Dashboard({
             ) : null}
 
             {filter === "review" && visibleReceipts.length === 0 ? (
-              <p
-                className="text-[var(--ink-muted)] py-8 text-center"
-                style={{ fontSize: "13px" }}
-              >
+              <p className="py-8 text-center type-caption font-normal text-[var(--ink-muted)]">
                 Nothing to review — every receipt has the fields it needs.
               </p>
             ) : null}
 
             {groupedReceipts.map(({ label, items, total }) => (
               <section key={label} className="mb-5">
-                <h2
-                  className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[var(--ink-muted)]"
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                  }}
-                >
+                <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 type-micro text-[var(--ink-muted)]">
                   <span className="min-w-0 truncate">
                     {label}
                     {total != null ? (
@@ -451,7 +442,7 @@ export function Dashboard({
                 </div>
               </section>
             ))}
-          </>
+          </div>
         )}
       </div>
 
@@ -464,10 +455,10 @@ export function Dashboard({
         role="status"
         className={
           pendingDelete
-            ? "fixed left-1/2 z-[60] flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-3 rounded-[12px] border border-[var(--hairline)] bg-card py-1.5 pr-1.5 pl-4 text-[14px] font-semibold text-[var(--ink)]"
+            // Above the capture button, under any open sheet (dialogs are z-50).
+            ? "fixed bottom-[calc(var(--fab-bottom)+80px)] left-1/2 z-40 flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-3 rounded-[12px] border border-[var(--hairline)] bg-card py-1.5 pr-1.5 pl-4 text-[14px] font-semibold text-[var(--ink)]"
             : "sr-only"
         }
-        style={pendingDelete ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)" } : undefined}
       >
         {pendingDelete ? (
           <>
@@ -493,6 +484,7 @@ export function Dashboard({
       />
       <ReceiptDetailDialog
         receipt={openReceipt}
+        onChangeAction={changeReceipt}
         onOpenChange={(open) => {
           if (!open) setOpenReceipt(null);
         }}
@@ -569,7 +561,7 @@ function EmptyState({
       </button>
 
       <p
-        className="font-accent italic text-[var(--ink-faint)]"
+        className="font-accent italic text-[var(--ink-muted)]"
         style={{ fontSize: "12px", marginTop: "32px", letterSpacing: "0.02em" }}
       >
         Paper is past.

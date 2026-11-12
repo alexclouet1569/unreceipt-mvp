@@ -27,7 +27,8 @@ import {
   MAX_ITEMS,
   PAYMENT_METHOD_SUGGESTIONS,
 } from "@/lib/receipts/receipt-fields";
-import type { Receipt, ReceiptItem } from "@/lib/types";
+import type { Receipt, ReceiptItem, ReceiptStatus } from "@/lib/types";
+import type { ReceiptChange } from "@/lib/receipts/optimistic";
 import {
   missingFieldsText,
   missingRequiredFields,
@@ -41,12 +42,18 @@ type ReceiptDetailDialogProps = {
   // same Original tab, same completion/edit form (PATCH is actor-aware);
   // no Delete and no Re-run, which stay the client's own actions.
   variant?: "owner" | "firm";
+  // The /app list shows a change at once (useOptimistic) and refreshes in
+  // the background: it gets the change and, for a delete, the request to
+  // send, whose failure brings the receipt back. Without it (the firm
+  // portal), the dialog waits for its own refresh as before.
+  onChangeAction?: (change: ReceiptChange, commit?: () => Promise<void>) => void;
 };
 
 export function ReceiptDetailDialog({
   receipt,
   onOpenChange,
   variant = "owner",
+  onChangeAction,
 }: ReceiptDetailDialogProps) {
   const isFirm = variant === "firm";
   const router = useRouter();
@@ -145,8 +152,20 @@ export function ReceiptDetailDialog({
   const handleDelete = async () => {
     if (!receipt) return;
     setDeleteError(null);
-    setDeleting(true);
 
+    if (onChangeAction) {
+      // Gone from the list at once; the list brings it back with a message
+      // if the server refuses.
+      const id = receipt.id;
+      onOpenChange(false);
+      onChangeAction({ kind: "remove", id }, async () => {
+        const res = await fetch(`/api/receipts/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`delete failed (HTTP ${res.status})`);
+      });
+      return;
+    }
+
+    setDeleting(true);
     try {
       // Server-side so the forwarded email / PDF original is deleted too —
       // the browser can't remove files from `receipt-originals`.
@@ -166,9 +185,16 @@ export function ReceiptDetailDialog({
     }
   };
 
-  const onSaved = () => {
+  // The form waits for the server (it may refuse a value, and the message
+  // belongs next to the field); the list then shows the saved values at once
+  // instead of waiting for the whole page to reload.
+  const onSaved = (patch: Record<string, unknown>, status: ReceiptStatus | undefined) => {
     onOpenChange(false);
-    router.refresh();
+    if (receipt && onChangeAction) {
+      onChangeAction({ kind: "update", id: receipt.id, patch, status });
+    } else {
+      router.refresh();
+    }
   };
   // Pending receipts always show the "complete" form; any receipt can be
   // corrected through the same form in "edit" mode.
@@ -186,7 +212,9 @@ export function ReceiptDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0">
+      {/* A bottom sheet below 640 px (DESIGN.md: slides up over 320 ms on
+          the entrance curve), the centred card above. */}
+      <DialogContent className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 max-sm:top-auto max-sm:bottom-0 max-sm:inset-x-0 max-sm:mx-auto max-sm:max-w-[540px] max-sm:ring-0 max-sm:border-t max-sm:border-[var(--hairline)] max-sm:max-h-[92dvh] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-[16px] max-sm:pb-[env(safe-area-inset-bottom,0px)] max-sm:data-open:animate-[sheet-up_320ms_cubic-bezier(0.32,0.72,0,1)] max-sm:data-closed:animate-[sheet-down_200ms_cubic-bezier(0.4,0,1,1)]">
         <DialogHeader className="sr-only">
           <DialogTitle>Receipt</DialogTitle>
         </DialogHeader>
@@ -242,7 +270,7 @@ export function ReceiptDetailDialog({
                   {reprocessError ? (
                     <p
                       role="alert"
-                      className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2"
+                      className="text-sm font-semibold text-[var(--attention-deep)] bg-[var(--attention-tint)] rounded-md px-3 py-2"
                     >
                       {reprocessError}
                     </p>
@@ -288,7 +316,7 @@ export function ReceiptDetailDialog({
               {isFirm ? null : deleteError ? (
                 <p
                   role="alert"
-                  className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2"
+                  className="text-sm font-semibold text-[var(--attention-deep)] bg-[var(--attention-tint)] rounded-md px-3 py-2"
                 >
                   {deleteError}
                 </p>
@@ -510,7 +538,7 @@ export function buildPatchBody(
 }
 
 const LABEL_CLASS =
-  "block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-faint)]";
+  "block text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-muted)]";
 const SELECT_CLASS = "h-11 w-full rounded-md border bg-card px-3 text-base md:text-sm";
 
 function ReceiptEditForm({
@@ -521,7 +549,7 @@ function ReceiptEditForm({
 }: {
   mode: "complete" | "edit";
   receipt: Receipt;
-  onSaved: () => void;
+  onSaved: (patch: Record<string, unknown>, status: ReceiptStatus | undefined) => void;
   onCancel?: () => void;
 }) {
   const [initial, setInitial] = useState<EditFormState>(() =>
@@ -594,7 +622,8 @@ function ReceiptEditForm({
         );
       }
 
-      onSaved();
+      const saved = (await res.json().catch(() => null)) as { status?: ReceiptStatus } | null;
+      onSaved(body, saved?.status);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
       setSaving(false);

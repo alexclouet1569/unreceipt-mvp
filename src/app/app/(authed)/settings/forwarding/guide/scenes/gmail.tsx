@@ -19,7 +19,7 @@ function TopBar({ gear = false }: { gear?: boolean }) {
     <div className="flex items-center gap-2">
       <span
         className="flex items-center gap-2 flex-1 min-w-0"
-        style={{ background: "var(--surface)", borderRadius: 9999, padding: "6px 10px", fontSize: 12, color: "var(--ink-faint)" }}
+        style={{ background: "var(--surface)", borderRadius: 9999, padding: "6px 10px", fontSize: 12, color: "var(--ink-muted)" }}
       >
         <Search style={{ width: 13, height: 13 }} />
         <span className="truncate flex-1">Search mail</span>

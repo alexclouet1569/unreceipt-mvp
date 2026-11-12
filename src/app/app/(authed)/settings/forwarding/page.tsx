@@ -30,27 +30,18 @@ export default async function ForwardingPage() {
   // the alias can make Gmail send that email, naming their own address.
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background border-b border-border">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2">
-          <Link
-            href="/app/settings"
-            aria-label="Back to settings"
-            className="inline-flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors"
-            style={{ width: "44px", height: "44px", borderRadius: "10px" }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1
-            className="font-display font-bold text-[var(--ink)]"
-            style={{ fontSize: "18px", letterSpacing: "-0.01em" }}
-          >
-            Your receipts address
-          </h1>
-        </div>
-      </header>
-
-      <main className="max-w-2xl mx-auto px-4 py-6">
+    // The header and tabs come from the (authed) layout (AppNav); this
+    // page is a step inside Settings, so it starts with the way back.
+    <div>
+      <div className="mx-auto max-w-[540px] px-4 py-4 max-sm:pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+        <Link
+          href="/app/settings"
+          className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[10px] px-2 text-[14px] font-semibold text-[var(--ink-muted)] outline-none transition-colors hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        >
+          <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+          Settings
+        </Link>
+        <h1 className="mt-1 mb-6 type-display-lg text-[var(--ink)]">Your receipts address</h1>
         {forwardingEmail ? (
           <ForwardingGuide
             forwardingEmail={forwardingEmail}
@@ -68,7 +59,7 @@ export default async function ForwardingPage() {
             moment.
           </p>
         )}
-      </main>
+      </div>
     </div>
   );
 }

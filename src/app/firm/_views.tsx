@@ -316,7 +316,7 @@ export function SettingsView({
       <section aria-labelledby="members-heading">
         <h2
           id="members-heading"
-          className="uppercase text-[var(--ink-faint)]"
+          className="uppercase text-[var(--ink-muted)]"
           style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", marginBottom: "8px" }}
         >
           People in the firm
@@ -328,7 +328,7 @@ export function SettingsView({
         <section aria-labelledby="account-heading">
           <h2
             id="account-heading"
-            className="uppercase text-[var(--ink-faint)]"
+            className="uppercase text-[var(--ink-muted)]"
             style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", marginBottom: "8px" }}
           >
             Your account

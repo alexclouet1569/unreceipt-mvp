@@ -120,7 +120,7 @@ const words: SceneFn = ({ lang, words: list }) => (
               {w} ×
             </span>
           ))}
-          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{list[3] ?? ""}|</span>
+          <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{list[3] ?? ""}|</span>
         </span>
       </Mark>
     </span>

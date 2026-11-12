@@ -28,7 +28,7 @@ export function UsageNoticeBanner({
     >
       <Link
         href="/app/settings"
-        className="max-w-2xl mx-auto px-4 flex items-center gap-3 min-h-[44px] py-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--ring)]"
+        className="max-w-[540px] mx-auto px-4 flex items-center gap-3 min-h-[44px] py-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--ring)]"
         style={{ color: "var(--attention-deep)", fontSize: "13px", fontWeight: 500 }}
       >
         <Info className="w-4 h-4 shrink-0" />

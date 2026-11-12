@@ -139,7 +139,7 @@ function SectionLabel({ id, children }: { id: string; children: React.ReactNode 
   return (
     <h2
       id={id}
-      className="uppercase text-[var(--ink-faint)] scroll-mt-16"
+      className="uppercase text-[var(--ink-muted)] scroll-mt-16"
       style={{
         fontSize: "11px",
         fontWeight: 600,
