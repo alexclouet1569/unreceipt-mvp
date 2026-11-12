@@ -7,7 +7,16 @@ const mocks = vi.hoisted(() => ({
   release: vi.fn(),
   sendEmail: vi.fn(),
   getOrCreateAliasForUser: vi.fn(),
+  getFirmMembership: vi.fn(),
+  findPendingFirmSeat: vi.fn(),
+  hasAnyMembership: vi.fn(),
 }));
+
+vi.mock("@/lib/require-firm", () => ({
+  getFirmMembership: mocks.getFirmMembership,
+  findPendingFirmSeat: mocks.findPendingFirmSeat,
+}));
+vi.mock("@/lib/organizations", () => ({ hasAnyMembership: mocks.hasAnyMembership }));
 
 // update(...).eq(...).is(...).select(...) → claim; update(...).eq(...) → release
 vi.mock("@/lib/supabase-admin", () => ({
@@ -53,6 +62,28 @@ describe("sendWelcomeEmailOnce", () => {
     mocks.release.mockReset().mockResolvedValue({ error: null });
     mocks.sendEmail.mockReset().mockResolvedValue({ ok: true, id: "email_1" });
     mocks.getOrCreateAliasForUser.mockReset().mockResolvedValue("abc123");
+    mocks.getFirmMembership.mockReset().mockResolvedValue(null);
+    mocks.findPendingFirmSeat.mockReset().mockResolvedValue(null);
+    mocks.hasAnyMembership.mockReset().mockResolvedValue(true);
+  });
+
+  it("skips the customer welcome for firm staff, or a pending seat, without a company", async () => {
+    mocks.hasAnyMembership.mockResolvedValue(false);
+    mocks.getFirmMembership.mockResolvedValue({ firmId: "f1", firmName: "Byrån", memberId: "m1", role: "admin" });
+    await expect(sendWelcomeEmailOnce(USER)).resolves.toBe("skipped");
+    mocks.getFirmMembership.mockResolvedValue(null);
+    mocks.findPendingFirmSeat.mockResolvedValue({ firmName: "Byrån" });
+    await expect(sendWelcomeEmailOnce(USER)).resolves.toBe("skipped");
+    // Nothing claimed: a later sign-in can still send it if they start a company.
+    expect(mocks.claim).not.toHaveBeenCalled();
+    expect(mocks.sendEmail).not.toHaveBeenCalled();
+    expect(mocks.getOrCreateAliasForUser).not.toHaveBeenCalled();
+  });
+
+  it("still welcomes firm staff who also have a company of their own", async () => {
+    mocks.getFirmMembership.mockResolvedValue({ firmId: "f1", firmName: "Byrån", memberId: "m1", role: "staff" });
+    mocks.hasAnyMembership.mockResolvedValue(true);
+    await expect(sendWelcomeEmailOnce(USER)).resolves.toBe("sent");
   });
 
   afterEach(() => {

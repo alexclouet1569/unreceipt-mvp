@@ -26,7 +26,10 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit }));
 vi.mock("@/lib/fx", () => ({ homeCurrencyOf: async () => "SEK" }));
 vi.mock("@/lib/email/send", () => ({ sendEmail: mocks.sendEmail }));
 vi.mock("@/lib/bank/load", () => ({ loadBankMonth: mocks.loadBankMonth }));
-vi.mock("@/lib/app-url", () => ({ appUrl: (p: string) => `https://app.unreceipt.com${p}` }));
+vi.mock("@/lib/app-url", () => ({
+  appUrl: (p: string) => `https://app.unreceipt.com${p}`,
+  absoluteAppUrl: (p: string) => `https://app.unreceipt.com${p}`,
+}));
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     auth: { admin: { getUserById: mocks.getUserById } },

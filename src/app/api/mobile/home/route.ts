@@ -1,7 +1,8 @@
 // GET /api/mobile/home — the native iPhone app's home screen in one call
 // (mobile/, docs/plans/unreceipt-ios-native-plan.md). Same loader as the
 // website's /app page (src/lib/home/load-home.ts), so both follow the same
-// firm-only and subscription rules. The app signs in with
+// firm-only and subscription rules (a firm seat waiting for this address,
+// with no company, is firm_only too). The app signs in with
 // `Authorization: Bearer <access token>` (getServerUser()).
 
 import * as Sentry from "@sentry/nextjs";
@@ -33,6 +34,14 @@ export async function GET() {
       body = { state: "inactive", email };
     } else {
       const d = home.data;
+      if (d.forwardingEmail === null) {
+        // The address couldn't be created on this load. Never show one that
+        // doesn't route: answer "try again" and the app keeps what it showed.
+        return NextResponse.json(
+          { error: "server_error" },
+          { status: 503, headers: { ...NO_STORE, "Retry-After": "5" } }
+        );
+      }
       body = {
         state: "ready",
         email,

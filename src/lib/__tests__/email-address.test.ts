@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   normalizeAddress,
+  normalizedSessionEmail,
   parseAddressList,
   rawHeaderValues,
   recipientOwnership,
@@ -94,5 +95,24 @@ describe("recipientOwnership", () => {
     expect(recipientOwnership(["receipts+abc123@in.unreceipt.com", "bjorn@gmail.com"], owner)).toBe("none");
     expect(recipientOwnership([], owner)).toBe("none");
     expect(recipientOwnership(['"anna@gmail.com" <bjorn@gmail.com>'], owner)).toBe("none");
+  });
+});
+
+describe("normalizedSessionEmail", () => {
+  it("matches the stored invite form for dotted Gmail and googlemail.com", () => {
+    const confirmed = "2026-11-01T00:00:00Z";
+    expect(normalizedSessionEmail({ email: "Anna.Svensson@Gmail.com", email_confirmed_at: confirmed })).toBe(
+      normalizeAddress("annasvensson@gmail.com"),
+    );
+    expect(normalizedSessionEmail({ email: "anna.svensson@googlemail.com", email_confirmed_at: confirmed })).toBe(
+      "annasvensson@gmail.com",
+    );
+    expect(normalizedSessionEmail({ email: " Lars@Byran.SE ", email_confirmed_at: confirmed })).toBe("lars@byran.se");
+  });
+
+  it("is null for an unconfirmed or missing address", () => {
+    expect(normalizedSessionEmail({ email: "anna@gmail.com", email_confirmed_at: null })).toBeNull();
+    expect(normalizedSessionEmail({ email: null, email_confirmed_at: "2026-11-01" })).toBeNull();
+    expect(normalizedSessionEmail({})).toBeNull();
   });
 });

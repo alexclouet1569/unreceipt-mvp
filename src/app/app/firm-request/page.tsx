@@ -6,7 +6,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { SignOutButton } from "@/app/app/(authed)/settings/SignOutButton";
 import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
-import { resolveFirmMembership } from "@/lib/require-firm";
+import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
+import { normalizedSessionEmail } from "@/lib/email-address";
 import { maskEmail } from "@/app/app/accountant/accept/_invite-card";
 import { RequestAnswer } from "./RequestAnswer";
 
@@ -15,10 +16,14 @@ export const dynamic = "force-dynamic";
 // The accountant's side of a client company's invite (direction 'client').
 // GET changes nothing; answering POSTs /api/firm-request/respond. Only the
 // invited address, signed in and confirmed, gets the buttons.
+// A pending firm seat for this address is never claimed here (a GET must
+// not join anyone to a firm): the accountant is asked to open /firm and
+// join it there, by name, first.
 
 type View =
   | { state: "missing" | "expired" | "used" }
   | { state: "wrong_account"; masked: string }
+  | { state: "join_firm"; clientName: string; firmName: string }
   | { state: "open"; id: string; clientName: string; firmName: string | null };
 
 async function load(token: string | undefined, user: User): Promise<View> {
@@ -31,12 +36,16 @@ async function load(token: string | undefined, user: User): Promise<View> {
   if (error || !data || data.direction !== "client") return { state: "missing" };
   if (data.status !== "invited") return { state: "used" };
   if (isInviteExpired(data.invite_expires_at as string | null)) return { state: "expired" };
-  const signedInAs =
-    typeof user.email === "string" && user.email_confirmed_at ? user.email.trim().toLowerCase() : null;
-  if (signedInAs !== data.invited_email) {
+  // Invites are stored normalised (normalizeAddress): compare the same way.
+  const signedInAs = normalizedSessionEmail(user);
+  if (!signedInAs || signedInAs !== data.invited_email) {
     return { state: "wrong_account", masked: maskEmail(data.invited_email as string) };
   }
-  const membership = await resolveFirmMembership(user);
+  const membership = await getFirmMembership(user.id);
+  if (!membership) {
+    const seat = await findPendingFirmSeat(user);
+    if (seat) return { state: "join_firm", clientName: data.client_name as string, firmName: seat.firmName };
+  }
   return {
     state: "open",
     id: data.id as string,
@@ -75,6 +84,21 @@ export default async function FirmRequestPage({
           </p>
         </div>
         <RequestAnswer inviteId={view.id} clientName={view.clientName} needsFirm={view.firmName === null} />
+      </div>
+    );
+  } else if (view.state === "join_firm") {
+    body = (
+      <div className="space-y-3">
+        <h1 className="font-display font-bold text-[var(--ink)]" style={H1}>
+          {view.clientName} wants to share their receipts with you
+        </h1>
+        <p className="text-[var(--ink-muted)]" style={P}>
+          {view.firmName} has added you to its team. Open the firm portal to join {view.firmName}; this request then
+          waits for you under Clients.
+        </p>
+        <Link href="/firm" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={P}>
+          Open the firm portal
+        </Link>
       </div>
     );
   } else if (view.state === "wrong_account") {

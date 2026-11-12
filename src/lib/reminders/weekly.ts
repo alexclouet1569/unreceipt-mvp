@@ -35,7 +35,7 @@ import { missingFieldsText, missingRequiredFields } from "@/lib/receipts/status"
 import { formatAmount } from "@/lib/receipt-format";
 import { sendEmail } from "@/lib/email/send";
 import { weeklyReminderEmail } from "@/lib/email/templates";
-import { appUrl } from "@/lib/app-url";
+import { absoluteAppUrl } from "@/lib/app-url";
 import type { Receipt } from "@/lib/types";
 
 export const PAYMENT_GRACE_DAYS = 2;
@@ -121,6 +121,7 @@ export async function collectClientNeeds(organizationId: string, now: Date): Pro
 }
 
 type LinkRow = {
+  id: string;
   firm_id: string;
   organization_id: string;
   client_name: string;
@@ -151,16 +152,29 @@ export async function runWeeklyReminders(
   const db = getSupabaseAdmin();
   const { data: linkData, error: linkError } = await db
     .from("firm_clients")
-    .select("firm_id, organization_id, client_name, firms(name)")
+    .select("id, firm_id, organization_id, client_name, firms(name)")
     .eq("status", "active")
     .eq("weekly_reminder", true)
     // The client's own "no weekly reminders" always wins.
     .is("reminders_opted_out_at", null)
     .not("organization_id", "is", null)
-    .not("firm_id", "is", null);
+    .not("firm_id", "is", null)
+    // A stable order, so a run cut short by the budget and the catch-up
+    // runs on the next days work through the same list.
+    .order("id", { ascending: true });
   if (linkError) throw new Error(`links unreadable (${linkError.code})`);
   const links = (linkData ?? []) as unknown as LinkRow[];
   result.links = links.length;
+
+  // Companies already emailed this week are skipped before their bank
+  // lines and receipts are read (the claim below still guards a race).
+  const { data: claimedData, error: claimedError } = await db
+    .from("client_reminders")
+    .select("organization_id")
+    .eq("kind", "weekly")
+    .eq("week", week);
+  if (claimedError) throw new Error(`claims unreadable (${claimedError.code})`);
+  const alreadyClaimed = new Set((claimedData ?? []).map((r) => r.organization_id as string));
 
   const replyTo = new Map<string, string | null>();
   const firmReplyTo = async (firmId: string): Promise<string | null> => {
@@ -184,6 +198,10 @@ export async function runWeeklyReminders(
     if (Date.now() >= deadline) {
       result.notReached = links.length - i;
       break;
+    }
+    if (alreadyClaimed.has(link.organization_id)) {
+      result.alreadySent++;
+      continue;
     }
     try {
       const needs = await collectClientNeeds(link.organization_id, now);
@@ -238,8 +256,8 @@ export async function runWeeklyReminders(
           };
         }),
         toConfirm: needs.toConfirm,
-        appUrl: appUrl("/app"),
-        settingsUrl: appUrl("/app/settings"),
+        appUrl: absoluteAppUrl("/app"),
+        settingsUrl: absoluteAppUrl("/app/settings"),
       });
       const reply = await firmReplyTo(link.firm_id);
 

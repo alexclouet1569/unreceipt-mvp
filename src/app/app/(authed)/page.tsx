@@ -3,6 +3,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { handleSelfHeal } from "@/lib/self-heal";
 import { loadHome } from "@/lib/home/load-home";
 import { getNativeApp } from "@/lib/native-app-server";
+import { FirmUnavailable } from "./_firm-unavailable";
 import { Dashboard } from "./dashboard";
 import { SelfHealSpinner } from "./_self-heal-spinner";
 import { DbWarningBanner } from "./_db-warning-banner";
@@ -15,7 +16,7 @@ import { usageNotice, type UsageNotice } from "@/lib/usage-copy";
 export const dynamic = "force-dynamic";
 
 type AppPageProps = {
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; firm?: string }>;
 };
 
 // Near/over the plan's receipt allowance? Best-effort: a failed lookup
@@ -35,13 +36,20 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     redirect("/app/login");
   }
 
-  const { session_id } = await searchParams;
+  const { session_id, firm } = await searchParams;
   // Reads, firm-only and subscription checks, then the alias and company:
   // shared with the iPhone app's GET /api/mobile/home (src/lib/home).
   const home = await loadHome(user, session_id ?? null);
 
-  // Firm staff with no company of their own belong on the firm portal.
-  if (home.kind === "firm_only") redirect("/firm");
+  // Firm staff with no company of their own (or a firm seat waiting for this
+  // address) belong on the firm portal, which claims the seat.
+  // `?firm=unavailable` is /firm sending the user back because it couldn't
+  // claim or read the seat (a database error): show a notice instead of
+  // redirecting again, which would loop between the two pages.
+  if (home.kind === "firm_only") {
+    if (firm === "unavailable") return <FirmUnavailable />;
+    redirect("/firm");
+  }
   if (home.kind === "subscribe") redirect("/subscribe");
 
   if (home.kind === "self_heal") {

@@ -24,3 +24,14 @@ export function appUrl(path: string): string {
 // Where "Join the pilot" / sign-up CTAs land: the login page, opened on
 // "Create account" instead of "Sign in".
 export const SIGNUP_PATH = "/app/login?mode=signup";
+
+// The product host for links in emails, where a relative path would lead
+// nowhere: NEXT_PUBLIC_APP_URL when it is an http(s) origin, otherwise the
+// production host. Server-side only in practice (email builders).
+export const PRODUCT_ORIGIN_FALLBACK = "https://app.unreceipt.com";
+
+export function absoluteAppUrl(path: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  const origin = base && /^https?:\/\//i.test(base) ? base : PRODUCT_ORIGIN_FALLBACK;
+  return origin + (path.startsWith("/") ? path : `/${path}`);
+}

@@ -23,6 +23,7 @@ import { applyReceiptChange, type ReceiptChange } from "@/lib/receipts/optimisti
 import type { MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
+import { ForwardingUnavailable } from "./_forwarding-unavailable";
 import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
 
 type DashboardProps = {
@@ -31,7 +32,7 @@ type DashboardProps = {
   // The user's `receipts+<hash>@in.unreceipt.com` forwarding address.
   // Server-component minted/fetched in page.tsx so we never block on the
   // round-trip here.
-  forwardingEmail: string;
+  forwardingEmail: string | null;
   // Shared SMS/WhatsApp intake number (step 7). Null when unset so the
   // empty-state degrades to email-only without rendering a dangling label.
   intakeSmsNumber: string | null;
@@ -499,7 +500,7 @@ function EmptyState({
   intakeSmsNumber,
   onCapture,
 }: {
-  forwardingEmail: string;
+  forwardingEmail: string | null;
   intakeSmsNumber: string | null;
   onCapture: () => void;
 }) {
@@ -534,12 +535,16 @@ function EmptyState({
       </p>
 
       <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "20px" }}>
-        <IntakeRow
-          callout="Forward email receipts to"
-          value={forwardingEmail}
-          mono
-          copyLabel="Copy forwarding address"
-        />
+        {forwardingEmail ? (
+          <IntakeRow
+            callout="Forward email receipts to"
+            value={forwardingEmail}
+            mono
+            copyLabel="Copy forwarding address"
+          />
+        ) : (
+          <ForwardingUnavailable />
+        )}
         {intakeSmsNumber ? (
           <IntakeRow
             callout="Or text a photo to"

@@ -80,7 +80,10 @@ vi.mock("@/lib/supabase-admin", () => ({
 vi.mock("@/lib/fx", () => ({ homeCurrencyOf: async () => "SEK" }));
 vi.mock("@/lib/bank/load", () => ({ loadBankMonth: mocks.loadBankMonth }));
 vi.mock("@/lib/email/send", () => ({ sendEmail: mocks.sendEmail }));
-vi.mock("@/lib/app-url", () => ({ appUrl: (p: string) => `https://app.unreceipt.com${p}` }));
+vi.mock("@/lib/app-url", () => ({
+  appUrl: (p: string) => `https://app.unreceipt.com${p}`,
+  absoluteAppUrl: (p: string) => `https://app.unreceipt.com${p}`,
+}));
 
 import { isoWeek, runWeeklyReminders, stockholmDay } from "../weekly";
 
@@ -171,6 +174,14 @@ describe("runWeeklyReminders", () => {
     const again = await runWeeklyReminders(new Date("2026-11-17T06:10:00Z"));
     expect(again).toMatchObject({ sent: 0, alreadySent: 1 });
     expect(mocks.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips a company already emailed this week before reading its bank lines or receipts", async () => {
+    mocks.db.client_reminders = [{ id: "cr-0", organization_id: "org-a", kind: "weekly", week: "2026-W47" }];
+    const result = await runWeeklyReminders(MONDAY);
+    expect(result).toMatchObject({ alreadySent: 1, sent: 0, nothingToAsk: 1 });
+    expect(mocks.loadBankMonth).not.toHaveBeenCalledWith("org-a", expect.anything(), expect.anything());
+    expect(mocks.sendEmail).not.toHaveBeenCalled();
   });
 
   it("sends only Monday to Wednesday unless forced", async () => {

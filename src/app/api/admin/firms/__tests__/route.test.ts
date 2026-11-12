@@ -17,7 +17,10 @@ vi.mock("@/lib/require-admin", async (orig) => ({
   requireAdmin: mocks.requireAdmin,
 }));
 vi.mock("@/lib/email/send", () => ({ sendEmail: mocks.sendEmail, founderReplyTo: () => "founder@unreceipt.com" }));
-vi.mock("@/lib/app-url", () => ({ appUrl: (p: string) => `https://app.unreceipt.com${p}` }));
+vi.mock("@/lib/app-url", () => ({
+  appUrl: (p: string) => `https://app.unreceipt.com${p}`,
+  absoluteAppUrl: (p: string) => `https://app.unreceipt.com${p}`,
+}));
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: (table: string) => {

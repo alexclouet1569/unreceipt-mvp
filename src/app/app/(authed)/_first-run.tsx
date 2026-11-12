@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Camera, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
+import { ForwardingUnavailable } from "./_forwarding-unavailable";
 
 export type FirstRunStep = 1 | 2 | 3;
 
@@ -22,7 +23,7 @@ export function FirstRun({
   onFinish,
 }: {
   step: FirstRunStep;
-  forwardingEmail: string;
+  forwardingEmail: string | null;
   onNext: () => void;
   onCapture: () => void;
   onFinish: () => void;
@@ -91,12 +92,16 @@ export function FirstRun({
             or set a rule once in your email so they arrive by themselves.
           </Subtitle>
           <div className="w-full max-w-[340px]" style={{ marginBottom: "24px" }}>
-            <IntakeRow
-              callout="Forward email receipts to"
-              value={forwardingEmail}
-              mono
-              copyLabel="Copy forwarding address"
-            />
+            {forwardingEmail ? (
+              <IntakeRow
+                callout="Forward email receipts to"
+                value={forwardingEmail}
+                mono
+                copyLabel="Copy forwarding address"
+              />
+            ) : (
+              <ForwardingUnavailable />
+            )}
             <GuideLink />
           </div>
           <Actions>

@@ -76,6 +76,9 @@ describe("POST /api/accountant/invite", () => {
   it("refuses a bad address and the user's own address", async () => {
     expect((await call({ email: "nope" })).status).toBe(400);
     expect((await call({ email: "Maja@Nordljus.se" })).status).toBe(400);
+    // The same Gmail mailbox spelled differently is still the user's own.
+    mocks.user = { ...USER, email: "Maja.Lind@gmail.com" };
+    expect((await call({ email: "majalind+x@googlemail.com" })).status).toBe(400);
   });
 
   it("refuses while a firm is already connected", async () => {

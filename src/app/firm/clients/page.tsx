@@ -1,4 +1,5 @@
 import { requireFirmMemberPage } from "@/lib/require-firm";
+import { normalizedSessionEmail } from "@/lib/email-address";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   computeClientStats,
@@ -134,10 +135,8 @@ export default async function FirmClientsPage({
   const { month: requested } = await searchParams;
   const month = resolveMonth(requested);
 
-  const confirmedEmail =
-    typeof ctx.user.email === "string" && ctx.user.email_confirmed_at
-      ? ctx.user.email.trim().toLowerCase()
-      : null;
+  // Normalised like the stored invite address (Gmail dots, googlemail.com).
+  const confirmedEmail = normalizedSessionEmail(ctx.user);
   const [{ active, pending }, requests] = await Promise.all([
     loadClients(ctx.firmId),
     loadRequests(confirmedEmail),

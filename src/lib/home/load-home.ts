@@ -12,9 +12,8 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkSubscriptionGate } from "@/lib/subscription-gate";
 import { buildForwardingAddress, getOrCreateAliasForUser } from "@/lib/email-alias";
-import { getConciergeEmail } from "@/lib/concierge-email";
 import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organizations";
-import { getFirmMembership } from "@/lib/require-firm";
+import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { olderSummary } from "@/lib/analytics/aggregate";
@@ -28,7 +27,12 @@ export type PendingInvite = { id: string; firmName: string };
 
 export type HomeData = {
   receipts: Receipt[];
-  forwardingEmail: string;
+  /**
+   * The user's forwarding address, or null when it couldn't be minted on
+   * this load (a database error): never a made-up address that doesn't
+   * route. The screens show "not available yet, reload" for null.
+   */
+  forwardingEmail: string | null;
   showOnboarding: boolean;
   accountantInvites: PendingInvite[];
   homeCurrency: string;
@@ -41,7 +45,9 @@ export type HomeData = {
 };
 
 export type HomeLoad =
-  // Firm staff with no company of their own: their place is /firm.
+  // Firm staff with no company of their own, or someone a firm added as
+  // staff (seat not claimed yet) who has no company: their place is /firm,
+  // which claims the seat (requireFirmMemberPage()).
   | { kind: "firm_only" }
   // No active plan (and not pilot mode).
   | { kind: "subscribe" }
@@ -213,6 +219,14 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
 
   // Checked before the gate's answer and before any lazy mint below.
   if (firmMembership && !(await hasAnyMembership(user.id))) return { kind: "firm_only" };
+  // A firm added this confirmed address as staff and it has no company of
+  // its own yet (no default organisation, the first load): /firm claims the
+  // seat (AGENTS.md, firm portal rule 4). Without this the accountant would
+  // get a "My company" minted below, or be sent to /subscribe. Someone who
+  // already has a company keeps it and sees "Join <firm>" in Settings.
+  if (!firmMembership && !existingOrg && (await findPendingFirmSeat(user)) && !(await hasAnyMembership(user.id))) {
+    return { kind: "firm_only" };
+  }
   if (gate.kind === "redirect_subscribe") return { kind: "subscribe" };
   if (gate.kind === "self_heal") return { kind: "self_heal", sessionId: gate.sessionId };
 
@@ -230,8 +244,9 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
 
   // The forwarding alias (the live MX address that routes to
   // /api/intake/email) and the company this account's receipts belong to
-  // (firm portal), minted only the first time. A missing profile falls back
-  // to the legacy concierge address; a failed company mint to the insert
+  // (firm portal), minted only the first time. A failed alias mint leaves
+  // the address null (the screens say to reload; the old u-xxxx@ concierge
+  // address isn't routed); a failed company mint falls back to the insert
   // trigger, and SEK.
   const [aliasHash, homeCurrency] = await Promise.all([
     profile.aliasHash ?? getOrCreateAliasForUser(user.id),
@@ -262,7 +277,7 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
           : "db_warning",
     data: {
       receipts,
-      forwardingEmail: aliasHash ? buildForwardingAddress(aliasHash) : getConciergeEmail(user.id),
+      forwardingEmail: aliasHash ? buildForwardingAddress(aliasHash) : null,
       showOnboarding: !onboarded && loadedReceipts.length === 0,
       accountantInvites,
       homeCurrency,

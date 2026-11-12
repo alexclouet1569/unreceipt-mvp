@@ -11,6 +11,8 @@ function errorText(code: string | undefined): string {
   if (code === "firm_name_required") return "Enter your firm's name.";
   if (code === "firm_name_invalid") return "Enter your firm's name as it's registered, without a web or email address.";
   if (code === "unauthorized") return "You were signed out. Sign in again and try once more.";
+  if (code === "join_firm_first")
+    return "A firm added you to its team. Open the firm portal to join it, then accept this request there.";
   if (!code || code === "bad_request" || code === "forbidden") return "Couldn't save. Try again.";
   return code;
 }
@@ -50,9 +52,13 @@ export function RequestAnswer({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ inviteId, action, ...(needsFirm ? { firmName: firmName.trim() } : {}) }),
       });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; status?: "active" | "revoked" };
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+        status?: "active" | "revoked";
+      };
       if (!res.ok) {
-        setError(errorText(body.error));
+        setError(body.error === "join_firm_first" && body.message ? body.message : errorText(body.error));
         return;
       }
       const status = body.status ?? (action === "accept" ? "active" : "revoked");

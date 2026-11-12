@@ -21,6 +21,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { getServerUser } from "./supabase-server";
 import { getSupabaseAdmin } from "./supabase-admin";
+import { normalizedSessionEmail } from "./email-address";
 import type { FirmMemberRole } from "./types";
 
 export type FirmAuthReason = "no_user" | "not_member" | "no_access";
@@ -88,29 +89,52 @@ export async function getFirmMembership(
   };
 }
 
-// A pending row for this confirmed email gets this user. The partial unique
-// index on user_id means two firms can't both claim the same person.
-async function claimPendingMembership(
-  user: User
-): Promise<Omit<FirmContext, "user"> | null> {
-  if (!user.email || !user.email_confirmed_at) return null;
-  const email = user.email.trim().toLowerCase();
-  const db = getSupabaseAdmin();
+type SessionAddress = { email?: string | null; email_confirmed_at?: string | null };
+
+// The oldest unclaimed seat for this user's confirmed address, or null.
+// Seats are stored normalised (normalizeAddress), so the session address is
+// normalised the same way before the lookup. Read-only.
+async function readPendingSeat(user: SessionAddress): Promise<MemberRow | null> {
+  const email = normalizedSessionEmail(user);
+  if (!email) return null;
   // Exactly one row: the same address invited by two firms must not fail
   // the whole update on the one-firm-per-person index.
-  const { data: pending, error: pendingError } = await db
+  const { data, error } = await getSupabaseAdmin()
     .from("firm_members")
-    .select("id")
+    .select(MEMBER_SELECT)
     .eq("email", email)
     .is("user_id", null)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
-  if (pendingError) {
-    console.error("[require-firm] pending lookup failed", pendingError);
+  if (error) {
+    console.error("[require-firm] pending lookup failed", error.code);
     return null;
   }
+  return (data as unknown as MemberRow | null) ?? null;
+}
+
+/**
+ * The firm whose seat waits to be claimed by this user's confirmed address,
+ * or null. Read-only: never claims (that happens only when /firm itself is
+ * opened, requireFirmMember(), so joining a firm is always the user's own
+ * step: any firm admin can add any address).
+ */
+export async function findPendingFirmSeat(
+  user: SessionAddress
+): Promise<{ firmName: string } | null> {
+  const seat = await readPendingSeat(user);
+  return seat ? { firmName: firmName(seat) } : null;
+}
+
+// A pending row for this confirmed email gets this user. The partial unique
+// index on user_id means two firms can't both claim the same person.
+async function claimPendingMembership(
+  user: User
+): Promise<Omit<FirmContext, "user"> | null> {
+  const pending = await readPendingSeat(user);
   if (!pending) return null;
+  const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("firm_members")
     .update({ user_id: user.id, claimed_at: new Date().toISOString() })
@@ -120,9 +144,13 @@ async function claimPendingMembership(
     .maybeSingle();
   if (error) {
     console.error("[require-firm] claim failed", error.code);
-    return null;
+    // 23505: this user already holds a seat (claimed by a parallel request).
+    return error.code === "23505" ? getFirmMembership(user.id) : null;
   }
-  if (!data) return null;
+  // No row: someone claimed it between the read and the update — normally
+  // this user's own parallel request (the /firm layout and page both call
+  // requireFirmMemberPage()). Re-read instead of sending them to /app.
+  if (!data) return getFirmMembership(user.id);
   const row = data as unknown as MemberRow;
   return {
     memberId: row.id,
@@ -144,23 +172,11 @@ export async function findFirmForUser(
 ): Promise<{ firmName: string; pending: boolean } | null> {
   const membership = await getFirmMembership(user.id);
   if (membership) return { firmName: membership.firmName, pending: false };
-  if (!user.email || !user.email_confirmed_at) return null;
-  const { data, error } = await getSupabaseAdmin()
-    .from("firm_members")
-    .select(MEMBER_SELECT)
-    .eq("email", user.email.trim().toLowerCase())
-    .is("user_id", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    console.error("[require-firm] pending firm lookup failed", error.code);
-    return null;
-  }
-  if (!data) return null;
+  const pending = await readPendingSeat(user);
+  if (!pending) return null;
   // Pending: the link must read as an invitation to join, never as a firm
   // the user already belongs to (any firm admin can add any address).
-  return { firmName: firmName(data as unknown as MemberRow), pending: true };
+  return { firmName: firmName(pending), pending: true };
 }
 
 /** The user's firm membership, claiming a pending invite row if there is one. */
@@ -193,7 +209,10 @@ export async function requireFirmMemberPage(): Promise<FirmContext> {
     return await requireFirmMember();
   } catch (err) {
     if (err instanceof FirmAuthError) {
-      redirect(err.reason === "no_user" ? "/app/login?next=/firm" : "/app");
+      // /app sends firm-only users (and pending seats) back here; the flag
+      // stops the two pages redirecting to each other when the seat can't
+      // be read or claimed. /app ignores it for everyone else.
+      redirect(err.reason === "no_user" ? "/app/login?next=/firm" : "/app?firm=unavailable");
     }
     throw err;
   }

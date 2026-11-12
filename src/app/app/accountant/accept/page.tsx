@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { normalizedSessionEmail } from "@/lib/email-address";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
 import type { User } from "@supabase/supabase-js";
@@ -24,8 +25,8 @@ async function loadInvite(token: string | undefined, user: User): Promise<Invite
   const firms = data.firms as { name: string } | { name: string }[] | null;
   const firmName = (Array.isArray(firms) ? firms[0] : firms)?.name ?? "Your accounting firm";
   const invitedEmail = data.invited_email as string;
-  const signedInAs =
-    typeof user.email === "string" && user.email_confirmed_at ? user.email.trim().toLowerCase() : null;
+  // Normalised like the stored invite address (Gmail dots, googlemail.com).
+  const signedInAs = normalizedSessionEmail(user);
   const state: InviteView["state"] =
     data.status !== "invited"
       ? "used"

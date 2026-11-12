@@ -15,7 +15,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
 import { sendEmail, founderReplyTo } from "@/lib/email/send";
 import { clientRequestEmail } from "@/lib/email/templates";
-import { appUrl } from "@/lib/app-url";
+import { absoluteAppUrl } from "@/lib/app-url";
 import { inviteExpiry, mintInviteToken, requestAcceptPath } from "@/lib/firm/invites";
 import { isAcceptableDisplayName } from "@/lib/firm/names";
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   if (!email) {
     return NextResponse.json({ error: "That doesn't look like an email address." }, { status: 400 });
   }
-  if (email === user.email?.trim().toLowerCase()) {
+  if (email === normalizeAddress(user.email ?? "")) {
     return NextResponse.json({ error: "Enter your accountant's address, not your own." }, { status: 400 });
   }
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
   const sent = await sendEmail({
     to: email,
-    ...clientRequestEmail({ clientName, url: appUrl(requestAcceptPath(token)) }),
+    ...clientRequestEmail({ clientName, url: absoluteAppUrl(requestAcceptPath(token)) }),
     replyTo: founderReplyTo(),
     tag: "client_request",
   });

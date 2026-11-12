@@ -89,10 +89,20 @@ describe("getDefaultOrganizationId", () => {
 });
 
 describe("getOrCreateDefaultOrganization", () => {
-  it("returns the existing organisation without writing", async () => {
+  it("returns the existing organisation and repairs a missing owner membership (idempotent)", async () => {
     state.orgReads = [{ data: { id: "org-1" }, error: null }];
     expect(await getOrCreateDefaultOrganization(USER_ID)).toBe("org-1");
-    expect(state.calls).toEqual([]);
+    // No new company; only the owner upsert, which leaves an existing row alone.
+    expect(state.calls).toEqual([
+      {
+        table: "memberships",
+        op: "upsert",
+        payload: {
+          payload: { organization_id: "org-1", user_id: USER_ID, role: "owner" },
+          options: { onConflict: "organization_id,user_id", ignoreDuplicates: true },
+        },
+      },
+    ]);
   });
 
   it("creates one named after the company, plus the owner membership", async () => {

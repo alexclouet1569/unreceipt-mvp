@@ -5,6 +5,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "./../supabase-admin";
+import { normalizedSessionEmail } from "./../email-address";
 import { formatInstantDate } from "./../receipt-format";
 import type { AccountantLink } from "@/app/app/(authed)/settings/AccountantSection";
 
@@ -33,10 +34,8 @@ export async function loadAccountantLinks(user: User): Promise<AccountantLink[]>
     .eq("user_id", user.id);
   const organizationIds = (memberships ?? []).map((m) => m.organization_id as string);
 
-  const email =
-    typeof user.email === "string" && user.email_confirmed_at
-      ? user.email.trim().toLowerCase()
-      : null;
+  // Invites are stored normalised (normalizeAddress): compare the same way.
+  const email = normalizedSessionEmail(user);
 
   const now = new Date().toISOString();
   const none = Promise.resolve({ data: [] as unknown[], error: null });

@@ -8,7 +8,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { sendEmail, founderReplyTo } from "@/lib/email/send";
 import * as Sentry from "@sentry/nextjs";
 import { firmClosedEmail, linkConfirmationEmail } from "@/lib/email/templates";
-import { appUrl } from "@/lib/app-url";
+import { absoluteAppUrl } from "@/lib/app-url";
 
 export async function sendLinkConfirmation(opts: {
   clientUserId: string;
@@ -24,7 +24,7 @@ export async function sendLinkConfirmation(opts: {
     if (!to) return;
     const content = linkConfirmationEmail({
       firmName: (firm?.name as string | undefined) ?? "Your accounting firm",
-      settingsUrl: appUrl("/app/settings"),
+      settingsUrl: absoluteAppUrl("/app/settings"),
     });
     const sent = await sendEmail({ to, ...content, replyTo: founderReplyTo(), tag: "link_confirmation" });
     if (!sent.ok) console.error("[link-emails] confirmation not sent", sent.reason);
@@ -67,7 +67,7 @@ export async function sendFirmClosedNotices(opts: {
       .eq("role", "owner");
     if (error) throw new Error(`owner lookup failed (${error.code})`);
     const userIds = [...new Set((owners ?? []).map((o) => o.user_id as string))];
-    const content = firmClosedEmail({ firmName: opts.firmName, settingsUrl: appUrl("/app/settings") });
+    const content = firmClosedEmail({ firmName: opts.firmName, settingsUrl: absoluteAppUrl("/app/settings") });
     for (const [i, userId] of userIds.entries()) {
       if (Date.now() >= deadline) {
         result.failed += userIds.length - i;
