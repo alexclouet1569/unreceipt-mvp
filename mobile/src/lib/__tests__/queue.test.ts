@@ -11,6 +11,7 @@ import {
   retryDelayMs,
   type PendingScan,
 } from "../scans/queue";
+import { loadMoreCursor } from "../sections";
 
 const scan = (id: string, over: Partial<PendingScan> = {}): PendingScan => ({
   id,
@@ -83,5 +84,24 @@ describe("server pauses and old scans", () => {
     expect(isExpired({ createdAt: "2026-10-01T12:00:00Z" }, now)).toBe(true);
     expect(isExpired({ createdAt: "2026-11-01T12:00:00Z" }, now)).toBe(false);
     expect(isExpired({ createdAt: "garbage" }, now)).toBe(false);
+  });
+});
+
+describe("load more after a scan", () => {
+  it("starts after the last row with a list key, skipping a just-scanned receipt", () => {
+    const scanned = receiptFromScan({
+      ok: true,
+      id: "new",
+      merchant: null,
+      total: null,
+      currency: "SEK",
+      receiptDate: null,
+      status: "pending_review",
+    });
+    expect(scanned.listKey).toBeUndefined();
+    expect(loadMoreCursor([{ listKey: "a" }, { listKey: "b" }, scanned])).toBe("b");
+    expect(loadMoreCursor([{ listKey: "a" }, { listKey: "b" }])).toBe("b");
+    expect(loadMoreCursor([scanned, {}])).toBeNull();
+    expect(loadMoreCursor([])).toBeNull();
   });
 });

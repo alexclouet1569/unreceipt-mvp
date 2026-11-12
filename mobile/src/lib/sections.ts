@@ -71,3 +71,17 @@ export function buildSections(
   if (undated !== -1) sections.push(...sections.splice(undated, 1));
   return sections;
 }
+
+/**
+ * Where "Load more" starts: the list key of the last row that has one. A
+ * receipt just saved from a scan has none until the next refresh brings
+ * the server's row; it is skipped, and if the page brings it again the
+ * list shows it once (the list drops ids it already has).
+ */
+export function loadMoreCursor(rows: ReadonlyArray<Pick<MobileReceipt, "listKey">>): string | null {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const key = rows[i].listKey;
+    if (key) return key;
+  }
+  return null;
+}

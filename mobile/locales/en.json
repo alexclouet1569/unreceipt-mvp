@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSCameraUsageDescription": "UnReceipt uses the camera to scan your receipts.",
-    "NSPhotoLibraryUsageDescription": "UnReceipt reads the receipt photos you choose."
+    "NSPhotoLibraryUsageDescription": "UnReceipt reads the receipt photos you choose.",
+    "NSPhotoLibraryAddUsageDescription": "UnReceipt adds a receipt image to your photos only when you choose to save it."
   }
 }

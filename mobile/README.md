@@ -89,7 +89,7 @@ Apple's reviewers (TestFlight external testing and the App Store) can't receive 
 
 - The account is created by the founder in Supabase (Authentication → Users → Add user → Create new user, that address, a long random password, Auto Confirm on). The password goes only into App Store Connect (TestFlight → Test Information, and App Review Information), never into git or a chat.
 - It holds sample receipts only (seeded with SQL by its `user_id`), never real data. It is a normal company account: no admin rights (not in `CONCIERGE_ADMIN_EMAILS`), no firm.
-- Reviewers try Delete account (Apple 5.1.1(v)) and may delete it. Before each submission, check it still exists; if not, create it again the same way and re-seed.
+- Reviewers try Delete account (Apple 5.1.1(v)) and may delete it. When the sign-in is older than 30 minutes, the server asks to sign in again: every other address gets an email code, this one types its password again (`DeleteAccount.tsx`). Before each submission, check it still exists; if not, create it again the same way and re-seed.
 
 ## What to check on every TestFlight build
 

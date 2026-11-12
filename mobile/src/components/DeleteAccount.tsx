@@ -3,14 +3,16 @@
 // firm staff, what happens to the firm), a switch to say it's done, then a
 // last iOS alert. The server wants a sign-in from the last 30 minutes in
 // this session: when it asks, a new email code is sent and checked here,
-// and the deletion runs again by itself. Used by Account → Delete account
+// and the deletion runs again by itself. App Review's account (REVIEW_EMAIL)
+// can't receive codes: it types its password again instead. Used by Account → Delete account
 // and by the full-screen states (firm staff, inactive accounts).
 
 import { useRef, useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import type { MobileAccount } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
+import { REVIEW_EMAIL } from "../config";
 import { fill, s } from "../i18n";
 import { ApiError, deleteAccountNow } from "../lib/api";
 import { useAccount } from "../lib/AccountProvider";
@@ -42,14 +44,16 @@ function firmNotice(exit: MobileAccount["firmExit"]): string | null {
 export function DeleteAccount() {
   const styles = useStyles();
   const colors = useColors();
-  const { email, requestCode, verifyCode, signOut } = useAuth();
+  const { email, requestCode, verifyCode, signInWithPassword, signOut } = useAuth();
   const { account, error: loadError, refreshing, refresh } = useAccount();
   const exporter = useExport();
   const [understood, setUnderstood] = useState(false);
-  const [phase, setPhase] = useState<"review" | "code" | "deleting">("review");
+  const [phase, setPhase] = useState<"review" | "code" | "password" | "deleting">("review");
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const field = useRef<CodeFieldHandle>(null);
 
   if (!account && !loadError) {
@@ -97,6 +101,14 @@ export function DeleteAccount() {
         return;
       }
       if (res.status === 401 && res.code === "reauth_required") {
+        if (email?.toLowerCase() === REVIEW_EMAIL) {
+          // A password sign-in starts a fresh session the server accepts.
+          setPassword("");
+          setPasswordError(null);
+          setPhase("password");
+          AccessibilityInfo.announceForAccessibility(s.deletion.reauthPasswordBody);
+          return;
+        }
         const sent = email ? await requestCode(email) : "failed";
         if (sent !== "sent") {
           setPhase("review");
@@ -143,6 +155,22 @@ export function DeleteAccount() {
     field.current?.focus();
   };
 
+  const onPassword = async () => {
+    if (!password || !email || checking) return;
+    setChecking(true);
+    const result = await signInWithPassword(email, password);
+    setChecking(false);
+    if (result === "ok") {
+      setPassword("");
+      await run();
+      return;
+    }
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    const message = result === "unreachable" ? s.common.unreachable : s.signIn.wrongPassword;
+    setPasswordError(message);
+    AccessibilityInfo.announceForAccessibility(message);
+  };
+
   if (phase === "deleting") {
     return (
       <View style={styles.center}>
@@ -167,6 +195,48 @@ export function DeleteAccount() {
             {codeError}
           </Text>
         ) : null}
+        <Button label={s.common.cancel} kind="plain" onPress={() => setPhase("review")} />
+      </ScrollView>
+    );
+  }
+
+  if (phase === "password") {
+    return (
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text variant="displayLg">{s.deletion.reauthTitle}</Text>
+        <Text variant="body" color={colors.inkMuted}>
+          {s.deletion.reauthPasswordBody}
+        </Text>
+        <View style={styles.passwordField}>
+          <Text variant="micro" color={colors.inkMuted}>
+            {s.signIn.passwordLabel}
+          </Text>
+          <TextInput
+            value={password}
+            onChangeText={(t) => {
+              setPassword(t);
+              if (passwordError) setPasswordError(null);
+            }}
+            onSubmitEditing={() => void onPassword()}
+            secureTextEntry
+            autoFocus
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="password"
+            textContentType="password"
+            returnKeyType="go"
+            editable={!checking}
+            maxFontSizeMultiplier={1.4}
+            accessibilityLabel={s.signIn.passwordLabel}
+            style={[styles.input, passwordError && styles.inputError]}
+          />
+        </View>
+        {passwordError ? (
+          <Text variant="caption" color={colors.attentionDeep}>
+            {passwordError}
+          </Text>
+        ) : null}
+        <Button label={s.deletion.reauthPasswordAction} busy={checking} disabled={!password} onPress={() => void onPassword()} />
         <Button label={s.common.cancel} kind="plain" onPress={() => setPhase("review")} />
       </ScrollView>
     );
@@ -243,4 +313,19 @@ const useStyles = makeStyles((colors) => ({
   },
   switchRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   switchLabel: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
+  passwordField: { gap: space.sm },
+  // The sign-in screen's field (sign-in.tsx).
+  input: {
+    minHeight: 54,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.lg,
+    fontFamily: fonts.semibold,
+    fontSize: 17,
+    color: colors.ink,
+  },
+  // Honey, never red (DESIGN.md), like the sign-in screen.
+  inputError: { borderColor: colors.attention },
 }));

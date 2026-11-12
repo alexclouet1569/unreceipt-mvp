@@ -6,12 +6,14 @@ import { AccessibilityInfo, KeyboardAvoidingView, StyleSheet, TextInput, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useAuth } from "../auth/AuthProvider";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { Button } from "../components/Button";
+import { PressableScale } from "../components/PressableScale";
 import { Text } from "../components/Text";
-import { REVIEW_EMAIL } from "../config";
+import { PRIVACY_URL, REVIEW_EMAIL } from "../config";
 import { s } from "../i18n";
 import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
 
@@ -145,9 +147,21 @@ export default function SignIn() {
           <View style={styles.button}>
             <Button label={s.signIn.continue} onPress={() => void submit()} busy={busy} disabled={!email.trim()} />
           </View>
-          <Text variant="caption" color={colors.inkMuted} style={styles.center}>
-            {s.signIn.privacy}
-          </Text>
+          {/* The privacy policy, one tap away before signing in (App Store 5.1.1(i)). */}
+          <PressableScale
+            accessibilityRole="link"
+            accessibilityLabel={s.signIn.privacyLink}
+            accessibilityHint={s.signIn.privacyNote}
+            onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)}
+            style={styles.privacy}
+          >
+            <Text variant="caption" color={colors.inkMuted} style={styles.center}>
+              {s.signIn.privacyNote}{" "}
+              <Text variant="caption" color={colors.ink} style={styles.link}>
+                {s.signIn.privacyLink}
+              </Text>
+            </Text>
+          </PressableScale>
         </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -176,4 +190,7 @@ const useStyles = makeStyles((colors) => ({
   inputError: { borderColor: colors.attention },
   button: { marginTop: space.sm, marginBottom: space.sm },
   password: { gap: space.sm, marginTop: space.sm },
+  // At least 44 pt tall to tap (Apple HIG).
+  privacy: { minHeight: 44, justifyContent: "center" },
+  link: { fontFamily: fonts.semibold, textDecorationLine: "underline" },
 }));

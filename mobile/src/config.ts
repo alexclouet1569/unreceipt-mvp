@@ -30,3 +30,12 @@ export const REVIEW_EMAIL = "appreview@unreceipt.com";
 
 /** Same length as the website's code step (src/app/app/login/_auth-lib.ts). */
 export const CODE_LENGTH = 6;
+
+/**
+ * The privacy policy (App Store 5.1.1(i)): linked under the sign-in and in
+ * Account. On the marketing site, English only.
+ */
+export const PRIVACY_URL = "https://unreceipt.com/privacy";
+
+/** Where an account without access in the app can ask for help. */
+export const SUPPORT_EMAIL = "support@unreceipt.com";

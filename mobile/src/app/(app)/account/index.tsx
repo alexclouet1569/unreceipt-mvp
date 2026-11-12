@@ -7,11 +7,13 @@ import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, View } from "re
 import { router } from "expo-router";
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
+import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../../auth/AuthProvider";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { Group, Row, Section } from "../../../components/Grouped";
 import { GroupedSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
+import { PRIVACY_URL } from "../../../config";
 import { fill, LANGUAGE_NAMES, locale, s } from "../../../i18n";
 import type { MobileAccount } from "@/lib/mobile/types";
 import { useAccount } from "../../../lib/AccountProvider";
@@ -122,6 +124,15 @@ export default function Account() {
           />
         </Group>
       </Section>
+
+      <Group>
+        <Row
+          first
+          label={s.account.privacy}
+          accessibilityHint={s.account.privacyHint}
+          onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)}
+        />
+      </Group>
 
       <Group>
         <Row first label={s.account.signOut} destructive chevron={false} onPress={confirmSignOut} />

@@ -19,7 +19,7 @@ function Tabs() {
     return <StatusScreen title={s.states.firmOnlyTitle} body={s.states.firmOnlyBody} />;
   }
   if (home?.state === "inactive") {
-    return <StatusScreen title={s.states.inactiveTitle} body={s.states.inactiveBody} />;
+    return <StatusScreen title={s.states.inactiveTitle} body={s.states.inactiveBody} support />;
   }
   // Every receipt waiting, not only the newest 50 in the list.
   const toConfirm = home?.state === "ready" ? overallCounts(home.receipts, home.older).toConfirm : 0;
