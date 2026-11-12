@@ -5,9 +5,14 @@
 // swipe alone never deletes; tapping the action does, behind an Undo bar.
 // VoiceOver gets the same as an action on the card (ReceiptRow's onDelete),
 // so the hidden button is kept out of its way.
+//
+// The swipeable builds its action for every row as the list mounts; until a
+// row is first dragged it gets an empty box of the same width (the gesture
+// measures it), and the real button (icon, label, animated styles) only
+// then. A list of 50 rows no longer mounts 50 hidden Delete buttons.
 
-import { useRef } from "react";
-import { StyleSheet } from "react-native";
+import { useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import Swipeable, { type SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { SymbolView } from "expo-symbols";
@@ -51,6 +56,7 @@ function DeleteAction({ progress, onPress }: { progress: SharedValue<number>; on
 export function SwipeToDelete({ onDelete, children }: { onDelete: () => void; children: React.ReactNode }) {
   const styles = useStyles();
   const ref = useRef<SwipeableMethods>(null);
+  const [armed, setArmed] = useState(false);
   return (
     <Swipeable
       ref={ref}
@@ -59,6 +65,9 @@ export function SwipeToDelete({ onDelete, children }: { onDelete: () => void; ch
       overshootRight
       overshootFriction={2}
       containerStyle={styles.container}
+      onSwipeableOpenStartDrag={() => {
+        if (!armed) setArmed(true);
+      }}
       onSwipeableWillOpen={() => {
         // A tick in the hand as the card snaps open on Delete.
         void Haptics.selectionAsync();
@@ -68,15 +77,19 @@ export function SwipeToDelete({ onDelete, children }: { onDelete: () => void; ch
       onSwipeableClose={() => {
         if (openRow === ref.current) openRow = null;
       }}
-      renderRightActions={(progress) => (
-        <DeleteAction
-          progress={progress}
-          onPress={() => {
-            ref.current?.close();
-            onDelete();
-          }}
-        />
-      )}
+      renderRightActions={(progress) =>
+        armed ? (
+          <DeleteAction
+            progress={progress}
+            onPress={() => {
+              ref.current?.close();
+              onDelete();
+            }}
+          />
+        ) : (
+          <View style={styles.actionWrap} />
+        )
+      }
     >
       {children}
     </Swipeable>
