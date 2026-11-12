@@ -3,15 +3,18 @@
 
 import type { TextProps } from "react-native";
 import type { Part } from "../../lib/insights";
-import { colors } from "../../theme";
+import { useColors } from "../../theme";
 import { Text } from "../Text";
 
 export function Parts({
   parts,
-  color = colors.inkMuted,
-  amountColor = colors.ink,
+  color: colorProp,
+  amountColor: amountProp,
   ...rest
 }: { parts: Part[]; color?: string; amountColor?: string } & Omit<TextProps, "children">) {
+  const colors = useColors();
+  const color = colorProp ?? colors.inkMuted;
+  const amountColor = amountProp ?? colors.ink;
   return (
     <Text variant="caption" color={color} {...rest}>
       {parts.map((p, i) =>

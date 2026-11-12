@@ -1,29 +1,44 @@
 // Design tokens from DESIGN.md (the source of truth), for the native app.
-// Light mode only for now, like the website inside the old app shell.
+// Light and dark follow the iPhone's appearance (DESIGN.md "Dark mode",
+// app.json userInterfaceStyle "automatic"). Screens read them through
+// useColors() or a makeStyles() hook, never a module-level constant, so a
+// switch in Control Centre repaints every screen at once.
 
-export const colors = {
-  brand: "#27BE7B",
-  brandDeep: "#1F9D63",
-  brandAction: "#1A7F52",
-  brandActionDeep: "#176E47",
-  brandTint: "#ECF7E7",
-  surface: "#FAFAF7",
-  card: "#FFFFFF",
-  ink: "#303568",
-  inkMuted: "#5A5F7A",
-  inkFaint: "#9CA0B8",
-  hairline: "#E8E5DD",
-  negative: "#C73E4E",
-  attention: "#C99440",
-  attentionTint: "#FBF1DE",
-  attentionDeep: "#8C6320",
-  attentionMint: "#6B9778",
-  // Behind controls laid over a photo (the photo viewer's close button).
-  inkScrim: "rgba(48, 53, 104, 0.7)",
-  // Placeholder shapes while the very first list loads (DESIGN.md, native app).
-  skeleton: "#EFEDE6",
-  white: "#FFFFFF",
-} as const;
+import { StyleSheet, useColorScheme } from "react-native";
+
+export { darkColors, lightColors, type Palette } from "./palette";
+import { darkColors, lightColors, type Palette } from "./palette";
+
+export type Scheme = "light" | "dark";
+
+/** The iPhone's appearance; anything but "dark" is light. */
+export function useScheme(): Scheme {
+  return useColorScheme() === "dark" ? "dark" : "light";
+}
+
+export function paletteFor(scheme: Scheme): Palette {
+  return scheme === "dark" ? darkColors : lightColors;
+}
+
+/** The palette for the iPhone's current appearance. */
+export function useColors(): Palette {
+  return paletteFor(useScheme());
+}
+
+/**
+ * A screen's styles for the current appearance, built once per mode:
+ *   const useStyles = makeStyles((colors) => ({ card: { backgroundColor: colors.card } }));
+ *   const styles = useStyles();   // inside the component
+ */
+export function makeStyles<S extends Parameters<typeof StyleSheet.create>[0]>(
+  build: (colors: Palette) => S,
+): () => Readonly<S> {
+  const cache: Partial<Record<Scheme, Readonly<S>>> = {};
+  return function useStyles(): Readonly<S> {
+    const scheme = useScheme();
+    return (cache[scheme] ??= StyleSheet.create(build(paletteFor(scheme))));
+  };
+}
 
 // Text colour rule in the app (DESIGN.md, native app): anything that carries
 // information (meta rows, labels, converted amounts, currency signs) is

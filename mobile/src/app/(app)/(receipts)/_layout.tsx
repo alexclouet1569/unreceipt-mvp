@@ -5,10 +5,11 @@
 import { Stack } from "expo-router";
 import { HeaderBrand } from "../../../components/Brand";
 import { s } from "../../../i18n";
-import { colors, fonts, radius } from "../../../theme";
+import { fonts, radius, useColors } from "../../../theme";
 import { EDIT_DETENTS } from "../../../lib/edits";
 
 export default function ReceiptsStack() {
+  const colors = useColors();
   return (
     <Stack
       screenOptions={{
@@ -44,7 +45,7 @@ export default function ReceiptsStack() {
       {/* The photo full screen, pinch to zoom, swipe down to close. */}
       <Stack.Screen
         name="receipt/photo"
-        options={{ presentation: "modal", headerShown: false, contentStyle: { backgroundColor: colors.ink } }}
+        options={{ presentation: "modal", headerShown: false, contentStyle: { backgroundColor: colors.photoGround } }}
       />
     </Stack>
   );

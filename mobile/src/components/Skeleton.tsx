@@ -10,7 +10,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { colors, durations, radius, space } from "../theme";
+import { durations, radius, space, makeStyles } from "../theme";
 
 /** The gentle 480 ms breathing every placeholder shares. */
 export function useBreathing() {
@@ -27,6 +27,7 @@ export function useBreathing() {
 
 /** Settings-style groups (the Account tab) before anything is known. */
 export function GroupedSkeleton({ groups = [2, 3, 1] }: { groups?: number[] }) {
+  const styles = useStyles();
   const pulse = useBreathing();
   return (
     <Animated.View style={pulse} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -47,6 +48,7 @@ export function GroupedSkeleton({ groups = [2, 3, 1] }: { groups?: number[] }) {
 }
 
 export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
+  const styles = useStyles();
   const pulse = useBreathing();
 
   return (
@@ -66,14 +68,12 @@ export function ReceiptSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
-const GREY = colors.skeleton;
-
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   label: {
     width: 70,
     height: 10,
     borderRadius: 5,
-    backgroundColor: GREY,
+    backgroundColor: colors.skeleton,
     marginHorizontal: space.lg,
     marginTop: space.lg,
     marginBottom: space.md,
@@ -91,9 +91,9 @@ const styles = StyleSheet.create({
     marginHorizontal: space.lg,
     marginBottom: space.sm,
   },
-  block: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: GREY },
+  block: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.skeleton },
   middle: { flex: 1, gap: 8 },
-  line: { height: 11, borderRadius: 6, backgroundColor: GREY },
+  line: { height: 11, borderRadius: 6, backgroundColor: colors.skeleton },
   short: { width: "40%" },
   amount: { width: 64 },
   group: { marginTop: space.lg },
@@ -107,4 +107,4 @@ const styles = StyleSheet.create({
   },
   groupRow: { minHeight: 52, justifyContent: "center", paddingHorizontal: space.lg },
   groupDivider: { borderTopWidth: 1, borderTopColor: colors.hairline },
-});
+}));

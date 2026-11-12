@@ -5,7 +5,7 @@
 import { StyleSheet, View } from "react-native";
 import { locale } from "../i18n";
 import { moneyParts } from "../lib/format";
-import { colors, type } from "../theme";
+import { type, useColors } from "../theme";
 import { Text } from "./Text";
 
 type Size = "row" | "card" | "display";
@@ -24,7 +24,7 @@ export function Money({
   amount,
   currency,
   size = "card",
-  color = colors.ink,
+  color: colorProp,
   fit = false,
   sizeFor,
 }: {
@@ -37,6 +37,8 @@ export function Money({
   /** Display size: step down by this amount instead of `amount` (a rolling number keeps one size). */
   sizeFor?: number;
 }) {
+  const colors = useColors();
+  const color = colorProp ?? colors.ink;
   const base = VALUE[size];
   if (amount == null) {
     return (

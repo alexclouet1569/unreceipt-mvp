@@ -23,7 +23,7 @@ import {
 import { formatMoney, parseReceiptDate } from "../../../../lib/format";
 import { useHome, useReceipt } from "../../../../lib/HomeProvider";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
-import { colors, fonts, radius, space } from "../../../../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../../../../theme";
 
 type Field = "merchant" | "amount" | "date" | "category";
 
@@ -31,6 +31,8 @@ type Field = "merchant" | "amount" | "date" | "category";
 const INTL_LOCALE = { en: "en-GB", sv: "sv-SE", fr: "fr-FR" } as const;
 
 export default function EditField() {
+  const styles = useStyles();
+  const colors = useColors();
   const { id, field: rawField } = useLocalSearchParams<{ id: string; field: Field }>();
   const field: Field = (["merchant", "amount", "date", "category"] as const).includes(rawField) ? rawField : "merchant";
   const { home } = useHome();
@@ -163,7 +165,6 @@ export default function EditField() {
             maximumDate={new Date()}
             locale={INTL_LOCALE[locale]}
             accentColor={colors.brandAction}
-            themeVariant="light"
             onValueChange={(_e, d) => {
               setDate(d);
               void Haptics.selectionAsync();
@@ -206,7 +207,7 @@ export default function EditField() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: space.xl, gap: space.lg },
   input: {
     minHeight: 54,
@@ -251,4 +252,4 @@ const styles = StyleSheet.create({
   },
   optionDivider: { borderTopWidth: 1, borderTopColor: colors.hairline },
   optionLabel: { flex: 1 },
-});
+}));
