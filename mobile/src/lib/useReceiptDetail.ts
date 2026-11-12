@@ -8,9 +8,11 @@
 import { useEffect, useState } from "react";
 import type { MobileReceipt, MobileReceiptDetail } from "@/lib/mobile/types";
 import { getReceiptDetail } from "./api";
+import { onSignOutClear } from "./cache";
 
 const seen = new Map<string, MobileReceiptDetail>();
 const MAX_SEEN = 40;
+onSignOutClear(() => seen.clear());
 
 function remember(id: string, d: MobileReceiptDetail) {
   seen.delete(id);

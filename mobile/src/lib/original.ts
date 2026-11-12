@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { Image } from "expo-image";
 import { apiResponse } from "./api";
+import { onSignOutClear } from "./cache";
 
 export function photoCacheKey(id: string): string {
   return `receipt-photo-${id}`;
@@ -14,6 +15,7 @@ export function photoCacheKey(id: string): string {
 
 const LINK_TTL_MS = 4 * 60_000;
 const links = new Map<string, { url: string; until: number }>();
+onSignOutClear(() => links.clear());
 
 async function photoUrl(id: string): Promise<string | null> {
   // Already on the phone: the file itself.
