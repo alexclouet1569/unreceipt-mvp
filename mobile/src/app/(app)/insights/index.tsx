@@ -12,7 +12,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeIn } from "react-native-reanimated";
 import type { AnalyticsInsight } from "@/lib/mobile/types";
 import { Button } from "../../../components/Button";
-import { BarChart, PaceChart } from "../../../components/insights/Charts";
+import { BarChart } from "../../../components/insights/Charts";
 import { Hero } from "../../../components/insights/Hero";
 import { PeriodHeader } from "../../../components/insights/PeriodHeader";
 import { Segmented } from "../../../components/insights/Segmented";
@@ -230,7 +230,7 @@ export default function Insights() {
           </View>
         ) : (
           <>
-            {a.period.kind === "month" ? <PaceChart a={a} /> : <BarChart a={a} />}
+            <BarChart a={a} />
             {a.total.count < 3 ? (
               <View style={styles.few}>
                 <Text variant="merchant">{s.insights.fewTitle}</Text>
