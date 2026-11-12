@@ -160,16 +160,35 @@ async function loadPendingInvites(user: User): Promise<PendingInvite[]> {
   }
 }
 
-// First-run onboarding shows until finished or skipped. A failed read (or
-// the column not existing yet) counts as done: never trap someone in it.
-async function loadOnboarded(userId: string): Promise<boolean> {
+// One read of the profile for two things: whether first-run onboarding is
+// done, and the forwarding alias if it was already minted. A failed read (or
+// the column not existing yet) counts as onboarded (never trap someone in
+// it) and as "no alias yet", which the mint step reads again.
+async function loadProfileBits(userId: string): Promise<{ onboarded: boolean; aliasHash: string | null }> {
   const { data, error } = await getSupabaseAdmin()
     .from("profiles")
-    .select("onboarded_at")
+    .select("onboarded_at, email_alias_hash")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) return true;
-  return Boolean(data?.onboarded_at);
+  if (error) return { onboarded: true, aliasHash: null };
+  const hash = data?.email_alias_hash;
+  return {
+    onboarded: Boolean(data?.onboarded_at),
+    aliasHash: typeof hash === "string" && hash.length > 0 ? hash : null,
+  };
+}
+
+// The user's default company with its currency, read only (no mint): almost
+// every load finds it, which saves the separate currency read.
+async function readDefaultOrganization(userId: string): Promise<{ id: string; currency: string } | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("organizations")
+    .select("id, currency")
+    .eq("default_for_user_id", userId)
+    .maybeSingle();
+  if (error || typeof data?.id !== "string") return null;
+  const c = data.currency;
+  return { id: data.id, currency: typeof c === "string" && /^[A-Z]{3}$/.test(c) ? c : "SEK" };
 }
 
 /**
@@ -178,14 +197,18 @@ async function loadOnboarded(userId: string): Promise<boolean> {
  */
 export async function loadHome(user: User, sessionId: string | null): Promise<HomeLoad> {
   // Everything the screen reads, at once rather than one query after the
-  // other. All reads: nothing is created until the checks below pass.
-  const [firmMembership, gate, loadedReceipts, onboarded, accountantInvites] =
+  // other. All reads: nothing is created until the checks below pass. The
+  // profile (alias) and company (currency) are read here too, so a normal
+  // load needs only one more round: converting amounts and summing older
+  // receipts, side by side.
+  const [firmMembership, gate, loadedReceipts, profile, accountantInvites, existingOrg] =
     await Promise.all([
       getFirmMembership(user.id),
       checkSubscriptionGate(user.id, sessionId),
       loadReceiptsForUser(user.id),
-      loadOnboarded(user.id),
+      loadProfileBits(user.id),
       loadPendingInvites(user),
+      readDefaultOrganization(user.id),
     ]);
 
   // Checked before the gate's answer and before any lazy mint below.
@@ -193,36 +216,41 @@ export async function loadHome(user: User, sessionId: string | null): Promise<Ho
   if (gate.kind === "redirect_subscribe") return { kind: "subscribe" };
   if (gate.kind === "self_heal") return { kind: "self_heal", sessionId: gate.sessionId };
 
-  // Mint (or fetch) the user's forwarding alias: the live MX address that
-  // routes to /api/intake/email. Falls back to the legacy concierge
-  // derivation if the profile row is missing.
-  const [aliasHash, organizationId] = await Promise.all([
-    getOrCreateAliasForUser(user.id),
-    // The company this account's receipts belong to (firm portal). Minted
-    // here so it exists before the first receipt; failures fall back to the
-    // insert trigger.
-    getOrCreateDefaultOrganization(user.id),
+  const listed = new Set(loadedReceipts.map((r) => r.id));
+  // Only when the list may be cut: below the limit it holds everything.
+  // Started now: it needs no currency until it is summed.
+  const summaryRows =
+    loadedReceipts.length < RECENT_RECEIPTS_LIMIT
+      ? Promise.resolve([])
+      : loadSummaryRows(user.id, listed).catch((err) => {
+          Sentry.captureException(err, { tags: { area: "home summary" } });
+          console.error("[home] summary load failed", err);
+          return null;
+        });
+
+  // The forwarding alias (the live MX address that routes to
+  // /api/intake/email) and the company this account's receipts belong to
+  // (firm portal), minted only the first time. A missing profile falls back
+  // to the legacy concierge address; a failed company mint to the insert
+  // trigger, and SEK.
+  const [aliasHash, homeCurrency] = await Promise.all([
+    profile.aliasHash ?? getOrCreateAliasForUser(user.id),
+    existingOrg
+      ? existingOrg.currency
+      : getOrCreateDefaultOrganization(user.id).then((id) => homeCurrencyOf(id)),
   ]);
+
   // Amounts in the company's currency next to foreign ones (src/lib/fx.ts).
   // Best effort: a missing rate leaves the receipt unconverted.
-  const homeCurrency = await homeCurrencyOf(organizationId);
-  const listed = new Set(loadedReceipts.map((r) => r.id));
-  const [receipts, older] = await Promise.all([
+  const [receipts, rows] = await Promise.all([
     ensureHomeAmounts(loadedReceipts, homeCurrency).catch((err) => {
       console.error("[home] currency conversion failed", err);
       return loadedReceipts;
     }),
-    // Only when the list may be cut: below the limit it holds everything.
-    loadedReceipts.length < RECENT_RECEIPTS_LIMIT
-      ? Promise.resolve(olderSummary([], listed, homeCurrency))
-      : loadSummaryRows(user.id, listed)
-          .then((rows) => olderSummary(rows, listed, homeCurrency))
-          .catch((err) => {
-            Sentry.captureException(err, { tags: { area: "home summary" } });
-            console.error("[home] summary load failed", err);
-            return null;
-          }),
+    summaryRows,
   ]);
+  const older = rows ? olderSummary(rows, listed, homeCurrency) : null;
+  const onboarded = profile.onboarded;
 
   return {
     kind: "ready",
