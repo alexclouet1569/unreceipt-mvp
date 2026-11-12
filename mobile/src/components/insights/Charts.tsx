@@ -1,8 +1,8 @@
 // The Insights chart, drawn with react-native-svg (no chart library, no
 // native change). DESIGN.md "Charts and Insights": bars in --ink-muted, the
 // bar you're on (or the current one) in --brand-action, the period before
-// as a 1.5 pt --ink-muted outline (beside each bar when there are few,
-// behind when many);
+// as a 1.5 pt --ink-muted outline beside each bar when there are few, a
+// 2 pt --ink mark at its level across each bar when many;
 // no gradients, no shadows, amounts in Geist Mono. Slide sideways to read a
 // bar (a tick in the hand per bar); VoiceOver swipes up and down through
 // them. The chart grows in once per period.
@@ -193,28 +193,29 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
           <Animated.View style={grow}>
             <Svg width={width} height={HEIGHT}>
               <Line x1={0} x2={width} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke={colors.hairline} strokeWidth={1} />
-              {a.previousBuckets.slice(0, n).map((v, i) => {
-                const h = Math.max(v > 0 ? 3 : 0, (v / max) * (HEIGHT - 8));
-                if (h <= 0) return null;
-                const w = paired ? barW : barW + 6;
-                const x = paired ? i * slot + slot / 2 - gap / 2 - barW : i * slot + (slot - w) / 2;
-                // An outline (1.5 pt, inside its box): an --ink-faint fill was
-                // 2.5:1 on cream, under the 3:1 a chart mark needs.
-                return (
-                  <Rect
-                    key={`p${i}`}
-                    x={x + 0.75}
-                    y={HEIGHT - h + 0.75}
-                    width={Math.max(0, w - 1.5)}
-                    height={Math.max(0, h - 1.5)}
-                    rx={2.5}
-                    fill="none"
-                    stroke={colors.inkMuted}
-                    strokeWidth={1.5}
-                    opacity={dim(i, false)}
-                  />
-                );
-              })}
+              {paired
+                ? a.previousBuckets.slice(0, n).map((v, i) => {
+                    // Beside: an outline (1.5 pt, inside its box; at least 6 pt
+                    // tall so it stays hollow). An --ink-faint fill was 2.5:1
+                    // on cream, under the 3:1 a chart mark needs.
+                    const h = Math.max(v > 0 ? 6 : 0, (v / max) * (HEIGHT - 8));
+                    if (h <= 0) return null;
+                    return (
+                      <Rect
+                        key={`p${i}`}
+                        x={i * slot + slot / 2 - gap / 2 - barW + 0.75}
+                        y={HEIGHT - h + 0.75}
+                        width={Math.max(0, barW - 1.5)}
+                        height={h - 1.5}
+                        rx={2.5}
+                        fill="none"
+                        stroke={colors.inkMuted}
+                        strokeWidth={1.5}
+                        opacity={dim(i, false)}
+                      />
+                    );
+                  })
+                : null}
               {a.buckets.map((b, i) => {
                 if (i >= visible) return null;
                 const h = Math.max(b.amount > 0 ? 3 : 0, (b.amount / max) * (HEIGHT - 8));
@@ -234,6 +235,28 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
                   />
                 );
               })}
+              {!paired
+                ? a.previousBuckets.slice(0, n).map((v, i) => {
+                    // Many bars: a 2 pt --ink mark at last period's level,
+                    // across the bar and a little wider (a bullet chart's
+                    // target line), never wider than its slot.
+                    if (v <= 0) return null;
+                    const y = Math.max(0, HEIGHT - (v / max) * (HEIGHT - 8) - 1);
+                    const w = Math.max(barW, Math.min(barW + 6, slot - 2));
+                    return (
+                      <Rect
+                        key={`m${i}`}
+                        x={i * slot + (slot - w) / 2}
+                        y={Math.min(y, HEIGHT - 2)}
+                        width={w}
+                        height={2}
+                        rx={1}
+                        fill={colors.ink}
+                        opacity={dim(i, false)}
+                      />
+                    );
+                  })
+                : null}
             </Svg>
           </Animated.View>
         ) : null}
@@ -248,7 +271,9 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
             </Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.key, styles.keyOutline, { borderColor: colors.inkMuted }]} />
+            <View
+              style={paired ? [styles.key, styles.keyOutline, { borderColor: colors.inkMuted }] : [styles.keyMark, { backgroundColor: colors.ink }]}
+            />
             <Text variant="caption" color={colors.inkMuted} style={styles.legendText}>
               {capital(previousLabel(a, locale, s))}
             </Text>
@@ -270,4 +295,5 @@ const styles = StyleSheet.create({
   legendText: { flexShrink: 1 },
   key: { width: 10, height: 10, borderRadius: 3 },
   keyOutline: { borderWidth: 1.5 },
+  keyMark: { width: 12, height: 2, borderRadius: 1 },
 });

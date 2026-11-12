@@ -183,7 +183,7 @@ export type Bucket = { from: string; to: string };
  * clipped to the range so the first and last bar may be partial.
  * `fromStart`: weeks are 7-day blocks from the range's first day instead
  * (a month: 1–7, 8–14, 15–21, 22–28, 29–end), so two months line up bar
- * for bar and no week is a single day.
+ * for bar; the last block has 1–3 days (none in a 28-day February).
  */
 export function bucketsFor(range: AnalyticsRange, granularity: AnalyticsGranularity, fromStart = false): Bucket[] {
   const out: Bucket[] = [];

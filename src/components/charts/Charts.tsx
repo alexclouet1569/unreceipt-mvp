@@ -4,9 +4,10 @@
 // Insights"), the same as the iPhone app's: weekly bars for a month (7-day
 // blocks from the 1st), Monday weeks for a quarter, months for a year.
 // Bars --ink-muted; the chosen bar (or the current one) is the screen's one
-// green; the period before as a 1.5 px --ink-muted outline, beside each bar
-// when there are 8 or fewer, behind it when more, with a legend; a hairline
-// baseline, no grid, no axis numbers, no gradients, no shadows.
+// green; the period before as a 1.5 px --ink-muted outline beside each bar
+// when there are 8 or fewer, as a 2 px --ink mark at its level across each
+// bar when more, with a legend; a hairline baseline, no grid, no axis
+// numbers, no gradients, no shadows.
 //
 // Reading a chart: move the pointer (or a finger) along it, or focus it and
 // use the arrow keys; the readout above names the bar. It clears 1.6 s after
@@ -183,28 +184,29 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
         {width > 0 ? (
           <svg width={width} height={HEIGHT} aria-hidden="true" className="block">
             <line x1={0} x2={width} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke="var(--hairline)" strokeWidth={1} />
-            {a.previousBuckets.slice(0, n).map((v, i) => {
-              const h = Math.max(v > 0 ? 3 : 0, (v / max) * (HEIGHT - 8));
-              if (h <= 0) return null;
-              const w = paired ? barW : barW + 6;
-              const x = paired ? i * slot + slot / 2 - gap / 2 - barW : i * slot + (slot - w) / 2;
-              // An outline (1.5 px, inside its box): a --ink-faint fill was
-              // 2.5:1 on cream, under the 3:1 a chart mark needs.
-              return (
-                <rect
-                  key={`p${i}`}
-                  x={x + 0.75}
-                  y={HEIGHT - h + 0.75}
-                  width={Math.max(0, w - 1.5)}
-                  height={Math.max(0, h - 1.5)}
-                  rx={2.5}
-                  fill="none"
-                  stroke="var(--ink-muted)"
-                  strokeWidth={1.5}
-                  opacity={dim(i, false)}
-                />
-              );
-            })}
+            {paired
+              ? a.previousBuckets.slice(0, n).map((v, i) => {
+                  // Beside: an outline (1.5 px, inside its box; at least 6 px
+                  // tall so it stays hollow). An --ink-faint fill was 2.5:1 on
+                  // cream, under the 3:1 a chart mark needs.
+                  const h = Math.max(v > 0 ? 6 : 0, (v / max) * (HEIGHT - 8));
+                  if (h <= 0) return null;
+                  return (
+                    <rect
+                      key={`p${i}`}
+                      x={i * slot + slot / 2 - gap / 2 - barW + 0.75}
+                      y={HEIGHT - h + 0.75}
+                      width={Math.max(0, barW - 1.5)}
+                      height={h - 1.5}
+                      rx={2.5}
+                      fill="none"
+                      stroke="var(--ink-muted)"
+                      strokeWidth={1.5}
+                      opacity={dim(i, false)}
+                    />
+                  );
+                })
+              : null}
             {a.buckets.map((b, i) => {
               if (i >= visible) return null;
               const h = Math.max(b.amount > 0 ? 3 : 0, (b.amount / max) * (HEIGHT - 8));
@@ -224,6 +226,28 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
                 />
               );
             })}
+            {!paired
+              ? a.previousBuckets.slice(0, n).map((v, i) => {
+                  // Many bars: a 2 px --ink mark at last period's level, across
+                  // the bar and a little wider (a bullet chart's target line),
+                  // never wider than its slot.
+                  if (v <= 0) return null;
+                  const y = Math.max(0, HEIGHT - (v / max) * (HEIGHT - 8) - 1);
+                  const w = Math.max(barW, Math.min(barW + 6, slot - 2));
+                  return (
+                    <rect
+                      key={`m${i}`}
+                      x={i * slot + (slot - w) / 2}
+                      y={Math.min(y, HEIGHT - 2)}
+                      width={w}
+                      height={2}
+                      rx={1}
+                      fill="var(--ink)"
+                      opacity={dim(i, false)}
+                    />
+                  );
+                })
+              : null}
           </svg>
         ) : null}
       </div>
@@ -235,7 +259,11 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
             {periodTitle(a.period)}
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-[3px] border-[1.5px] border-[var(--ink-muted)]" />
+            {paired ? (
+              <span className="h-2.5 w-2.5 shrink-0 rounded-[3px] border-[1.5px] border-[var(--ink-muted)]" />
+            ) : (
+              <span className="h-0.5 w-3 shrink-0 rounded-[1px] bg-[var(--ink)]" />
+            )}
             {previousLegend(a)}
           </span>
         </div>

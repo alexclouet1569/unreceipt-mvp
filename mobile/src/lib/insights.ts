@@ -184,7 +184,7 @@ export const partsText = (parts: Part[]) => parts.map((p) => p.text).join("");
 
 /**
  * A bar's name under the chart and for VoiceOver: "12", "1–7" (a month's
- * week), "5 Oct" (a quarter's week), "Nov".
+ * 7-day block), "5 Oct" (a Monday week of a quarter or chosen dates), "Nov".
  */
 export function bucketLabel(
   b: Pick<AnalyticsBucket, "from" | "to">,
