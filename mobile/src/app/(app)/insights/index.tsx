@@ -33,6 +33,7 @@ import {
   type ReadyAnalytics,
 } from "../../../lib/insights";
 import { useInsights } from "../../../lib/useInsights";
+import { usePeriodSwipe } from "../../../lib/usePeriodSwipe";
 import { durations, radius, space, makeStyles, useColors } from "../../../theme";
 
 type Kind = PeriodQuery["kind"];
@@ -188,6 +189,12 @@ export default function Insights() {
   // While a new period loads, the arrows wait: they'd step from the old one.
   const previous = a && !stale ? shiftPeriod(a, -1) : null;
   const next = a && !stale ? shiftPeriod(a, 1) : null;
+  const goPrevious = previous ? () => setQuery(previous) : null;
+  const goNext = next ? () => setQuery(next) : null;
+  // Or swipe sideways anywhere below the period switch (not on a chart,
+  // which reads the finger itself).
+  const [swiping, setSwiping] = useState(false);
+  const swipe = usePeriodSwipe(goPrevious, goNext, setSwiping);
 
   // VoiceOver hears a new period's total, and a failure.
   const announced = useRef<string | null>(null);
@@ -257,6 +264,8 @@ export default function Insights() {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
+      // Still while a sideways swipe changes the period.
+      scrollEnabled={!swiping}
       refreshControl={<RefreshControl refreshing={refreshing && !!a && !stale} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />}
     >
       {error && a ? (
@@ -278,12 +287,10 @@ export default function Insights() {
           if (kind !== query.kind) setQuery({ kind });
         }}
       />
-      <PeriodHeader
-        title={a ? periodTitle(a.period, locale, s) : " "}
-        onPrevious={previous ? () => setQuery(previous) : null}
-        onNext={next ? () => setQuery(next) : null}
-      />
-      {body}
+      <Animated.View style={swipe.style} {...swipe.handlers}>
+        <PeriodHeader title={a ? periodTitle(a.period, locale, s) : " "} onPrevious={goPrevious} onNext={goNext} />
+        {body}
+      </Animated.View>
       <CustomRange
         visible={picking}
         initial={customInitial}

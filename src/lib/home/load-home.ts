@@ -69,6 +69,8 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
     .eq("user_id", userId)
     .order("purchased_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
+    // A tiebreaker, so "Load more" continues exactly where the list ends.
+    .order("id", { ascending: false })
     .limit(RECENT_RECEIPTS_LIMIT);
 
   if (error) {
@@ -77,6 +79,71 @@ async function loadReceiptsForUser(userId: string): Promise<Receipt[]> {
     return [];
   }
   return (data ?? []) as Receipt[];
+}
+
+/** At most this many older receipts per "Load more". */
+export const OLDER_PAGE_SIZE = 50;
+
+/** A position in the home list: purchased_at (null sorts last), created_at, id. */
+export type ListCursor = { purchasedAt: string | null; createdAt: string; id: string };
+
+const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}(?::?\d{2})?)$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A list key from the app (src/lib/mobile/receipt.ts listKeyOf), checked
+ * strictly: its parts go into a PostgREST filter. Null when malformed.
+ */
+export function parseListCursor(key: string | null): ListCursor | null {
+  if (!key || key.length > 120) return null;
+  const parts = key.split("|");
+  if (parts.length !== 3) return null;
+  const [p, c, id] = parts;
+  const isTime = (v: string) => TIMESTAMP.test(v) && !Number.isNaN(Date.parse(v));
+  if ((p !== "" && !isTime(p)) || !isTime(c) || !UUID.test(id)) return null;
+  return { purchasedAt: p === "" ? null : p, createdAt: c, id };
+}
+
+/**
+ * The PostgREST or() filter for rows after `cur` in the home list's order
+ * (purchased_at DESC NULLS LAST, created_at DESC, id DESC). Values are
+ * quoted; parseListCursor() already allowed only timestamps and a uuid.
+ */
+export function afterCursorFilter(cur: ListCursor): string {
+  const q = (v: string) => `"${v}"`;
+  const tail = `created_at.lt.${q(cur.createdAt)},and(created_at.eq.${q(cur.createdAt)},id.lt.${q(cur.id)})`;
+  if (cur.purchasedAt == null) return `and(purchased_at.is.null,or(${tail}))`;
+  const p = q(cur.purchasedAt);
+  return (
+    `purchased_at.lt.${p},` +
+    `and(purchased_at.eq.${p},or(${tail})),` +
+    // Rows without a purchase time come after every dated one.
+    `purchased_at.is.null`
+  );
+}
+
+/**
+ * The receipts after `cursor` in the home list's order, for "Load more" in
+ * the iPhone app. Keyset, not offset: a receipt added or deleted meanwhile
+ * never makes a page skip or repeat one. Scoped by user_id like the list.
+ */
+export async function loadOlderReceipts(
+  userId: string,
+  cursor: ListCursor,
+): Promise<{ receipts: Receipt[]; hasMore: boolean }> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("receipts")
+    .select("*")
+    .eq("user_id", userId)
+    .or(afterCursorFilter(cursor))
+    .order("purchased_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    // One more than a page, to know whether another follows.
+    .limit(OLDER_PAGE_SIZE + 1);
+  if (error) throw new Error(`older receipts ${error.code}`);
+  const rows = (data ?? []) as Receipt[];
+  return { receipts: rows.slice(0, OLDER_PAGE_SIZE), hasMore: rows.length > OLDER_PAGE_SIZE };
 }
 
 // Accounting-firm invites addressed to this user that wait for an answer.

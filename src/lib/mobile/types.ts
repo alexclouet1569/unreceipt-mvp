@@ -23,6 +23,12 @@ export type MobileReceipt = {
   fxSource: "same" | "ecb" | "manual" | null;
   /** ISO timestamp (purchased_at) or plain date (receipt_date), null when unknown. */
   date: string | null;
+  /**
+   * Where the receipt sits in the home list's order (purchased_at, created_at,
+   * id), as an opaque cursor: "Load more" asks for the receipts after the
+   * last one shown, so nothing is skipped when the list changed meanwhile.
+   */
+  listKey?: string;
   createdAt: string;
   /**
    * What the receipt was made from, for the detail screen:
@@ -207,6 +213,9 @@ export type MobileAnalytics =
 
 /** GET /api/mobile/analytics/receipts: the receipts behind a number. */
 export type MobileAnalyticsReceipts = { receipts: MobileReceipt[]; truncated: boolean };
+
+/** GET /api/mobile/receipts?after=<listKey>: the list's next page of older receipts ("Load more"). */
+export type MobileReceiptsPage = { receipts: MobileReceipt[]; hasMore: boolean };
 
 /** One line of "Your accountant" (GET /api/mobile/account). */
 export type MobileAccountantLink = {
