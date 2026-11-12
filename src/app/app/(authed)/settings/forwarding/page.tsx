@@ -36,7 +36,7 @@ export default async function ForwardingPage() {
       <div className="mx-auto max-w-[540px] px-4 py-4 max-sm:pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
         <Link
           href="/app/settings"
-          className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[10px] px-2 text-[14px] font-semibold text-[var(--ink-muted)] outline-none transition-colors hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[10px] px-2 text-[14px] font-semibold text-[var(--ink-muted)] outline-none transition-colors duration-100 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         >
           <ArrowLeft aria-hidden="true" className="h-4 w-4" />
           Settings

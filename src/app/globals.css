@@ -97,6 +97,16 @@
   --hairline: #E8E5DD;
   /* Placeholder shapes while a page loads (loading.tsx), as the iPhone app. */
   --skeleton: #EFEDE6;
+  /* Insights category colours: the merchant palette without its action
+     green and honey (DESIGN.md "Charts and Insights"); Other is neutral. */
+  --category-travel: #3B5B8C;
+  --category-transport: #2F6B7A;
+  --category-meals: #8C4A3B;
+  --category-accommodation: #6B4E8C;
+  --category-software: var(--ink);
+  --category-office-supplies: var(--ink-muted);
+  --category-client-entertainment: #A0405A;
+  --category-other: var(--ink-faint);
   /* "Review needed" attention slice — warm honey paired with a
      desaturated mint badge. Chosen so the cue reads as friendly
      rather than alarming (no red), and sits inside the brand-book

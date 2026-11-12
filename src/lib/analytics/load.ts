@@ -211,12 +211,26 @@ function matches(r: AnalyticsRow, f: DrillFilter, home: string, country: string)
   }
 }
 
-/** The receipts behind a number on the Insights screen, newest first. */
+/** The receipts behind a number on the Insights screen, newest first, as the app's display JSON. */
 export async function loadDrillReceipts(
   user: User,
   period: ResolvedPeriod,
   filter: DrillFilter
 ): Promise<{ receipts: MobileReceipt[]; truncated: boolean } | { state: "firm_only" | "inactive" }> {
+  const result = await loadDrillRows(user, period, filter);
+  if ("state" in result) return result;
+  return { receipts: result.rows.map(toMobileReceipt), truncated: result.truncated };
+}
+
+/**
+ * The same receipts as full rows, for the website's drill-down page, which
+ * opens them in the receipt sheet. Same scope (user_id) and access rules.
+ */
+export async function loadDrillRows(
+  user: User,
+  period: ResolvedPeriod,
+  filter: DrillFilter
+): Promise<{ rows: Receipt[]; truncated: boolean } | { state: "firm_only" | "inactive" }> {
   const access = await analyticsAccess(user);
   if (access.kind !== "ready") return { state: access.kind };
   const rows = await loadAnalyticsRows(user.id, access.home);
@@ -226,7 +240,7 @@ export async function loadDrillReceipts(
     .filter((x) => matches(x.r, filter, access.home, access.country))
     .sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : b.r.created_at.localeCompare(a.r.created_at)));
   const ids = hits.slice(0, MAX_DRILL_RECEIPTS).map((x) => x.r.id);
-  if (ids.length === 0) return { receipts: [], truncated: false };
+  if (ids.length === 0) return { rows: [], truncated: false };
 
   const full: Receipt[] = [];
   for (let i = 0; i < ids.length; i += 100) {
@@ -241,5 +255,5 @@ export async function loadDrillReceipts(
   const order = new Map(ids.map((id, i) => [id, i]));
   full.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   const converted = await ensureHomeAmounts(full, access.home).catch(() => full);
-  return { receipts: converted.map(toMobileReceipt), truncated: hits.length > ids.length };
+  return { rows: converted, truncated: hits.length > ids.length };
 }
