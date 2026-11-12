@@ -39,6 +39,11 @@ export const RATE_LIMITS = {
   // Account deletion is heavy (Stripe, storage listing) and one real
   // person needs it once; a few retries after a failure is plenty.
   accountDelete: [{ limit: 5, windowSeconds: 60 * 60 }],
+  // Opens a Stripe customer-portal session (one Stripe API call each).
+  billingPortal: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
   // Each export renders a PDF per receipt and writes a ZIP to storage.
   export: [
     { limit: 10, windowSeconds: 60 * 60 },

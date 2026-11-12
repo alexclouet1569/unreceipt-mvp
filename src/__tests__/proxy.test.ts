@@ -1,14 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+type CookieMethods = {
+  getAll: () => { name: string; value: string }[];
+  setAll: (
+    toSet: { name: string; value: string; options: Record<string, unknown> }[],
+    headers: Record<string, string>
+  ) => void;
+};
+
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
+  // The cookie methods the proxy handed to the last Supabase client, so a
+  // test can play the SDK rotating the session inside getUser().
+  cookies: null as CookieMethods | null,
 }));
 
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({
-    auth: { getUser: mocks.getUser },
-  }),
+  createServerClient: (_url: string, _key: string, opts: { cookies: CookieMethods }) => {
+    mocks.cookies = opts.cookies;
+    return { auth: { getUser: mocks.getUser } };
+  },
 }));
 
 vi.mock("@/lib/auth-admin", () => ({
@@ -247,5 +259,99 @@ describe("proxy — admin gate (preserved from PR #13)", () => {
     );
     expect(res.status).not.toBe(307);
     expect(res.status).not.toBe(403);
+  });
+});
+
+describe("proxy — session refresh", () => {
+  const NO_CACHE = {
+    "Cache-Control": "private, no-cache, no-store, must-revalidate, max-age=0",
+    Expires: "0",
+    Pragma: "no-cache",
+  };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    mocks.getUser.mockReset();
+    mocks.cookies = null;
+  });
+
+  // getUser() that rotates the session the way @supabase/ssr does.
+  const rotateOnGetUser = (email = "anna@example.se") =>
+    mocks.getUser.mockImplementation(async () => {
+      mocks.cookies!.setAll(
+        [
+          { name: "sb-test-auth-token", value: "new-session", options: { path: "/", maxAge: 400 } },
+          { name: "sb-test-auth-token.1", value: "", options: { path: "/", maxAge: 0 } },
+        ],
+        NO_CACHE
+      );
+      return { data: { user: { email } } };
+    });
+
+  const withSession = (url: string, host: string) => {
+    const req = buildRequest(url, host);
+    req.cookies.set("sb-test-auth-token", "old-session");
+    req.cookies.set("sb-test-auth-token.1", "old-chunk");
+    return req;
+  };
+
+  it("forwards the rotated cookies upstream on the request, and sets them on the response", async () => {
+    rotateOnGetUser();
+    const req = withSession("https://app.unreceipt.com/app", "app.unreceipt.com");
+    const res = await proxy(req);
+
+    // The request the page sees carries the new session, not the used-up one.
+    expect(req.cookies.get("sb-test-auth-token")?.value).toBe("new-session");
+    expect(req.cookies.has("sb-test-auth-token.1")).toBe(false);
+    expect(res.headers.get("x-middleware-override-headers")).toContain("cookie");
+    expect(res.headers.get("x-middleware-request-cookie")).toContain("sb-test-auth-token=new-session");
+    expect(res.headers.get("x-middleware-request-cookie")).not.toContain("old-session");
+
+    // The browser gets the same cookies, and no CDN may cache this response.
+    expect(res.cookies.get("sb-test-auth-token")?.value).toBe("new-session");
+    expect(res.headers.get("cache-control")).toBe(NO_CACHE["Cache-Control"]);
+  });
+
+  it("forwards no request headers when nothing was rotated", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null } });
+    const res = await proxy(withSession("https://app.unreceipt.com/app", "app.unreceipt.com"));
+    expect(res.headers.get("x-middleware-override-headers")).toBeNull();
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("keeps the rotated cookies on a cross-host redirect", async () => {
+    rotateOnGetUser();
+    const res = await proxy(withSession("https://unreceipt.com/subscribe", "unreceipt.com"));
+    expect(res.status).toBe(308);
+    expect(res.cookies.get("sb-test-auth-token")?.value).toBe("new-session");
+  });
+
+  it("does the same for an admin passing the gate", async () => {
+    rotateOnGetUser("founder@unreceipt.com");
+    const req = withSession("https://app.unreceipt.com/admin/pilot", "app.unreceipt.com");
+    const res = await proxy(req);
+    expect(res.status).toBe(200);
+    expect(mocks.getUser).toHaveBeenCalledTimes(1); // one rotation per request
+    expect(req.cookies.get("sb-test-auth-token")?.value).toBe("new-session");
+    expect(res.headers.get("x-middleware-request-cookie")).toContain("sb-test-auth-token=new-session");
+    expect(res.cookies.get("sb-test-auth-token")?.value).toBe("new-session");
+  });
+
+  it("still serves the page when the refresh throws", async () => {
+    mocks.getUser.mockRejectedValue(new Error("supabase down"));
+    const res = await proxy(withSession("https://app.unreceipt.com/app", "app.unreceipt.com"));
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("proxy — billing routes stay on the product host", () => {
+  it("redirects /api/billing from apex → app subdomain", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null } });
+    const res = await proxy(
+      buildRequest("https://unreceipt.com/api/billing/portal", "unreceipt.com")
+    );
+    expect(res.status).toBe(308);
+    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/api/billing/portal");
   });
 });

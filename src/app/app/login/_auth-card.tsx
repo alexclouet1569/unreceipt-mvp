@@ -50,13 +50,19 @@ type AuthCardProps = {
    * 6-digit code, because the email's button opens the browser, not the app.
    */
   inStoreApp?: boolean;
+  /**
+   * Where every way of signing in continues to (?next=, already checked by
+   * safeNext() on the server): the email link's callback, the password
+   * form and the code. Default /app.
+   */
+  next?: string;
 };
 
 type PendingCode = { email: string; purpose: "signup" | "signin" };
 type EntryFocus = "first" | "email" | null;
 type SignUpDetails = { fullName: string; companyName: string; password: string };
 
-export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = false }: AuthCardProps) {
+export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = false, next = "/app" }: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showLinkError, setShowLinkError] = useState(linkError);
   // Where focus goes when a form appears: its first field on page load, the
@@ -69,13 +75,13 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
   const [details, setDetails] = useState<SignUpDetails>({ fullName: "", companyName: "", password: "" });
   const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
 
-  const switchMode = (next: AuthMode) => {
-    setMode(next);
+  const switchMode = (to: AuthMode) => {
+    setMode(to);
     setEntryFocus(null);
     setShowLinkError(false);
-    // Keep the URL shareable and the back button honest.
+    // Keep the URL shareable and the back button honest (?next= stays).
     const url = new URL(window.location.href);
-    if (next === "signup") url.searchParams.set("mode", "signup");
+    if (to === "signup") url.searchParams.set("mode", "signup");
     else url.searchParams.delete("mode");
     url.searchParams.delete("error");
     window.history.replaceState(null, "", url);
@@ -99,13 +105,13 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
           getSupabaseClient().auth.resend({
             type: "signup",
             email: p.email,
-            options: { emailRedirectTo: callbackUrl() },
+            options: { emailRedirectTo: callbackUrl(next) },
           })
         )
       : callAuth("signInWithOtp", () =>
           getSupabaseClient().auth.signInWithOtp({
             email: p.email,
-            options: { emailRedirectTo: callbackUrl() },
+            options: { emailRedirectTo: callbackUrl(next) },
           })
         );
 
@@ -137,6 +143,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                 email={pendingCode.email}
                 purpose={pendingCode.purpose}
                 inStoreApp={inStoreApp}
+                next={next}
                 resend={resendFor(pendingCode)}
                 onChangeEmail={() => {
                   setPendingCode(null);
@@ -170,6 +177,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                     email={email}
                     setEmail={setEmail}
                     entryFocus={entryFocus}
+                    next={next}
                     onCodeSent={(e) => setPendingCode({ email: e, purpose: "signin" })}
                   />
                 ) : (
@@ -180,6 +188,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                     details={details}
                     setDetails={setDetails}
                     entryFocus={entryFocus}
+                    next={next}
                     onCodeSent={(e) => setPendingCode({ email: e, purpose: "signup" })}
                     onSignIn={() => switchMode("signin")}
                   />
@@ -338,11 +347,13 @@ function SignInPanel({
   setEmail,
   entryFocus,
   onCodeSent,
+  next,
 }: {
   email: string;
   setEmail: (v: string) => void;
   entryFocus: EntryFocus;
   onCodeSent: (email: string) => void;
+  next: string;
 }) {
   const ids = useId();
   const [view, setView] = useState<"password" | "code">("password");
@@ -382,8 +393,7 @@ function SignInPanel({
 
     setSubmit("done");
     // Full navigation so the server gate at /app reads the new cookie.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a hard load is the point
-    window.location.assign("/app");
+    window.location.assign(next);
   };
 
   const handleCode = async (e: React.FormEvent) => {
@@ -399,7 +409,7 @@ function SignInPanel({
     const { error } = await callAuth("signInWithOtp", () =>
       getSupabaseClient().auth.signInWithOtp({
         email: parsed.data,
-        options: { emailRedirectTo: callbackUrl() },
+        options: { emailRedirectTo: callbackUrl(next) },
       })
     );
     setSubmit("idle");
@@ -540,6 +550,7 @@ function SignUpPanel({
   entryFocus,
   onCodeSent,
   onSignIn,
+  next,
 }: {
   email: string;
   setEmail: (v: string) => void;
@@ -548,6 +559,7 @@ function SignUpPanel({
   entryFocus: EntryFocus;
   onCodeSent: (email: string) => void;
   onSignIn: () => void;
+  next: string;
 }) {
   const ids = useId();
   const { fullName, companyName, password } = details;
@@ -579,6 +591,7 @@ function SignUpPanel({
 
     setSubmit("loading");
     let hasSession = false;
+    let existingAccount = false;
     const { error } = await callAuth("signUp", async () => {
       const res = await getSupabaseClient().auth.signUp({
         email: parsed.data.email,
@@ -586,7 +599,7 @@ function SignUpPanel({
         options: {
           // The email's link lands on /auth/callback, which sets the session
           // cookie server-side and upserts public.profiles from this metadata.
-          emailRedirectTo: callbackUrl(),
+          emailRedirectTo: callbackUrl(next),
           data: {
             full_name: parsed.data.full_name,
             company_name: parsed.data.company_name || null,
@@ -594,6 +607,11 @@ function SignUpPanel({
         },
       });
       hasSession = Boolean(res.data?.session);
+      // An address that already has a confirmed account: Supabase answers
+      // without an error (so the reply doesn't reveal which addresses are
+      // registered) and with no identities, and sends no email. Showing the
+      // code step would wait for a code that never comes.
+      existingAccount = res.data?.user?.identities?.length === 0;
       return res;
     });
 
@@ -610,10 +628,16 @@ function SignUpPanel({
       return;
     }
 
+    if (existingAccount) {
+      setSubmit("idle");
+      setAlreadyRegistered(true);
+      return;
+    }
+
     // Projects with email confirmation off sign the person in right away.
     if (hasSession) {
       setSubmit("done");
-      await finishSignIn();
+      await finishSignIn(next);
       return;
     }
     setSubmit("idle");

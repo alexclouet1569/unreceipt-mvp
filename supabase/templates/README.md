@@ -37,8 +37,12 @@ Supabase → **Authentication → Emails → Templates**:
 
 `{{ .Token }}` (the 6-digit code) and `{{ .ConfirmationURL }}` (the link) are
 filled in by Supabase. The login page asks for the code first, so sign-up and
-"sign in with a code" finish in the same tab — the link stays as a fallback
-that also works on another device. Keep **Authentication → Providers → Email
+"sign in with a code" finish in the same tab. The code works on any device.
+The link is only a fallback for the browser that asked for the email: the
+browser client signs in with PKCE, so the link's sign-in finishes only where
+the PKCE verifier was stored. Opened on another device or in another browser,
+a sign-up link still confirms the address but signs nobody in there, and a
+sign-in link fails. The emails say so. Keep **Authentication → Providers → Email
 → Email OTP Length** at 6; `CODE_LENGTH` in `src/app/app/login/_auth-lib.ts`
 must match it.
 

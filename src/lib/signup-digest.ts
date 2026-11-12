@@ -129,6 +129,17 @@ export type SignupDigestResult =
   | { sent: false; reason: "no_signups" | "no_recipient" | "send_failed"; accounts: number; waitlist: number }
   | { sent: true; accounts: number; waitlist: number };
 
+/**
+ * True when there were sign-ups to report but the founder got no email: a
+ * failed send, or no founder address configured. The cron route answers
+ * 500 then, so the run shows as failed in Vercel instead of a quiet 200.
+ */
+export function digestFailed(
+  result: SignupDigestResult
+): result is Extract<SignupDigestResult, { sent: false }> {
+  return !result.sent && (result.reason === "send_failed" || result.reason === "no_recipient");
+}
+
 export async function runSignupDigest(now: Date = new Date()): Promise<SignupDigestResult> {
   const w = digestWindow(now);
   const { users, total } = await newAccounts(w);

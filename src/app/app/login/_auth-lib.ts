@@ -77,14 +77,17 @@ export function isRateLimited(error: AuthError): boolean {
   );
 }
 
-export function callbackUrl(): string {
-  return `${window.location.origin}/auth/callback?next=/app`;
+// `next` was already checked by safeNext() (src/app/auth/callback/safe-next.ts)
+// on the server; /auth/callback checks it again. Slashes stay readable.
+export function callbackUrl(next: string = "/app"): string {
+  const encoded = encodeURIComponent(next).replace(/%2F/gi, "/");
+  return `${window.location.origin}/auth/callback?next=${encoded}`;
 }
 
 // After a code (or a link in another tab) signs the person in: mirror their
 // sign-up details into their profile and queue the welcome email — the same
 // work /auth/callback does for links. Best-effort; never blocks the redirect.
-export async function finishSignIn(): Promise<void> {
+export async function finishSignIn(next: string = "/app"): Promise<void> {
   try {
     await withTimeout(
       "auth/finish",
@@ -95,8 +98,7 @@ export async function finishSignIn(): Promise<void> {
     /* the dashboard works without it */
   }
   // Full navigation so the server gate at /app reads the new cookie.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a hard load is the point
-  window.location.assign("/app");
+  window.location.assign(next);
 }
 
 // ─── Email helpers ──────────────────────────────────────────────────────────

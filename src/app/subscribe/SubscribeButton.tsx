@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * Plan picker + Subscribe. Each plan is one flat monthly price for the
- * whole company; /api/checkout bills the chosen plan.
+ * whole company; /api/checkout bills the chosen plan. `trial` is false for
+ * a returning customer: the free week is for the first subscription only.
  */
-export function SubscribeButton() {
+export function SubscribeButton({ trial = true }: { trial?: boolean }) {
   const [plan, setPlan] = useState<PlanId>("light");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,10 +88,12 @@ export function SubscribeButton() {
       <div className="space-y-2">
         <Button className="w-full gap-2" onClick={handleClick} disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          {loading ? "Starting checkout..." : "Start your free week"}
+          {loading ? "Starting checkout..." : trial ? "Start your free week" : "Subscribe"}
         </Button>
         <p className="text-[11px] text-muted-foreground text-center" data-testid="subscribe-total">
-          Free for 7 days, then {formatPrice(selected.price)}/month excl. VAT. Cancel anytime.
+          {trial
+            ? `Free for 7 days, then ${formatPrice(selected.price)}/month excl. VAT. Cancel anytime.`
+            : `${formatPrice(selected.price)}/month excl. VAT. Cancel anytime.`}
         </p>
         {error ? (
           <p className="text-xs text-destructive text-center">{error}</p>

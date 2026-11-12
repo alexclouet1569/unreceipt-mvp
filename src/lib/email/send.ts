@@ -6,6 +6,8 @@
 // to the founder (first address in CONCIERGE_ADMIN_EMAILS) because
 // unreceipt.com itself has no inbox.
 
+import * as Sentry from "@sentry/nextjs";
+
 const RESEND_URL = "https://api.resend.com/emails";
 
 export const FROM_ADDRESS = "UnReceipt <hello@unreceipt.com>";
@@ -50,6 +52,7 @@ export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn(`[email] RESEND_API_KEY missing — ${email.tag} email not sent`);
+    reportSendFailure(email.tag, "not_configured");
     return { ok: false, reason: "not_configured" };
   }
 
@@ -76,6 +79,7 @@ export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[email] Resend rejected ${email.tag} email:`, res.status, body);
+      reportSendFailure(email.tag, "rejected", res.status);
       return { ok: false, reason: "rejected", status: res.status };
     }
 
@@ -83,6 +87,22 @@ export async function sendEmail(email: OutgoingEmail): Promise<SendResult> {
     return { ok: true, id: json?.id ?? null };
   } catch (err) {
     console.error(`[email] Resend unreachable for ${email.tag} email:`, err);
+    reportSendFailure(email.tag, "network");
     return { ok: false, reason: "network" };
   }
+}
+
+// Sentry gets the flow, the reason and Resend's status code only: never the
+// recipient, subject, body or Resend's reply (which can echo the address).
+// AGENTS.md "Error monitoring".
+function reportSendFailure(
+  tag: OutgoingEmail["tag"],
+  reason: "not_configured" | "rejected" | "network",
+  status?: number
+) {
+  Sentry.captureMessage(`Email not sent: ${tag} (${reason})`, {
+    level: reason === "not_configured" ? "warning" : "error",
+    tags: { area: "email", tag, reason },
+    ...(status !== undefined ? { extra: { status } } : {}),
+  });
 }

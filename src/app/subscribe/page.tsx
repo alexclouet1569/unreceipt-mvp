@@ -5,6 +5,8 @@ import { Receipt, Check, ArrowRight } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import { isPilotMode } from "@/lib/pilot";
 import { getNativeApp } from "@/lib/native-app-server";
+import { loadBillingAccount, type BillingAccount } from "@/lib/stripe-billing";
+import { ManageBillingButton } from "@/app/app/(authed)/settings/ManageBillingButton";
 import { SubscribeButton } from "./SubscribeButton";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,21 @@ export default async function SubscribePage({
     return <StoreAppAccountScreen pilot={pilot} email={user.email ?? null} />;
   }
 
+  // Best-effort: on an error the plans show as for a new customer, and
+  // /api/checkout (which fails closed) still refuses a second subscription.
+  const billing: BillingAccount | null = await loadBillingAccount(user.id).catch((err) => {
+    console.error("[/subscribe] billing lookup failed", err);
+    return null;
+  });
+  // The free week is for the first subscription only (/api/checkout).
+  const trial = !billing?.hadSubscription;
+  const bullets = [
+    ...(trial ? ["First week free on every plan"] : []),
+    "Forward receipts to your private address",
+    "VAT-ready records in your dashboard within 24h",
+    "Cancel anytime — no questions asked",
+  ];
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -47,12 +64,7 @@ export default async function SubscribePage({
         <Card>
           <CardContent className="py-6 px-6 space-y-5">
             <ul className="space-y-2.5">
-              {[
-                "First week free on every plan",
-                "Forward receipts to your private address",
-                "VAT-ready records in your dashboard within 24h",
-                "Cancel anytime — no questions asked",
-              ].map((line) => (
+              {bullets.map((line) => (
                 <li
                   key={line}
                   className="flex items-start gap-2 text-sm text-foreground"
@@ -69,7 +81,24 @@ export default async function SubscribePage({
               </p>
             ) : null}
 
-            {pilot ? (
+            {billing?.hasLiveSubscription ? (
+              // Already subscribed: never a second Checkout (it would bill
+              // twice). Plan changes and cancelling go through Stripe.
+              <div className="space-y-3">
+                <p className="text-sm text-foreground">
+                  You already have a plan. Change it, update your card or
+                  cancel in billing.
+                </p>
+                <ManageBillingButton />
+                <Link
+                  href="/app"
+                  className="inline-flex w-full items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Continue to dashboard
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : pilot ? (
               <div className="space-y-3">
                 <p className="text-sm text-[var(--attention-deep)] bg-[var(--attention-tint)] border border-[var(--attention)] rounded-md px-3 py-2.5">
                   We&apos;re running a free pilot right now — no subscription
@@ -85,7 +114,7 @@ export default async function SubscribePage({
                 </Link>
               </div>
             ) : (
-              <SubscribeButton />
+              <SubscribeButton trial={trial} />
             )}
 
             <p className="text-[11px] text-muted-foreground text-center">

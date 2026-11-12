@@ -17,6 +17,8 @@ import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
 import { AccountantSection } from "./AccountantSection";
 import { CurrencySetting } from "./CurrencySetting";
+import { ManageBillingButton } from "./ManageBillingButton";
+import { loadBillingAccount } from "@/lib/stripe-billing";
 import { homeCurrencyOf } from "@/lib/fx";
 import { getDefaultOrganizationId } from "@/lib/organizations";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
@@ -54,6 +56,18 @@ async function loadFirmNotice(userId: string): Promise<string | null> {
   }
 }
 
+// The Stripe customer behind "Manage billing". Best-effort: on an error
+// the section is left out rather than breaking Settings.
+async function loadBillingCustomer(userId: string): Promise<string | null> {
+  try {
+    return (await loadBillingAccount(userId)).customerId;
+  } catch (err) {
+    console.error("[/app/settings] billing lookup failed", err);
+    Sentry.captureException(err, { tags: { area: "settings-billing" } });
+    return null;
+  }
+}
+
 async function loadUsage(userId: string): Promise<Usage | null> {
   try {
     return await getUsage(userId);
@@ -77,6 +91,7 @@ export default async function SettingsPage() {
     firmNotice,
     nativeApp,
     firm,
+    billingCustomer,
   ] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
@@ -91,6 +106,7 @@ export default async function SettingsPage() {
       Sentry.captureException(err, { tags: { area: "settings-firm-link" } });
       return null;
     }),
+    loadBillingCustomer(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
@@ -183,6 +199,24 @@ export default async function SettingsPage() {
               suggestion={planSuggestion(usage)}
               hidePrices={Boolean(nativeApp)}
             />
+          </section>
+        ) : null}
+
+        {/* Website only: the store apps point to no purchase management
+            (App Store 3.1.3(f)), and /api/billing/portal refuses them too. */}
+        {billingCustomer && !nativeApp ? (
+          <section aria-labelledby="billing-heading">
+            <SectionLabel id="billing-heading">Billing</SectionLabel>
+            <div
+              className="bg-card space-y-3"
+              style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
+            >
+              <p className="type-body text-[var(--ink-muted)]">
+                Change your plan, update your card, download invoices or
+                cancel. Opens Stripe, our payment provider.
+              </p>
+              <ManageBillingButton />
+            </div>
           </section>
         ) : null}
 

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { syncProfile } from "@/lib/profile-sync";
 import { scheduleWelcomeEmail } from "@/lib/welcome-email";
+import { safeNext } from "./safe-next";
 
 // The magic-link / OAuth-callback handler. Supabase appends `?code=…` to
 // emailRedirectTo; this route exchanges that code for a session and writes
@@ -17,17 +18,7 @@ import { scheduleWelcomeEmail } from "@/lib/welcome-email";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SAFE_NEXT_RE = /^\/[a-zA-Z0-9_\-/?=&%.]*$/;
-
-function safeNext(raw: string | null): string {
-  // Only allow same-origin paths starting with "/" to avoid open-redirect.
-  if (!raw) return "/app";
-  if (!SAFE_NEXT_RE.test(raw)) return "/app";
-  // "//evil.com" passes the regex but is a protocol-relative URL — the
-  // browser resolves it to another host.
-  if (raw.startsWith("//")) return "/app";
-  return raw;
-}
+// Only same-origin paths (shared with /app/login, ./safe-next.ts).
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
