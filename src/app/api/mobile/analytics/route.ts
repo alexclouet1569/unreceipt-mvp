@@ -7,7 +7,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
-import { AnalyticsInputError, loadAnalytics, periodFromParams, todayInStockholm } from "@/lib/analytics/load";
+import { AnalyticsInputError, analyticsAccess, loadAnalytics, periodFromParams, todayInStockholm } from "@/lib/analytics/load";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -33,11 +33,15 @@ export async function GET(request: Request) {
     throw err;
   }
 
+  // The access checks (three small reads) run beside the rate limit instead
+  // of after it; the heavy read still waits for the limit's answer.
+  const accessing = analyticsAccess(user);
+  accessing.catch(() => {}); // Read below, inside the try.
   const limited = await rateLimit("analytics", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   try {
-    const body = await loadAnalytics(user, period, today);
+    const body = await loadAnalytics(user, period, today, await accessing);
     return NextResponse.json(body, { headers: NO_STORE });
   } catch (err) {
     console.error("[/api/mobile/analytics] failed", err);

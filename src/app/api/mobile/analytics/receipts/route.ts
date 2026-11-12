@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import {
   AnalyticsInputError,
+  analyticsAccess,
   drillFilterFromParams,
   loadDrillReceipts,
   periodFromParams,
@@ -42,11 +43,15 @@ export async function GET(request: Request) {
     throw err;
   }
 
+  // The access checks (three small reads) run beside the rate limit instead
+  // of after it; the heavy read still waits for the limit's answer.
+  const accessing = analyticsAccess(user);
+  accessing.catch(() => {}); // Read below, inside the try.
   const limited = await rateLimit("analytics", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   try {
-    const result = await loadDrillReceipts(user, period, filter);
+    const result = await loadDrillReceipts(user, period, filter, await accessing);
     if ("state" in result) {
       return NextResponse.json({ error: result.state }, { status: 403, headers: NO_STORE });
     }

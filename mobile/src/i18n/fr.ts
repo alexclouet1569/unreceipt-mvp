@@ -2,6 +2,9 @@ import type { Strings } from "./en";
 
 export const fr: Strings = {
   common: {
+    updateReady: "Une nouvelle version est prête",
+    updateLater: "Plus tard",
+    updateRestart: "Redémarrer",
     retry: "Réessayer",
     cancel: "Annuler",
     copy: "Copier",

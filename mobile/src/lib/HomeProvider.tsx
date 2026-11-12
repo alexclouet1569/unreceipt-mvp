@@ -49,6 +49,8 @@ type HomeState = {
 
 export type ReadyHome = Extract<MobileHome, { state: "ready" }>;
 
+const rowOrder = (h: ReadyHome) => h.receipts.map((r) => r.id).join(",");
+
 const HomeContext = createContext<HomeState | null>(null);
 
 export function HomeProvider({ children }: { children: React.ReactNode }) {
@@ -130,15 +132,20 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
 
   const mutateHome = useCallback<HomeState["mutateHome"]>(
     (change) => {
+      const current = homeRef.current;
+      if (!current || current.state !== "ready") return;
       version.current += 1;
-      // Rows slide into their new places (iOS's own animation).
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setHome((current) => {
-        if (!current || current.state !== "ready") return current;
-        const next = change(current);
-        if (userId) void writeHome(userId, next);
-        return next;
-      });
+      const next = change(current);
+      // The latest value at once, so two changes in one tick both land.
+      homeRef.current = next;
+      // Rows slide into their new places (iOS's own animation), only when
+      // rows come, go or move: LayoutAnimation animates the next layout
+      // anywhere in the app, and an edited field doesn't need it.
+      if (rowOrder(current) !== rowOrder(next)) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+      setHome(next);
+      if (userId) void writeHome(userId, next);
     },
     [userId],
   );

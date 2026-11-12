@@ -19,6 +19,7 @@ import { durations, fonts, radius, space, makeStyles, useColors } from "../theme
 import { ApiError, apiResponse } from "./api";
 import { applyPatch, type ReceiptPatch } from "./edits";
 import { useHome } from "./HomeProvider";
+import { onBeforeRestart } from "./useAppUpdates";
 
 const UNDO_MS = 5_000;
 // With VoiceOver, finding Undo takes longer (WCAG 2.2.1).
@@ -194,6 +195,19 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
     void Haptics.selectionAsync();
     AccessibilityInfo.announceForAccessibility(s.edit.restored);
   }, [mutateReceipts, mutateExtra]);
+
+  // Restarting on an update ends the Undo window too: the delete is sent
+  // before the app reloads, or the receipt would quietly come back.
+  useEffect(
+    () =>
+      onBeforeRestart(async () => {
+        const pending = deleting.current;
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        await sendDelete(pending);
+      }),
+    [sendDelete],
+  );
 
   // Leaving the app ends the Undo window: send the delete now.
   useEffect(() => {
