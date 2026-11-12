@@ -183,7 +183,10 @@ describe("buildExport", () => {
       missing: 0,
       parts: [],
     });
-    expect(state.orFilter).toContain("purchased_at.gte.2026-10-01");
+    expect(state.orFilter).toBe(
+      "and(receipt_date.gte.2026-10-01,receipt_date.lt.2026-11-01)," +
+        "and(receipt_date.is.null,purchased_at.gte.2026-10-01T00:00:00Z,purchased_at.lt.2026-11-01T00:00:00Z)",
+    );
     expect(state.uploads).toEqual([]);
   });
 
@@ -247,8 +250,10 @@ describe("buildExport", () => {
 
     expect(state.removed).toEqual([[`${USER_ID}/self-old.zip`]]);
     expect(res.missing).toBe(1);
-    expect(state.orFilter).toContain("purchased_at.gte.2026-01-01");
-    expect(state.orFilter).toContain("purchased_at.lt.2027-01-01");
+    expect(state.orFilter).toBe(
+      "and(receipt_date.gte.2026-01-01,receipt_date.lt.2027-01-01)," +
+        "and(receipt_date.is.null,purchased_at.gte.2026-01-01T00:00:00Z,purchased_at.lt.2027-01-01T00:00:00Z)",
+    );
   });
 
   it("exports one client company for a firm: bookkeeping.csv, owner-folder files, stamped after upload", async () => {

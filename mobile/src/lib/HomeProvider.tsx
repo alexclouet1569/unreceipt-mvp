@@ -11,7 +11,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState, LayoutAnimation } from "react-native";
 import type { MobileHome, MobileReceipt } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
-import { ApiError, getHome } from "./api";
+import { ApiError, getHome, getOlderReceipts } from "./api";
 import { readHome, writeHome } from "./cache";
 
 type HomeState = {
@@ -19,6 +19,8 @@ type HomeState = {
   /** The last refresh failed; `home` (if any) is the saved copy. */
   error: "offline" | "server" | null;
   refreshing: boolean;
+  /** The server has answered since the app started (not only the saved copy). */
+  fromServer: boolean;
   /** True until the first answer (server or cache) is known. */
   loading: boolean;
   refresh: () => Promise<void>;
@@ -34,6 +36,14 @@ type HomeState = {
   extra: MobileReceipt[];
   rememberReceipts: (receipts: MobileReceipt[]) => void;
   mutateExtra: (change: (receipts: MobileReceipt[]) => MobileReceipt[]) => void;
+  /**
+   * "Load more" at the end of the list: the ids of the older receipts
+   * loaded so far, in the list's order (the rows themselves live in
+   * `extra`, so they open, change and delete like any other, and never
+   * count in the totals: those come from the server's summary).
+   */
+  older: { ids: string[]; hasMore: boolean; loading: boolean; failed: boolean };
+  loadOlder: () => Promise<void>;
 };
 
 export type ReadyHome = Extract<MobileHome, { state: "ready" }>;
@@ -46,8 +56,17 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<HomeState["error"]>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fromServer, setFromServer] = useState(false);
   const [extra, setExtra] = useState<MobileReceipt[]>([]);
+  const [olderIds, setOlderIds] = useState<string[]>([]);
+  const [olderMore, setOlderMore] = useState<boolean | null>(null);
+  const [olderLoading, setOlderLoading] = useState(false);
+  const [olderFailed, setOlderFailed] = useState(false);
   const inFlight = useRef<Promise<void> | null>(null);
+  // The latest values, for the refresh (which outlives a render).
+  const homeRef = useRef(home);
+  homeRef.current = home;
+  const olderIdsRef = useRef<string[]>([]);
   // Bumped by every local change.
   const version = useRef(0);
 
@@ -64,7 +83,19 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
           const startedAt = version.current;
           const next = await getHome();
           if (version.current !== startedAt) continue;
+          // With older pages loaded, receipts pushed out of the newest 50 by
+          // new ones move to the top of those pages instead of vanishing.
+          const prev = homeRef.current;
+          if (olderIdsRef.current.length > 0 && prev?.state === "ready" && next.state === "ready") {
+            const now = new Set(next.receipts.map((r) => r.id));
+            const pushed = prev.receipts.filter((r) => !now.has(r.id));
+            if (pushed.length > 0 && next.receipts.length >= prev.receipts.length) {
+              rememberReceipts(pushed);
+              setOlderIds((ids) => [...pushed.map((r) => r.id).filter((id) => !ids.includes(id)), ...ids]);
+            }
+          }
           setHome(next);
+          setFromServer(true);
           setError(null);
           void writeHome(userId, next);
           return;
@@ -85,6 +116,7 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     })();
     inFlight.current = run;
     return run;
+    // rememberReceipts is stable (no dependencies), so it isn't listed.
   }, [userId, signOut]);
 
   const mutateHome = useCallback<HomeState["mutateHome"]>(
@@ -117,6 +149,49 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
 
   const mutateExtra = useCallback<HomeState["mutateExtra"]>((change) => setExtra((current) => change(current)), []);
 
+  olderIdsRef.current = olderIds;
+  // Before the first page: more exist when the server counted receipts
+  // beyond the list.
+  const serverHasOlder = home?.state === "ready" ? (home.older?.count ?? 0) > 0 : false;
+  const hasMoreOlder = olderMore ?? serverHasOlder;
+  const loadingOlder = useRef(false);
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder.current || !hasMoreOlder || home?.state !== "ready") return;
+    // The page starts after the last receipt shown (keyset, not a count:
+    // a receipt added or deleted meanwhile never makes one go missing).
+    const byId = new Map(extra.map((r) => [r.id, r]));
+    const shown = [...home.receipts, ...olderIds.flatMap((id) => byId.get(id) ?? [])];
+    const after = shown[shown.length - 1]?.listKey;
+    if (!after) {
+      // A list saved by an older version of the app: fetch it again first.
+      setOlderFailed(true);
+      void refresh();
+      return;
+    }
+    loadingOlder.current = true;
+    setOlderLoading(true);
+    setOlderFailed(false);
+    try {
+      const page = await getOlderReceipts(after);
+      rememberReceipts(page.receipts);
+      setOlderIds((ids) => {
+        // A receipt added meanwhile shifts the pages by one: no repeats.
+        const known = new Set(ids);
+        return [...ids, ...page.receipts.map((r) => r.id).filter((id) => !known.has(id))];
+      });
+      setOlderMore(page.hasMore);
+    } catch (err) {
+      if (err instanceof ApiError && err.kind === "unauthorized") {
+        await signOut({ keepScans: true });
+        return;
+      }
+      setOlderFailed(true);
+    } finally {
+      loadingOlder.current = false;
+      setOlderLoading(false);
+    }
+  }, [hasMoreOlder, home, extra, olderIds, rememberReceipts, signOut, refresh]);
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -134,14 +209,21 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
       alive = false;
       sub.remove();
       setExtra([]);
+      setOlderIds([]);
+      setOlderMore(null);
+      setFromServer(false);
     };
   }, [userId, refresh]);
 
   // A new value only when something in it changed: every screen reading
   // the home data re-renders on each change of this object.
+  const older = useMemo(
+    () => ({ ids: olderIds, hasMore: hasMoreOlder, loading: olderLoading, failed: olderFailed }),
+    [olderIds, hasMoreOlder, olderLoading, olderFailed],
+  );
   const value = useMemo(
-    () => ({ home, error, refreshing, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra }),
-    [home, error, refreshing, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra],
+    () => ({ home, error, refreshing, fromServer, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra, older, loadOlder }),
+    [home, error, refreshing, fromServer, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra, older, loadOlder],
   );
   return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;
 }

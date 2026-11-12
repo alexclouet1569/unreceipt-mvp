@@ -8,7 +8,7 @@ import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { EMPTY_STATS, adjacentMonths, monthLabel, type ClientStats } from "@/lib/firm/client-stats";
-import { formatDate } from "@/lib/receipt-format";
+import { formatInstantDate } from "@/lib/receipt-format";
 import type { FirmClient, FirmMemberRole, Receipt } from "@/lib/types";
 import { AddClientDialog } from "./clients/AddClientDialog";
 import { RevokeInviteButton } from "./clients/RevokeInviteButton";
@@ -144,7 +144,7 @@ export function ClientsView({
                   {p.client_name}
                 </span>
                 <span className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-                  {p.invited_email} · invited {formatDate(p.created_at)}
+                  {p.invited_email} · invited {formatInstantDate(p.created_at)}
                   {p.expired ? " · link expired" : ""}
                 </span>
                 <span className="ml-auto">
@@ -211,7 +211,7 @@ function ClientTable({
                 <td className={num}>{s.ready}</td>
                 <td className={num}>{s.exported}</td>
                 <td className={cell + " text-[var(--ink-muted)]"}>
-                  {s.lastReceiptAt ? formatDate(s.lastReceiptAt) : "—"}
+                  {s.lastReceiptAt ? formatInstantDate(s.lastReceiptAt) : "—"}
                 </td>
               </tr>
             );

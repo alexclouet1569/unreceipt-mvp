@@ -3,6 +3,7 @@
 // public demo (/demo/accountant) feed it rows and render the same view.
 
 import type { BankTransaction, Receipt } from "@/lib/types";
+import { printedDay } from "@/lib/receipts/printed-day";
 import { DAYS_AFTER, DAYS_BEFORE, matchTransactions, type MatchReceipt, type MatchTransaction, type TransactionState } from "./match";
 
 export type BankLineView = {
@@ -41,19 +42,13 @@ export type BankMonthView = {
   incompleteReceipts: number;
 };
 
-/** YYYY-MM-DD of a receipt: the date printed on it, else the purchase time in Stockholm. */
-export function receiptDay(r: Pick<Receipt, "receipt_date" | "purchased_at">): string | null {
-  if (r.receipt_date && /^\d{4}-\d{2}-\d{2}$/.test(r.receipt_date)) return r.receipt_date;
-  if (!r.purchased_at) return null;
-  const d = new Date(r.purchased_at);
-  if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Europe/Stockholm",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
+/**
+ * YYYY-MM-DD of a receipt: the date printed on it (src/lib/receipts/
+ * printed-day.ts). purchased_at is the receipt's own clock written with a
+ * "Z", so it is never shifted into Stockholm time: that moved evening
+ * receipts to the next day, out of the bank line's window or month.
+ */
+export const receiptDay = (r: Pick<Receipt, "receipt_date" | "purchased_at">): string | null => printedDay(r);
 
 function addDays(day: string, n: number): string {
   const d = new Date(`${day}T00:00:00Z`);

@@ -215,14 +215,11 @@ export function mergeExtraction(
     /^\d{4}-\d{2}-\d{2}$/.test(fresh.receipt_date)
   ) {
     writeIfBetter("receipt_date", fresh.receipt_date);
-    // Keep purchased_at aligned to the receipt_date (noon UTC), matching
-    // the convention from /api/capture so dashboard sorting stays stable.
-    const purchasedAt = `${fresh.receipt_date}T12:00:00.000Z`;
-    if (
-      !editedByCustomer.has("receipt_date") &&
-      (existing.purchased_at == null || winsOnConfidence)
-    ) {
-      patch.purchased_at = purchasedAt;
+    // The two date columns move together (noon UTC, the /api/capture
+    // convention): a receipt_date written next to an older purchased_at
+    // would give the receipt two days (src/lib/receipts/printed-day.ts).
+    if ("receipt_date" in patch) {
+      patch.purchased_at = `${fresh.receipt_date}T12:00:00.000Z`;
       if (!changed.includes("purchased_at")) changed.push("purchased_at");
     }
   }

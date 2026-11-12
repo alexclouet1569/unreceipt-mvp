@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { formatDate } from "@/lib/receipt-format";
+import { formatInstantDate } from "@/lib/receipt-format";
 import { requireAdminPage } from "@/lib/require-admin";
 import { paymentsReadiness } from "@/lib/payments-readiness";
 import { PaymentsReadinessPanel } from "./_payments-readiness";
@@ -155,7 +155,7 @@ export default async function AdminCustomerListPage() {
                         {c.receipt_count === 1 ? "" : "s"}
                         {" · "}
                         {c.last_activity_iso
-                          ? `last on ${formatDate(c.last_activity_iso)}`
+                          ? `last on ${formatInstantDate(c.last_activity_iso)}`
                           : "no receipts yet"}
                       </p>
                     </div>

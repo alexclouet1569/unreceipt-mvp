@@ -14,6 +14,7 @@
 
 import type { MoneyLine } from "@/lib/mobile/types";
 import type { Receipt } from "@/lib/types";
+import { printedDay } from "@/lib/receipts/printed-day";
 
 export const ANALYTICS_TIME_ZONE = "Europe/Stockholm";
 
@@ -69,14 +70,8 @@ export function stockholmDay(instant: Date): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-/** The printed purchase day, or null when the receipt has no date. */
-export function purchaseDay(r: Pick<Receipt, "purchased_at" | "receipt_date">): string | null {
-  for (const v of [r.receipt_date, r.purchased_at]) {
-    const d = v?.slice(0, 10);
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-  }
-  return null;
-}
+/** The printed purchase day, or null when the receipt has no date (src/lib/receipts/printed-day.ts). */
+export const purchaseDay = printedDay;
 
 export type Contribution =
   | { kind: "home"; amount: number; estimate: boolean }

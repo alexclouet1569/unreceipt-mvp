@@ -1,5 +1,6 @@
 "use client";
 
+import { printedDay } from "@/lib/receipts/printed-day";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -454,8 +455,7 @@ function optionalDecimal(
 }
 
 function deriveFormState(receipt: Receipt): EditFormState {
-  const isoDate =
-    receipt.purchased_at?.slice(0, 10) ?? receipt.receipt_date ?? "";
+  const isoDate = printedDay(receipt) ?? "";
   return {
     merchant: receipt.merchant_name ?? "",
     amount: receipt.total != null ? String(receipt.total) : "",

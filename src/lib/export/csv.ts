@@ -8,6 +8,7 @@
  * and notes can come from forwarded emails, i.e. from strangers.
  */
 
+import { printedDay } from "@/lib/receipts/printed-day";
 import { CATEGORY_CONFIG } from "@/lib/receipt-format";
 import { editedBy } from "@/lib/receipts/edits";
 import type { Receipt } from "@/lib/types";
@@ -76,17 +77,14 @@ function csvNumber(value: number | string | null | undefined): string {
 }
 
 /**
- * The purchase date as YYYY-MM-DD in Swedish time: an email receipt paid
- * at 00:30 in Stockholm is stored as the previous day in UTC.
+ * The date the receipt is booked on: the printed day (src/lib/receipts/
+ * printed-day.ts), the same day that decides the export's period.
+ * purchased_at is the receipt's own clock written with a "Z"; shifting it
+ * into Stockholm time put a receipt printed 31 March 23:30 on 1 April, in
+ * the next VAT quarter.
  */
 export function receiptDate(r: Pick<Receipt, "purchased_at" | "receipt_date">): string {
-  if (r.purchased_at) {
-    const d = new Date(r.purchased_at);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
-    }
-  }
-  return (r.receipt_date ?? "").slice(0, 10);
+  return printedDay(r) ?? "";
 }
 
 function stockholmDateTime(iso: string | null | undefined): string {

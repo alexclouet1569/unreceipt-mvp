@@ -14,6 +14,7 @@
 // the accounting firm linked to the receipt's company. Storage paths are
 // checked against the OWNER's folder (never the actor's) before signing.
 
+import { printedDay } from "@/lib/receipts/printed-day";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
@@ -65,7 +66,7 @@ function filenameFor(receipt: Receipt, kind: ReceiptOriginalKind): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40) || "receipt";
-  const date = receipt.purchased_at?.slice(0, 10) ?? receipt.receipt_date ?? "";
+  const date = printedDay(receipt) ?? "";
   const ext = (() => {
     switch (kind) {
       case "image/jpeg":
