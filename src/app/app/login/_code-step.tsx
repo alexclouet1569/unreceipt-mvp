@@ -108,7 +108,9 @@ export function CodeStep({
       clearInterval(t);
       document.removeEventListener("visibilitychange", check);
     };
-    // complete() only reads refs, stable setters and `next` (fixed per page).
+    // complete() only reads refs, stable setters and `next` (fixed per page),
+    // so re-subscribing on each render would only restart the poll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
   const handleResend = async () => {
