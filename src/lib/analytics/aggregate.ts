@@ -64,7 +64,9 @@ export function buildAnalytics(
     lastYear: comparable(period.lastYear) ? sumOf(period.lastYear) : null,
   };
 
-  const bucketRanges = bucketsFor(period, period.granularity);
+  // A month's weeks are 7-day blocks from the 1st, so it lines up with the month before.
+  const blocks = period.kind === "month";
+  const bucketRanges = bucketsFor(period, period.granularity, blocks);
   const buckets = bucketRanges.map((b) => ({ ...b, amount: 0, count: 0 }));
   for (const d of inPeriod) {
     const i = bucketIndex(bucketRanges, d.day);
@@ -77,7 +79,7 @@ export function buildAnalytics(
 
   let previousBuckets: number[] = [];
   if (hasPrevious) {
-    const prevRanges = bucketsFor(period.previous, period.granularity);
+    const prevRanges = bucketsFor(period.previous, period.granularity, blocks);
     previousBuckets = prevRanges.map(() => 0);
     for (const d of dated) {
       if (!within(d.day, period.previous)) continue;

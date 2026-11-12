@@ -87,7 +87,7 @@ export function daysBetween(from: string, to: string): number {
 const INTL_LOCALE = { en: "en-GB", sv: "sv-SE", fr: "fr-FR" } as const;
 
 const asDate = (day: string) => new Date(`${day}T12:00:00Z`);
-const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+export const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 function fmt(day: string, locale: Locale, options: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...options }).format(asDate(day));
@@ -155,13 +155,6 @@ export function percentText(points: number, locale: Locale): string {
   return new Intl.NumberFormat(INTL_LOCALE[locale], { style: "percent", maximumFractionDigits: 1 }).format(points / 100);
 }
 
-/** A month's long name ("September", "September 2025" in another year than `today`). */
-export function monthName(day: string, today: string, locale: Locale): string {
-  return capital(
-    fmt(day, locale, day.slice(0, 4) === today.slice(0, 4) ? { month: "long" } : { month: "long", year: "numeric" }),
-  );
-}
-
 /** A piece of a sentence: words in Manrope, amounts in Geist Mono (DESIGN.md). */
 export type Part = { text: string; money?: boolean };
 
@@ -189,18 +182,24 @@ export function fillParts(template: string, words: Record<string, string | numbe
 
 export const partsText = (parts: Part[]) => parts.map((p) => p.text).join("");
 
-/** Running totals, for the month's pace line. */
-export function cumulative(values: number[]): number[] {
-  let sum = 0;
-  return values.map((v) => {
-    sum += v;
-    return Math.round(sum * 100) / 100;
-  });
-}
-
-/** A bar's name under the chart and for VoiceOver: "12", "w 45"/"5 Oct", "Nov". */
-export function bucketLabel(b: Pick<AnalyticsBucket, "from">, g: AnalyticsGranularity, locale: Locale, long = false): string {
+/**
+ * A bar's name under the chart and for VoiceOver: "12", "1–7" (a month's
+ * 7-day block), "5 Oct" (a Monday week of a quarter or chosen dates), "Nov".
+ */
+export function bucketLabel(
+  b: Pick<AnalyticsBucket, "from" | "to">,
+  g: AnalyticsGranularity,
+  locale: Locale,
+  long = false,
+  // The bars are a month's 7-day blocks: name them by their days. A Monday
+  // week (quarter, chosen dates) keeps its month even inside one month.
+  monthBlocks = false,
+): string {
   if (g === "day") return long ? fmt(b.from, locale, { day: "numeric", month: "long" }) : String(Number(b.from.slice(8, 10)));
+  if (g === "week" && monthBlocks) {
+    const days = b.from === b.to ? String(Number(b.from.slice(8, 10))) : `${Number(b.from.slice(8, 10))}–${Number(b.to.slice(8, 10))}`;
+    return long ? `${days} ${fmt(b.from, locale, { month: "long" })}` : days;
+  }
   if (g === "week") return fmt(b.from, locale, long ? { day: "numeric", month: "long" } : { day: "numeric", month: "short" });
   return capital(fmt(b.from, locale, long ? { month: "long", year: "numeric" } : { month: "short" }));
 }

@@ -76,7 +76,20 @@ export type PeriodInput = {
  * The period asked for, or null when the input is malformed. Without an
  * anchor, the period that contains `today`.
  */
+/** Years a period may name: any real receipt, never a malformed date. */
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2999;
+const yearOk = (y: number) => y >= MIN_YEAR && y <= MAX_YEAR;
+
 export function resolvePeriod(input: PeriodInput, today: string): ResolvedPeriod | null {
+  const period = resolvePeriodUnchecked(input, today);
+  if (!period) return null;
+  // The comparison ranges may reach a year back (1899): still real dates.
+  const years = [period.from, period.to].map((d) => Number(d.slice(0, 4)));
+  return years.every(yearOk) ? period : null;
+}
+
+function resolvePeriodUnchecked(input: PeriodInput, today: string): ResolvedPeriod | null {
   const kind = (input.kind ?? "month") as AnalyticsPeriodKind;
   const [ty, tm] = today.split("-").map(Number);
   const anchor = input.anchor ?? null;
@@ -98,7 +111,9 @@ export function resolvePeriod(input: PeriodInput, today: string): ResolvedPeriod
       ...range,
       previous: monthRange(py, pm),
       lastYear: monthRange(y - 1, m),
-      granularity: "day",
+      // Weekly bars, in blocks of 7 days from the 1st (founder's choice,
+      // 2026-11-12: daily bars or a running total read as confusing).
+      granularity: "week",
     };
   }
 
@@ -166,14 +181,19 @@ export type Bucket = { from: string; to: string };
 /**
  * The bars of a range: days, Monday-to-Sunday weeks, or calendar months,
  * clipped to the range so the first and last bar may be partial.
+ * `fromStart`: weeks are 7-day blocks from the range's first day instead
+ * (a month: 1–7, 8–14, 15–21, 22–28, 29–end), so two months line up bar
+ * for bar; the last block has 1–3 days (none in a 28-day February).
  */
-export function bucketsFor(range: AnalyticsRange, granularity: AnalyticsGranularity): Bucket[] {
+export function bucketsFor(range: AnalyticsRange, granularity: AnalyticsGranularity, fromStart = false): Bucket[] {
   const out: Bucket[] = [];
   let cursor = range.from;
   let guard = 0;
   while (cursor <= range.to && guard++ < 1000) {
     let end: string;
-    if (granularity === "day") {
+    if (granularity === "week" && fromStart) {
+      end = addDays(cursor, 6);
+    } else if (granularity === "day") {
       end = cursor;
     } else if (granularity === "week") {
       const weekday = new Date(`${cursor}T00:00:00Z`).getUTCDay(); // 0 = Sunday

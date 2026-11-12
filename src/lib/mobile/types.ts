@@ -192,7 +192,7 @@ export type MobileAnalytics =
       compare: { previous: number | null; lastYear: number | null };
       granularity: AnalyticsGranularity;
       buckets: AnalyticsBucket[];
-      /** The previous range in the same granularity, by position (for the ghost bars and the pace line). */
+      /** The previous range in the same granularity, by position (for last period's bars beside or behind this one's). */
       previousBuckets: number[];
       categories: AnalyticsCategory[];
       merchants: AnalyticsMerchant[];

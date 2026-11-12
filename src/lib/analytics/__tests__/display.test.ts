@@ -3,13 +3,13 @@ import {
   bucketLabel,
   categoryColor,
   changeText,
-  cumulative,
   fillParts,
   insightFilter,
   insightText,
   periodSearch,
   periodTitle,
   previousLabel,
+  previousLegend,
   shiftPeriod,
   type ReadyAnalytics,
 } from "../display";
@@ -99,10 +99,21 @@ describe("texts", () => {
     expect(insightFilter({ kind: "duplicates", count: 0, ids: [] })).toBeNull();
   });
 
-  it("adds up a running total and labels bars", () => {
-    expect(cumulative([1, 2.005, 3])).toEqual([1, 3.01, 6.01]);
-    expect(bucketLabel({ from: "2026-11-05" }, "day")).toBe("5");
-    expect(bucketLabel({ from: "2026-11-01" }, "month")).toBe("Nov");
+  it("labels bars, a month's blocks by their days", () => {
+    expect(bucketLabel({ from: "2026-11-05", to: "2026-11-05" }, "day")).toBe("5");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-30" }, "month")).toBe("Nov");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-07" }, "week", false, true)).toBe("1–7");
+    expect(bucketLabel({ from: "2026-11-01", to: "2026-11-07" }, "week", true, true)).toBe("1–7 November");
+    expect(bucketLabel({ from: "2026-11-29", to: "2026-11-30" }, "week", false, true)).toBe("29–30");
+    // A quarter's Monday week keeps its month, inside one month or across two.
+    expect(bucketLabel({ from: "2026-10-05", to: "2026-10-11" }, "week")).toBe("5 Oct");
+    expect(bucketLabel({ from: "2026-10-05", to: "2026-10-11" }, "week", true)).toBe("Week of 5 October");
+    expect(bucketLabel({ from: "2026-09-28", to: "2026-10-04" }, "week")).toMatch(/^28 Sep/);
+  });
+
+  it("capitalises the period before in the legend", () => {
+    expect(previousLegend(analytics({ kind: "custom", key: "x" }))).toBe("The period before");
+    expect(previousLegend(analytics({}))).toBe("October");
   });
 
   it("colours categories from CSS variables, Other neutral", () => {
