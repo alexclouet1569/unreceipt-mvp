@@ -23,11 +23,13 @@ import { PressableScale } from "../../../../components/PressableScale";
 import { Text } from "../../../../components/Text";
 import { s } from "../../../../i18n";
 import { photoCacheKey, useReceiptPhoto } from "../../../../lib/original";
-import { colors, fonts, space } from "../../../../theme";
+import { fonts, space, makeStyles, useColors } from "../../../../theme";
 
 const MAX_ZOOM = 5;
 
 export default function Photo() {
+  const styles = useStyles();
+  const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { url } = useReceiptPhoto(id, true);
   const { width, height } = useWindowDimensions();
@@ -106,8 +108,8 @@ export default function Photo() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.ink },
+const useStyles = makeStyles((colors) => ({
+  screen: { flex: 1, backgroundColor: colors.photoGround },
   bar: {
     position: "absolute",
     top: 0,
@@ -123,7 +125,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 15,
     // Readable over a white receipt slid under it while zoomed.
-    textShadowColor: colors.ink,
+    textShadowColor: colors.photoGround,
     textShadowRadius: 6,
   },
   close: {
@@ -134,4 +136,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-});
+}));

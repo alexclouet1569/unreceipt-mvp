@@ -18,12 +18,14 @@ import { fill, locale, s } from "../../../i18n";
 import { ApiError, addOwnAddress, removeOwnAddress, sendForwardingLink } from "../../../lib/api";
 import { stepPieces, type GuideProvider } from "../../../lib/forwarding-guide";
 import { useForwarding } from "../../../lib/useForwarding";
-import { colors, fonts, radius, space } from "../../../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../../../theme";
 
 const PROVIDERS: GuideProvider[] = ["gmail", "outlook", "icloud", "paid", "other"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function ForwardingScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { userId, email } = useAuth();
   const { data, error, loading, reload } = useForwarding(userId);
   const [busy, setBusy] = useState<string | null>(null);
@@ -244,7 +246,7 @@ export default function ForwardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.xl },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.lg, padding: space.xl },
   centerText: { textAlign: "center" },
@@ -275,4 +277,4 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: colors.attention },
   addButton: { minWidth: 96 },
-});
+}));

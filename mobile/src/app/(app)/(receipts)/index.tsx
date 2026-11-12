@@ -30,9 +30,11 @@ import { useScans } from "../../../lib/scans/ScanProvider";
 import { buildSections } from "../../../lib/sections";
 import { applyFilter, categoryCounts, categorySections, type ListFilter, type PeriodKey, type TotalLine } from "../../../lib/summary";
 import { formatMoney } from "../../../lib/format";
-import { colors, durations, radius, space } from "../../../theme";
+import { durations, radius, space, makeStyles, useColors } from "../../../theme";
 
 function Notice({ text }: { text: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Animated.View entering={FadeIn.duration(durations.short)} style={styles.notice}>
       <Text variant="caption" color={colors.attentionDeep}>
@@ -43,6 +45,8 @@ function Notice({ text }: { text: string }) {
 }
 
 function Empty({ address }: { address: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Animated.View entering={FadeIn.duration(durations.medium)} style={styles.empty}>
       <View style={styles.emptyMark}>
@@ -62,6 +66,8 @@ function Empty({ address }: { address: string }) {
 }
 
 function PhotosButton({ onPress }: { onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <PressableScale
       scaleTo={0.9}
@@ -78,6 +84,7 @@ function PhotosButton({ onPress }: { onPress: () => void }) {
 
 /** Shown on every state of the screen: scans keep working offline. */
 function PendingList() {
+  const styles = useStyles();
   const { pending, remove, retry } = useScans();
   if (pending.length === 0) return null;
   return (
@@ -158,6 +165,8 @@ function useFreshIds(receipts: MobileReceipt[] | null): ReadonlySet<string> {
 }
 
 export default function Receipts() {
+  const styles = useStyles();
+  const colors = useColors();
   const { home, error, refreshing, loading, refresh } = useHome();
   const { pending, scan, pickPhotos } = useScans();
   const actions = useReceiptActions();
@@ -322,7 +331,7 @@ export default function Receipts() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   fill: { flex: 1 },
   // Room under the last card for the scan button.
   content: { paddingBottom: SCAN_BUTTON_SPACE + space.lg },
@@ -360,4 +369,4 @@ const styles = StyleSheet.create({
   },
   emptyCard: { alignSelf: "stretch", marginTop: space.md },
   failed: { justifyContent: "center", padding: space.xl, paddingTop: space.xxxl, gap: space.lg },
-});
+}));

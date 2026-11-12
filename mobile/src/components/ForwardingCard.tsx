@@ -6,12 +6,14 @@ import { AccessibilityInfo, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
-import { colors, fonts, radius, space } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 /** quiet: the Copy button in ink outline, for screens whose green action is elsewhere (the guide's Next). */
 export function ForwardingCard({ address, quiet = false }: { address: string; quiet?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -36,7 +38,7 @@ export function ForwardingCard({ address, quiet = false }: { address: string; qu
         }}
         style={[styles.copy, quiet && styles.copyQuiet]}
       >
-        <Text style={styles.copyLabel} color={quiet ? colors.ink : colors.white}>
+        <Text style={styles.copyLabel} color={quiet ? colors.ink : colors.onBrandAction}>
           {copied ? s.common.copied : s.common.copy}
         </Text>
       </PressableScale>
@@ -44,7 +46,7 @@ export function ForwardingCard({ address, quiet = false }: { address: string; qu
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -69,4 +71,4 @@ const styles = StyleSheet.create({
   },
   copyQuiet: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairline },
   copyLabel: { fontFamily: fonts.bold, fontSize: 14 },
-});
+}));
