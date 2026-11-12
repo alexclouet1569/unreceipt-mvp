@@ -100,17 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut({ scope: "local" });
   }, []);
 
+  // Keyed on who is signed in, not on the session object: the hourly token
+  // refresh makes a new session and used to render the whole app again.
+  const status: AuthState["status"] = session === undefined ? "loading" : session ? "signedIn" : "signedOut";
+  const userId = session?.user.id ?? null;
+  const email = session?.user.email ?? null;
   const value = useMemo<AuthState>(
-    () => ({
-      status: session === undefined ? "loading" : session ? "signedIn" : "signedOut",
-      userId: session?.user.id ?? null,
-      email: session?.user.email ?? null,
-      requestCode,
-      verifyCode,
-      signInWithPassword,
-      signOut,
-    }),
-    [session, requestCode, verifyCode, signInWithPassword, signOut],
+    () => ({ status, userId, email, requestCode, verifyCode, signInWithPassword, signOut }),
+    [status, userId, email, requestCode, verifyCode, signInWithPassword, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

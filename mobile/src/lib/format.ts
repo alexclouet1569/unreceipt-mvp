@@ -2,6 +2,7 @@
 // in Node; Hermes on iOS has the same Intl.
 
 import type { Locale } from "../i18n/core";
+import { dateFormat, numberFormat } from "./intl";
 
 const SYMBOLS: Record<string, string> = { SEK: "kr", EUR: "€", USD: "$", GBP: "£", NOK: "kr", DKK: "kr" };
 
@@ -23,7 +24,7 @@ export type MoneyParts = {
  * ("12,50 €"), as people write it there.
  */
 export function moneyParts(amount: number, currency: string, locale: Locale): MoneyParts {
-  const value = new Intl.NumberFormat(INTL_LOCALE[locale], {
+  const value = numberFormat(INTL_LOCALE[locale], {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
@@ -88,25 +89,25 @@ export function monthLabel(year: number, month: number, locale: Locale, now: Dat
   const d = new Date(year, month, 1);
   const options: Intl.DateTimeFormatOptions =
     year === now.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" };
-  const label = new Intl.DateTimeFormat(INTL_LOCALE[locale], options).format(d);
+  const label = dateFormat(INTL_LOCALE[locale], options).format(d);
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 /** "November", but "Sep 2025" for another year: the year never gets cut off in a narrow box. */
 export function shortMonthLabel(year: number, month: number, locale: Locale, now: Date = new Date()): string {
   if (year === now.getFullYear()) return monthLabel(year, month, locale, now);
-  const label = new Intl.DateTimeFormat(INTL_LOCALE[locale], { month: "short", year: "numeric" }).format(new Date(year, month, 1));
+  const label = dateFormat(INTL_LOCALE[locale], { month: "short", year: "numeric" }).format(new Date(year, month, 1));
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 /** "8 Nov" / "8 nov." — the short date on a receipt row. */
 export function shortDate(date: Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { day: "numeric", month: "short" }).format(date);
+  return dateFormat(INTL_LOCALE[locale], { day: "numeric", month: "short" }).format(date);
 }
 
 /** "Saturday 8 November 2026" — the receipt detail. */
 export function longDate(date: Date, locale: Locale): string {
-  const label = new Intl.DateTimeFormat(INTL_LOCALE[locale], {
+  const label = dateFormat(INTL_LOCALE[locale], {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -117,12 +118,12 @@ export function longDate(date: Date, locale: Locale): string {
 
 /** "8 November 2026" / "8 novembre 2026" — when something started. */
 export function dayMonthYear(date: Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(INTL_LOCALE[locale], { day: "numeric", month: "long", year: "numeric" }).format(date);
+  return dateFormat(INTL_LOCALE[locale], { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
 /** "12 Nov, 10:42" — when the app received its last update. */
 export function dayTime(date: Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(INTL_LOCALE[locale], {
+  return dateFormat(INTL_LOCALE[locale], {
     day: "numeric",
     month: "short",
     hour: "2-digit",

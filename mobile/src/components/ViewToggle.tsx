@@ -1,71 +1,25 @@
 // "By date / By category", the website's two-option switch (DESIGN.md
-// "Group and filter"): a cream track, the chosen option on a white thumb,
-// 44 pt buttons.
+// "Group and filter"): the same gliding thumb as Insights' period switch.
 
-import { StyleSheet, View } from "react-native";
-import * as Haptics from "expo-haptics";
 import { s } from "../i18n";
-import { fonts, radius, space, makeStyles, useColors } from "../theme";
-import { PressableScale } from "./PressableScale";
-import { Text } from "./Text";
+import { space } from "../theme";
+import { Segmented } from "./insights/Segmented";
 
 export type ListView = "date" | "category";
 
 export function ViewToggle({ view, onChange }: { view: ListView; onChange: (v: ListView) => void }) {
-  const styles = useStyles();
-  const colors = useColors();
-  const options: { value: ListView; label: string }[] = [
-    { value: "date", label: s.summary.byDate },
-    { value: "category", label: s.summary.byCategory },
-  ];
   return (
-    <View style={styles.track} accessibilityRole="tablist" accessibilityLabel={s.summary.groupLabel}>
-      {options.map((o) => {
-        const active = view === o.value;
-        return (
-          <PressableScale
-            key={o.value}
-            scaleTo={0.97}
-            onPress={() => {
-              if (active) return;
-              void Haptics.selectionAsync();
-              onChange(o.value);
-            }}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={o.label}
-            style={[styles.option, active && styles.active]}
-          >
-            <Text style={styles.label} color={active ? colors.ink : colors.inkMuted}>
-              {o.label}
-            </Text>
-          </PressableScale>
-        );
-      })}
-    </View>
+    <Segmented
+      label={s.summary.groupLabel}
+      options={[
+        { value: "date", label: s.summary.byDate },
+        { value: "category", label: s.summary.byCategory },
+      ]}
+      value={view}
+      onChange={(v) => {
+        if (v !== view) onChange(v);
+      }}
+      style={{ marginTop: space.lg }}
+    />
   );
 }
-
-const useStyles = makeStyles((colors) => ({
-  track: {
-    flexDirection: "row",
-    marginHorizontal: space.lg,
-    marginTop: space.lg,
-    padding: 4,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.surface,
-  },
-  option: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  active: { backgroundColor: colors.card, borderColor: colors.hairline },
-  label: { fontFamily: fonts.semibold, fontSize: 14 },
-}));

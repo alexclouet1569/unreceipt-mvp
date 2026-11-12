@@ -45,6 +45,42 @@ export type MobileReceipt = {
   bookedAt: string | null;
 };
 
+/**
+ * GET /api/mobile/receipts/[id]: the digital receipt (DESIGN.md "Digital
+ * receipt"), the paper copy the receipt screen shows next to the photo.
+ * Display fields only, like MobileReceipt; amounts in the receipt's currency.
+ */
+export type MobileReceiptDetail = {
+  receipt: MobileReceipt;
+  receiptNumber: string | null;
+  merchantAddress: string | null;
+  /** As printed ("14:32"), null when unknown. */
+  time: string | null;
+  cardLastFour: string | null;
+  items: { label: string; qty: number | null; unitAmount: number | null; total: number }[];
+  subtotal: number | null;
+  tip: number | null;
+  vat: number | null;
+  vatRate: number | null;
+  /** Each VAT rate, only when there is more than one. */
+  vatLines: { rate: number; vat: number }[];
+  /** Total minus VAT, when the VAT is known. */
+  net: number | null;
+  /** The day of the ECB rate behind homeTotal (fxSource "ecb"). */
+  fxDate: string | null;
+  paymentMethod: string | null;
+  transactionRef: string | null;
+  sellerOrgNumber: string | null;
+  merchantVatNumber: string | null;
+  /**
+   * The footer: verified by UnReceipt (then edited), waiting for review,
+   * checked by the user (photo or typed in), or read automatically.
+   */
+  stamp: "verified" | "verified_edited" | "review" | "checked" | "automatic";
+  /** False while the receipt waits for review: the PDF is refused then (409). */
+  pdfReady: boolean;
+};
+
 export type MobileHome =
   // Firm staff without a company: the app tells them to use the web portal.
   | { state: "firm_only"; email: string }

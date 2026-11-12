@@ -91,7 +91,15 @@ export async function writeAccount(userId: string, account: MobileAccount): Prom
  * to be sent (after a warning); when the server ended the session, they
  * stay, keyed by user, and are sent once the same person signs back in.
  */
+// In-memory copies of receipts kept by other modules (signed photo links,
+// digital receipts), forgotten with everything else.
+const memoryClears = new Set<() => void>();
+export function onSignOutClear(clear: () => void): void {
+  memoryClears.add(clear);
+}
+
 export async function clearAll({ keepScans = false }: { keepScans?: boolean } = {}): Promise<void> {
+  for (const clear of memoryClears) clear();
   if (!keepScans) deleteAllScans();
   deleteExports();
   await Promise.all([Image.clearDiskCache(), Image.clearMemoryCache()]).catch(() => {});

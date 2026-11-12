@@ -11,6 +11,7 @@ import type {
   MobileForwarding,
   MobileForwardingStatus,
   MobileHome,
+  MobileReceiptDetail,
   MobileReceiptsPage,
 } from "@/lib/mobile/types";
 import { API_URL } from "../config";
@@ -142,6 +143,23 @@ export const getAnalytics = (query: string) => api<MobileAnalytics>(`/api/mobile
 /** The receipts behind a number on the Insights screen. */
 export const getAnalyticsReceipts = (query: string) =>
   api<MobileAnalyticsReceipts>(`/api/mobile/analytics/receipts?${query}`);
+
+/** One receipt's digital receipt (items, VAT, payment, stamp). */
+export const getReceiptDetail = (id: string) =>
+  api<MobileReceiptDetail>(`/api/mobile/receipts/${encodeURIComponent(id)}`);
+
+/**
+ * The signed-in user's access token and the server's address, for a file
+ * the phone downloads itself (File.downloadFileAsync sends its own request).
+ */
+export async function authorizedDownload(path: string): Promise<{ url: string; headers: Record<string, string> }> {
+  const { data, error } = await supabase.auth.getSession();
+  if (!data.session) throw new ApiError(isAuthRetryableFetchError(error) ? "offline" : "unauthorized");
+  return {
+    url: `${API_URL}${path}`,
+    headers: { Authorization: `Bearer ${data.session.access_token}`, "User-Agent": USER_AGENT },
+  };
+}
 
 /** "Load more": the next page of older receipts after the last one shown (its listKey). */
 export const getOlderReceipts = (after: string) =>

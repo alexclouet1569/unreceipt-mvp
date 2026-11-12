@@ -2,13 +2,14 @@
 // screen, offline too), then the server's. Refreshed when the period
 // changes, when the receipts list changes (a scan, an edit) and on pull.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MobileAnalytics } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, getAnalytics } from "./api";
 import { readInsights, writeInsights } from "./cache";
 import { useHome } from "./HomeProvider";
 import { periodCacheKey, periodQueryString, type PeriodQuery } from "./insights";
+import { receiptsSignature } from "./share";
 
 export type InsightsState = {
   data: MobileAnalytics | null;
@@ -70,7 +71,10 @@ export function useInsights(query: PeriodQuery): InsightsState {
 
   // The receipts changed (a scan landed, an edit, a delete): ask again,
   // gently, so a burst of changes is one request.
+  // Keyed on what the numbers read, not on the arrays themselves: a refresh
+  // that brings back the same receipts doesn't ask the server again.
   const receipts = home?.state === "ready" ? home.receipts : null;
+  const signature = useMemo(() => receiptsSignature([receipts, extra]), [receipts, extra]);
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -79,7 +83,7 @@ export function useInsights(query: PeriodQuery): InsightsState {
     }
     const t = setTimeout(() => void refresh(), 1_500);
     return () => clearTimeout(t);
-  }, [receipts, extra, refresh]);
+  }, [signature, refresh]);
 
   const data = state.key === key ? state.data : null;
   return { data, error, refreshing, loading: data == null && error == null, refresh };
