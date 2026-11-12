@@ -18,7 +18,8 @@ import { convertedAmount, missingFields } from "../../../../components/ReceiptRo
 import { Text } from "../../../../components/Text";
 import { fill, locale, s } from "../../../../i18n";
 import { formatMoney, longDate, parseReceiptDate } from "../../../../lib/format";
-import { useHome } from "../../../../lib/HomeProvider";
+import { useReceipt } from "../../../../lib/HomeProvider";
+import { useReceiptRoutes } from "../../../../lib/routes";
 import { photoCacheKey, useReceiptPhoto } from "../../../../lib/original";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
 import { colors, durations, fonts, radius, space } from "../../../../theme";
@@ -31,8 +32,8 @@ const ADD_LABEL: Record<"merchant" | "amount" | "date", () => string> = {
   date: () => s.edit.addDate,
 };
 
-function edit(id: string, field: Field) {
-  router.push({ pathname: "/receipt/edit", params: { id, field } });
+function edit(path: string, id: string, field: Field) {
+  router.push({ pathname: path as "/receipt/edit", params: { id, field } });
 }
 
 function Chevron() {
@@ -90,16 +91,15 @@ function PhotoPlaceholder() {
 
 export default function ReceiptDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { home } = useHome();
   const { confirm, remove } = useReceiptActions();
-  const live = home?.state === "ready" ? home.receipts.find((x) => x.id === id) : undefined;
+  const routes = useReceiptRoutes();
+  const live = useReceipt(id);
   // After Delete the row is gone while the screen slides away: keep showing
   // the last version instead of an error.
   const last = useRef<MobileReceipt | undefined>(live);
   if (live) last.current = live;
   const r = live ?? last.current;
   const photo = useReceiptPhoto(id, r?.original === "image");
-  const [confirming, setConfirming] = useState(false);
 
   if (!r) {
     return (
@@ -138,7 +138,7 @@ export default function ReceiptDetail() {
         <PressableScale
           scaleTo={0.985}
           disabled={!photo.url}
-          onPress={() => router.push({ pathname: "/receipt/photo", params: { id: r.id } })}
+          onPress={() => router.push({ pathname: routes.photo as "/receipt/photo", params: { id: r.id } })}
           accessibilityRole="imagebutton"
           accessibilityLabel={s.edit.photo}
           style={styles.photoFrame}
@@ -162,7 +162,7 @@ export default function ReceiptDetail() {
         <View style={styles.card}>
           <PressableScale
             scaleTo={0.99}
-            onPress={() => edit(r.id, "merchant")}
+            onPress={() => edit(routes.edit, r.id, "merchant")}
             accessibilityRole="button"
             accessibilityLabel={`${s.edit.merchant}: ${r.merchant ?? s.edit.addMerchant}`}
             style={styles.tapLine}
@@ -180,7 +180,7 @@ export default function ReceiptDetail() {
 
           <PressableScale
             scaleTo={0.99}
-            onPress={() => edit(r.id, "amount")}
+            onPress={() => edit(routes.edit, r.id, "amount")}
             accessibilityRole="button"
             accessibilityLabel={amountLabel}
             style={styles.tapLine}
@@ -231,9 +231,9 @@ export default function ReceiptDetail() {
             label={s.detail.date}
             value={date ? longDate(date, locale) : null}
             addLabel={s.edit.addDate}
-            onPress={() => edit(r.id, "date")}
+            onPress={() => edit(routes.edit, r.id, "date")}
           />
-          <Row label={s.detail.category} value={s.categories[r.category]} onPress={() => edit(r.id, "category")} />
+          <Row label={s.detail.category} value={s.categories[r.category]} onPress={() => edit(routes.edit, r.id, "category")} />
           <View style={styles.staticRow}>
             <Text variant="caption" color={colors.inkMuted}>
               {s.detail.source}
@@ -251,16 +251,14 @@ export default function ReceiptDetail() {
       <View style={styles.actions}>
         {review ? (
           firstMissing ? (
-            <Button label={ADD_LABEL[firstMissing]()} onPress={() => edit(r.id, firstMissing)} />
+            <Button label={ADD_LABEL[firstMissing]()} onPress={() => edit(routes.edit, r.id, firstMissing)} />
           ) : (
             <Button
               label={s.edit.confirm}
-              busy={confirming}
-              onPress={async () => {
-                setConfirming(true);
-                const ok = await confirm(r.id);
-                setConfirming(false);
-                if (ok) router.back();
+              onPress={() => {
+                // Confirmed at once; a refusal comes back as an alert.
+                confirm(r.id);
+                router.back();
               }}
             />
           )

@@ -5,6 +5,8 @@ import Constants from "expo-constants";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import type {
   MobileAccount,
+  MobileAnalytics,
+  MobileAnalyticsReceipts,
   MobileExport,
   MobileForwarding,
   MobileForwardingStatus,
@@ -132,6 +134,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const getHome = () => api<MobileHome>("/api/mobile/home");
 
 export const getAccount = () => api<MobileAccount>("/api/mobile/account");
+
+/** The Insights screen for one period (query from src/lib/insights.ts periodQueryString). */
+export const getAnalytics = (query: string) => api<MobileAnalytics>(`/api/mobile/analytics?${query}`);
+
+/** The receipts behind a number on the Insights screen. */
+export const getAnalyticsReceipts = (query: string) =>
+  api<MobileAnalyticsReceipts>(`/api/mobile/analytics/receipts?${query}`);
 
 /** One ZIP (or a few parts) of a month, a year or everything, as on the website. */
 export const exportReceipts = (period: string) =>

@@ -26,6 +26,7 @@ export function Money({
   size = "card",
   color = colors.ink,
   fit = false,
+  sizeFor,
 }: {
   amount: number | null;
   currency: string;
@@ -33,6 +34,8 @@ export function Money({
   color?: string;
   /** In a narrow box: the digits shrink a little instead of being cut. */
   fit?: boolean;
+  /** Display size: step down by this amount instead of `amount` (a rolling number keeps one size). */
+  sizeFor?: number;
 }) {
   const base = VALUE[size];
   if (amount == null) {
@@ -43,10 +46,8 @@ export function Money({
     );
   }
   const p = moneyParts(amount, currency, locale);
-  const value =
-    size === "display"
-      ? { ...base, fontSize: displaySize(p.value), lineHeight: displaySize(p.value) * 1.05, letterSpacing: -0.02 * displaySize(p.value) }
-      : base;
+  const px = displaySize(sizeFor != null ? moneyParts(sizeFor, currency, locale).value : p.value);
+  const value = size === "display" ? { ...base, fontSize: px, lineHeight: px * 1.05, letterSpacing: -0.02 * px } : base;
   const small = { fontFamily: base.fontFamily, fontSize: CURRENCY_SIZE[size] };
   // Already large on the detail: grow less with the user's text size; in a
   // narrow box (fit) too, so the digits stay whole.

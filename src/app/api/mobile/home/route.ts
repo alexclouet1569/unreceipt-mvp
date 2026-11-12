@@ -42,6 +42,7 @@ export async function GET() {
         showOnboarding: d.showOnboarding,
         accountantInvites: d.accountantInvites,
         receipts: d.receipts.map(toMobileReceipt),
+        ...(d.older ? { older: d.older } : {}),
       };
     }
   } catch (err) {

@@ -80,3 +80,32 @@ describe("fx", () => {
     fetchSpy.mockRestore();
   });
 });
+
+describe("RateTable", () => {
+  it("answers like the per-day query: the last rate on or before the day", async () => {
+    const { RateTable } = await import("@/lib/fx");
+    const t = new RateTable(["SEK"], "2026-10-25", "2026-11-10");
+    // Filled as reload() would from fx_rates (ascending dates).
+    Object.assign(t as unknown as Record<string, unknown>, {
+      rows: new Map([
+        [
+          "SEK",
+          [
+            ["2026-10-30", 11.5],
+            ["2026-11-02", 11.4],
+            ["2026-11-03", 11.45],
+          ],
+        ],
+      ]),
+      newest: new Map([["SEK", "2026-11-03"]]),
+      loaded: true,
+    });
+    expect(t.covers("SEK", "2026-11-01")).toBe(true);
+    expect(t.covers("USD", "2026-11-01")).toBe(false);
+    expect(t.covers("SEK", "2026-11-20")).toBe(false);
+    // A Sunday: the Friday before.
+    expect(t.lookup("SEK", "2026-11-01")).toEqual({ perEur: 11.5, rateDate: "2026-10-30", coveredUntil: "2026-11-03" });
+    expect(t.lookup("SEK", "2026-11-03")?.perEur).toBe(11.45);
+    expect(t.lookup("SEK", "2026-10-26")).toBeNull();
+  });
+});

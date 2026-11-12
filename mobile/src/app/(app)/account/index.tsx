@@ -10,6 +10,7 @@ import * as Updates from "expo-updates";
 import { useAuth } from "../../../auth/AuthProvider";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { Group, Row, Section } from "../../../components/Grouped";
+import { GroupedSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { fill, LANGUAGE_NAMES, locale, s } from "../../../i18n";
 import type { MobileAccount } from "@/lib/mobile/types";
@@ -64,6 +65,9 @@ export default function Account() {
           {error === "offline" ? s.common.unreachable : s.account.loadFailed}
         </Text>
       ) : null}
+
+      {/* The very first load: shapes, never an empty screen or a spinner. */}
+      {!ready && !account && !error ? <GroupedSkeleton /> : null}
 
       {ready ? (
         <Section title={s.account.forwardingTitle} note={s.account.forwardingBody}>

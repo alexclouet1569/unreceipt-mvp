@@ -3,7 +3,7 @@
 // after every change. Same rules as HomeProvider: a 401 signs out, offline
 // keeps the saved copy.
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { MobileAccount } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, getAccount } from "./api";
@@ -69,11 +69,11 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   }, [userId]);
 
-  return (
-    <AccountContext.Provider value={{ account, error, refreshing, refresh, ensure }}>
-      {children}
-    </AccountContext.Provider>
+  const value = useMemo(
+    () => ({ account, error, refreshing, refresh, ensure }),
+    [account, error, refreshing, refresh, ensure],
   );
+  return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 
 export function useAccount(): AccountState {

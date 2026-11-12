@@ -2,7 +2,7 @@
 // receipt by day. Opens on the saved list at once, refreshes in the
 // background, pull down to refresh by hand. The big button scans.
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import type { MobileReceipt } from "@/lib/mobile/types";
 import { RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { router, Stack } from "expo-router";
@@ -108,8 +108,54 @@ function totalText(lines: TotalLine[]): string {
     .join(s.receipts.totalJoin);
 }
 
-// A receipt that has just arrived (a scan read, a forward) fades in.
-const FRESH_MS = 30_000;
+/**
+ * One card with its swipe. Memoised with stable callbacks, so a change to
+ * one receipt (or the refresh flag) re-renders that card only. A receipt
+ * that arrived while the screen was open (a scan read, a forward) fades in.
+ */
+const Row = memo(function Row({
+  receipt,
+  fresh,
+  onOpen,
+  onDelete,
+}: {
+  receipt: MobileReceipt;
+  fresh: boolean;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const row = (
+    <SwipeToDelete onDelete={() => onDelete(receipt.id)}>
+      <ReceiptRow receipt={receipt} onPress={() => onOpen(receipt.id)} onDelete={() => onDelete(receipt.id)} />
+    </SwipeToDelete>
+  );
+  return fresh ? <Animated.View entering={FadeIn.duration(durations.medium)}>{row}</Animated.View> : row;
+});
+
+/**
+ * Ids that appeared after the list was first shown. The first list (from
+ * the saved copy or the server) never animates; later arrivals do, once.
+ */
+function useFreshIds(receipts: MobileReceipt[] | null): ReadonlySet<string> {
+  const seen = useRef<Set<string> | null>(null);
+  const fresh = useRef<Set<string>>(new Set());
+  return useMemo(() => {
+    if (!receipts) return fresh.current;
+    if (!seen.current) {
+      seen.current = new Set(receipts.map((r) => r.id));
+      return fresh.current;
+    }
+    const next = new Set(fresh.current);
+    for (const r of receipts) {
+      if (!seen.current.has(r.id)) {
+        seen.current.add(r.id);
+        next.add(r.id);
+      }
+    }
+    fresh.current = next;
+    return next;
+  }, [receipts]);
+}
 
 export default function Receipts() {
   const { home, error, refreshing, loading, refresh } = useHome();
@@ -122,6 +168,10 @@ export default function Receipts() {
   const [view, setView] = useState<ListView>("date");
   const counts = useMemo(() => (receipts ? categoryCounts(receipts) : []), [receipts]);
   const toConfirm = useMemo(() => (receipts ?? []).filter((r) => r.status === "pending_review").length, [receipts]);
+  const freshIds = useFreshIds(receipts);
+  const { remove } = actions;
+  const openReceipt = useCallback((id: string) => router.push({ pathname: "/receipt/[id]", params: { id } }), []);
+  const deleteReceipt = useCallback((id: string) => remove(id), [remove]);
   const filtered = useMemo(() => applyFilter(receipts ?? [], chosenFilter), [receipts, chosenFilter]);
   const homeCurrency = home?.state === "ready" ? home.homeCurrency : "SEK";
   const sections = useMemo((): ListSection[] => {
@@ -155,7 +205,11 @@ export default function Receipts() {
     );
   } else if (!home || home.state !== "ready") {
     body = (
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />}
+      >
         <PendingList />
         <View style={styles.failed}>
           <Text variant="body" color={colors.inkMuted} style={styles.center}>
@@ -196,6 +250,7 @@ export default function Receipts() {
               <>
                 <StatCards
                   receipts={home.receipts}
+                  older={home.older}
                   homeCurrency={home.homeCurrency}
                   period={period ?? ""}
                   onPeriod={setPeriod}
@@ -248,19 +303,9 @@ export default function Receipts() {
             ) : null}
           </View>
         )}
-        renderItem={({ item }) => {
-          const row = (
-            <SwipeToDelete onDelete={() => actions.remove(item.id)}>
-              <ReceiptRow
-                receipt={item}
-                onPress={() => router.push({ pathname: "/receipt/[id]", params: { id: item.id } })}
-                onDelete={() => actions.remove(item.id)}
-              />
-            </SwipeToDelete>
-          );
-          const fresh = Date.now() - Date.parse(item.createdAt) < FRESH_MS;
-          return fresh ? <Animated.View entering={FadeIn.duration(durations.medium)}>{row}</Animated.View> : row;
-        }}
+        renderItem={({ item }) => (
+          <Row receipt={item} fresh={freshIds.has(item.id)} onOpen={openReceipt} onDelete={deleteReceipt} />
+        )}
         contentContainerStyle={styles.content}
       />
     );
