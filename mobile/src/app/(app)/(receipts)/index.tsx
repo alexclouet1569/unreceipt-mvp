@@ -2,9 +2,9 @@
 // receipt by day. Opens on the saved list at once, refreshes in the
 // background, pull down to refresh by hand. The big button scans.
 
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MobileReceipt } from "@/lib/mobile/types";
-import { RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -12,6 +12,10 @@ import { BrandMark } from "../../../components/Brand";
 import { Button } from "../../../components/Button";
 import { CategoryChips } from "../../../components/CategoryChips";
 import { InviteCard } from "../../../components/InviteCard";
+import { Onboarding, type OnboardingStep } from "../../../components/Onboarding";
+import { markOnboarded } from "../../../lib/api";
+import { readOnboarded, writeOnboarded } from "../../../lib/cache";
+import { useAuth } from "../../../auth/AuthProvider";
 import { PilotBox } from "../../../components/PilotBox";
 import { StatCards } from "../../../components/StatCards";
 import { ViewToggle, type ListView } from "../../../components/ViewToggle";
@@ -167,24 +171,85 @@ function useFreshIds(receipts: MobileReceipt[] | null): ReadonlySet<string> {
 export default function Receipts() {
   const styles = useStyles();
   const colors = useColors();
-  const { home, error, refreshing, loading, refresh } = useHome();
+  const { home, error, refreshing, loading, refresh, mutateHome, extra, older, loadOlder, fromServer } = useHome();
+  const { userId } = useAuth();
   const { pending, scan, pickPhotos } = useScans();
   const actions = useReceiptActions();
-  const receipts = home?.state === "ready" ? home.receipts : null;
+  // The list: the server's newest 50, then any older pages loaded with
+  // "Load more" (kept in `extra`; the totals never count them twice).
+  const receipts = useMemo(() => {
+    if (home?.state !== "ready") return null;
+    if (older.ids.length === 0) return home.receipts;
+    const listed = new Set(home.receipts.map((r) => r.id));
+    const byId = new Map(extra.map((r) => [r.id, r]));
+    const more = older.ids.filter((id) => !listed.has(id)).flatMap((id) => byId.get(id) ?? []);
+    return [...home.receipts, ...more];
+  }, [home, older.ids, extra]);
+
+  // First run (the website's three steps): starts only on the server's own
+  // answer (never the saved copy, which may be old) when this phone hasn't
+  // finished it, and then stays until finished, even once the first
+  // receipt has arrived. A fresh "no" before the user moved on stops it.
+  const [onboarding, setOnboarding] = useState<OnboardingStep | null>(null);
+  const [doneHere, setDoneHere] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    void readOnboarded(userId).then((done) => alive && setDoneHere(done));
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+  const serverSays = fromServer && home?.state === "ready" ? home.showOnboarding : null;
+  useEffect(() => {
+    if (serverSays === true && doneHere === false && onboarding == null) setOnboarding(1);
+    if (serverSays === false && onboarding === 1) setOnboarding(null);
+  }, [serverSays, doneHere, onboarding]);
+  // Step 2: a scan or a receipt that wasn't there when it began moves on.
+  const arrivedIds = useMemo(
+    () => [...pending.map((p) => p.id), ...(home?.state === "ready" ? home.receipts.map((r) => r.id) : [])],
+    [pending, home],
+  );
+  const idsAtScanStep = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (onboarding === 2 && arrivedIds.some((id) => !idsAtScanStep.current.has(id))) setOnboarding(3);
+  }, [onboarding, arrivedIds]);
+  const finishOnboarding = useCallback(() => {
+    setDoneHere(true);
+    setOnboarding(null);
+    if (userId) void writeOnboarded(userId);
+    mutateHome((h) => ({ ...h, showOnboarding: false }));
+    markOnboarded();
+  }, [mutateHome, userId]);
   // null: this month, so the default follows the calendar.
   const [period, setPeriod] = useState<PeriodKey | null>(null);
   const [chosenFilter, setFilter] = useState<ListFilter>("all");
   const [view, setView] = useState<ListView>("date");
   const counts = useMemo(() => (receipts ? categoryCounts(receipts) : []), [receipts]);
   const toConfirm = useMemo(() => (receipts ?? []).filter((r) => r.status === "pending_review").length, [receipts]);
-  const freshIds = useFreshIds(receipts);
+  // Only the newest list: a page of older receipts isn't "new arrivals".
+  const freshIds = useFreshIds(home?.state === "ready" ? home.receipts : null);
+  // VoiceOver hears what "Show older receipts" did (iOS has no live regions).
+  const olderBefore = useRef<number | null>(null);
+  useEffect(() => {
+    if (older.loading) {
+      olderBefore.current = older.ids.length;
+      return;
+    }
+    if (olderBefore.current == null) return;
+    const added = older.ids.length - olderBefore.current;
+    olderBefore.current = null;
+    AccessibilityInfo.announceForAccessibility(
+      older.failed ? s.receipts.loadOlderFailed : fill(s.receipts.olderShown, { count: added }),
+    );
+  }, [older.loading, older.failed, older.ids.length]);
   const { remove } = actions;
   const openReceipt = useCallback((id: string) => router.push({ pathname: "/receipt/[id]", params: { id } }), []);
   const deleteReceipt = useCallback((id: string) => remove(id), [remove]);
   const filtered = useMemo(() => applyFilter(receipts ?? [], chosenFilter), [receipts, chosenFilter]);
   const homeCurrency = home?.state === "ready" ? home.homeCurrency : "SEK";
   const sections = useMemo((): ListSection[] => {
-    if (!receipts) return [];
+    if (!receipts || onboarding != null) return [];
     if (view === "category") {
       return categorySections(filtered.receipts, homeCurrency).map((c) => ({
         key: c.key,
@@ -195,7 +260,7 @@ export default function Receipts() {
       }));
     }
     return buildSections(filtered.receipts, s, locale);
-  }, [receipts, filtered, view, homeCurrency]);
+  }, [receipts, filtered, view, homeCurrency, onboarding]);
 
   let body: React.ReactNode;
   if (!home && loading) {
@@ -255,7 +320,18 @@ export default function Receipts() {
             {home.accountantInvites.map((invite) => (
               <InviteCard key={invite.id} invite={invite} />
             ))}
-            {home.receipts.length > 0 ? (
+            {onboarding != null ? (
+              <Onboarding
+                step={onboarding}
+                address={home.forwardingEmail}
+                onNext={() => {
+                  if (onboarding === 1) idsAtScanStep.current = new Set(arrivedIds);
+                  setOnboarding(onboarding === 1 ? 2 : 3);
+                }}
+                onScan={() => void scan()}
+                onFinish={finishOnboarding}
+              />
+            ) : home.receipts.length > 0 ? (
               <>
                 <StatCards
                   receipts={home.receipts}
@@ -273,7 +349,7 @@ export default function Receipts() {
                 />
                 <CategoryChips
                   counts={counts}
-                  total={home.receipts.length}
+                  total={receipts?.length ?? home.receipts.length}
                   toConfirm={toConfirm}
                   selected={filtered.filter}
                   onSelect={(f) => {
@@ -286,7 +362,19 @@ export default function Receipts() {
             <PendingList />
           </View>
         }
-        ListEmptyComponent={pending.length === 0 ? <Empty address={home.forwardingEmail} /> : undefined}
+        ListEmptyComponent={pending.length === 0 && onboarding == null ? <Empty address={home.forwardingEmail} /> : undefined}
+        ListFooterComponent={
+          onboarding == null && older.hasMore && home.receipts.length > 0 ? (
+            <View style={styles.more}>
+              {older.failed ? (
+                <Text variant="caption" color={colors.attentionDeep} style={styles.center}>
+                  {s.receipts.loadOlderFailed}
+                </Text>
+              ) : null}
+              <Button kind="outline" label={s.receipts.loadOlder} busy={older.loading} onPress={() => void loadOlder()} />
+            </View>
+          ) : undefined
+        }
         renderSectionHeader={({ section }) => (
           // "Travel · 3" on the left; by category, the total in mono on the right (as the website).
           <View style={styles.sectionRow}>
@@ -325,13 +413,15 @@ export default function Receipts() {
     <View style={styles.fill}>
       <Stack.Screen options={{ headerRight: () => <PhotosButton onPress={() => void pickPhotos()} /> }} />
       {body}
-      <ScanButton onScan={() => void scan()} onPickPhotos={() => void pickPhotos()} />
+      {/* Hidden during the first run: each of its steps has its own action. */}
+      {onboarding == null ? <ScanButton onScan={() => void scan()} onPickPhotos={() => void pickPhotos()} /> : null}
       <UndoToast />
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
+  more: { marginHorizontal: space.lg, marginTop: space.md, gap: space.sm },
   fill: { flex: 1 },
   // Room under the last card for the scan button.
   content: { paddingBottom: SCAN_BUTTON_SPACE + space.lg },

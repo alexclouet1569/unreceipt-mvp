@@ -120,6 +120,7 @@ describe("GET /api/mobile/home", () => {
       fxSource: "same",
       date: "2026-11-08T12:00:00Z",
       createdAt: "2026-11-08T12:00:01Z",
+      listKey: "2026-11-08T12:00:00Z|2026-11-08T12:00:01Z|r1",
       original: "image",
       notes: null,
       possibleDuplicate: false,

@@ -47,6 +47,27 @@ export async function writeHome(userId: string, home: MobileHome): Promise<void>
   }
 }
 
+// "The first run was finished or skipped on this phone", per user: the
+// server's answer can lag (its POST is best effort), and a finished first
+// run must never come back. A flag, not data, so it outlives a sign-out.
+const ONBOARDED_PREFIX = "onboarded:v1:";
+
+export async function readOnboarded(userId: string): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(ONBOARDED_PREFIX + userId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export async function writeOnboarded(userId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(ONBOARDED_PREFIX + userId, "1");
+  } catch {
+    // The server's stamp still stops it once it lands.
+  }
+}
+
 export async function readAccount(userId: string): Promise<MobileAccount | null> {
   try {
     const raw = await AsyncStorage.getItem(ACCOUNT_PREFIX + userId);
