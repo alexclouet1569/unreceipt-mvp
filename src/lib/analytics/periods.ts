@@ -76,7 +76,20 @@ export type PeriodInput = {
  * The period asked for, or null when the input is malformed. Without an
  * anchor, the period that contains `today`.
  */
+/** Years a period may name: any real receipt, never a malformed date. */
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2999;
+const yearOk = (y: number) => y >= MIN_YEAR && y <= MAX_YEAR;
+
 export function resolvePeriod(input: PeriodInput, today: string): ResolvedPeriod | null {
+  const period = resolvePeriodUnchecked(input, today);
+  if (!period) return null;
+  // The comparison ranges may reach a year back (1899): still real dates.
+  const years = [period.from, period.to].map((d) => Number(d.slice(0, 4)));
+  return years.every(yearOk) ? period : null;
+}
+
+function resolvePeriodUnchecked(input: PeriodInput, today: string): ResolvedPeriod | null {
   const kind = (input.kind ?? "month") as AnalyticsPeriodKind;
   const [ty, tm] = today.split("-").map(Number);
   const anchor = input.anchor ?? null;

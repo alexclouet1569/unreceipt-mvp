@@ -77,6 +77,11 @@ describe("periods", () => {
     expect(resolvePeriod({ kind: "custom", from: "2020-01-01", to: "2026-03-10" }, "2026-11-11")).toBeNull();
     expect(resolvePeriod({ kind: "month", anchor: "2026-13" }, "2026-11-11")).toBeNull();
     expect(resolvePeriod({ kind: "week" }, "2026-11-11")).toBeNull();
+    // Years outside 1900–2999 are refused, never a malformed date.
+    expect(resolvePeriod({ kind: "month", anchor: "0999-12" }, "2026-11-11")).toBeNull();
+    expect(resolvePeriod({ kind: "year", anchor: "9999" }, "2026-11-11")).toBeNull();
+    expect(resolvePeriod({ kind: "month", anchor: "1899-12" }, "2026-11-11")).toBeNull();
+    expect(resolvePeriod({ kind: "month", anchor: "1900-01" }, "2026-11-11")?.previous.from).toBe("1899-12-01");
   });
 
   it("keeps 29 February inside February a year earlier", () => {
