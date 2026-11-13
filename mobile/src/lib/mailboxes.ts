@@ -15,7 +15,7 @@
 // Every refusal is shown in the app's language from a fixed key, never the
 // server's English text.
 
-import type { MobileMailboxClaim, MobileMailboxConnection } from "@/lib/mobile/types";
+import type { MobileMailboxClaim, MobileMailboxConnection, MobileMailboxes } from "@/lib/mobile/types";
 import type { Locale } from "../i18n/core";
 import { fill } from "../i18n/core";
 import type { Strings } from "../i18n/en";
@@ -32,6 +32,59 @@ export const RETURN_URL = "unreceipt://mailboxes";
 
 export function configuredProviders(providers: Record<MailboxProvider, boolean> | null | undefined): MailboxProvider[] {
   return providers ? PROVIDER_ORDER.filter((p) => providers[p] === true) : [];
+}
+
+// Microsoft's consumer domains (outlook.com, outlook.fr, hotmail.se, live.com…).
+const MICROSOFT_DOMAIN = /@(?:outlook|hotmail|live)\.[a-z.]+$|@msn\.com$/i;
+
+/**
+ * The most likely provider first: Outlook when the sign-in address is a
+ * Microsoft one, otherwise Gmail first (most customers are on Gmail or
+ * Workspace, whose domains say nothing).
+ */
+export function orderProviders(providers: readonly MailboxProvider[], email: string | null | undefined): MailboxProvider[] {
+  const list = [...providers];
+  if (email && MICROSOFT_DOMAIN.test(email.trim()) && list.includes("microsoft")) {
+    return ["microsoft", ...list.filter((p) => p !== "microsoft")];
+  }
+  return list;
+}
+
+/**
+ * What the Receipts screen's first run and empty state offer. "unknown"
+ * until the mailboxes (saved copy or server) or a failure are known: the
+ * screens show a placeholder meanwhile, so a button never changes under
+ * the finger when the answer comes in.
+ */
+export type ConnectState = "unknown" | "none" | "offer" | "connected";
+
+export function connectState(
+  data: Pick<MobileMailboxes, "providers" | "connections" | "limit"> | null,
+  error: unknown,
+): ConnectState {
+  if (!data) return error ? "none" : "unknown";
+  if (data.connections.length > 0) return "connected";
+  return configuredProviders(data.providers).length > 0 && data.limit > 0 ? "offer" : "none";
+}
+
+/**
+ * Account → Your email's rows for adding a mailbox: one per configured
+ * provider ("Connect Gmail", "Connect Outlook"), or "Add another mailbox"
+ * once one is connected and only one kind can be added.
+ */
+export type AddRow = { provider: MailboxProvider; label: "connectGoogle" | "connectMicrosoft" | "addAnother" };
+
+export function addRows(providers: readonly MailboxProvider[], connectionCount: number): AddRow[] {
+  if (connectionCount > 0 && providers.length === 1) return [{ provider: providers[0], label: "addAnother" }];
+  return providers.map((provider) => ({
+    provider,
+    label: provider === "google" ? "connectGoogle" : "connectMicrosoft",
+  }));
+}
+
+/** "Gmail or Outlook", in the app's language. */
+export function providerNames(providers: readonly MailboxProvider[], t: Pick<MailboxStrings, "providerGoogle" | "providerMicrosoft" | "or">): string {
+  return providers.map((p) => (p === "google" ? t.providerGoogle : t.providerMicrosoft)).join(t.or);
 }
 
 // ── The redirect back to the app ─────────────────────────────────────────
@@ -286,7 +339,7 @@ export function onInbox(listener: () => void): () => void {
 
 type MailboxStrings = Strings["mailboxes"];
 
-/** "just now", "5 min ago", "2 h ago", "yesterday", "3 days ago", "4 Nov". */
+/** "just now", "5 min ago", "2 h ago", "yesterday", "3 days ago", "on 4 Nov". */
 export function relativeAgo(iso: string, t: MailboxStrings, locale: Locale, now: number = Date.now()): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return "";
@@ -298,22 +351,26 @@ export function relativeAgo(iso: string, t: MailboxStrings, locale: Locale, now:
   const days = Math.floor(hours / 24);
   if (days === 1) return t.yesterday;
   if (days < 7) return fill(t.daysAgo, { n: days });
-  return shortDate(new Date(then), locale);
+  // Its own sentence per language: "last receipt on 4 Nov", "den 4 nov", "le 4 nov.".
+  return fill(t.onDate, { date: shortDate(new Date(then), locale) });
 }
 
 export type StatusTone = "ok" | "attention" | "pending";
 
+/**
+ * The mailbox's state, shown under its address (as the website: the address
+ * is the row's label, so two Gmail accounts are told apart by it).
+ */
 export function statusLine(
-  conn: Pick<MobileMailboxConnection, "email" | "status" | "lastReceiptAt" | "lastSyncAt">,
+  conn: Pick<MobileMailboxConnection, "status" | "lastReceiptAt" | "lastSyncAt">,
   t: MailboxStrings,
   locale: Locale,
   now: number = Date.now(),
 ): { text: string; tone: StatusTone } {
-  const email = conn.email;
-  if (conn.status === "needs_reconnect") return { text: fill(t.statusReconnect, { email }), tone: "attention" };
-  if (conn.status === "paused") return { text: fill(t.statusPaused, { email }), tone: "attention" };
+  if (conn.status === "needs_reconnect") return { text: t.statusReconnect, tone: "attention" };
+  if (conn.status === "paused") return { text: t.statusPaused, tone: "attention" };
   // Active, but the first import hasn't finished yet.
-  if (!conn.lastSyncAt) return { text: fill(t.statusSettingUp, { email }), tone: "pending" };
+  if (!conn.lastSyncAt) return { text: t.statusSettingUp, tone: "pending" };
   const ago = conn.lastReceiptAt ? relativeAgo(conn.lastReceiptAt, t, locale, now) : "";
-  return { text: ago ? fill(t.statusWatching, { email, ago }) : fill(t.statusWatchingNone, { email }), tone: "ok" };
+  return { text: ago ? fill(t.statusWatching, { ago }) : t.statusWatchingNone, tone: "ok" };
 }

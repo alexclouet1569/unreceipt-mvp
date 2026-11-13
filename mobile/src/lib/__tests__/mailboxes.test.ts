@@ -1,19 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MobileMailboxConnection } from "@/lib/mobile/types";
+import { fill } from "../../i18n/core";
 import { en } from "../../i18n/en";
 import { fr } from "../../i18n/fr";
 import { sv } from "../../i18n/sv";
 import { ApiError } from "../api-error";
 import {
+  addRows,
   authSessionOutcome,
   claimErrorKey,
   configuredProviders,
   connectLinkErrorKey,
+  connectState,
   disconnectOutcome,
   finishOutcome,
   isWebUrl,
   onInbox,
+  orderProviders,
   parseMailboxUrl,
+  providerNames,
   removeAccessNote,
   putInInbox,
   reasonKey,
@@ -213,31 +218,38 @@ describe("status line", () => {
     expect(relativeAgo(ago(3 * 86_400_000), en.mailboxes, "en", now)).toBe("3 days ago");
     expect(relativeAgo(ago(2 * 3_600_000), sv.mailboxes, "sv", now)).toBe("för 2 tim sedan");
     expect(relativeAgo(ago(2 * 3_600_000), fr.mailboxes, "fr", now)).toBe("il y a 2 h");
-    expect(relativeAgo(ago(20 * 86_400_000), en.mailboxes, "en", now)).toMatch(/\d+ Oct/);
+    // Older than a week: a date, in each language's own sentence.
+    expect(relativeAgo(ago(20 * 86_400_000), en.mailboxes, "en", now)).toMatch(/^on 24 Oct\b/);
+    expect(relativeAgo(ago(20 * 86_400_000), sv.mailboxes, "sv", now)).toMatch(/^den 24 okt/);
+    expect(relativeAgo(ago(20 * 86_400_000), fr.mailboxes, "fr", now)).toMatch(/^le 24 oct/);
+    expect(
+      statusLine({ ...conn, lastSyncAt: ago(1), lastReceiptAt: ago(20 * 86_400_000) }, en.mailboxes, "en", now).text,
+    ).toMatch(/^Checking for new receipts · last receipt on 24 Oct\b/);
     expect(relativeAgo("not a date", en.mailboxes, "en", now)).toBe("");
   });
 
   it("puts each state in plain words", () => {
+    // The address is the row's label (two Gmail accounts are told apart by
+    // it), so the status line doesn't repeat it.
     const line = (c: Partial<MobileMailboxConnection>) => statusLine({ ...conn, ...c }, en.mailboxes, "en", now);
-    expect(line({})).toEqual({ text: "Setting up anna@gmail.com…", tone: "pending" });
-    expect(line({ lastSyncAt: ago(60_000) })).toEqual({
-      text: "Checking anna@gmail.com for new receipts · none yet",
-      tone: "ok",
-    });
+    expect(line({})).toEqual({ text: "Setting up…", tone: "pending" });
+    expect(line({ lastSyncAt: ago(60_000) })).toEqual({ text: "Checking for new receipts · none yet", tone: "ok" });
     expect(line({ lastSyncAt: ago(60_000), lastReceiptAt: ago(2 * 3_600_000) })).toEqual({
-      text: "Checking anna@gmail.com for new receipts · last receipt 2 h ago",
+      text: "Checking for new receipts · last receipt 2 h ago",
       tone: "ok",
     });
-    expect(line({ status: "needs_reconnect" }).tone).toBe("attention");
-    expect(line({ status: "needs_reconnect" }).text).toBe("Reconnect needed for anna@gmail.com");
+    expect(line({ status: "needs_reconnect" })).toEqual({ text: "Reconnect needed", tone: "attention" });
     expect(line({ status: "paused" })).toEqual({
-      text: "Paused: your account doesn’t have access right now, so new email in anna@gmail.com isn’t read.",
+      text: "Paused: your account doesn’t have access right now, so new email isn’t read. After 30 days paused, the mailbox is disconnected.",
       tone: "attention",
     });
-    for (const strings of [sv, fr]) {
-      const text = statusLine({ ...conn, lastSyncAt: ago(1), lastReceiptAt: ago(1) }, strings.mailboxes, "sv", now).text;
-      expect(text).toContain("anna@gmail.com");
-      expect(text).not.toMatch(/\{\w+\}/);
+    for (const strings of [en, sv, fr]) {
+      for (const c of [{}, { lastSyncAt: ago(1) }, { lastSyncAt: ago(1), lastReceiptAt: ago(1) }, { status: "paused" as const }]) {
+        const text = statusLine({ ...conn, ...c }, strings.mailboxes, "sv", now).text;
+        expect(text).not.toContain("anna@gmail.com");
+        expect(text).not.toMatch(/\{\w+\}/);
+      }
+      expect(fill(strings.mailboxes.disconnected, { email: "anna@gmail.com" })).toContain("anna@gmail.com");
     }
   });
 
@@ -245,6 +257,77 @@ describe("status line", () => {
     expect(configuredProviders({ microsoft: true, google: true })).toEqual(["google", "microsoft"]);
     expect(configuredProviders({ google: false, microsoft: true })).toEqual(["microsoft"]);
     expect(configuredProviders(null)).toEqual([]);
+  });
+});
+
+describe("connect buttons", () => {
+  const both = ["google", "microsoft"] as const;
+
+  it("puts Outlook first for a Microsoft sign-in address, Gmail first otherwise", () => {
+    expect(orderProviders(both, "anna@outlook.com")).toEqual(["microsoft", "google"]);
+    expect(orderProviders(both, "Anna@Hotmail.SE ")).toEqual(["microsoft", "google"]);
+    expect(orderProviders(both, "anna@live.fr")).toEqual(["microsoft", "google"]);
+    expect(orderProviders(both, "anna@msn.com")).toEqual(["microsoft", "google"]);
+    expect(orderProviders(both, "anna@gmail.com")).toEqual(["google", "microsoft"]);
+    expect(orderProviders(both, "anna@firma.se")).toEqual(["google", "microsoft"]);
+    // Look-alikes and other providers' addresses change nothing.
+    expect(orderProviders(both, "anna@outlookalike.com")).toEqual(["google", "microsoft"]);
+    expect(orderProviders(both, null)).toEqual(["google", "microsoft"]);
+    // Only what's configured, never a provider that isn't.
+    expect(orderProviders(["google"], "anna@outlook.com")).toEqual(["google"]);
+    expect(orderProviders([], "anna@outlook.com")).toEqual([]);
+  });
+
+  it("names the providers in the app's language", () => {
+    expect(providerNames(both, en.mailboxes)).toBe("Gmail or Outlook");
+    expect(providerNames(["microsoft", "google"], sv.mailboxes)).toBe("Outlook eller Gmail");
+    expect(providerNames(["google"], fr.mailboxes)).toBe("Gmail");
+  });
+
+  it("offers one row per provider, or Add another mailbox when only one kind can be added", () => {
+    expect(addRows(both, 0)).toEqual([
+      { provider: "google", label: "connectGoogle" },
+      { provider: "microsoft", label: "connectMicrosoft" },
+    ]);
+    expect(addRows(both, 2)).toEqual([
+      { provider: "google", label: "connectGoogle" },
+      { provider: "microsoft", label: "connectMicrosoft" },
+    ]);
+    expect(addRows(["microsoft"], 0)).toEqual([{ provider: "microsoft", label: "connectMicrosoft" }]);
+    expect(addRows(["google"], 1)).toEqual([{ provider: "google", label: "addAnother" }]);
+    expect(addRows([], 1)).toEqual([]);
+  });
+});
+
+describe("first run and empty state wait for the mailboxes", () => {
+  const data = (over: Partial<{ google: boolean; microsoft: boolean; connections: MobileMailboxConnection[]; limit: number }> = {}) => ({
+    providers: { google: over.google ?? true, microsoft: over.microsoft ?? true },
+    connections: over.connections ?? [],
+    limit: over.limit ?? 5,
+  });
+
+  it("is unknown until the list or a failure is known, so no button changes under the finger", () => {
+    expect(connectState(null, null)).toBe("unknown");
+    // A failure with nothing saved: the address alone, never a placeholder forever.
+    expect(connectState(null, "offline")).toBe("none");
+    expect(connectState(null, "server")).toBe("none");
+  });
+
+  it("offers Connect while a provider is set up and nothing is connected", () => {
+    expect(connectState(data(), null)).toBe("offer");
+    expect(connectState(data({ google: false }), null)).toBe("offer");
+    // A saved list wins over a failed refresh.
+    expect(connectState(data(), "offline")).toBe("offer");
+  });
+
+  it("says the email is connected once one is", () => {
+    expect(connectState(data({ connections: [conn] }), null)).toBe("connected");
+    expect(connectState(data({ google: false, microsoft: false, connections: [conn] }), null)).toBe("connected");
+  });
+
+  it("shows the address alone when nothing can be connected", () => {
+    expect(connectState(data({ google: false, microsoft: false }), null)).toBe("none");
+    expect(connectState(data({ limit: 0 }), null)).toBe("none");
   });
 });
 

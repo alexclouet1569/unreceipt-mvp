@@ -10,9 +10,10 @@ import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BrandMark } from "../../../components/Brand";
 import { Button } from "../../../components/Button";
+import { ConnectButtons } from "../../../components/ConnectButtons";
 import { CategoryChips } from "../../../components/CategoryChips";
 import { InviteCard } from "../../../components/InviteCard";
-import { Onboarding, type OnboardingStep } from "../../../components/Onboarding";
+import { Onboarding, type OnboardingMailbox, type OnboardingStep } from "../../../components/Onboarding";
 import { markOnboarded } from "../../../lib/api";
 import { readOnboarded, writeOnboarded } from "../../../lib/cache";
 import { useAuth } from "../../../auth/AuthProvider";
@@ -25,10 +26,11 @@ import { PressableScale } from "../../../components/PressableScale";
 import { ReceiptRow } from "../../../components/ReceiptRow";
 import { SCAN_BUTTON_SPACE, ScanButton } from "../../../components/ScanButton";
 import { SwipeToDelete, closeOpenSwipe } from "../../../components/SwipeToDelete";
-import { ReceiptSkeleton } from "../../../components/Skeleton";
+import { ActionsSkeleton, ReceiptSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { fill, locale, s } from "../../../i18n";
 import { useHome } from "../../../lib/HomeProvider";
+import { connectState, orderProviders } from "../../../lib/mailboxes";
 import { useMailboxes } from "../../../lib/MailboxesProvider";
 import { UndoToast, useReceiptActions } from "../../../lib/ReceiptActions";
 import { useScans } from "../../../lib/scans/ScanProvider";
@@ -49,17 +51,24 @@ function Notice({ text }: { text: string }) {
   );
 }
 
-/** Gmail / Outlook can be connected and none is yet: "Connect your email" leads. */
-function useConnectOffer() {
-  const { data, canAdd, connect, connecting } = useMailboxes();
-  const offer = canAdd && data != null && data.connections.length === 0;
-  return { offer, connect, connecting };
+/**
+ * Gmail / Outlook for the first run and the empty state: "unknown" until
+ * the mailboxes (saved copy or server) or a failure are known; providers
+ * most likely first for the sign-in address.
+ */
+function useConnectOffer(email: string | null): OnboardingMailbox {
+  const { data, error, providers } = useMailboxes();
+  const state = connectState(data, error);
+  const ordered = useMemo(() => orderProviders(providers, email), [providers, email]);
+  const emails = useMemo(() => (data ? data.connections.map((c) => c.email) : []), [data]);
+  return useMemo(() => ({ state, providers: ordered, emails }), [state, ordered, emails]);
 }
 
-function Empty({ address }: { address: string }) {
+function Empty({ address, email }: { address: string; email: string }) {
   const styles = useStyles();
   const colors = useColors();
-  const { offer, connect, connecting } = useConnectOffer();
+  const { state, providers } = useConnectOffer(email);
+  const offer = state === "offer";
   return (
     <Animated.View entering={FadeIn.duration(durations.medium)} style={styles.empty}>
       <View style={styles.emptyMark}>
@@ -68,28 +77,31 @@ function Empty({ address }: { address: string }) {
       <Text variant="displayLg" style={styles.center}>
         {s.receipts.emptyTitle}
       </Text>
-      <Text variant="body" color={colors.inkMuted} style={styles.center}>
-        {offer ? s.mailboxes.note : s.receipts.emptyBody}
-      </Text>
-      {offer ? (
-        <View style={styles.emptyCard}>
-          {/* Ink, not green: the scan button is the screen's green action. */}
-          <Button
-            kind="ink"
-            label={s.mailboxes.connectYourEmail}
-            busy={connecting != null}
-            onPress={() => connect()}
-          />
-        </View>
-      ) : null}
-      {offer ? (
-        <Text variant="caption" color={colors.inkMuted} style={[styles.center, styles.emptyOr]}>
-          {s.mailboxes.orForward}
-        </Text>
-      ) : null}
-      <View style={offer ? styles.emptyCardNear : styles.emptyCard}>
-        <ForwardingCard address={address} />
-      </View>
+      {/* Shapes until the mailboxes are known: the connect buttons never
+          appear above an address card someone is about to tap. */}
+      {state === "unknown" ? (
+        <ActionsSkeleton lines={2} buttons={1} card />
+      ) : (
+        <>
+          <Text variant="body" color={colors.inkMuted} style={styles.center}>
+            {offer ? s.mailboxes.note : s.receipts.emptyBody}
+          </Text>
+          {offer ? (
+            <View style={styles.emptyCard}>
+              {/* The most likely in ink, the other outlined: the scan button is the screen's green. */}
+              <ConnectButtons providers={providers} lead />
+            </View>
+          ) : null}
+          {offer ? (
+            <Text variant="caption" color={colors.inkMuted} style={[styles.center, styles.emptyOr]}>
+              {s.mailboxes.orForward}
+            </Text>
+          ) : null}
+          <View style={offer ? styles.emptyCardNear : styles.emptyCard}>
+            <ForwardingCard address={address} quiet={offer} />
+          </View>
+        </>
+      )}
     </Animated.View>
   );
 }
@@ -216,7 +228,7 @@ export default function Receipts() {
   // finished it, and then stays until finished, even once the first
   // receipt has arrived. A fresh "no" before the user moved on stops it.
   const [onboarding, setOnboarding] = useState<OnboardingStep | null>(null);
-  const connectOffer = useConnectOffer();
+  const connectOffer = useConnectOffer(home?.state === "ready" ? home.email : null);
   const [doneHere, setDoneHere] = useState<boolean | null>(null);
   useEffect(() => {
     if (!userId) return;
@@ -361,8 +373,7 @@ export default function Receipts() {
                 }}
                 onScan={() => void scan()}
                 onFinish={finishOnboarding}
-                onConnect={connectOffer.offer ? () => connectOffer.connect() : undefined}
-                connecting={connectOffer.connecting != null}
+                mailbox={connectOffer}
               />
             ) : home.receipts.length > 0 ? (
               <>
@@ -395,7 +406,7 @@ export default function Receipts() {
             <PendingList />
           </View>
         }
-        ListEmptyComponent={pending.length === 0 && onboarding == null ? <Empty address={home.forwardingEmail} /> : undefined}
+        ListEmptyComponent={pending.length === 0 && onboarding == null ? <Empty address={home.forwardingEmail} email={home.email} /> : undefined}
         ListFooterComponent={
           onboarding == null && older.hasMore && home.receipts.length > 0 ? (
             <View style={styles.more}>

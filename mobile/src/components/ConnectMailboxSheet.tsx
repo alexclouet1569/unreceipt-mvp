@@ -1,11 +1,13 @@
 // The one screen of ours before Google's or Microsoft's consent screen:
 // what UnReceipt reads (with a link to the privacy page's mailbox section),
-// what the provider will ask, then Continue. A page
-// sheet, swiped down or Cancel to close (same bar as the delete-account
-// sheet in StatusScreen).
+// what the provider will ask, then Continue. A page sheet, swiped down or
+// Cancel to close: the iOS bar (Cancel leading, "Connect Gmail" centred, as
+// the delete-account sheet in StatusScreen) and Continue in a bar at the
+// bottom within thumb reach, as the forwarding guide's Back / Next.
 
 import { useEffect, useState } from "react";
 import { Modal, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { SymbolView } from "expo-symbols";
 import * as WebBrowser from "expo-web-browser";
 import { PRIVACY_MAILBOX_URL } from "../config";
@@ -18,12 +20,15 @@ import { Text } from "./Text";
 
 export function ConnectMailboxSheet({
   provider,
+  busy = false,
   onContinue,
   onCancel,
   onDismissed,
 }: {
   /** The sheet shows while set. */
   provider: MailboxProvider | null;
+  /** Continue was pressed: the button shows it while the sheet slides away. */
+  busy?: boolean;
   onContinue: () => void;
   onCancel: () => void;
   /** iOS: the sheet has finished sliding away. */
@@ -49,22 +54,24 @@ export function ConnectMailboxSheet({
       onRequestClose={onCancel}
       onDismiss={onDismissed}
     >
-      <View style={styles.sheet}>
+      <SafeAreaView edges={["bottom"]} style={styles.sheet}>
+        {/* iOS page-sheet bar: Cancel leading, the title centred. */}
         <View style={styles.header}>
           <View style={styles.side}>
-            <Button label={s.common.cancel} kind="plain" onPress={onCancel} />
+            <Button label={s.common.cancel} kind="plain" onPress={onCancel} disabled={busy} />
           </View>
-          {/* The title is set large below; the bar only holds Cancel. */}
-          <View style={styles.title} />
+          <Text variant="merchant" accessibilityRole="header" numberOfLines={1} style={styles.title}>
+            {title}
+          </Text>
+          <View style={styles.side} />
         </View>
-        <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
+        <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.mark} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             <SymbolView name="envelope" size={28} weight="semibold" tintColor={colors.ink} />
           </View>
-          <Text variant="displayLg" style={styles.center} accessibilityRole="header">
-            {title}
+          <Text variant="body" color={colors.inkMuted}>
+            {s.mailboxes.whatWeRead}
           </Text>
-          <Text variant="body">{s.mailboxes.whatWeRead}</Text>
           {/* Like the sign-in screen's privacy link: underlined ink text. */}
           <PressableScale
             accessibilityRole="link"
@@ -87,12 +94,11 @@ export function ConnectMailboxSheet({
               </Text>
             ) : null}
           </View>
-          <View style={styles.actions}>
-            <Button label={s.mailboxes.continue} onPress={onContinue} />
-            <Button label={s.common.cancel} kind="outline" onPress={onCancel} />
-          </View>
         </ScrollView>
-      </View>
+        <View style={styles.bar}>
+          <Button label={s.mailboxes.continue} busy={busy} onPress={onContinue} />
+        </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -107,8 +113,9 @@ const useStyles = makeStyles((colors) => ({
     borderBottomColor: colors.hairline,
   },
   side: { width: 110, alignItems: "flex-start" },
-  title: { flex: 1 },
-  content: { padding: space.xl, gap: space.lg, paddingBottom: space.xxxl },
+  title: { flex: 1, textAlign: "center" },
+  // Everything flush left, the mark included: one edge to read down.
+  content: { padding: space.xl, gap: space.lg, paddingBottom: space.xl },
   // A card-white square with a hairline: mint is kept for the empty state (DESIGN.md).
   mark: {
     width: 64,
@@ -119,9 +126,7 @@ const useStyles = makeStyles((colors) => ({
     borderColor: colors.hairline,
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
   },
-  center: { textAlign: "center" },
   // At least 44 pt tall to tap, flush left under the text it belongs to.
   linkTarget: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: -space.sm },
   link: { fontFamily: fonts.semibold, textDecorationLine: "underline" },
@@ -133,5 +138,13 @@ const useStyles = makeStyles((colors) => ({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  actions: { gap: space.sm, marginTop: space.sm },
+  // The forwarding guide's bottom bar (account/guide.tsx): a hairline above, cream behind.
+  bar: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.surface,
+  },
 }));

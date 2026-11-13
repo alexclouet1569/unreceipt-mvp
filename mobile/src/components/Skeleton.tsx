@@ -25,15 +25,18 @@ export function useBreathing() {
   return useAnimatedStyle(() => ({ opacity: opacity.value }));
 }
 
-/** Settings-style groups (the Account tab) before anything is known. */
-export function GroupedSkeleton({ groups = [2, 3, 1] }: { groups?: number[] }) {
+/**
+ * Settings-style groups (the Account tab) before anything is known. bare:
+ * the card(s) only, under a section title that is already there.
+ */
+export function GroupedSkeleton({ groups = [2, 3, 1], bare = false }: { groups?: number[]; bare?: boolean }) {
   const styles = useStyles();
   const pulse = useBreathing();
   return (
     <Animated.View style={pulse} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {groups.map((rows, g) => (
-        <View key={g} style={styles.group}>
-          <View style={[styles.label, styles.groupLabel]} />
+        <View key={g} style={bare ? undefined : styles.group}>
+          {bare ? null : <View style={[styles.label, styles.groupLabel]} />}
           <View style={styles.groupCard}>
             {Array.from({ length: rows }, (_, i) => (
               <View key={i} style={[styles.groupRow, i > 0 && styles.groupDivider]}>
@@ -43,6 +46,33 @@ export function GroupedSkeleton({ groups = [2, 3, 1] }: { groups?: number[] }) {
           </View>
         </View>
       ))}
+    </Animated.View>
+  );
+}
+
+/**
+ * Text lines and button shapes where a screen's actions will be, while
+ * what they offer is still unknown (never a button that changes under the
+ * finger). lines: body text lines; buttons: 52 pt button shapes; card: the
+ * address card under them.
+ */
+export function ActionsSkeleton({ lines = 2, buttons = 1, card = false }: { lines?: number; buttons?: number; card?: boolean }) {
+  const styles = useStyles();
+  const pulse = useBreathing();
+  return (
+    <Animated.View
+      style={[pulse, styles.actions]}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      {Array.from({ length: lines }, (_, i) => (
+        <View key={`l${i}`} style={[styles.line, styles.centerLine, { width: i === lines - 1 ? "60%" : "90%" }]} />
+      ))}
+      <View style={styles.actionGap} />
+      {Array.from({ length: buttons }, (_, i) => (
+        <View key={`b${i}`} style={styles.button} />
+      ))}
+      {card ? <View style={styles.cardShape} /> : null}
     </Animated.View>
   );
 }
@@ -107,4 +137,16 @@ const useStyles = makeStyles((colors) => ({
   },
   groupRow: { minHeight: 52, justifyContent: "center", paddingHorizontal: space.lg },
   groupDivider: { borderTopWidth: 1, borderTopColor: colors.hairline },
+  actions: { alignSelf: "stretch", gap: space.sm },
+  centerLine: { alignSelf: "center" },
+  actionGap: { height: space.sm },
+  button: { height: 52, borderRadius: radius.md, backgroundColor: colors.skeleton },
+  cardShape: {
+    height: 58,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    marginTop: space.sm,
+  },
 }));

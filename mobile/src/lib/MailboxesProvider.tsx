@@ -5,10 +5,12 @@
 // Connect (and Reconnect) always goes through our explainer sheet first,
 // then the system sign-in sheet (ASWebAuthenticationSession), then the
 // claim with this phone's own sign-in (src/lib/mailboxes.ts). The result is
-// said in a native alert (read by VoiceOver), with a haptic.
+// said in a native alert (read by VoiceOver), with a haptic. Each screen
+// shows one button per configured provider, so there is never a "which
+// one?" step before the explainer.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, ActionSheetIOS, Alert } from "react-native";
+import { AccessibilityInfo, Alert } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import type { MobileMailboxConnection, MobileMailboxes } from "@/lib/mobile/types";
@@ -42,12 +44,17 @@ type MailboxesState = {
   providers: MailboxProvider[];
   /** A new mailbox can be added: a provider is configured and the limit isn't reached. */
   canAdd: boolean;
-  /** Opens the explainer for one provider, or asks which one first. */
-  connect: (provider?: MailboxProvider) => void;
+  /** Opens the explainer for one provider. */
+  connect: (provider: MailboxProvider) => void;
   disconnect: (conn: MobileMailboxConnection) => void;
-  /** The provider whose flow is running. */
+  /** The provider whose flow is running, from the explainer's Continue on. */
   connecting: MailboxProvider | null;
   disconnecting: string | null;
+  /**
+   * The last mailbox disconnected here (a new object each time): Account →
+   * Your email announces it and moves VoiceOver to its header.
+   */
+  disconnected: { email: string } | null;
 };
 
 const MailboxesContext = createContext<MailboxesState | null>(null);
@@ -55,8 +62,6 @@ const MailboxesContext = createContext<MailboxesState | null>(null);
 // Codes already sent to /claim, for the app's lifetime: the sign-in sheet's
 // answer and a deep link must never claim twice.
 const CLAIMED = new Set<string>();
-
-const providerName = (p: MailboxProvider) => (p === "google" ? s.mailboxes.providerGoogle : s.mailboxes.providerMicrosoft);
 
 export function MailboxesProvider({ children }: { children: React.ReactNode }) {
   const { userId, signOut } = useAuth();
@@ -66,6 +71,7 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
   const [sheet, setSheet] = useState<MailboxProvider | null>(null);
   const [connecting, setConnecting] = useState<MailboxProvider | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [disconnected, setDisconnected] = useState<{ email: string } | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
   const started = useRef(false);
   const queued = useRef<MailboxProvider | null>(null);
@@ -138,7 +144,9 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
           void signOut({ keepScans: true });
           return;
         case "cancelled":
-          AccessibilityInfo.announceForAccessibility(s.mailboxes.cancelled);
+          // Once the sign-in sheet has gone, or VoiceOver reads the screen
+          // coming back over it.
+          setTimeout(() => AccessibilityInfo.announceForAccessibility(s.mailboxes.cancelled), 400);
           return;
         case "connected": {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -187,12 +195,11 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
     showRef.current = show;
   }, [show]);
 
+  // running and connecting are already set by Continue.
   const runQueued = useCallback(() => {
     const provider = queued.current;
     queued.current = null;
-    if (!provider || running.current) return;
-    running.current = true;
-    setConnecting(provider);
+    if (!provider) return;
     void runConnect(provider, deps)
       .then((result) => showRef.current(result))
       .finally(() => {
@@ -219,38 +226,21 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
   const providers = useMemo(() => configuredProviders(data?.providers), [data]);
   const canAdd = Boolean(data && providers.length > 0 && data.connections.length < data.limit);
 
-  const connect = useCallback(
-    (provider?: MailboxProvider) => {
-      if (running.current) return;
-      if (provider) {
-        setSheet(provider);
-        return;
-      }
-      if (providers.length === 1) {
-        setSheet(providers[0]);
-        return;
-      }
-      if (providers.length === 0) return;
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title: s.mailboxes.chooseTitle,
-          options: [...providers.map(providerName), s.common.cancel],
-          cancelButtonIndex: providers.length,
-        },
-        (index) => {
-          if (index < providers.length) setSheet(providers[index]);
-        },
-      );
-    },
-    [providers],
-  );
+  const connect = useCallback((provider: MailboxProvider) => {
+    if (running.current) return;
+    setSheet(provider);
+  }, []);
 
   // Continue: the explainer closes first, then the system sheet opens (two
   // sheets can't animate at once). onDismiss is the signal; the timer is
   // the safety net if it never fires.
   const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onContinue = useCallback(() => {
-    if (!sheet) return;
+    if (!sheet || running.current) return;
+    // Busy from this tap on: the buttons that open the explainer show it
+    // and refuse a second flow while the sheet slides away.
+    running.current = true;
+    setConnecting(sheet);
     queued.current = sheet;
     setSheet(null);
     if (fallback.current) clearTimeout(fallback.current);
@@ -285,8 +275,13 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
                   // Outlook (or a Google revoke that failed): where to remove
                   // the access at the provider, in an alert VoiceOver reads.
                   const note = removeAccessNote(conn.provider, res.ok ? res.data.revoked : undefined, s.mailboxes);
-                  if (note) Alert.alert(s.mailboxes.disconnected, note);
-                  else AccessibilityInfo.announceForAccessibility(s.mailboxes.disconnected);
+                  // Said by Account → Your email (after the alert, when there is one).
+                  const done = () => setDisconnected({ email: conn.email });
+                  if (note) {
+                    Alert.alert(fill(s.mailboxes.disconnected, { email: conn.email }), note, [
+                      { text: s.mailboxes.ok, onPress: done },
+                    ]);
+                  } else done();
                   setData((current) => {
                     if (!current) return current;
                     const next = { ...current, connections: current.connections.filter((c) => c.id !== conn.id) };
@@ -330,14 +325,16 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
       disconnect,
       connecting,
       disconnecting,
+      disconnected,
     }),
-    [data, error, refreshing, refresh, ensure, providers, canAdd, connect, disconnect, connecting, disconnecting],
+    [data, error, refreshing, refresh, ensure, providers, canAdd, connect, disconnect, connecting, disconnecting, disconnected],
   );
   return (
     <MailboxesContext.Provider value={value}>
       {children}
       <ConnectMailboxSheet
         provider={sheet}
+        busy={connecting != null}
         onContinue={onContinue}
         onCancel={() => setSheet(null)}
         onDismissed={onDismissed}

@@ -1,101 +1,49 @@
-// Account → Your email: each connected Gmail / Outlook mailbox with its
-// status in plain words, Reconnect when it needs it and Disconnect; then
-// Connect Gmail / Connect Outlook (or "Add another mailbox") and the way to
-// forwarding for every other kind of email. Hidden until the server says a
-// provider can be connected or a mailbox is already there.
+// Account → Your email: each connected Gmail / Outlook mailbox as a row
+// (its address, then the provider and its status in plain words, honey when
+// it needs the user) that pushes its own screen with Reconnect and
+// Disconnect (account/mailbox.tsx); the note; then one row per provider to
+// connect (or "Add another mailbox"). Every other kind of email uses the
+// forwarding section right below. Placeholder rows while loading; a honey
+// line when the list couldn't be read. Hidden when no provider can be
+// connected and nothing is.
 
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { AccessibilityInfo, View, findNodeHandle } from "react-native";
 import { router } from "expo-router";
-import type { MobileMailboxConnection } from "@/lib/mobile/types";
 import { fill, locale, s } from "../i18n";
-import { statusLine } from "../lib/mailboxes";
+import { addRows, statusLine } from "../lib/mailboxes";
 import { useMailboxes } from "../lib/MailboxesProvider";
-import { fonts, radius, space, makeStyles, useColors } from "../theme";
-import { Group, Row, Section } from "./Grouped";
-import { PressableScale } from "./PressableScale";
-import { Text } from "./Text";
-
-function SmallButton({
-  label,
-  accessibilityLabel,
-  onPress,
-  busy = false,
-  disabled = false,
-  destructive = false,
-}: {
-  label: string;
-  accessibilityLabel: string;
-  onPress: () => void;
-  busy?: boolean;
-  disabled?: boolean;
-  destructive?: boolean;
-}) {
-  const styles = useStyles();
-  const colors = useColors();
-  const inactive = disabled || busy;
-  return (
-    <PressableScale
-      scaleTo={0.96}
-      onPress={onPress}
-      disabled={inactive}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled: inactive, busy }}
-      style={[styles.small, inactive && styles.inactive]}
-    >
-      {busy ? (
-        <ActivityIndicator color={colors.inkMuted} />
-      ) : (
-        <Text style={styles.smallLabel} color={destructive ? colors.negative : colors.ink}>
-          {label}
-        </Text>
-      )}
-    </PressableScale>
-  );
-}
-
-function MailboxRow({ conn, first }: { conn: MobileMailboxConnection; first: boolean }) {
-  const styles = useStyles();
-  const colors = useColors();
-  const { providers, connect, disconnect, connecting, disconnecting } = useMailboxes();
-  const status = statusLine(conn, s.mailboxes, locale);
-  const name = conn.provider === "google" ? s.mailboxes.providerGoogle : s.mailboxes.providerMicrosoft;
-  const canReconnect = conn.status !== "active" && providers.includes(conn.provider);
-  const busy = connecting != null || disconnecting != null;
-  return (
-    <View style={[styles.mailbox, !first && styles.divider]}>
-      <View accessible accessibilityLabel={`${name}, ${status.text}`} style={styles.texts}>
-        <Text variant="merchant">{name}</Text>
-        <Text variant="caption" color={status.tone === "attention" ? colors.attentionDeep : colors.inkMuted}>
-          {status.text}
-        </Text>
-      </View>
-      <View style={styles.buttons}>
-        {canReconnect ? (
-          <SmallButton
-            label={s.mailboxes.reconnect}
-            accessibilityLabel={fill(s.mailboxes.reconnectLabel, { email: conn.email })}
-            busy={connecting === conn.provider}
-            disabled={busy}
-            onPress={() => connect(conn.provider)}
-          />
-        ) : null}
-        <SmallButton
-          label={s.mailboxes.disconnect}
-          accessibilityLabel={fill(s.mailboxes.disconnectLabel, { email: conn.email })}
-          destructive
-          busy={disconnecting === conn.id}
-          disabled={busy}
-          onPress={() => disconnect(conn)}
-        />
-      </View>
-    </View>
-  );
-}
+import { space, makeStyles, useColors } from "../theme";
+import { Group, Row, Section, SectionNote } from "./Grouped";
+import { GroupedSkeleton } from "./Skeleton";
 
 export function MailboxesSection() {
-  const { data, providers, canAdd, connect, connecting } = useMailboxes();
-  if (!data) return null;
+  const styles = useStyles();
+  const colors = useColors();
+  const { data, error, providers, canAdd, connect, connecting, disconnected } = useMailboxes();
+
+  // After a disconnect (its screen has closed): VoiceOver hears which
+  // mailbox went and lands on this section, not at the top of the screen.
+  const headerRef = useRef<React.ComponentRef<typeof View>>(null);
+  useEffect(() => {
+    if (!disconnected) return;
+    const timer = setTimeout(() => {
+      const node = headerRef.current ? findNodeHandle(headerRef.current) : null;
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+      AccessibilityInfo.announceForAccessibilityWithOptions(fill(s.mailboxes.disconnected, { email: disconnected.email }), {
+        queue: true,
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [disconnected]);
+
+  if (!data) {
+    return (
+      <Section title={s.mailboxes.title} titleRef={headerRef}>
+        {error ? <SectionNote text={s.mailboxes.loadFailed} color={colors.attentionDeep} /> : <GroupedSkeleton groups={[1]} bare />}
+      </Section>
+    );
+  }
   const connections = data.connections;
   if (providers.length === 0 && connections.length === 0) return null;
 
@@ -105,67 +53,60 @@ export function MailboxesSection() {
     : connections.length > 0
       ? s.mailboxes.noteConnected
       : s.mailboxes.note;
+  const adds = canAdd ? addRows(providers, connections.length) : [];
+  const addGroup =
+    adds.length > 0 ? (
+      <Group>
+        {adds.map((row, i) => (
+          <Row
+            key={row.provider}
+            first={i === 0}
+            label={s.mailboxes[row.label]}
+            accessibilityHint={s.mailboxes.connectHint}
+            busy={connecting === row.provider}
+            disabled={connecting != null}
+            onPress={() => connect(row.provider)}
+          />
+        ))}
+      </Group>
+    ) : null;
 
   return (
-    <Section title={s.mailboxes.title} note={note}>
+    <Section title={s.mailboxes.title} titleRef={headerRef}>
       {connections.length > 0 ? (
-        <Group>
-          {connections.map((conn, i) => (
-            <MailboxRow key={conn.id} conn={conn} first={i === 0} />
-          ))}
-        </Group>
-      ) : null}
-      <Group>
-        {canAdd && connections.length === 0
-          ? providers.map((p, i) => (
-              <Row
-                key={p}
-                first={i === 0}
-                label={p === "google" ? s.mailboxes.connectGoogle : s.mailboxes.connectMicrosoft}
-                accessibilityHint={s.mailboxes.connectHint}
-                busy={connecting === p}
-                disabled={connecting != null}
-                onPress={() => connect(p)}
-              />
-            ))
-          : null}
-        {canAdd && connections.length > 0 ? (
-          <Row
-            first
-            label={s.mailboxes.addAnother}
-            accessibilityHint={s.mailboxes.connectHint}
-            busy={connecting != null && !connections.some((c) => c.status !== "active" && c.provider === connecting)}
-            disabled={connecting != null}
-            onPress={() => connect()}
-          />
-        ) : null}
-        <Row
-          first={!canAdd}
-          label={s.mailboxes.forwardInstead}
-          detail={s.mailboxes.forwardInsteadNote}
-          onPress={() => router.push("/account/forwarding")}
-        />
-      </Group>
+        <>
+          <Group>
+            {connections.map((conn, i) => {
+              const status = statusLine(conn, s.mailboxes, locale);
+              const name = conn.provider === "google" ? s.mailboxes.providerGoogle : s.mailboxes.providerMicrosoft;
+              return (
+                <Row
+                  key={conn.id}
+                  first={i === 0}
+                  // The address tells two Gmail accounts apart.
+                  label={conn.email}
+                  detail={`${name} · ${status.text}`}
+                  detailColor={status.tone === "attention" ? colors.attentionDeep : undefined}
+                  onPress={() => router.push({ pathname: "/account/mailbox", params: { id: conn.id } })}
+                />
+              );
+            })}
+          </Group>
+          {/* The note is about the mailboxes, so it sits under them. */}
+          <SectionNote text={note} />
+          {addGroup ? <View style={styles.apart}>{addGroup}</View> : null}
+        </>
+      ) : (
+        <>
+          {addGroup}
+          <SectionNote text={note} />
+        </>
+      )}
     </Section>
   );
 }
 
-const useStyles = makeStyles((colors) => ({
-  mailbox: { paddingVertical: space.md, paddingHorizontal: 14, gap: space.sm },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
-  texts: { gap: 2 },
-  buttons: { flexDirection: "row", gap: space.sm },
-  small: {
-    minHeight: 44,
-    minWidth: 44,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  smallLabel: { fontFamily: fonts.semibold, fontSize: 15 },
-  inactive: { opacity: 0.45 },
+const useStyles = makeStyles(() => ({
+  // Below the note: a group of its own, not part of the list above.
+  apart: { marginTop: space.sm },
 }));
