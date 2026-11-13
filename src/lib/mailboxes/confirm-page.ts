@@ -28,7 +28,10 @@ function escapeHtml(value: string): string {
 
 export function confirmPageHtml(input: {
   provider: MailboxProviderId;
-  maskedAccount: string;
+  // The UnReceipt account the link belongs to, in full: a masked address
+  // (a•••@gmail.com) looks the same for many accounts, so someone could
+  // send a victim a link to their own account (security review 2026-11-13).
+  account: string;
   linkToken: string;
 }): string {
   const name = PROVIDER_NAMES[input.provider];
@@ -41,7 +44,7 @@ export function confirmPageHtml(input: {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="referrer" content="no-referrer">
+<meta name="referrer" content="same-origin">
 <meta name="robots" content="noindex">
 <title>Connect ${escapeHtml(name)} · UnReceipt</title>
 <style>
@@ -62,7 +65,8 @@ export function confirmPageHtml(input: {
 <body>
 <main>
   <h1>Connect ${escapeHtml(name)} to UnReceipt</h1>
-  <p>Receipts from the mailbox you choose next will be saved in the UnReceipt account <strong>${escapeHtml(input.maskedAccount)}</strong>.</p>
+  <p>Receipts from the mailbox you choose next will be saved in the UnReceipt account <strong>${escapeHtml(input.account)}</strong>.</p>
+  <p>Not your UnReceipt account? Don't continue: whoever owns it would see your receipts.</p>
   <p>UnReceipt looks only at emails that look like receipts or invoices, and saves only those. You can disconnect any time.</p>
   <form method="post" action="${escapeHtml(action)}">
     <input type="hidden" name="link" value="${escapeHtml(input.linkToken)}">

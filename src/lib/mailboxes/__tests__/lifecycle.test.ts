@@ -19,7 +19,7 @@ import { createFakeDb } from "./fake-db";
 import { forgetAccessToken, getAccessToken } from "../access-token";
 import { saveConnection } from "../store";
 import { syncConnection } from "../sync";
-import { disconnectAllMailboxes, disconnectMailbox } from "../teardown";
+import { ACCOUNT_DELETE_BUDGET_MS, disconnectAllMailboxes, disconnectMailbox } from "../teardown";
 import { ReauthRequiredError, MailboxProviderError, type MailboxConnectionRef } from "../types";
 import { decryptToken } from "../crypto";
 
@@ -129,5 +129,22 @@ describe("disconnect", () => {
 
     db.failNext.mailbox_connections = { code: "42P01", message: "relation does not exist" };
     await expect(disconnectAllMailboxes(USER, client)).resolves.toBe(0);
+  });
+
+  it("releases mailboxes together and stops waiting after the budget, so account deletion goes on", async () => {
+    vi.useFakeTimers();
+    try {
+      await connect("a@gmail.com");
+      await connect("b@gmail.com");
+      // A provider that never answers.
+      fakeProvider.revoke.mockImplementation(() => new Promise(() => {}));
+      const done = disconnectAllMailboxes(USER, client);
+      await vi.advanceTimersByTimeAsync(ACCOUNT_DELETE_BUDGET_MS + 1);
+      await expect(done).resolves.toBe(2);
+      // Both were started at once, not one after the other.
+      expect(fakeProvider.revoke).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

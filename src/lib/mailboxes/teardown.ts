@@ -13,6 +13,8 @@ import { deleteConnection, getDecryptedToken, listConnections } from "./store";
 import type { MailboxConnectionRef } from "./types";
 
 const PROVIDER_CALL_MS = 8000;
+// Releasing every mailbox during account deletion, all together.
+export const ACCOUNT_DELETE_BUDGET_MS = 20_000;
 
 export type ReleaseResult = { stopped: boolean; revoked: boolean };
 
@@ -91,12 +93,29 @@ export async function disconnectAllMailboxes(
     Sentry.captureException(err, { tags: { area: "mailboxes", step: "account_delete_list" } });
     return 0;
   }
-  for (const conn of conns) {
-    try {
-      await disconnectMailbox(conn, supabase);
-    } catch (err) {
-      Sentry.captureException(err, { tags: { area: "mailboxes", step: "account_delete", provider: conn.provider } });
-    }
+  // All at once, within one overall budget: one after another, five slow
+  // providers (three calls of up to 8 s each) would outlast the 60 s
+  // /api/account/delete has. Anything still running after the budget is
+  // left to the cascade with auth.users (the row) and to the provider's own
+  // expiry (the watch); the deletion itself goes on.
+  const all = Promise.allSettled(
+    conns.map((conn) =>
+      disconnectMailbox(conn, supabase).catch((err) => {
+        Sentry.captureException(err, { tags: { area: "mailboxes", step: "account_delete", provider: conn.provider } });
+      }),
+    ),
+  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), ACCOUNT_DELETE_BUDGET_MS);
+  });
+  const outcome = await Promise.race([all.then(() => "done" as const), budget]);
+  if (timer) clearTimeout(timer);
+  if (outcome === "timeout") {
+    Sentry.captureMessage("mailbox release outlasted the account deletion budget", {
+      level: "warning",
+      tags: { area: "mailboxes", step: "account_delete_budget" },
+    });
   }
   return conns.length;
 }

@@ -183,8 +183,14 @@ describe("/api/mailboxes/connect/[provider]?link= (iPhone app)", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     const html = await res.text();
-    expect(html).toContain("e•••@evil.test");
-    expect(html).not.toContain("eve@evil.test");
+    // The full address: a masked one looks the same for many accounts, so a
+    // victim couldn't tell an attacker's link from their own.
+    expect(html).toContain("eve@evil.test");
+    expect(html).toContain("Not your UnReceipt account? Don");
+    // Its own form must carry a real Origin: "no-referrer" would make the
+    // browser send `Origin: null`, which the POST refuses.
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
+    expect(html).toContain('<meta name="referrer" content="same-origin">');
     expect(html).toContain('method="post" action="/api/mailboxes/connect/google"');
     expect(html).not.toContain(FAKE_AUTH_BASE);
     expect(mocks.db.tables.mailbox_oauth_pending).toHaveLength(0);

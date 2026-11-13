@@ -25,7 +25,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { PAGE_CSP, confirmPageHtml, continuePageHtml } from "@/lib/mailboxes/confirm-page";
 import { linkSecretConfigured, verifyConnectLink, type LinkFailure } from "@/lib/mailboxes/link-token";
-import { maskAddress, type ResultReason } from "@/lib/mailboxes/oauth";
+import type { ResultReason } from "@/lib/mailboxes/oauth";
 import { configuredProvider } from "@/lib/mailboxes/providers";
 import { finishWith, noStore, startConnectFlow } from "@/lib/mailboxes/start-flow";
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
 
     const html = confirmPageHtml({
       provider: provider.id,
-      maskedAccount: maskAddress(data.user.email),
+      account: data.user.email ?? "",
       linkToken: link,
     });
     const res = new NextResponse(html, {
@@ -65,7 +65,12 @@ export async function GET(request: NextRequest, { params }: Ctx) {
         "Content-Security-Policy": PAGE_CSP,
       },
     });
-    return noStore(res);
+    noStore(res);
+    // This page's own form POSTs back here: with "no-referrer" the browser
+    // sends `Origin: null` and the same-origin check refuses every app
+    // connect. same-origin still sends nothing to other sites.
+    res.headers.set("Referrer-Policy", "same-origin");
+    return res;
   }
 
   const user = await getServerUser();
