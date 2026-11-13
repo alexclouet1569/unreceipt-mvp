@@ -35,7 +35,10 @@ type Status = {
     // We confirmed the request for the user (their own Gmail asked).
     autoConfirmed?: boolean;
     // Gmail's own confirmation page (its email now has this, not a code).
+    // Only sent when forAddress is known.
     confirmUrl?: string | null;
+    // forAddress is one of the user's own addresses (null: unknown).
+    ownInbox?: boolean | null;
   } | null;
   lastEmailAt: string | null;
 };
@@ -344,7 +347,12 @@ export function ForwardingWizard({
               actions={chapter.actions}
               current={actionIndex}
               onSelect={setAction}
-              textContext={{ lang, autoConfirmed, firstWord: icloudWords[0] }}
+              textContext={{
+                lang,
+                autoConfirmed,
+                firstWord: icloudWords[0],
+                confirmKind: status?.confirmation?.confirmUrl ? "link" : status?.confirmation?.code ? "code" : null,
+              }}
               sceneProps={{
                 lang,
                 address: forwardingEmail,
@@ -483,7 +491,7 @@ function ExtraFor({
     case "paid-check":
       return <PaidCheck forwardingEmail={forwardingEmail} />;
     case "code":
-      return <CodeBox status={status} />;
+      return <CodeBox status={status} lang={lang} />;
     case "test":
       return <TestBox status={status} />;
   }
@@ -605,74 +613,92 @@ function OpenLink({ href, children }: { href: string; children: React.ReactNode 
   );
 }
 
-function CodeBox({ status }: { status: Status | null }) {
+function CodeBox({ status, lang }: { status: Status | null; lang: MailLang }) {
   const confirmation = status?.confirmation ?? null;
-  const from = confirmation?.forAddress ? (
+  const asker = confirmation?.forAddress ? <Strong>{confirmation.forAddress}</Strong> : "a Gmail account";
+  const link = confirmation?.confirmUrl ?? null;
+  // Our button only opens Google's page; Google's own Confirm button there is
+  // what confirms. Say both, by name, so nobody stops at ours.
+  const pressConfirm = (
     <>
-      {" "}from <Strong>{confirmation.forAddress}</Strong>
+      Press <Strong>Confirm in Gmail</Strong> below. On the Google page that opens, press{" "}
+      <Q label={GMAIL.confirmPage} lang={lang} />.
     </>
-  ) : null;
-  const confirmLink = confirmation?.confirmUrl ? (
-    <OpenLink href={confirmation.confirmUrl}>Confirm in Gmail</OpenLink>
-  ) : null;
+  );
+  const confirmLink = link ? <OpenLink href={link}>Confirm in Gmail</OpenLink> : null;
   const codeRow = confirmation?.code ? (
     <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
   ) : null;
+
+  if (confirmation?.autoConfirmed) {
+    return (
+      <div className="space-y-3">
+        <p role="status" className="type-body flex items-start gap-2 text-[var(--ink)]">
+          <Check className="mt-0.5 w-5 h-5 shrink-0 text-[var(--ink)]" aria-hidden="true" />
+          <span>
+            Done. Gmail asked us to approve forwarding from {asker}, and we approved it for you. Nothing to type:
+            refresh the Gmail page (the round arrow next to the address bar) and your address is confirmed.
+          </span>
+        </p>
+        {confirmLink || codeRow ? (
+          <>
+            <ActionHint>
+              Gmail still shows <Q label={GMAIL.verify} lang={lang} /> next to your address after refreshing?{" "}
+              {confirmLink ? pressConfirm : "Type this code in the box next to your address:"}
+            </ActionHint>
+            {confirmLink ?? codeRow}
+          </>
+        ) : null}
+      </div>
+    );
+  }
+  if (!confirmation) {
+    return (
+      <p
+        role="status"
+        className="type-body flex items-center gap-2 text-[var(--ink-muted)]"
+        style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
+      >
+        <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+        Waiting for Gmail&apos;s email… This updates by itself.
+      </p>
+    );
+  }
+  if (confirmLink) {
+    return (
+      <div className="space-y-3">
+        <p role="status" className="type-body text-[var(--ink)]">
+          Gmail asks to forward mail from {asker} to your UnReceipt address.{" "}
+          {confirmation.ownInbox === false ? (
+            <>
+              That isn&apos;t one of your email addresses: only confirm if you set this up yourself.{" "}
+            </>
+          ) : null}
+          {pressConfirm} Then refresh the Gmail page.
+        </p>
+        {confirmLink}
+      </div>
+    );
+  }
+  if (codeRow) {
+    return (
+      <div className="space-y-3">
+        <p role="status" className="type-body text-[var(--ink)]">
+          Type this code in the box next to your address in Gmail, then click{" "}
+          <Q label={GMAIL.verify} lang={lang} />.
+        </p>
+        {codeRow}
+      </div>
+    );
+  }
   return (
-    <div role="status">
-      {confirmation?.autoConfirmed ? (
-        <div className="space-y-3">
-          <p className="flex items-start gap-2 text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            <Check className="mt-0.5 w-5 h-5 shrink-0 text-[var(--ink)]" aria-hidden="true" />
-            <span>
-              Done. Gmail asked us to approve forwarding{from}, and we approved it for you. Nothing to type: reload
-              Gmail and your address is confirmed.
-            </span>
-          </p>
-          {confirmLink || codeRow ? (
-            <>
-              <ActionHint>
-                Gmail still says your UnReceipt address is unconfirmed after reloading?{" "}
-                {confirmLink ? "Open Gmail's page and press Confirm there." : "Type this code in the box next to your address:"}
-              </ActionHint>
-              {confirmLink ?? codeRow}
-            </>
-          ) : null}
-        </div>
-      ) : !confirmation ? (
-        <p
-          className="flex items-center gap-2 text-[var(--ink-muted)]"
-          style={{ border: "1px dashed var(--hairline)", borderRadius: "12px", padding: "12px 14px", fontSize: "14px" }}
-        >
-          <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
-          Waiting for Gmail&apos;s email… This updates by itself.
-        </p>
-      ) : confirmLink ? (
-        <div className="space-y-3">
-          <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-            Gmail asks to forward{from} to your UnReceipt address. If that&apos;s your Gmail, open Gmail&apos;s page and
-            press <Strong>Confirm</Strong>. Then reload Gmail.
-          </p>
-          {confirmLink}
-          {codeRow ? (
-            <>
-              <ActionHint>Or type Gmail&apos;s code in the box next to your address:</ActionHint>
-              {codeRow}
-            </>
-          ) : null}
-        </div>
-      ) : codeRow ? (
-        codeRow
-      ) : (
-        <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Gmail&apos;s email arrived, but we couldn&apos;t read it. Write to{" "}
-          <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
-            support@unreceipt.com
-          </a>{" "}
-          and we&apos;ll confirm it with you.
-        </p>
-      )}
-    </div>
+    <p role="status" className="type-body text-[var(--ink-muted)]">
+      Gmail&apos;s email arrived, but we couldn&apos;t read it. Write to{" "}
+      <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
+        support@unreceipt.com
+      </a>{" "}
+      and we&apos;ll confirm it with you.
+    </p>
   );
 }
 

@@ -5,8 +5,9 @@
 // forward must be one of their own inboxes (sign-in email or an address
 // they listed). Anyone who knows a forwarding alias can make Gmail send
 // this email naming their own account; confirming that would route a
-// stranger's mail into the user's inbox, so it's left to the user (who
-// then sees the code, as before). The address must be read exactly from
+// stranger's mail into the user's inbox, so it's left to the user: the
+// guide shows Gmail's link with the requesting address named, and warns
+// when it isn't one of theirs (/api/forwarding/status ownInbox). The address must be read exactly from
 // Gmail's subject line (forAddressExact), never from the body.
 //
 // Gmail confirms when its link is POSTed on mail.google.com (the link in the

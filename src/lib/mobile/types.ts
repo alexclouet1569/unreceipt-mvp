@@ -335,8 +335,12 @@ export type MobileForwardingStatus = {
     autoConfirmed?: boolean;
     // Gmail's own confirmation page (mail-settings.google.com/mail/vf-…):
     // Gmail's current email has this link and no code. Absent from older
-    // servers.
+    // servers. Only sent when forAddress is known.
     confirmUrl?: string | null;
+    // Whether forAddress is one of the user's own addresses (null: unknown).
+    // Anyone who knows the alias can make Gmail ask, so the guide warns
+    // when it isn't.
+    ownInbox?: boolean | null;
   } | null;
   lastEmailAt: string | null;
 };

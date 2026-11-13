@@ -144,9 +144,11 @@ function VerifyBlock({ lang, step }: { lang: SceneProps["lang"]; step: "verify" 
     <ForwardingSection lang={lang}>
       <Radio label={say(GMAIL.disableForwarding, lang)} checked leave={step === "leave"} />
       <Radio label={`${say(GMAIL.forwardCopy, lang)} …`} />
+      {/* Gmail still draws a code box, but its email now has only a link:
+          the box stays empty and both controls are left alone. */}
       <span className="flex flex-wrap items-center gap-2" style={{ marginTop: 4 }}>
-        <Field value="593 872 831" wide={false} />
-        <Btn target={step === "verify"}>{say(GMAIL.verify, lang)}</Btn>
+        <Field value="" wide={false} leave={step === "verify"} />
+        <Btn leave={step === "verify"}>{say(GMAIL.verify, lang)}</Btn>
       </span>
     </ForwardingSection>
   );

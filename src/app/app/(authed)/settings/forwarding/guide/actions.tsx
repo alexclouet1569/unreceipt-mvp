@@ -29,7 +29,14 @@ export type Extra =
   | "code"
   | "test";
 
-export type TextContext = { lang: MailLang; autoConfirmed: boolean; firstWord: string };
+export type TextContext = {
+  lang: MailLang;
+  autoConfirmed: boolean;
+  firstWord: string;
+  // What Gmail's confirmation email gave us: its link (current format), a
+  // code (older format), or nothing yet.
+  confirmKind?: "link" | "code" | null;
+};
 
 export type GuideAction = {
   id: string;
@@ -133,17 +140,19 @@ export const CHAPTERS: Record<Provider, Chapter[]> = {
           id: "gmail-code",
           scene: GMAIL_SCENES["gmail-verify"],
           // Gmail's email now has a link and no code, while Gmail's settings
-          // still show a code box: never ask for a code that doesn't exist.
+          // still show a code box: the step never promises one or the other;
+          // the box below says exactly what to do with what arrived.
           text: ({ autoConfirmed }) =>
             autoConfirmed
-              ? "Nothing to type: we confirmed it for you. Reload Gmail"
-              : "Confirm with Gmail's link below, then reload Gmail",
-          hint: ({ lang }) => (
-            <>
-              Leave Gmail&apos;s code box empty: Gmail now confirms with a link, not a code. After you reload, your
-              address no longer asks you to <Q label={GMAIL.verify} lang={lang} />.
-            </>
-          ),
+              ? "Nothing to type: we confirmed it for you. Refresh the Gmail page"
+              : "Confirm your UnReceipt address with the box below, then refresh the Gmail page",
+          hint: ({ lang, confirmKind }) =>
+            confirmKind === "code" ? null : (
+              <>
+                Gmail now confirms with a link, so leave its code box empty. Once it&apos;s confirmed and you refresh,
+                Gmail no longer shows <Q label={GMAIL.verify} lang={lang} /> next to your address.
+              </>
+            ),
           extra: "code",
         },
         {

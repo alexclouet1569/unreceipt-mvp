@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CONFIRMATION_MAX_AGE_MS, isGmailConfirmUrl } from "@/lib/forwarding-confirmation";
+import { isOwnInbox } from "@/lib/forwarding-autoconfirm";
+import { listExtraAddresses } from "@/lib/owner-addresses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +53,14 @@ export async function GET() {
     confirm_url?: string | null;
   } | null;
   const fresh = row && Date.now() - Date.parse(row.received_at) <= CONFIRMATION_MAX_AGE_MS;
+  // Anyone who knows the alias can make Gmail send this email for their own
+  // account. The link is offered only when we know which Gmail asks (so the
+  // guide can name it), and ownInbox says whether that's one of this user's
+  // addresses (sign-in email or ones they listed), so the guide can warn.
+  const forAddress = fresh ? row.for_address : null;
+  const ownInbox = forAddress
+    ? isOwnInbox(forAddress, [...(user.email ? [user.email] : []), ...(await listExtraAddresses(user.id))])
+    : null;
   return NextResponse.json(
     {
       confirmation: fresh
@@ -60,7 +70,8 @@ export async function GET() {
             receivedAt: row.received_at,
             autoConfirmed: Boolean(row.auto_confirmed_at),
             // Re-checked on the way out: only Gmail's own page is ever shown.
-            confirmUrl: isGmailConfirmUrl(row.confirm_url) ? row.confirm_url : null,
+            confirmUrl: forAddress && isGmailConfirmUrl(row.confirm_url) ? row.confirm_url : null,
+            ownInbox,
           }
         : null,
       lastEmailAt: (latestEmail.data as { created_at: string } | null)?.created_at ?? null,

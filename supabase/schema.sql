@@ -1727,3 +1727,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS receipts_user_client_upload_unique
 
 ALTER TABLE public.email_forwarding_confirmations
   ADD COLUMN IF NOT EXISTS confirm_url TEXT;
+
+-- The database's own guarantee that only Gmail's confirmation page can be
+-- stored (same rule as isGmailConfirmUrl() in src/lib/forwarding-confirmation.ts).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'email_forwarding_confirmations_confirm_url_check'
+  ) THEN
+    ALTER TABLE public.email_forwarding_confirmations
+      ADD CONSTRAINT email_forwarding_confirmations_confirm_url_check
+      -- Postgres caps a regex repeat count at 255, so the length is checked
+      -- apart ({10,600} is an invalid regex there).
+      CHECK (
+        confirm_url IS NULL
+        OR (
+          char_length(confirm_url) <= 700
+          AND confirm_url ~ '^https://mail-settings\.google\.com/mail/vf-[A-Za-z0-9%._~-]{10,}$'
+        )
+      );
+  END IF;
+END $$;

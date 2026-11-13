@@ -84,7 +84,10 @@ export function ActionChecklist({
               {state === "current" && (a.extra || a.hint) ? (
                 <div className="space-y-3" style={{ padding: "2px 8px 8px 42px" }}>
                   {a.extra ? renderExtra(a.extra) : null}
-                  {a.hint ? <ActionHint>{a.hint(textContext)}</ActionHint> : null}
+                  {(() => {
+                    const hint = a.hint?.(textContext);
+                    return hint ? <ActionHint>{hint}</ActionHint> : null;
+                  })()}
                 </div>
               ) : null}
             </li>
