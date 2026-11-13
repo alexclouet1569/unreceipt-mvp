@@ -133,6 +133,7 @@ export function createFakeDb(tables: Record<string, Row[]> = {}): FakeDb {
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
       is: (c: string, v: unknown) => (filters.push((r) => (r[c] ?? null) === v), q),
       lt: (c: string, v: string) => (filters.push((r) => String(r[c] ?? "") < v), q),
+      lte: (c: string, v: string) => (filters.push((r) => r[c] != null && String(r[c]) <= v), q),
       in: (c: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[c])), q),
       order: () => q,
       limit: (n: number) => ((max = n), q),

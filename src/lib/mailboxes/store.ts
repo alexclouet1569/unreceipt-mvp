@@ -286,6 +286,30 @@ export async function updateCursor(
   return (data ?? []).length > 0;
 }
 
+/**
+ * The daily job's release (./maintenance.ts): deletes the connection only
+ * while it is still paused since `pausedBefore` or earlier (compare-and-set),
+ * so a mailbox resumed or reconnected meanwhile is kept. False when nothing
+ * was deleted.
+ */
+export async function deletePausedConnection(
+  connId: string,
+  userId: string,
+  pausedBefore: string,
+  supabase?: SupabaseClient,
+): Promise<boolean> {
+  const { data, error } = await db(supabase)
+    .from("mailbox_connections")
+    .delete()
+    .eq("id", connId)
+    .eq("user_id", userId)
+    .eq("status", "paused")
+    .lte("updated_at", pausedBefore)
+    .select("id");
+  if (error) throw new MailboxStoreError("delete", error.code);
+  return (data ?? []).length > 0;
+}
+
 /** Deletes one connection of its owner. False when there was none. */
 export async function deleteConnection(connId: string, userId: string, supabase?: SupabaseClient): Promise<boolean> {
   const { data, error } = await db(supabase)

@@ -215,6 +215,42 @@ describe("GET /api/cron/mailboxes and product access", () => {
     expect(fakeProvider.revoke).not.toHaveBeenCalled();
   });
 
+  it("keeps the grant when the other connections can't be read", async () => {
+    const old = await addConnection({ status: "paused", updated_at: iso(-40 * 24 * HOUR) });
+    mocks.noAccess.add(old.user_id as string);
+    const store = await import("@/lib/mailboxes/store");
+    const spy = vi.spyOn(store, "findActiveConnectionsByEmail").mockRejectedValue(new Error("db down"));
+    try {
+      const res = await cron();
+      expect(await res.json()).toMatchObject({ released: 1 });
+      expect(fakeProvider.revoke).not.toHaveBeenCalled();
+      expect(fakeProvider.stopWatch).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("keeps a mailbox resumed or reconnected while the job ran", async () => {
+    const old = await addConnection({ status: "paused", updated_at: iso(-40 * 24 * HOUR) });
+    mocks.noAccess.add(old.user_id as string);
+    const store = await import("@/lib/mailboxes/store");
+    const realGet = store.getDecryptedToken;
+    // The user reconnects right after the job read the token.
+    const spy = vi.spyOn(store, "getDecryptedToken").mockImplementation(async (...args) => {
+      const token = await realGet(...args);
+      Object.assign(old, { status: "active", updated_at: new Date().toISOString() });
+      return token;
+    });
+    try {
+      const res = await cron();
+      expect(await res.json()).toMatchObject({ released: 0 });
+      expect(mocks.db.tables.mailbox_connections.map((r) => r.id)).toEqual([old.id]);
+      expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("never disconnects a paused mailbox whose user has access again", async () => {
     const back = await addConnection({ status: "paused", updated_at: iso(-90 * 24 * HOUR) });
     const res = await cron();

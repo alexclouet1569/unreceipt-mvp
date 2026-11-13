@@ -5,9 +5,10 @@
 //      its user has no product access and resumed once they have it again
 //      (reconcileAccess, ./sync.ts); a paused one is neither renewed nor
 //      synced. One paused for RELEASE_PAUSED_AFTER_MS (30 days) is
-//      disconnected like a press on Disconnect (disconnectMailbox,
-//      ./teardown.ts: row deleted, watch stopped, grant revoked unless
-//      another live connection uses the address), so read access is never
+//      disconnected (releasePausedMailbox, ./teardown.ts: the row is deleted
+//      only while still paused since then, and the watch and grant are
+//      released only when no other live connection is known to use the
+//      address), so read access is never
 //      kept with no end date for an account that stopped using UnReceipt.
 //      The pause time is the row's updated_at: nothing writes a paused row
 //      until it is resumed.
@@ -29,7 +30,7 @@ import { getAccessToken } from "./access-token";
 import { getProvider } from "./providers";
 import { listActiveConnections, recordError, updateWatch } from "./store";
 import { reconcileAccess, syncConnection } from "./sync";
-import { disconnectMailbox } from "./teardown";
+import { releasePausedMailbox } from "./teardown";
 import { MailboxProviderError, ReauthRequiredError, type MailboxConnectionRef } from "./types";
 
 export const RENEW_BEFORE_MS = 48 * 60 * 60 * 1000;
@@ -138,7 +139,8 @@ export async function runMailboxMaintenance({
         if (!live) {
           // Still without access 30 days after it was paused: let go of it.
           if (accessOf.get(conn.user_id) === false && pausedTooLong(conn, now)) {
-            const { deleted } = await disconnectMailbox(conn);
+            const pausedBefore = new Date(now - RELEASE_PAUSED_AFTER_MS).toISOString();
+            const { deleted } = await releasePausedMailbox(conn, pausedBefore);
             if (deleted) {
               result.released++;
               return;

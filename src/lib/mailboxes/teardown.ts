@@ -16,7 +16,7 @@ import { forgetAccessToken } from "./access-token";
 import { getProvider } from "./providers";
 import { releaseParkedForUser } from "./parked";
 import { WATCH_IS_PER_MAILBOX, addressInUse } from "./shared-grant";
-import { deleteConnection, getDecryptedToken, listConnections } from "./store";
+import { deleteConnection, deletePausedConnection, getDecryptedToken, listConnections } from "./store";
 import type { MailboxConnectionRef } from "./types";
 
 const PROVIDER_CALL_MS = 8000;
@@ -98,6 +98,29 @@ export async function disconnectMailbox(
   if (!refreshToken) return { deleted, stopped: false, revoked: false };
   const use = await addressInUse(conn.provider, conn.email, { exceptConnectionId: conn.id, supabase });
   const released = await releaseAtProvider(conn, refreshToken, { shared: use === "in_use" });
+  return { deleted, ...released };
+}
+
+/**
+ * The daily job's release of a mailbox paused for 30 days (./maintenance.ts).
+ * Unattended, so stricter than Disconnect: the row goes only while it is
+ * still paused since `pausedBefore` (a resume or reconnect during the run
+ * keeps it, and nothing is released), and the grant and the watch are kept
+ * unless the address is known to be free: a database error reading the
+ * other connections must not cut another account off.
+ */
+export async function releasePausedMailbox(
+  conn: MailboxConnectionRef,
+  pausedBefore: string,
+  supabase: SupabaseClient = getSupabaseAdmin(),
+): Promise<{ deleted: boolean } & ReleaseResult> {
+  const refreshToken = await readTokenQuietly(conn, supabase);
+  const deleted = await deletePausedConnection(conn.id, conn.user_id, pausedBefore, supabase);
+  if (!deleted) return { deleted, stopped: false, revoked: false };
+  forgetAccessToken(conn.id);
+  if (!refreshToken) return { deleted, stopped: false, revoked: false };
+  const use = await addressInUse(conn.provider, conn.email, { exceptConnectionId: conn.id, supabase });
+  const released = await releaseAtProvider(conn, refreshToken, { shared: use !== "free" });
   return { deleted, ...released };
 }
 
