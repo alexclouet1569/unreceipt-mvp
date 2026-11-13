@@ -6,9 +6,11 @@ import {
   nextAttemptAt,
   retryAfterMs,
   nextRetryAt,
+  rebaseScanUri,
   receiptFromScan,
   resumeQueue,
   retryDelayMs,
+  scanMessage,
   type PendingScan,
 } from "../scans/queue";
 
@@ -51,9 +53,33 @@ describe("reading the server's answer", () => {
     expect(classifyUpload(200, saved).kind).toBe("saved");
     expect(classifyUpload(200, { ok: true, skipped: true, reason: "This doesn't look like a receipt." })).toEqual({ kind: "notReceipt" });
     for (const status of [408, 429, 500, 502, 503]) expect(classifyUpload(status, { error: "x" }).kind).toBe("retry");
+    expect(classifyUpload(429, { error: "rate_limited" })).toEqual({ kind: "retry", problem: "busy" });
+    for (const status of [408, 500, 504]) expect(classifyUpload(status, null)).toEqual({ kind: "retry", problem: "server" });
     for (const status of [400, 403, 413]) expect(classifyUpload(status, { error: "x" }).kind).toBe("failed");
     // A 200 that isn't the expected shape is retried, never dropped.
     expect(classifyUpload(200, null).kind).toBe("retry");
+  });
+
+  it("finds a saved scan in today's documents folder after iOS moved it", () => {
+    const old = "file:///var/mobile/Containers/Data/Application/OLD-UUID/Documents/pending-scans/abc.jpg";
+    const dir = "file:///var/mobile/Containers/Data/Application/NEW-UUID/Documents/pending-scans/";
+    expect(rebaseScanUri(old, dir)).toBe("file:///var/mobile/Containers/Data/Application/NEW-UUID/Documents/pending-scans/abc.jpg");
+    expect(rebaseScanUri(`${dir}abc.jpg`, dir)).toBe(`${dir}abc.jpg`);
+  });
+
+  it("says why a scan is waiting, and offline only when it knows", () => {
+    expect(scanMessage(scan("1"))).toBe("reading");
+    expect(scanMessage(scan("1", { state: "uploading", attempts: 2 }))).toBe("reading");
+    expect(scanMessage(scan("1", { attempts: 1, problem: "offline" }))).toBe("waiting");
+    expect(scanMessage(scan("1", { attempts: 1, problem: "unsent" }))).toBe("unsent");
+    expect(scanMessage(scan("1", { attempts: 1, problem: "timeout" }))).toBe("timeout");
+    expect(scanMessage(scan("1", { attempts: 1, problem: "server" }))).toBe("serverBusy");
+    expect(scanMessage(scan("1", { attempts: 1, problem: "busy" }))).toBe("tooMany");
+    // Saved by an older version, without a reason: never "no connection".
+    expect(scanMessage(scan("1", { attempts: 3 }))).toBe("unsent");
+    expect(scanMessage(scan("1", { state: "missing", attempts: 1 }))).toBe("missing");
+    expect(scanMessage(scan("1", { state: "failed", attempts: 8, problem: "offline" }))).toBe("failed");
+    expect(scanMessage(scan("1", { state: "notReceipt", attempts: 1 }))).toBe("notReceipt");
   });
 
   it("turns a fresh scan into a list row at once", () => {

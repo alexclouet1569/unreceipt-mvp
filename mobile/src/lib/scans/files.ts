@@ -4,6 +4,7 @@
 
 import { Directory, File, Paths } from "expo-file-system";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { rebaseScanUri } from "./queue";
 
 // Enough for the model to read small print; a few hundred kB per scan.
 const MAX_SIDE = 2200;
@@ -39,6 +40,28 @@ export async function prepareScan(sourceUri: string, id: string, removeSource: b
   await new File(saved.uri).move(target, { overwrite: true });
   if (removeSource) deleteFile(sourceUri);
   return target.uri;
+}
+
+/**
+ * A saved scan's file in this run's documents folder (iOS can move the
+ * folder when the app is updated, so a path saved earlier may be stale).
+ */
+export function currentScanUri(fileUri: string): string {
+  try {
+    return rebaseScanUri(fileUri, pendingDir().uri);
+  } catch {
+    return fileUri;
+  }
+}
+
+/** The scan's file size in bytes, or null when the file isn't there. */
+export function scanFileSize(uri: string): number | null {
+  try {
+    const file = new File(uri);
+    return file.exists ? (file.size ?? 0) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function deleteFile(uri: string): void {

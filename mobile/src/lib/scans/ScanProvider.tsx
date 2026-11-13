@@ -12,9 +12,9 @@ import * as ImagePicker from "expo-image-picker";
 import DocumentScanner, { ResponseType, ScanDocumentResponseStatus } from "react-native-document-scanner-plugin";
 import { useAuth } from "../../auth/AuthProvider";
 import { s } from "../../i18n";
-import { ApiError, apiResponse } from "../api";
+import { ApiError, apiResponse, reportScanProblem } from "../api";
 import { useHome } from "../HomeProvider";
-import { deleteFile, deleteScansOlderThan, prepareScan } from "./files";
+import { currentScanUri, deleteFile, deleteScansOlderThan, prepareScan, scanFileSize } from "./files";
 import {
   MAX_ATTEMPTS,
   classifyUpload,
@@ -27,6 +27,7 @@ import {
   retryAfterMs,
   SCAN_MAX_AGE_MS,
   type PendingScan,
+  type UploadProblem,
 } from "./queue";
 
 export const SCANS_PREFIX = "scans:v1:";
@@ -75,8 +76,18 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   const upload = useCallback(
     async (item: PendingScan) => {
-      update(item.id, { state: "uploading", attempts: item.attempts + 1 });
+      const attempts = item.attempts + 1;
+      // A picture that is no longer on the phone can never be sent: say so
+      // instead of retrying it as if the network were down.
+      if (scanFileSize(item.fileUri) === null) {
+        update(item.id, { state: "missing", attempts });
+        void reportScanProblem({ problem: "missing", status: 0, attempts });
+        return;
+      }
+      update(item.id, { state: "uploading", attempts });
       let status = 0;
+      // Set when no HTTP answer came back.
+      let noAnswer: "network" | "timeout" | null = null;
       let body: unknown = null;
       let retryAfter: number | null = null;
       try {
@@ -95,10 +106,26 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
           await signOut({ keepScans: true });
           return;
         }
-        // Offline: keep it and try again later.
+        // No answer: keep it and try again later.
+        noAnswer = err instanceof ApiError && err.timedOut ? "timeout" : "network";
       }
 
-      const outcome = status ? classifyUpload(status, body) : { kind: "retry" as const };
+      const outcome = status ? classifyUpload(status, body) : null;
+      if (outcome === null || outcome.kind === "retry") {
+        // What went wrong, honestly: a failed request only means "offline"
+        // when a small call to the server fails too. The same call tells
+        // the server (and Sentry) about it.
+        const reported = outcome?.problem ?? (noAnswer === "timeout" ? "timeout" : "unsent");
+        const reached = await reportScanProblem({ problem: reported, status, attempts });
+        const problem: UploadProblem = noAnswer === "network" && !reached ? "offline" : reported;
+        if (attempts >= MAX_ATTEMPTS) {
+          update(item.id, { state: "failed", problem });
+          AccessibilityInfo.announceForAccessibility(s.scan.failed);
+        } else {
+          update(item.id, { state: "waiting", problem, retryAt: nextAttemptAt(attempts, retryAfter, Date.now()) });
+        }
+        return;
+      }
       switch (outcome.kind) {
         case "saved": {
           deleteFile(item.fileUri);
@@ -122,16 +149,9 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
           break;
         case "failed":
           update(item.id, { state: "failed" });
+          void reportScanProblem({ problem: "refused", status, attempts });
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           AccessibilityInfo.announceForAccessibility(s.scan.failed);
-          break;
-        case "retry":
-          if (item.attempts + 1 >= MAX_ATTEMPTS) {
-            update(item.id, { state: "failed" });
-            AccessibilityInfo.announceForAccessibility(s.scan.failed);
-          } else {
-            update(item.id, { state: "waiting", retryAt: nextAttemptAt(item.attempts + 1, retryAfter, Date.now()) });
-          }
           break;
       }
     },
@@ -163,7 +183,16 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         const now = Date.now();
         for (const old of saved.filter((x) => isExpired(x, now))) deleteFile(old.fileUri);
         deleteScansOlderThan(SCAN_MAX_AGE_MS, now);
-        const kept = saved.filter((x) => !isExpired(x, now));
+        // A full path saved by an earlier run may point into a folder iOS
+        // has since moved (app update): find the file in today's folder.
+        const kept = saved.filter((x) => !isExpired(x, now)).map((x) => {
+          const fileUri = currentScanUri(x.fileUri);
+          // Found again where an earlier run had lost it: send it after all.
+          if (x.state === "missing" && scanFileSize(fileUri) !== null) {
+            return { ...x, fileUri, state: "waiting" as const, attempts: 0, retryAt: 0, problem: undefined };
+          }
+          return { ...x, fileUri };
+        });
         commit(resumeQueue([...kept, ...queue.current.filter((q) => !kept.some((x) => x.id === q.id))]));
         pump();
       });
@@ -253,7 +282,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   const retry = useCallback(
     (id: string) => {
-      update(id, { state: "waiting", attempts: 0, retryAt: 0 });
+      update(id, { state: "waiting", attempts: 0, retryAt: 0, problem: undefined });
       pump();
     },
     [update, pump],
