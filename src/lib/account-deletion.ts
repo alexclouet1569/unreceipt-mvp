@@ -13,10 +13,14 @@
 //   3. Settle the person's accounting firm, if any (src/lib/firm/
 //      account-exit.ts): hand the admin role over, or close a firm nobody
 //      else has joined and email its clients that the link has ended.
-//   4. Delete the receipts, then the auth user. profiles, subscriptions,
+//   4. Disconnect every connected mailbox (src/lib/mailboxes/teardown.ts):
+//      stop push notifications and revoke the grant at Google/Microsoft so
+//      no new receipt arrives mid-deletion. Best effort, never stops the
+//      run: the rows cascade with the user anyway.
+//   5. Delete the receipts, then the auth user. profiles, subscriptions,
 //      receipt_usage (and transactions via profiles) cascade from
 //      auth.users ON DELETE CASCADE.
-//   5. Best-effort clean-up of data keyed by the user without a foreign
+//   6. Best-effort clean-up of data keyed by the user without a foreign
 //      key: rate-limit counters and a waitlist entry with the same email.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -24,6 +28,7 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
 import { applyFirmExit, planFirmExit } from "./firm/account-exit";
 import { sendFirmClosedNotices } from "./firm/link-emails";
+import { disconnectAllMailboxes } from "./mailboxes/teardown";
 
 // Every bucket that stores files under `<user_id>/`.
 export const USER_FILE_BUCKETS = ["receipts", "receipt-originals", "exports"] as const;
@@ -246,6 +251,13 @@ export async function deleteAccount(
     await applyFirmExit(supabase, firmPlan);
   } catch {
     throw new AccountDeletionError("firm", "firm exit failed");
+  }
+  // Never throws; a provider that is down leaves a grant the user can
+  // still remove in their Google/Microsoft account settings.
+  try {
+    await disconnectAllMailboxes(userId, supabase);
+  } catch {
+    console.error("[account-deletion] mailbox disconnect failed");
   }
   const { error: receiptsError } = await supabase
     .from("receipts")

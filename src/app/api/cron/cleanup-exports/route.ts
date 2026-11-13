@@ -3,7 +3,9 @@
 // copies of data we keep anyway, so there's no reason to hold them.
 // Also deletes Gmail forwarding confirmation codes older than 7 days
 // (src/lib/forwarding-confirmation-cleanup.ts), and capture-sheet photos
-// stored while being read but never saved (src/lib/receipts/staging.ts).
+// stored while being read but never saved (src/lib/receipts/staging.ts),
+// and "Connect Gmail/Outlook" flows that were started but never finished
+// (mailbox_oauth_pending rows past their 10-minute expiry).
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
@@ -12,6 +14,8 @@ import { cleanupExports } from "@/lib/export/cleanup";
 import { cleanupForwardingConfirmations } from "@/lib/forwarding-confirmation-cleanup";
 import { cleanupStagedPhotos } from "@/lib/receipts/staging";
 import { cleanupOrphanScans } from "@/lib/receipts/scans";
+import { deleteExpiredPending } from "@/lib/mailboxes/oauth";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +55,19 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] orphan scan cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "orphan-scan-cleanup" } });
   }
+  let mailboxFlowsDeleted: number | null = null;
+  try {
+    mailboxFlowsDeleted = await deleteExpiredPending(getSupabaseAdmin());
+  } catch (err) {
+    console.error("[cron/cleanup-exports] mailbox flow cleanup failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "mailbox-pending-cleanup" } });
+  }
   if (!exportResult) return NextResponse.json({ error: "failed" }, { status: 500 });
-  return NextResponse.json({ ...exportResult, forwardingConfirmationsDeleted, stagedPhotosDeleted, orphanScansDeleted });
+  return NextResponse.json({
+    ...exportResult,
+    forwardingConfirmationsDeleted,
+    stagedPhotosDeleted,
+    orphanScansDeleted,
+    mailboxFlowsDeleted,
+  });
 }

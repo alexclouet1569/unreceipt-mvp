@@ -90,6 +90,26 @@ export const RATE_LIMITS = {
     { limit: 300, windowSeconds: 60 * 60 },
     { limit: 2000, windowSeconds: 24 * 60 * 60 },
   ],
+  // Connected mailboxes (2026-11-13). Each start of a Gmail/Outlook OAuth
+  // flow writes a pending row and sends the user to the provider: a few
+  // tries (wrong account, cancelled) is all a real person needs.
+  mailboxConnect: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
+  // The iPhone app asking for a one-time connect link (no write, but each
+  // link can start a flow).
+  mailboxConnectLink: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Per connection, before each Claude call on a mailbox message (steps
+  // 3/4): the first backfill reads up to 100 messages, then a mailbox
+  // sees a few receipts a day.
+  mailboxIngest: [
+    { limit: 150, windowSeconds: 60 * 60 },
+    { limit: 400, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

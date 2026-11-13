@@ -385,3 +385,46 @@ export interface VatLine {
   net: number | null;
   vat: number;
 }
+
+// A Gmail or Outlook mailbox the user connected with OAuth (2026-11-13,
+// src/lib/mailboxes/). Service-role only: refresh_token_enc never leaves
+// the server (see MailboxConnectionSummary for what the API returns).
+export type MailboxProviderId = "google" | "microsoft";
+export type MailboxConnectionStatus = "active" | "needs_reconnect" | "paused";
+
+export interface MailboxConnection {
+  id: string;
+  user_id: string;
+  provider: MailboxProviderId;
+  // Lowercased.
+  email: string;
+  // "v1.<iv>.<tag>.<ciphertext>", src/lib/mailboxes/crypto.ts.
+  refresh_token_enc: string;
+  status: MailboxConnectionStatus;
+  // Gmail historyId / Graph deltaLink.
+  cursor: string | null;
+  watch_id: string | null;
+  watch_expires_at: string | null;
+  last_sync_at: string | null;
+  last_receipt_at: string | null;
+  // Short code only (e.g. "reauth_required"), never message content.
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// One OAuth flow in progress; deleted by the callback (single use).
+export interface MailboxOAuthPending {
+  // The `state` sent to the provider.
+  nonce: string;
+  user_id: string;
+  provider: MailboxProviderId;
+  code_verifier: string;
+  client: "web" | "app";
+  // sha256 hex of the cookie set on the browser that started the flow.
+  browser_binding: string;
+  // The iPhone app's one-time link id, null on the website.
+  link_jti: string | null;
+  created_at: string;
+  expires_at: string;
+}

@@ -1748,3 +1748,88 @@ BEGIN
       );
   END IF;
 END $$;
+
+-- =============================================================================
+-- 2026-11-13 — Connected mailboxes (Gmail / Outlook read with OAuth)
+-- =============================================================================
+-- "Connect Gmail" / "Connect Outlook": the user approves read access on
+-- Google's or Microsoft's own screen and UnReceipt reads receipt emails
+-- straight from the mailbox (src/lib/mailboxes/, /api/mailboxes/*).
+--
+-- mailbox_connections holds the provider's refresh token, encrypted with
+-- AES-256-GCM under MAILBOX_TOKEN_KEY (src/lib/mailboxes/crypto.ts), so the
+-- database never holds a usable token. Even so the table is service-role
+-- only: RLS on, no policies, every grant revoked. The website and the
+-- iPhone app list a user's mailboxes through GET /api/mailboxes, which never
+-- returns the token. At most 5 per user (enforced by the API). An address is
+-- stored lowercased; the unique index makes one row per user, provider and
+-- address (re-connecting replaces the token). The same address may be
+-- connected by two different users: mailboxes belong to a user, not to the
+-- address. last_error holds a short code only, never message content.
+--
+-- mailbox_oauth_pending is one row per OAuth flow in progress: `nonce` is
+-- the `state` sent to the provider, `code_verifier` the PKCE verifier,
+-- `browser_binding` the sha256 of a cookie set on the browser that started
+-- the flow, `link_jti` the id of the iPhone app's one-time link (so a link
+-- starts one flow). The callback deletes the row before using it (single
+-- use); rows live 10 minutes and the daily cleanup deletes expired ones.
+-- Service role only, like the table above. Rows cascade with the user.
+
+CREATE TABLE IF NOT EXISTS public.mailbox_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  email TEXT NOT NULL CHECK (char_length(email) BETWEEN 3 AND 254),
+  refresh_token_enc TEXT NOT NULL CHECK (refresh_token_enc ~ '^v[0-9]+\.'),
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'needs_reconnect', 'paused')),
+  -- Gmail historyId / Graph deltaLink. Advanced by compare-and-set.
+  cursor TEXT,
+  -- Graph subscription id (Gmail's watch has none).
+  watch_id TEXT,
+  watch_expires_at TIMESTAMPTZ,
+  last_sync_at TIMESTAMPTZ,
+  last_receipt_at TIMESTAMPTZ,
+  last_error TEXT CHECK (last_error IS NULL OR last_error ~ '^[a-z0-9_]{1,64}$'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS mailbox_connections_user_provider_email_unique
+  ON public.mailbox_connections(user_id, provider, lower(email));
+-- The daily job renews watches about to expire.
+CREATE INDEX IF NOT EXISTS mailbox_connections_status_watch_idx
+  ON public.mailbox_connections(status, watch_expires_at);
+-- Gmail's push names the address; Graph's push names the subscription.
+CREATE INDEX IF NOT EXISTS mailbox_connections_provider_email_idx
+  ON public.mailbox_connections(provider, lower(email));
+CREATE INDEX IF NOT EXISTS mailbox_connections_watch_id_idx
+  ON public.mailbox_connections(watch_id) WHERE watch_id IS NOT NULL;
+
+ALTER TABLE public.mailbox_connections ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.mailbox_connections FROM anon, authenticated;
+
+DROP TRIGGER IF EXISTS mailbox_connections_set_updated_at ON public.mailbox_connections;
+CREATE TRIGGER mailbox_connections_set_updated_at
+  BEFORE UPDATE ON public.mailbox_connections
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.mailbox_oauth_pending (
+  nonce TEXT PRIMARY KEY CHECK (char_length(nonce) BETWEEN 32 AND 128),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  code_verifier TEXT NOT NULL CHECK (char_length(code_verifier) BETWEEN 43 AND 128),
+  client TEXT NOT NULL CHECK (client IN ('web', 'app')),
+  browser_binding TEXT NOT NULL CHECK (browser_binding ~ '^[0-9a-f]{64}$'),
+  link_jti TEXT CHECK (link_jti IS NULL OR char_length(link_jti) BETWEEN 16 AND 64),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS mailbox_oauth_pending_link_jti_unique
+  ON public.mailbox_oauth_pending(link_jti) WHERE link_jti IS NOT NULL;
+CREATE INDEX IF NOT EXISTS mailbox_oauth_pending_expires_idx
+  ON public.mailbox_oauth_pending(expires_at);
+
+ALTER TABLE public.mailbox_oauth_pending ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.mailbox_oauth_pending FROM anon, authenticated;
