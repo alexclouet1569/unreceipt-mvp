@@ -82,6 +82,8 @@ export const RESULT_REASONS = [
   "wrong_browser",
   "wrong_account",
   "exchange_failed",
+  // The mail permission was unticked on Google's consent screen.
+  "scope_missing",
   "limit",
   "rate_limited",
   "link_invalid",

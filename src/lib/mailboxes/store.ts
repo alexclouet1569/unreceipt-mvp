@@ -267,3 +267,37 @@ export async function deleteConnection(connId: string, userId: string, supabase?
   if (error) throw new MailboxStoreError("delete", error.code);
   return (data ?? []).length > 0;
 }
+
+/**
+ * The active connections of one provider for a mailbox address (a push
+ * notification names the mailbox, not the user). Several users may have
+ * connected the same address; each gets its own sync.
+ */
+export async function findActiveConnectionsByEmail(
+  provider: MailboxProviderId,
+  rawEmail: string,
+  supabase?: SupabaseClient,
+): Promise<MailboxConnectionRef[]> {
+  const email = normalizeMailboxEmail(rawEmail);
+  if (!email) return [];
+  const { data, error } = await db(supabase)
+    .from("mailbox_connections")
+    .select(CONNECTION_COLUMNS)
+    .eq("provider", provider)
+    .eq("email", email)
+    .eq("status", "active");
+  if (error) throw new MailboxStoreError("find by email", error.code);
+  return (data ?? []) as MailboxConnectionRef[];
+}
+
+/** Every active connection, oldest first (the daily job's work list). */
+export async function listActiveConnections(supabase?: SupabaseClient): Promise<MailboxConnectionRef[]> {
+  const { data, error } = await db(supabase)
+    .from("mailbox_connections")
+    .select(CONNECTION_COLUMNS)
+    .eq("status", "active")
+    .order("created_at", { ascending: true })
+    .limit(5000);
+  if (error) throw new MailboxStoreError("list active", error.code);
+  return (data ?? []) as MailboxConnectionRef[];
+}

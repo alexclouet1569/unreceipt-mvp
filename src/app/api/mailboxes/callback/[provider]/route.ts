@@ -40,7 +40,7 @@ import { configuredProvider } from "@/lib/mailboxes/providers";
 import { noStore } from "@/lib/mailboxes/start-flow";
 import { recordError, saveConnection, updateWatch } from "@/lib/mailboxes/store";
 import { syncConnection } from "@/lib/mailboxes/sync";
-import { ReauthRequiredError, type MailboxConnectionRef } from "@/lib/mailboxes/types";
+import { MissingScopeError, ReauthRequiredError, type MailboxConnectionRef } from "@/lib/mailboxes/types";
 import { withTimeout } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
@@ -52,6 +52,7 @@ export const maxDuration = 300;
 type Ctx = { params: Promise<{ provider: string }> };
 
 export async function GET(request: NextRequest, { params }: Ctx) {
+  const startedAt = Date.now();
   const provider = configuredProvider((await params).provider);
   if (!provider) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -102,6 +103,8 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       redirectUri: redirectUri(provider.id),
     });
   } catch (err) {
+    // Not an error on our side: the user granted sign-in but not mail.
+    if (err instanceof MissingScopeError) return fail(client, "scope_missing");
     Sentry.captureException(err, { tags: { area: "mailboxes", step: "exchange", provider: provider.id } });
     return fail(client, "exchange_failed");
   }
@@ -145,7 +148,8 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   const backfillFor = conn;
   after(async () => {
     try {
-      await syncConnection(backfillFor, BACKFILL, { supabase });
+      // Stops in time to save its cursor inside maxDuration.
+      await syncConnection(backfillFor, { ...BACKFILL, deadline: startedAt + (maxDuration - 20) * 1000 }, { supabase });
     } catch (err) {
       if (!(err instanceof ReauthRequiredError)) {
         Sentry.captureException(err, { tags: { area: "mailboxes", step: "backfill", provider: backfillFor.provider } });

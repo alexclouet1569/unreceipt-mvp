@@ -256,12 +256,21 @@ describe("GET /api/mailboxes/callback/[provider]", () => {
     expect(fakeProvider.sync).toHaveBeenCalledWith(
       expect.objectContaining({ id: conn.id, cursor: "1000" }),
       "ya29.access",
-      { backfillDays: 30, maxMessages: 100 },
+      { backfillDays: 30, maxMessages: 100, deadline: expect.any(Number) },
     );
     expect(mocks.db.tables.mailbox_connections[0].cursor).toBe("1005");
     // The binding cookie is cleared.
     expect(res.cookies.getAll()[0]).toMatchObject({ value: "", maxAge: 0 });
     forgetAccessToken(conn.id as string);
+  });
+
+  it("explains a consent without the mail permission", async () => {
+    const { MissingScopeError } = await import("@/lib/mailboxes/types");
+    fakeProvider.exchangeCode.mockRejectedValueOnce(new MissingScopeError("google"));
+    const { state, cookie } = await startWebFlow();
+    const res = await callback(`state=${state}&code=4/abc`, cookie);
+    expect(location(res)).toBe("https://app.unreceipt.com/app/settings?mailbox=error&reason=scope_missing");
+    expect(mocks.db.tables.mailbox_connections ?? []).toHaveLength(0);
   });
 
   it("works once per state", async () => {

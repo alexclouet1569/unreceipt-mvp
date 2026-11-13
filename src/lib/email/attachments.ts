@@ -5,6 +5,8 @@
 // application/octet-stream (classified by its bytes), the filename from
 // Content-Disposition or Content-Type. Anything exotic is simply not an
 // attachment we read; the email text is still parsed.
+// The MIME helpers are exported for src/lib/mailboxes/raw-message.ts, which
+// reads the text parts of a message fetched from a connected mailbox.
 
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES, type AllowedUploadType } from "@/lib/receipts/upload-limits";
 
@@ -22,7 +24,7 @@ type Part = { headers: Record<string, string>; body: Buffer };
 const MAX_PARTS = 64;
 const MAX_DEPTH = 6;
 
-function splitHeadersAndBody(raw: Buffer): { headers: Record<string, string>; body: Buffer } {
+export function splitHeadersAndBody(raw: Buffer): { headers: Record<string, string>; body: Buffer } {
   const text = raw.toString("latin1");
   let sep = text.indexOf("\r\n\r\n");
   let sepLen = 4;
@@ -47,7 +49,7 @@ function splitHeadersAndBody(raw: Buffer): { headers: Record<string, string>; bo
   return { headers, body };
 }
 
-function param(headerValue: string | undefined, name: string): string | null {
+export function param(headerValue: string | undefined, name: string): string | null {
   if (!headerValue) return null;
   // RFC 2231 encoded names (filename*=UTF-8''...) and plain ones.
   const star = new RegExp(`${name}\\*=(?:[^']*'[^']*')?([^;]+)`, "i").exec(headerValue);
@@ -63,11 +65,11 @@ function param(headerValue: string | undefined, name: string): string | null {
   return (plain[2] ?? plain[1]).trim();
 }
 
-function mediaTypeOf(contentType: string | undefined): string {
+export function mediaTypeOf(contentType: string | undefined): string {
   return (contentType ?? "").split(";")[0].trim().toLowerCase();
 }
 
-function decodeBody(body: Buffer, encoding: string | undefined): Buffer {
+export function decodeBody(body: Buffer, encoding: string | undefined): Buffer {
   const enc = (encoding ?? "").trim().toLowerCase();
   if (enc === "base64") {
     return Buffer.from(body.toString("latin1").replace(/[^A-Za-z0-9+/=]/g, ""), "base64");
@@ -82,7 +84,7 @@ function decodeBody(body: Buffer, encoding: string | undefined): Buffer {
   return body;
 }
 
-function splitMultipart(body: Buffer, boundary: string): Buffer[] {
+export function splitMultipart(body: Buffer, boundary: string): Buffer[] {
   const text = body.toString("latin1");
   const marker = `--${boundary}`;
   const parts: Buffer[] = [];

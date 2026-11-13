@@ -51,6 +51,12 @@ export type SyncOptions = {
   backfillDays?: number;
   /** Stop after this many receipt candidates (full downloads). */
   maxMessages?: number;
+  /**
+   * Epoch ms by which the sync should have returned (the caller's function
+   * budget). The provider starts no new message once one more could not
+   * finish, and returns a cursor that resumes there. Absent: no limit.
+   */
+  deadline?: number;
 };
 
 export type SyncResult = {
@@ -97,6 +103,18 @@ export class ReauthRequiredError extends Error {
   constructor(public readonly provider: MailboxProviderId, message = "reauthorization required") {
     super(message);
     this.name = "ReauthRequiredError";
+  }
+}
+
+/**
+ * The user unticked the mail permission on the consent screen: the grant
+ * exists but can't read mail. The callback answers "scope_missing" (the
+ * provider has already revoked the partial grant).
+ */
+export class MissingScopeError extends Error {
+  constructor(public readonly provider: MailboxProviderId) {
+    super("mail scope not granted");
+    this.name = "MissingScopeError";
   }
 }
 
