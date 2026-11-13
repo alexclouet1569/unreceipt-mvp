@@ -14,6 +14,15 @@ import {
 } from "@/lib/email/attachments";
 import { parseAddressList } from "@/lib/email-address";
 
+/**
+ * The largest raw message a mailbox sync downloads (Gmail by its metadata
+ * sizeEstimate and the decoded bytes, Graph by Content-Length and the
+ * bytes); bigger ones are skipped. The original .eml is the receipt's
+ * evidence, bounded like Resend's (src/lib/resend-inbound.ts) and well under
+ * the storage cap of one file.
+ */
+export const MAX_RAW_BYTES = 15 * 1024 * 1024;
+
 export type RawMessage = {
   subject: string;
   /** The From: address (lower case), or "" when there is none. */

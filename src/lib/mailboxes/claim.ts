@@ -31,3 +31,35 @@ export async function claimMessage(connectionId: string, providerMessageId: stri
     return true;
   }
 }
+
+/**
+ * How often one message may answer "retry" (nothing saved: a storage or
+ * database failure) before a sync gives up on it. A retry stops the sync
+ * before the message so the next one reads it again; a message that can
+ * never be stored (too big for storage, a file the bucket refuses) would
+ * otherwise hold the mailbox's cursor forever and no later receipt would
+ * arrive. After this many retries within RETRY_WINDOW_SECONDS the message
+ * is skipped (and reported). Same counter, same hashing, never the id.
+ */
+export const MAX_INGEST_RETRIES = 3;
+export const RETRY_WINDOW_SECONDS = 3 * 24 * 60 * 60;
+
+/**
+ * Counts one failed ingest of a message. True while it may still be
+ * retried (stop before it); false once it failed MAX_INGEST_RETRIES times
+ * (skip it). Fails towards retrying: a counter error returns true.
+ */
+export async function allowIngestRetry(connectionId: string, providerMessageId: string): Promise<boolean> {
+  const hash = createHash("sha256").update(`${connectionId}:${providerMessageId}`).digest("hex").slice(0, 40);
+  try {
+    const { data, error } = await getSupabaseAdmin().rpc("rate_limit_hit", {
+      p_key: `mailboxRetry:${RETRY_WINDOW_SECONDS}:${hash}`,
+      p_window_seconds: RETRY_WINDOW_SECONDS,
+      p_limit: MAX_INGEST_RETRIES,
+    });
+    if (error) return true;
+    return data !== false;
+  } catch {
+    return true;
+  }
+}

@@ -52,8 +52,8 @@ import { absoluteAppUrl } from "@/lib/app-url";
 import { ingestReceiptEmail } from "@/lib/email/ingest";
 import { CLAUDE_CALL_BUDGET_MS } from "@/lib/ocr";
 import { rateLimit } from "@/lib/rate-limit";
-import { claimMessage } from "./claim";
-import { parseRawMessage } from "./raw-message";
+import { allowIngestRetry, claimMessage } from "./claim";
+import { MAX_RAW_BYTES, parseRawMessage } from "./raw-message";
 import { isLikelyReceipt } from "./select";
 import { mailboxTrust } from "./trust";
 import {
@@ -97,8 +97,6 @@ export const SINCE_SLACK_MS = 15 * 60 * 1000;
 const BACKFILL_OVERLAP_MS = 10 * 60 * 1000;
 const PAGE_SIZE = 50;
 const LIST_SELECT = "subject,from,hasAttachments,internetMessageId,receivedDateTime";
-// The original .eml is the receipt's evidence; bounded like Resend's.
-const MAX_RAW_BYTES = 15 * 1024 * 1024;
 // One more message is started only while an ingest still fits.
 const MESSAGE_RESERVE_MS = CLAUDE_CALL_BUDGET_MS + 15_000;
 const CALL_TIMEOUT_MS = 15_000;
@@ -489,6 +487,9 @@ class GraphSync {
     // Before the download and any Claude call: a flood stops here.
     const limited = await rateLimit("mailboxIngest", this.conn.id);
     if (!limited.ok) return "stop";
+    // …and per user, across all their mailboxes.
+    const userLimited = await rateLimit("mailboxIngestUser", this.conn.user_id);
+    if (!userLimited.ok) return "stop";
     if (!(await claimMessage(this.conn.id, row.id))) return onClaimed === "stop" ? "stop" : "done";
 
     const res = await graphGet(this.accessToken, `${GRAPH}/me/messages/${encodeURIComponent(row.id)}/$value`, RAW_TIMEOUT_MS);
@@ -519,9 +520,17 @@ class GraphSync {
           this.opts.deadline === undefined ? undefined : this.opts.deadline - CLAUDE_CALL_BUDGET_MS - 10_000,
       });
       if (result.kind === "created") this.created++;
+      if (result.kind !== "retry") return "done";
       // "retry": nothing was saved (database or storage blip). Stop before
-      // this row so the next sync reads it again.
-      return result.kind === "retry" ? "stop" : "done";
+      // this row so the next sync reads it again; after MAX_INGEST_RETRIES
+      // it is skipped instead, so one unstorable message can't hold the
+      // delta link forever (allowIngestRetry, ./claim.ts).
+      if (await allowIngestRetry(this.conn.id, row.id)) return "stop";
+      Sentry.captureMessage("mailbox message skipped after repeated ingest failures", {
+        level: "warning",
+        tags: { area: "mailboxes", step: "ingest_retry_exhausted", provider: "microsoft", reason: result.reason },
+      });
+      return "done";
     } catch (err) {
       // A bug, not a blip: retrying would only repeat the paid calls. The
       // message is skipped and reported (no content in the report).

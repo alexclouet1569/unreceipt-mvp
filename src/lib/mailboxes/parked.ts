@@ -17,23 +17,30 @@
 //
 // A row is taken out of the table before it is used (delete … returning,
 // single use), lives 10 minutes, and the daily cleanup revokes and deletes
-// expired ones. The code itself is never stored.
+// expired ones. The code itself is never stored. A grant we won't keep is
+// revoked only when no active connection (anyone's) uses the same address:
+// at Google every connection of one mailbox shares the grant
+// (./shared-grant.ts).
 
 import { randomBytes } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { withTimeout } from "@/lib/with-timeout";
 import type { MailboxOAuthParked } from "@/lib/types";
 import { decryptToken, encryptToken } from "./crypto";
 import { sha256Hex } from "./oauth";
 import { getProvider } from "./providers";
+import { revokeUnusedGrant } from "./shared-grant";
 import { normalizeMailboxEmail } from "./store";
 import { isMailboxProviderId, type MailboxProviderId } from "./types";
 
 export const PARKED_TTL_MS = 10 * 60 * 1000;
-const REVOKE_MS = 8000;
-/** At most this many expired grants revoked per daily cleanup. */
-const CLEANUP_BATCH = 200;
+/**
+ * At most this many expired grants revoked (and deleted) per daily cleanup;
+ * any beyond wait for the next run (a claim refuses them meanwhile).
+ */
+export const CLEANUP_BATCH = 200;
+// Revokes in flight at once during the cleanup.
+const CLEANUP_CONCURRENCY = 10;
 
 // 32 random bytes, base64url: 43 characters.
 const CODE = /^[A-Za-z0-9_-]{43}$/;
@@ -96,25 +103,34 @@ export function parkedRefreshToken(row: Pick<MailboxOAuthParked, "user_id" | "re
   return decryptToken(row.refresh_token_enc, parkedContext(row.user_id));
 }
 
+type RevocableParked = Pick<MailboxOAuthParked, "user_id" | "provider" | "email" | "refresh_token_enc">;
+
 /**
  * Revokes a parked grant at the provider that will never be saved (claimed
- * by someone else, expired). Best effort and time-boxed; never throws.
+ * by someone else, expired, refused), unless an active connection uses the
+ * same address (revokeUnusedGrant). Best effort and time-boxed; never
+ * throws. True only when it was revoked.
  */
-export async function revokeParked(row: Pick<MailboxOAuthParked, "user_id" | "provider" | "refresh_token_enc">): Promise<boolean> {
+export async function revokeParked(row: RevocableParked, supabase?: SupabaseClient): Promise<boolean> {
   if (!isMailboxProviderId(row.provider)) return false;
+  let token: string;
   try {
-    const token = parkedRefreshToken(row);
-    await withTimeout("mailbox revoke", REVOKE_MS, getProvider(row.provider).revoke(token));
-    return true;
+    token = parkedRefreshToken(row);
   } catch (err) {
     Sentry.captureException(err, { tags: { area: "mailboxes", step: "parked_revoke", provider: row.provider } });
     return false;
   }
+  return (await revokeUnusedGrant(getProvider(row.provider), row.email, token, supabase)) === "revoked";
 }
 
 /**
- * Daily cleanup: parked grants past their expiry are deleted and revoked
- * at the provider (nobody claimed them, so nothing should keep them).
+ * Daily cleanup: parked grants past their expiry are revoked at the
+ * provider (nobody claimed them, so nothing should keep them) and deleted.
+ * Up to CLEANUP_BATCH a run, and only the rows it tried to revoke are
+ * deleted, so no grant is ever dropped without a revoke attempt. A failed
+ * revoke (Sentry) still deletes the row: retrying daily would not help a
+ * token that can't be read, and the grant is useless without our copy.
+ * Returns how many rows were deleted.
  */
 export async function deleteExpiredParked(
   supabase: SupabaseClient,
@@ -122,11 +138,26 @@ export async function deleteExpiredParked(
 ): Promise<number> {
   const { data, error } = await supabase
     .from("mailbox_oauth_parked")
-    .delete()
+    .select("code_hash, user_id, provider, email, refresh_token_enc")
     .lt("expires_at", new Date(now).toISOString())
-    .select("user_id, provider, refresh_token_enc");
+    .order("expires_at", { ascending: true })
+    .limit(CLEANUP_BATCH);
   if (error) throw new Error(`parked cleanup failed (${error.code ?? "unknown"})`);
-  const rows = (data ?? []) as Pick<MailboxOAuthParked, "user_id" | "provider" | "refresh_token_enc">[];
-  await Promise.all(rows.slice(0, CLEANUP_BATCH).map((row) => revokeParked(row)));
-  return rows.length;
+  const rows = (data ?? []) as Array<RevocableParked & { code_hash: string }>;
+  if (rows.length === 0) return 0;
+  for (let i = 0; i < rows.length; i += CLEANUP_CONCURRENCY) {
+    await Promise.all(rows.slice(i, i + CLEANUP_CONCURRENCY).map((row) => revokeParked(row, supabase)));
+  }
+  // A claim may have taken a row meanwhile (it refuses and revokes an
+  // expired one itself); deleting by hash just finds fewer.
+  const { data: deleted, error: deleteError } = await supabase
+    .from("mailbox_oauth_parked")
+    .delete()
+    .in(
+      "code_hash",
+      rows.map((r) => r.code_hash),
+    )
+    .select("code_hash");
+  if (deleteError) throw new Error(`parked cleanup failed (${deleteError.code ?? "unknown"})`);
+  return (deleted ?? []).length;
 }

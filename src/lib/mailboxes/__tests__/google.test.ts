@@ -9,10 +9,11 @@ const mocks = vi.hoisted(() => ({
   ingest: vi.fn(),
   limit: vi.fn(),
   claim: vi.fn(),
+  retry: vi.fn(),
 }));
 vi.mock("@/lib/email/ingest", () => ({ ingestReceiptEmail: mocks.ingest }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.limit }));
-vi.mock("@/lib/mailboxes/claim", () => ({ claimMessage: mocks.claim }));
+vi.mock("@/lib/mailboxes/claim", () => ({ claimMessage: mocks.claim, allowIngestRetry: mocks.retry }));
 
 import {
   FALLBACK_DAYS,
@@ -21,6 +22,7 @@ import {
   parseGmailNotification,
   windowQuery,
 } from "../google";
+import { MAX_RAW_BYTES } from "../raw-message";
 import { MailboxProviderError, MissingScopeError, ReauthRequiredError, type MailboxConnectionRef } from "../types";
 
 // ─── A fake Google ──────────────────────────────────────────────────────
@@ -35,6 +37,8 @@ type FakeMessage = {
   /** Part file names only a format=full partial response lists. */
   hiddenParts?: string[];
   raw?: string;
+  /** Gmail's metadata sizeEstimate (default 2048). */
+  sizeEstimate?: number;
 };
 
 type Call = { method: string; url: URL; body: string | null; auth: string | null };
@@ -99,7 +103,7 @@ function respond(call: Call): Response {
         id,
         threadId: id,
         labelIds: msg.labelIds ?? ["INBOX", "UNREAD"],
-        sizeEstimate: 2048,
+        sizeEstimate: msg.sizeEstimate ?? 2048,
         payload: {
           mimeType: msg.mimeType ?? "text/plain",
           headers: [
@@ -173,6 +177,8 @@ beforeEach(() => {
   mocks.limit.mockResolvedValue({ ok: true });
   mocks.claim.mockReset();
   mocks.claim.mockResolvedValue(true);
+  mocks.retry.mockReset();
+  mocks.retry.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -367,6 +373,7 @@ describe("sync from history", () => {
     historyPages = [{ history: [record("1001", "m1")], historyId: "1001" }];
     await googleProvider.sync(CONN, "ya29.at", { deadline: Date.now() + 280_000 });
     expect(mocks.limit).toHaveBeenCalledWith("mailboxIngest", "conn-1");
+    expect(mocks.limit).toHaveBeenCalledWith("mailboxIngestUser", CONN.user_id);
     expect(mocks.ingest).toHaveBeenCalledTimes(1);
     const input = mocks.ingest.mock.calls[0][0];
     expect(input).toMatchObject({
@@ -378,7 +385,9 @@ describe("sync from history", () => {
       messageId: "<m1@mail.example>",
       text: "Total 129,00 kr\r\n",
       html: null,
-      trust: { dmarc: "pass", recipient: { from: "given", ownership: "personal" } },
+      // Never DMARC-trusted: the owner can APPEND/insert a message with a
+      // self-written Authentication-Results on top (trust.ts).
+      trust: { dmarc: null, recipient: { from: "given", ownership: "personal" } },
     });
     expect(Buffer.isBuffer(input.rawEml)).toBe(true);
     expect(input.rawEml.toString("latin1")).toContain("Subject: Your Wednesday trip with Uber");
@@ -450,10 +459,47 @@ describe("sync from history", () => {
   it("stops at the rate limit and resumes after the last record done", async () => {
     messages = { m1: { subject: "Receipt 1" }, m2: { subject: "Receipt 2" }, m3: { subject: "Receipt 3" } };
     historyPages = [{ history: [record("1001", "m1"), record("1002", "m2"), record("1003", "m3")], historyId: "1003" }];
-    mocks.limit.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, retryAfterSeconds: 60 });
+    // m1: per connection, per user; m2: per connection refused.
+    mocks.limit
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false, retryAfterSeconds: 60 });
     const out = await googleProvider.sync(CONN, "at", {});
     expect(out).toEqual({ cursor: "1001", processed: 1, created: 1 });
     expect(rawFetches()).toEqual(["m1"]);
+    expect(mocks.ingest).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops at the per-user limit (all mailboxes) with the cursor before the message", async () => {
+    messages = { m1: { subject: "Receipt 1" }, m2: { subject: "Receipt 2" } };
+    historyPages = [{ history: [record("1001", "m1"), record("1002", "m2")], historyId: "1002" }];
+    let userHits = 0;
+    mocks.limit.mockImplementation(async (rule: string) =>
+      rule === "mailboxIngestUser" && ++userHits > 1 ? { ok: false, retryAfterSeconds: 60 } : { ok: true },
+    );
+    expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1001", processed: 1, created: 1 });
+    expect(rawFetches()).toEqual(["m1"]);
+    expect(mocks.claim).not.toHaveBeenCalledWith("conn-1", "m2");
+  });
+
+  it("skips a message whose sizeEstimate is over the cap without downloading it", async () => {
+    messages = {
+      big: { subject: "Receipt with scans", sizeEstimate: MAX_RAW_BYTES + 1 },
+      m2: { subject: "Receipt 2" },
+    };
+    historyPages = [{ history: [record("1001", "big"), record("1002", "m2")], historyId: "1002" }];
+    expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1002", processed: 1, created: 1 });
+    expect(rawFetches()).toEqual(["m2"]);
+    // Only m2 was counted (per connection and per user); "big" costs nothing.
+    expect(mocks.limit).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips a message whose downloaded bytes are over the cap, whatever the estimate said", async () => {
+    const huge = "Subject: Receipt\r\n\r\n" + "x".repeat(MAX_RAW_BYTES);
+    messages = { big: { subject: "Receipt", raw: huge }, m2: { subject: "Receipt 2" } };
+    historyPages = [{ history: [record("1001", "big"), record("1002", "m2")], historyId: "1002" }];
+    expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1002", processed: 1, created: 1 });
+    expect(rawFetches()).toEqual(["big", "m2"]);
     expect(mocks.ingest).toHaveBeenCalledTimes(1);
   });
 
@@ -473,6 +519,18 @@ describe("sync from history", () => {
       .mockResolvedValueOnce({ kind: "created", receiptId: "r1", status: "pending_review" })
       .mockResolvedValueOnce({ kind: "retry", reason: "upload_failed" });
     expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1001", processed: 2, created: 1 });
+    expect(mocks.retry).toHaveBeenCalledWith("conn-1", "m2");
+  });
+
+  it("skips a message that failed to save too often, so it can't hold the mailbox forever", async () => {
+    messages = { m1: { subject: "Receipt 1" }, m2: { subject: "Receipt 2" } };
+    historyPages = [{ history: [record("1001", "m1"), record("1002", "m2")], historyId: "1002" }];
+    mocks.ingest
+      .mockResolvedValueOnce({ kind: "retry", reason: "upload_failed" })
+      .mockResolvedValueOnce({ kind: "created", receiptId: "r2", status: "pending_review" });
+    mocks.retry.mockResolvedValueOnce(false);
+    expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1002", processed: 2, created: 1 });
+    expect(rawFetches()).toEqual(["m1", "m2"]);
   });
 
   it("stops without moving the cursor when Gmail's quota is spent", async () => {

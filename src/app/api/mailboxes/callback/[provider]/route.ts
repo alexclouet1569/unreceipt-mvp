@@ -47,8 +47,8 @@ import {
 } from "@/lib/mailboxes/oauth";
 import { parkGrant } from "@/lib/mailboxes/parked";
 import { configuredProvider } from "@/lib/mailboxes/providers";
+import { revokeUnusedGrant } from "@/lib/mailboxes/shared-grant";
 import { noStore } from "@/lib/mailboxes/start-flow";
-import { withTimeout } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,8 +133,9 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       Sentry.captureException(err, { tags: { area: "mailboxes", step: "park", provider: provider.id } });
       reason = "server_error";
     }
-    // Not parked, so not kept at the provider either.
-    await withTimeout("mailbox revoke", 8000, provider.revoke(tokens.refreshToken)).catch(() => {});
+    // Not parked, so not kept at the provider either (unless the address is
+    // someone's working connection: the grant is shared).
+    await revokeUnusedGrant(provider, tokens.email, tokens.refreshToken, supabase);
     return fail(client, reason);
   }
 

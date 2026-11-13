@@ -117,6 +117,16 @@ export const RATE_LIMITS = {
     { limit: 150, windowSeconds: 60 * 60 },
     { limit: 400, windowSeconds: 24 * 60 * 60 },
   ],
+  // Per user, across all their mailboxes, checked next to mailboxIngest:
+  // five connections (and a reconnect makes a new connection id) must not
+  // multiply the per-connection ceiling. The daily cap matches intakeEmail
+  // (forwarding); the hourly one stays above one first backfill (100
+  // messages, BACKFILL in mailboxes/oauth.ts), which a window search can't
+  // resume once stopped.
+  mailboxIngestUser: [
+    { limit: 120, windowSeconds: 60 * 60 },
+    { limit: 200, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

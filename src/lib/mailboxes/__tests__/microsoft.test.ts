@@ -10,10 +10,11 @@ const mocks = vi.hoisted(() => ({
   ingest: vi.fn(),
   limit: vi.fn(),
   claim: vi.fn(),
+  retry: vi.fn(),
 }));
 vi.mock("@/lib/email/ingest", () => ({ ingestReceiptEmail: mocks.ingest }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.limit }));
-vi.mock("@/lib/mailboxes/claim", () => ({ claimMessage: mocks.claim }));
+vi.mock("@/lib/mailboxes/claim", () => ({ claimMessage: mocks.claim, allowIngestRetry: mocks.retry }));
 
 import {
   acceptedSubscriptions,
@@ -204,6 +205,8 @@ beforeEach(() => {
   mocks.limit.mockResolvedValue({ ok: true });
   mocks.claim.mockReset();
   mocks.claim.mockResolvedValue(true);
+  mocks.retry.mockReset();
+  mocks.retry.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -488,6 +491,7 @@ describe("sync (delta)", () => {
       since: new Date(Date.parse("2026-11-13T11:40:00Z") - SINCE_SLACK_MS).toISOString(),
     });
     expect(mocks.limit).toHaveBeenCalledWith("mailboxIngest", "conn-1");
+    expect(mocks.limit).toHaveBeenCalledWith("mailboxIngestUser", CONN.user_id);
     expect(mocks.claim).toHaveBeenCalledWith("conn-1", "m2");
   });
 
@@ -552,7 +556,23 @@ describe("sync (delta)", () => {
   it("stops at the rate limit with the cursor unchanged", async () => {
     messages = { m1: { subject: "Your receipt" }, m2: { subject: "Your receipt" } };
     deltaPages = { "delta:t0": { ids: ["m1", "m2"], delta: "t1" } };
-    mocks.limit.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, retryAfterSeconds: 60 });
+    // m1: per connection, per user; m2: per connection refused.
+    mocks.limit
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false, retryAfterSeconds: 60 });
+    const out = await microsoftProvider.sync({ ...CONN, cursor: storedCursor("t0") }, "at", {});
+    expect(rawFetches()).toEqual(["m1"]);
+    expect(out).toEqual({ cursor: null, processed: 1, created: 1 });
+  });
+
+  it("stops at the per-user limit (all mailboxes) with the cursor unchanged", async () => {
+    messages = { m1: { subject: "Your receipt" }, m2: { subject: "Your receipt" } };
+    deltaPages = { "delta:t0": { ids: ["m1", "m2"], delta: "t1" } };
+    let userHits = 0;
+    mocks.limit.mockImplementation(async (rule: string) =>
+      rule === "mailboxIngestUser" && ++userHits > 1 ? { ok: false, retryAfterSeconds: 60 } : { ok: true },
+    );
     const out = await microsoftProvider.sync({ ...CONN, cursor: storedCursor("t0") }, "at", {});
     expect(rawFetches()).toEqual(["m1"]);
     expect(out).toEqual({ cursor: null, processed: 1, created: 1 });
@@ -588,6 +608,17 @@ describe("sync (delta)", () => {
     const out = await microsoftProvider.sync({ ...CONN, cursor: storedCursor("t0") }, "at", {});
     expect(out.cursor).toBeNull();
     expect(rawFetches()).toEqual(["m1"]);
+    expect(mocks.retry).toHaveBeenCalledWith("conn-1", "m1");
+  });
+
+  it("skips a message that failed to save too often, so the delta moves on", async () => {
+    messages = { m1: { subject: "Your receipt" }, m2: { subject: "Your receipt" } };
+    deltaPages = { "delta:t0": { ids: ["m1", "m2"], delta: "t1" } };
+    mocks.ingest.mockResolvedValueOnce({ kind: "retry", reason: "upload_failed" });
+    mocks.retry.mockResolvedValueOnce(false);
+    const out = await microsoftProvider.sync({ ...CONN, cursor: storedCursor("t0") }, "at", {});
+    expect(rawFetches()).toEqual(["m1", "m2"]);
+    expect(decodeCursor(out.cursor)?.link).toBe(`${DELTA_BASE}?$deltatoken=t1`);
   });
 
   it("stops before the deadline", async () => {

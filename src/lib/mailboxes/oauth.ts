@@ -91,6 +91,9 @@ export const RESULT_REASONS = [
   "scope_missing",
   "limit",
   "rate_limited",
+  // The account has no product access (no active subscription, outside
+  // the pilot): connecting is refused before the provider is asked.
+  "no_access",
   "link_invalid",
   "link_expired",
   "link_used",

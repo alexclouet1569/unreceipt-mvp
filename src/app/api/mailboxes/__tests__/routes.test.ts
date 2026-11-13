@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   user: null as { id: string; email?: string } | null,
   users: {} as Record<string, { id: string; email: string }>,
   limit: vi.fn(),
+  access: vi.fn(),
   afterTasks: [] as Promise<unknown>[],
 }));
 
@@ -34,6 +35,7 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: async () => mocks.user }));
+vi.mock("@/lib/subscription-gate", () => ({ hasProductAccess: mocks.access }));
 vi.mock("@/lib/rate-limit", async (orig) => ({
   ...(await orig<typeof import("@/lib/rate-limit")>()),
   rateLimit: mocks.limit,
@@ -158,6 +160,7 @@ beforeEach(() => {
   mocks.user = { id: USER, email: "anna@acme.se" };
   mocks.users = { [USER]: { id: USER, email: "anna@acme.se" }, [OTHER]: { id: OTHER, email: "eve@evil.test" } };
   mocks.limit.mockReset().mockResolvedValue({ ok: true });
+  mocks.access.mockReset().mockResolvedValue(true);
   mocks.afterTasks = [];
   resetFakeProvider(fakeProvider);
 });
@@ -210,6 +213,15 @@ describe("GET /api/mailboxes/connect/[provider] (website)", () => {
     res = await connectGET(req("/api/mailboxes/connect/google"), params({ provider: "google" }));
     expect(location(res)).toBe("https://app.unreceipt.com/app/settings?mailbox=error&reason=rate_limited");
     expect(mocks.db.tables.mailbox_oauth_pending).toHaveLength(0);
+  });
+
+  it("refuses an account without product access before asking the provider", async () => {
+    mocks.access.mockResolvedValue(false);
+    const res = await connectGET(req("/api/mailboxes/connect/google"), params({ provider: "google" }));
+    expect(location(res)).toBe("https://app.unreceipt.com/app/settings?mailbox=error&reason=no_access");
+    expect(mocks.access).toHaveBeenCalledWith(USER);
+    expect(mocks.db.tables.mailbox_oauth_pending).toHaveLength(0);
+    expect(fakeProvider.authUrl).not.toHaveBeenCalled();
   });
 
   it("at 5 mailboxes, still lets a mailbox that needs reconnecting be reconnected", async () => {
@@ -510,6 +522,43 @@ describe("POST /api/mailboxes/claim (iPhone app)", () => {
     forgetAccessToken(conn.id as string);
   });
 
+  it("refuses an account that lost product access, revoking the grant", async () => {
+    const code = claimCode(await appFlow());
+    mocks.access.mockResolvedValue(false);
+    const res = await claim({ code });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "no_access" });
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//refresh-token-secret");
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(0);
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
+  it("never revokes a refused grant whose address another account has connected (shared at Google)", async () => {
+    // The victim's own Gmail is connected to the victim's account; an
+    // attacker's link makes them approve it again. Revoking would cut the
+    // victim's working mailbox off.
+    mocks.db.tables.mailbox_connections.push({
+      id: "00000008-0000-4000-8000-000000000008",
+      user_id: USER,
+      provider: "google",
+      email: "anna@gmail.com",
+      refresh_token_enc: "v1.x.y.z",
+      status: "active",
+    });
+    const code = claimCode(await appFlow(OTHER));
+    const res = await claim({ code });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "wrong_account" });
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(0);
+
+    // Expired, same rule.
+    const code2 = claimCode(await appFlow());
+    mocks.db.tables.mailbox_oauth_parked[0].expires_at = new Date(Date.now() - 1000).toISOString();
+    expect((await claim({ code: code2 })).status).toBe(410);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+  });
+
   it("refuses another signed-in user, revokes the grant and forgets it", async () => {
     // An attacker minted the link for their own account; the victim
     // approved, and the victim's app (signed in as the victim) claims.
@@ -642,6 +691,13 @@ describe("POST /api/mailboxes/connect-link", () => {
     mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 60 });
     expect((await post({ provider: "google" })).status).toBe(429);
   });
+
+  it("refuses an account without product access", async () => {
+    mocks.access.mockResolvedValue(false);
+    const res = await post({ provider: "google" });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "no_access" });
+  });
 });
 
 describe("GET /api/mailboxes", () => {
@@ -694,6 +750,23 @@ describe("DELETE /api/mailboxes/[id]", () => {
     expect(fakeProvider.stopWatch).toHaveBeenCalled();
     expect(fakeProvider.revoke).toHaveBeenCalledWith("1//refresh-token-secret");
     expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
+  it("leaves the grant and the watch alone when another account has the same address connected", async () => {
+    const id = await connected();
+    mocks.db.tables.mailbox_connections.push({
+      id: "00000008-0000-4000-8000-000000000008",
+      user_id: OTHER,
+      provider: "google",
+      email: "anna@gmail.com",
+      refresh_token_enc: "v1.x.y.z",
+      status: "active",
+    });
+    const res = await del(id, `https://${HOST}`);
+    expect(await res.json()).toEqual({ ok: true, revoked: false });
+    expect(fakeProvider.stopWatch).not.toHaveBeenCalled();
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(mocks.db.tables.mailbox_connections.map((r) => r.user_id)).toEqual([OTHER]);
   });
 
   it("answers 404 for someone else's mailbox and leaves it alone", async () => {

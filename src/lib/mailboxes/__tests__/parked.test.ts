@@ -13,7 +13,15 @@ vi.mock("@/lib/mailboxes/google", async () => ({
 
 import { fakeProvider, resetFakeProvider } from "./fake-provider";
 import { sha256Hex } from "../oauth";
-import { deleteExpiredParked, isClaimCode, parkGrant, parkedRefreshToken, takeParked } from "../parked";
+import {
+  CLEANUP_BATCH,
+  deleteExpiredParked,
+  isClaimCode,
+  parkGrant,
+  parkedRefreshToken,
+  revokeParked,
+  takeParked,
+} from "../parked";
 import { decryptToken } from "../crypto";
 
 const USER = "11111111-1111-4111-8111-111111111111";
@@ -77,5 +85,55 @@ describe("parked grants", () => {
     fakeProvider.revoke.mockRejectedValueOnce(new Error("down"));
     expect(await deleteExpiredParked(asClient(db), now)).toBe(2);
     expect(db.tables.mailbox_oauth_parked).toHaveLength(0);
+  });
+
+  it("revokes only the batch it deletes, leaving the rest for the next run", async () => {
+    const db = createFakeDb();
+    const now = Date.parse("2026-11-13T10:00:00Z");
+    for (let i = 0; i < CLEANUP_BATCH + 3; i++) {
+      await parkGrant(asClient(db), { ...grant, refreshToken: `1//old-${i}` }, now - 3600_000 - i);
+    }
+    expect(await deleteExpiredParked(asClient(db), now)).toBe(CLEANUP_BATCH);
+    expect(fakeProvider.revoke).toHaveBeenCalledTimes(CLEANUP_BATCH);
+    expect(db.tables.mailbox_oauth_parked).toHaveLength(3);
+    // Every deleted row was revoked; every row left is still there to revoke.
+    const left = db.tables.mailbox_oauth_parked.map((r) => parkedRefreshToken(r as { user_id: string; refresh_token_enc: string }));
+    const revoked = fakeProvider.revoke.mock.calls.map((c) => (c as unknown[])[0]);
+    expect(left.some((t) => revoked.includes(t))).toBe(false);
+    expect(await deleteExpiredParked(asClient(db), now)).toBe(3);
+    expect(fakeProvider.revoke).toHaveBeenCalledTimes(CLEANUP_BATCH + 3);
+    expect(db.tables.mailbox_oauth_parked).toHaveLength(0);
+  });
+
+  it("never revokes a grant whose address someone has connected (the grant is shared at Google)", async () => {
+    const db = createFakeDb({
+      mailbox_connections: [
+        { id: "c-other", user_id: OTHER, provider: "google", email: "anna@gmail.com", status: "active" },
+      ],
+    });
+    const now = Date.parse("2026-11-13T10:00:00Z");
+    await parkGrant(asClient(db), grant, now - 3600_000);
+    expect(await deleteExpiredParked(asClient(db), now)).toBe(1);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(db.tables.mailbox_oauth_parked).toHaveLength(0);
+
+    // A connection that needs reconnecting holds no live grant: revoked.
+    db.tables.mailbox_connections[0].status = "needs_reconnect";
+    await parkGrant(asClient(db), grant, now - 3600_000);
+    expect(await deleteExpiredParked(asClient(db), now)).toBe(1);
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//secret");
+  });
+
+  it("keeps the grant when it can't tell whether the address is connected", async () => {
+    const db = createFakeDb();
+    const parked = await parkGrant(asClient(db), grant);
+    if (!parked.ok) throw new Error("not parked");
+    const taken = await takeParked(asClient(db), parked.code);
+    if (!taken.ok || !taken.row) throw new Error("not taken");
+    db.failNext.mailbox_connections = { code: "08006", message: "down" };
+    expect(await revokeParked(taken.row, asClient(db))).toBe(false);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(await revokeParked(taken.row, asClient(db))).toBe(true);
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//secret");
   });
 });

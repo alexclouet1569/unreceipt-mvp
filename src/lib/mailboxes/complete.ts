@@ -4,7 +4,8 @@
 //
 //   1. store it (saveConnection: re-connecting an address replaces its
 //      token; a new address is refused past CONNECTION_LIMIT, and the grant
-//      it came with is then revoked, since we won't keep it);
+//      it came with is then revoked, since we won't keep it, unless another
+//      active connection uses that address: ./shared-grant.ts);
 //   2. start push notifications (a failure doesn't undo the connection:
 //      the daily job starts the watch again);
 //   3. queue the first 30-day backfill with after(), within the caller's
@@ -17,14 +18,13 @@
 import * as Sentry from "@sentry/nextjs";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { withTimeout } from "@/lib/with-timeout";
 import { forgetAccessToken, getAccessToken, primeAccessToken } from "./access-token";
 import { BACKFILL } from "./oauth";
+import { revokeUnusedGrant } from "./shared-grant";
 import { recordError, saveConnection, updateWatch } from "./store";
 import { syncConnection } from "./sync";
 import { ReauthRequiredError, type MailboxConnectionRef, type MailboxProvider } from "./types";
 
-const REVOKE_MS = 8000;
 // Leave this much of the function's budget for saving the backfill's cursor.
 const BACKFILL_MARGIN_MS = 20_000;
 
@@ -54,8 +54,9 @@ export async function completeConnection(input: {
       supabase,
     );
     if (!saved.ok) {
-      // Not stored, so not kept at the provider either.
-      await withTimeout("mailbox revoke", REVOKE_MS, provider.revoke(input.refreshToken)).catch(() => {});
+      // Not stored, so not kept at the provider either (unless the address
+      // is someone's working connection: the grant is shared).
+      await revokeUnusedGrant(provider, input.email, input.refreshToken, supabase);
       return { ok: false, reason: saved.error };
     }
     conn = saved.conn;

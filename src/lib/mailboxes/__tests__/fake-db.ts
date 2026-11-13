@@ -1,7 +1,8 @@
 // Test helper (not a test file): an in-memory stand-in for the parts of the
 // Supabase query builder the mailbox code uses. Honours the column list of
 // select() (so a test can see that a column never comes back), insert /
-// update / delete with `.select()` returning, count+head, eq / is / lt,
+// update / delete with `.select()` returning, count+head, eq / is / lt /
+// in, limit (on selects),
 // maybeSingle / single, and the unique indexes of the 2026-11-13 schema
 // block (23505 like Postgres).
 
@@ -76,6 +77,7 @@ export function createFakeDb(tables: Record<string, Row[]> = {}): FakeDb {
     let columns: string | null = null;
     let returning = false;
     let countHead = false;
+    let max: number | null = null;
     const all = () => (db.tables[table] ??= []);
     const matching = () => all().filter((r) => filters.every((f) => f(r)));
 
@@ -86,8 +88,9 @@ export function createFakeDb(tables: Record<string, Row[]> = {}): FakeDb {
         return { data: null, error: injected };
       }
       if (op === "select") {
-        const hit = matching();
-        if (countHead) return { data: null, error: null, count: hit.length };
+        const found = matching();
+        const hit = max === null ? found : found.slice(0, max);
+        if (countHead) return { data: null, error: null, count: found.length };
         return { data: hit.map((r) => project(r, columns)), error: null };
       }
       if (op === "insert") {
@@ -130,8 +133,9 @@ export function createFakeDb(tables: Record<string, Row[]> = {}): FakeDb {
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
       is: (c: string, v: unknown) => (filters.push((r) => (r[c] ?? null) === v), q),
       lt: (c: string, v: string) => (filters.push((r) => String(r[c] ?? "") < v), q),
+      in: (c: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[c])), q),
       order: () => q,
-      limit: () => q,
+      limit: (n: number) => ((max = n), q),
       single: async () => {
         const res = one();
         if (!res.error && res.data === null) return { data: null, error: { code: "PGRST116", message: "no rows" } };

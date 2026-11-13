@@ -20,7 +20,11 @@
 //           downloaded in full (format=raw) and handed to the shared ingest
 //           (ingestReceiptEmail), after a short claim (./claim.ts) so two
 //           syncs running at once don't both pay for it. Nothing about
-//           other messages is stored.
+//           other messages is stored. A message whose sizeEstimate (or
+//           decoded raw) is over MAX_RAW_BYTES is skipped, as on Outlook.
+//   Limits  per connection (mailboxIngest) and per user across all their
+//           mailboxes (mailboxIngestUser) before each download; limited,
+//           the sync stops with the cursor before the message.
 //
 // Never logs subjects, addresses, message ids or tokens.
 
@@ -29,8 +33,8 @@ import { ingestReceiptEmail } from "@/lib/email/ingest";
 import { gmailFilterQuery } from "@/lib/forwarding-filters";
 import { CLAUDE_CALL_BUDGET_MS } from "@/lib/ocr";
 import { rateLimit } from "@/lib/rate-limit";
-import { claimMessage } from "./claim";
-import { decodeHeaderValue, parseRawMessage } from "./raw-message";
+import { allowIngestRetry, claimMessage } from "./claim";
+import { MAX_RAW_BYTES, decodeHeaderValue, parseRawMessage } from "./raw-message";
 import { isLikelyReceipt } from "./select";
 import { mailboxTrust } from "./trust";
 import {
@@ -251,6 +255,15 @@ export function parseGmailNotification(body: unknown): { emailAddress: string; h
 // ─── One sync ───────────────────────────────────────────────────────────
 
 type MessageOutcome = "skipped" | "duplicate" | "created" | "stop";
+type Candidate = { id: string; likely: boolean; tooBig: boolean };
+
+/** Gmail's sizeEstimate (bytes, a number or a numeric string) is over the cap. */
+function overSizeCap(sizeEstimate: unknown): boolean {
+  const n = typeof sizeEstimate === "number" ? sizeEstimate : typeof sizeEstimate === "string" ? Number(sizeEstimate) : NaN;
+  return Number.isFinite(n) && n > MAX_RAW_BYTES;
+}
+// base64url of MAX_RAW_BYTES, checked before decoding.
+const MAX_RAW_BASE64_CHARS = Math.ceil((MAX_RAW_BYTES * 4) / 3) + 4;
 
 class GmailSync {
   processed = 0;
@@ -274,8 +287,8 @@ class GmailSync {
   }
 
   /** Metadata for many ids, a few at a time; null = deleted meanwhile or not inbox mail. */
-  private async metadata(ids: string[]): Promise<Array<{ id: string; likely: boolean } | null>> {
-    const out: Array<{ id: string; likely: boolean } | null> = [];
+  private async metadata(ids: string[]): Promise<Array<Candidate | null>> {
+    const out: Array<Candidate | null> = [];
     for (let i = 0; i < ids.length; i += METADATA_CONCURRENCY) {
       const batch = ids.slice(i, i + METADATA_CONCURRENCY);
       out.push(...(await Promise.all(batch.map((id) => this.isCandidate(id)))));
@@ -283,7 +296,7 @@ class GmailSync {
     return out;
   }
 
-  private async isCandidate(id: string): Promise<{ id: string; likely: boolean } | null> {
+  private async isCandidate(id: string): Promise<Candidate | null> {
     const params = new URLSearchParams({ format: "metadata" });
     params.append("metadataHeaders", "Subject");
     params.append("metadataHeaders", "From");
@@ -292,6 +305,7 @@ class GmailSync {
     if (!res.ok) await failOn(res, "gmail_message_failed");
     const msg = await readJson(res);
     if (!readable(msg.labelIds)) return null;
+    const tooBig = overSizeCap(msg.sizeEstimate);
     const payload = msg.payload;
     const meta = {
       subject: decodeHeaderValue(headerOf(payload, "Subject")),
@@ -299,16 +313,16 @@ class GmailSync {
       attachmentNames: attachmentNamesOf(payload),
       hasAttachments: false,
     };
-    if (isLikelyReceipt(meta)) return { id, likely: true };
+    if (isLikelyReceipt(meta)) return { id, likely: true, tooBig };
     // format=metadata may leave out the parts. A message with attachments
     // (multipart/mixed) is asked again for its part names only (a partial
     // response: no bodies are sent).
     const mime = isRecord(payload) && typeof payload.mimeType === "string" ? payload.mimeType.toLowerCase() : "";
     if (meta.attachmentNames.length === 0 && mime === "multipart/mixed") {
       const names = await this.partNames(id);
-      return { id, likely: isLikelyReceipt({ ...meta, attachmentNames: names, hasAttachments: names.length > 0 }) };
+      return { id, likely: isLikelyReceipt({ ...meta, attachmentNames: names, hasAttachments: names.length > 0 }), tooBig };
     }
-    return { id, likely: false };
+    return { id, likely: false, tooBig };
   }
 
   private async partNames(id: string): Promise<string[]> {
@@ -334,7 +348,9 @@ class GmailSync {
     try {
       const candidates = await this.metadata(fresh);
       for (const c of candidates) {
-        if (!c || !c.likely) continue;
+        // Too big to download and keep as the original: skipped, like a
+        // non-receipt (never stored).
+        if (!c || !c.likely || c.tooBig) continue;
         const outcome = await this.ingest(c.id);
         if (outcome === "stop") return "stop";
       }
@@ -350,6 +366,10 @@ class GmailSync {
     // Before the download and any Claude call: a flood stops here.
     const limited = await rateLimit("mailboxIngest", this.conn.id);
     if (!limited.ok) return "stop";
+    // …and per user: five mailboxes (or a reconnect, which makes a new
+    // connection id) must not multiply the ceiling.
+    const userLimited = await rateLimit("mailboxIngestUser", this.conn.user_id);
+    if (!userLimited.ok) return "stop";
     // Another sync is reading this message right now: leave it to that one.
     // Reading history, stop before it so the cursor can't pass it unread; a
     // window search returns a fixed cursor, so it just goes on.
@@ -364,8 +384,10 @@ class GmailSync {
     if (res.status === 404) return "skipped";
     if (!res.ok) await failOn(res, "gmail_raw_failed");
     const raw = str((await readJson(res)).raw);
-    if (!raw) return "skipped";
+    if (!raw || raw.length > MAX_RAW_BASE64_CHARS) return "skipped";
     const rawEml = Buffer.from(raw, "base64url");
+    // sizeEstimate is an estimate: the bytes themselves decide.
+    if (rawEml.length === 0 || rawEml.length > MAX_RAW_BYTES) return "skipped";
     this.processed++;
 
     const parsed = parseRawMessage(rawEml);
@@ -390,8 +412,15 @@ class GmailSync {
       }
       if (result.kind === "duplicate") return "duplicate";
       // Nothing was saved (database or storage blip): stop before this
-      // message, so the next sync reads it again.
-      return "stop";
+      // message, so the next sync reads it again; but not forever, or a
+      // message that can never be stored would hold the cursor and no
+      // later receipt would arrive (allowIngestRetry, ./claim.ts).
+      if (await allowIngestRetry(this.conn.id, id)) return "stop";
+      Sentry.captureMessage("mailbox message skipped after repeated ingest failures", {
+        level: "warning",
+        tags: { area: "mailboxes", step: "ingest_retry_exhausted", provider: "google", reason: result.reason },
+      });
+      return "skipped";
     } catch (err) {
       // A bug, not a blip: retrying would only repeat the paid calls. The
       // message is skipped and reported (no content in the report).

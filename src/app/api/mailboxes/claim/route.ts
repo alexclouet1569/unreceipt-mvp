@@ -20,7 +20,11 @@
 // 404 { error: "invalid" } unknown or already used code ·
 // 410 { error: "expired" } (grant revoked) ·
 // 403 { error: "wrong_account" } (grant revoked) ·
+// 403 { error: "no_access" } no product access (hasProductAccess, the same
+// gate as /api/ocr; grant revoked) ·
 // 409 { error: "limit", limit } (grant revoked) ·
+// "Revoked" means: unless another active connection uses the address, whose
+// grant it shares at Google (src/lib/mailboxes/shared-grant.ts).
 // 500 { error: "server_error" } ·
 // 200 { ok: true, connection } (MailboxConnectionSummary, no token).
 
@@ -31,6 +35,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { hasProductAccess } from "@/lib/subscription-gate";
 import { completeConnection } from "@/lib/mailboxes/complete";
 import { parkedRefreshToken, revokeParked, takeParked } from "@/lib/mailboxes/parked";
 import { getProvider } from "@/lib/mailboxes/providers";
@@ -46,7 +51,8 @@ export const maxDuration = 300;
 const NO_STORE = { "Cache-Control": "no-store" };
 const BodySchema = z.object({ code: z.string().max(128) });
 
-const answer = (body: MobileMailboxClaim | { error: "forbidden" | "unauthorized" }, status: number) =>
+// "no_access" is not in MobileMailboxClaim yet (src/lib/mobile/types.ts).
+const answer = (body: MobileMailboxClaim | { error: "forbidden" | "unauthorized" | "no_access" }, status: number) =>
   NextResponse.json(body, { status, headers: NO_STORE });
 
 export async function POST(request: NextRequest) {
@@ -75,19 +81,27 @@ export async function POST(request: NextRequest) {
   if (!row || !isMailboxProviderId(row.provider)) return answer({ error: "invalid" }, 404);
 
   if (Date.parse(row.expires_at) <= Date.now()) {
-    await revokeParked(row);
+    await revokeParked(row, supabase);
     return answer({ error: "expired" }, 410);
   }
 
   if (row.user_id !== user.id) {
     // The flow was started from someone else's connect link: whoever
     // approved must not hand their mailbox to that account.
-    await revokeParked(row);
+    await revokeParked(row, supabase);
     Sentry.captureMessage("mailbox claim by another user refused", {
       level: "warning",
       tags: { area: "mailboxes", step: "claim_wrong_account", provider: row.provider },
     });
     return answer({ error: "wrong_account" }, 403);
+  }
+
+  // A connected mailbox spends Claude calls on every receipt it brings in;
+  // the flow's start checked this too, but access can end within the
+  // parked grant's 10 minutes.
+  if (!(await hasProductAccess(user.id))) {
+    await revokeParked(row, supabase);
+    return answer({ error: "no_access" }, 403);
   }
 
   let refreshToken: string;

@@ -1,12 +1,14 @@
 // SERVER-ONLY. Starts an OAuth flow for a user who is already identified
 // (the website's session, or the iPhone app's link after the confirmation
-// page): rate limit, the 5-mailbox cap, a pending row, the binding cookie,
+// page): rate limit, product access (hasProductAccess: a subscription, or
+// PILOT_MODE), the 5-mailbox cap, a pending row, the binding cookie,
 // then a 303 to the provider's consent screen. Failures redirect to the
 // fixed result page of the client (never a target from the request).
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { hasProductAccess } from "@/lib/subscription-gate";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   bindingCookieName,
@@ -41,6 +43,11 @@ export async function startConnectFlow(input: {
 
   const limited = await rateLimit("mailboxConnect", userId);
   if (!limited.ok) return finishWith(client, "rate_limited");
+
+  // A connected mailbox spends Claude calls on every receipt it brings in:
+  // only for an account that may use the product (same gate as /api/ocr;
+  // pilot mode and a database error allow).
+  if (!(await hasProductAccess(userId))) return finishWith(client, "no_access");
 
   const supabase = getSupabaseAdmin();
   try {

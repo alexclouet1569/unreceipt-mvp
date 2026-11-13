@@ -7,8 +7,9 @@
 // provider (see /api/mailboxes/connect/[provider]).
 //
 // 401 signed out · 403 cross-site · 400 bad body · 404 unknown or
-// unconfigured provider · 429 rate-limited · 409 { error: "limit" } at 5
-// mailboxes · 200 { url, expiresAt }.
+// unconfigured provider · 429 rate-limited · 403 { error: "no_access" }
+// without product access (hasProductAccess; the flow itself refuses too) ·
+// 409 { error: "limit" } at 5 mailboxes · 200 { url, expiresAt }.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
@@ -17,6 +18,7 @@ import { absoluteAppUrl } from "@/lib/app-url";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
+import { hasProductAccess } from "@/lib/subscription-gate";
 import { linkSecretConfigured, signConnectLink } from "@/lib/mailboxes/link-token";
 import { configuredProvider } from "@/lib/mailboxes/providers";
 import { CONNECTION_LIMIT, countConnections } from "@/lib/mailboxes/store";
@@ -46,6 +48,10 @@ export async function POST(request: NextRequest) {
 
   const limited = await rateLimit("mailboxConnectLink", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
+
+  if (!(await hasProductAccess(user.id))) {
+    return NextResponse.json({ error: "no_access" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   try {
     if ((await countConnections(user.id)) >= CONNECTION_LIMIT) {

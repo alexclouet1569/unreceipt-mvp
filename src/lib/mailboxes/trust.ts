@@ -1,44 +1,59 @@
 // How much a message read from a connected mailbox is trusted (the TrustInput
 // of ingestReceiptEmail, src/lib/email/ingest.ts). Pure.
 //
-// A template (Uber, Stripe) may mark a receipt verified only when both hold:
+// Today NO mailbox message is DMARC-trusted, for either provider
+// (RECEIVING_AUTHSERV_IDS is null for both, so mailboxTrust() always gives
+// dmarc null): a template receipt (Uber, Stripe) read from a mailbox lands
+// in Review needed, filled in, and a person confirms it.
 //
-//   DMARC  The receiving provider's own verdict says the From: domain is
-//          genuine: the TOPMOST Authentication-Results header of the
-//          message must carry the provider's authserv-id (Gmail:
-//          "mx.google.com"), hold exactly one dmarc result, that result is
-//          "pass", and its header.from is the domain of the message's one
-//          From: address. Providers prepend their header on delivery, so a
-//          header a sender wrote sits below it and is never read; when the
-//          topmost header isn't the provider's (a message that reached the
-//          mailbox some other way, such as a POP fetch or an import) nothing
-//          is trusted, rather than reading further down where a sender's
-//          own header could be. ARC-Authentication-Results is a different
-//          header and never counts.
-//   To:    The message's single To: header names the connected mailbox
-//          (recipientOwnership, src/lib/email-address.ts: a repeated To:
-//          or a Cc: never counts).
+// Why not Gmail's own Authentication-Results: the mailbox's owner can put
+// any message into their own mailbox without it ever passing Gmail's MX.
+// IMAP APPEND (any mail client) or the Gmail API's messages.insert stores
+// the bytes as given, headers included, so a self-written topmost
+// "Authentication-Results: mx.google.com; dmarc=pass header.from=uber.com"
+// above a made-up Uber receipt looks exactly like a delivered one, and
+// users.history reports it as messageAdded in INBOX. Neither the header's
+// position nor its authserv-id says who wrote it.
 //
-// Residual risk, accepted: mail between two users of the same Google
-// Workspace domain may be delivered without Google's own header, so a
-// colleague could write a fake one; the From: must still be the template's
-// own domain and the result is only "verified" instead of Review needed.
+// What would make it trustworthy again (later work, not done here):
+//   - verifying the DKIM signature ourselves (RFC 6376, public key from
+//     DNS) with its d= aligned with the From: domain (DMARC alignment), as
+//     a forger can't sign for uber.com; or
+//   - verifying the ARC chain cryptographically (RFC 8617): an
+//     ARC-Seal/ARC-Message-Signature i=1 with d=google.com, whose
+//     ARC-Authentication-Results then carries Gmail's real verdict.
+// Plain header reads are not enough in either case.
+//
+// The parser below is kept (and tested) for that work: it reads the
+// TOPMOST Authentication-Results, requires the provider's authserv-id
+// (Gmail: "mx.google.com"), exactly one dmarc result, "pass", and a
+// header.from equal to the domain of the message's one From: address.
+// ARC-Authentication-Results is a different header and never counts.
+//
+// To: the message's single To: header must name the connected mailbox
+// (recipientOwnership, src/lib/email-address.ts: a repeated To: or a Cc:
+// never counts). It is still computed; the ingest uses it only together
+// with a DMARC pass, so today it decides nothing.
 //
 // Microsoft: Exchange Online writes its Authentication-Results without an
-// authserv-id ("spf=pass …; dmarc=pass action=none header.from=…"), so the
-// receiving server can't be told from a sender's header by its name. Until
-// that is settled on real messages, Outlook mail is never DMARC-trusted
-// (dmarc null): its template receipts land in Review needed.
+// authserv-id ("spf=pass …; dmarc=pass action=none header.from=…"), and
+// Graph can create messages in a mailbox too, so the same reasoning holds.
 
 import type { TrustInput } from "@/lib/email/ingest";
 import { parseAddressList, rawHeaderValues, recipientOwnership } from "@/lib/email-address";
 import type { MailboxProviderId } from "@/lib/types";
 
-/** The authserv-ids whose verdict counts, per provider; null trusts none. */
+/**
+ * The authserv-ids whose verdict counts, per provider; null trusts none.
+ * Both null: a mailbox owner can write that header themselves (see above).
+ */
 export const RECEIVING_AUTHSERV_IDS: Record<MailboxProviderId, readonly string[] | null> = {
-  google: ["mx.google.com"],
+  google: null,
   microsoft: null,
 };
+
+/** Gmail's authserv-id, for receivingDmarcVerdict() once DKIM/ARC is verified. */
+export const GMAIL_AUTHSERV_ID = "mx.google.com";
 
 type ResInfo = { method: string; result: string; props: Record<string, string> };
 

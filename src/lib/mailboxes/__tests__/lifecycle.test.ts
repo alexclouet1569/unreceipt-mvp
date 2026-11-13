@@ -111,6 +111,39 @@ describe("disconnect", () => {
     expect(db.tables.mailbox_connections).toHaveLength(0);
   });
 
+  it("only deletes its row when another account's active connection uses the same Gmail address", async () => {
+    // Same Google account, same OAuth client: one grant and one watch for
+    // both connections, so a revoke or users.stop would cut the other off.
+    const other = "22222222-2222-4222-8222-222222222222";
+    const theirs = await saveConnection({ userId: other, provider: "google", email: "Anna@Gmail.com", refreshToken: "1//theirs" }, client);
+    if (!theirs.ok) throw new Error("not saved");
+    const conn = { ...(await connect()), watch_expires_at: "2026-11-20T00:00:00Z" };
+    expect(await disconnectMailbox(conn, client)).toEqual({ deleted: true, stopped: false, revoked: false });
+    expect(fakeProvider.stopWatch).not.toHaveBeenCalled();
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(db.tables.mailbox_connections.map((r) => r.user_id)).toEqual([other]);
+
+    // Theirs needs reconnecting (its grant is already refused): a full release.
+    db.tables.mailbox_connections[0].status = "needs_reconnect";
+    const again = { ...(await connect()), watch_expires_at: "2026-11-20T00:00:00Z" };
+    expect(await disconnectMailbox(again, client)).toEqual({ deleted: true, stopped: true, revoked: true });
+  });
+
+  it("releases as asked when it can't tell whether the address is shared", async () => {
+    const conn = { ...(await connect()), watch_expires_at: "2026-11-20T00:00:00Z" };
+    const realFrom = db.client.from;
+    let reads = 0;
+    // The token read and the delete go through; the shared-address lookup fails.
+    db.client.from = (table: string) => {
+      if (table === "mailbox_connections" && ++reads === 3) db.failNext.mailbox_connections = { code: "08006", message: "down" };
+      return realFrom(table);
+    };
+    expect(await disconnectMailbox(conn, client)).toEqual({ deleted: true, stopped: true, revoked: true });
+    expect(reads).toBe(3);
+    expect(db.failNext.mailbox_connections).toBeUndefined();
+    db.client.from = realFrom;
+  });
+
   it("deletes the row even when the provider is down", async () => {
     const conn = { ...(await connect()), watch_expires_at: "2026-11-20T00:00:00Z" };
     fakeProvider.refreshAccessToken.mockRejectedValueOnce(new Error("down"));
