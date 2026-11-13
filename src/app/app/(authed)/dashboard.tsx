@@ -551,7 +551,7 @@ function EmptyState({
         style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
       >
         {watching
-          ? `Watching ${connectedMailboxes.join(", ")} for receipts. They show up here as they arrive.`
+          ? `Checking ${connectedMailboxes.join(", ")} for new receipts. They show up here as they arrive.`
           : connectFirst
             ? "Connect your email and receipts arrive by themselves. We'll have them VAT-ready in minutes."
             : intakeSmsNumber
@@ -581,7 +581,7 @@ function EmptyState({
             quiet={connectFirst}
           />
         ) : null}
-        <GuideLink />
+        <GuideLink instead={connectFirst} />
       </div>
 
       <button

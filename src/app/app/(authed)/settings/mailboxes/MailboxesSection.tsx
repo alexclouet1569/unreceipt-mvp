@@ -1,22 +1,27 @@
 "use client";
 
-// Settings → "Your email": the Gmail / Outlook mailboxes the user connected
-// (status in plain words, Reconnect, Disconnect with a confirm step), the
-// connect buttons while under the limit, and the way to forwarding for
-// every other provider. Disconnect is DELETE /api/mailboxes/<id>, then a
-// refresh so the server's list shows.
+// Settings → "Connected email": the Gmail / Outlook mailboxes the user
+// connected (status in plain words, Reconnect, Disconnect with a confirm
+// step) and the connect buttons while under the limit. Forwarding, for
+// every other provider, is the "Send us receipts" section right below.
+// Disconnect is DELETE /api/mailboxes/<id>, then a refresh so the server's
+// list shows.
+//
+// Focus: the confirm step focuses its question (never the destructive
+// button); Cancel returns focus to that row's Disconnect; a removal is
+// announced in a status line, which then holds focus.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Loader2, Mail } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ConnectButtons, OUTLINE_LINK } from "./ConnectButtons";
 import {
   PROVIDER_NAME,
   anyProvider,
-  connectHref,
+  explainerHref,
   statusLine,
   type MailboxProviders,
   type MailboxView,
@@ -35,11 +40,15 @@ export function MailboxesSection({
   connections,
   limit,
   failed = false,
+  storeApp = false,
 }: {
   providers: MailboxProviders;
   connections: MailboxView[];
   limit: number;
   failed?: boolean;
+  // Inside the Capacitor shell: it can't finish an OAuth flow, so a
+  // mailbox needing reconnection says where to do it instead.
+  storeApp?: boolean;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -50,11 +59,27 @@ export function MailboxesSection({
   // "2 h ago" is worked out in the browser only (null on the server), so
   // the server's clock and the browser's never disagree in the markup.
   const now = useSyncExternalStore(subscribeMinute, currentMinute, () => null);
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  // "Disconnected anna@gmail.com", in a status line that is always there
+  // (a live region must exist before its text changes to be announced).
+  const [announcement, setAnnouncement] = useState("");
+  const questionRef = useRef<HTMLParagraphElement>(null);
+  const announcementRef = useRef<HTMLParagraphElement>(null);
+  const disconnectRefs = useRef(new Map<string, HTMLButtonElement>());
+  // The row whose Disconnect gets focus back after Cancel.
+  const returnFocusTo = useRef<string | null>(null);
 
   useEffect(() => {
-    if (confirming) confirmRef.current?.focus();
+    if (confirming) {
+      questionRef.current?.focus();
+    } else if (returnFocusTo.current) {
+      disconnectRefs.current.get(returnFocusTo.current)?.focus();
+      returnFocusTo.current = null;
+    }
   }, [confirming]);
+
+  useEffect(() => {
+    if (announcement) announcementRef.current?.focus();
+  }, [announcement]);
 
   const shown = connections.filter((c) => !removed.has(c.id));
   const canConnect = anyProvider(providers);
@@ -63,6 +88,7 @@ export function MailboxesSection({
   const disconnect = async (conn: MailboxView) => {
     setBusy(conn.id);
     setError(null);
+    setAnnouncement("");
     try {
       const res = await fetch(`/api/mailboxes/${encodeURIComponent(conn.id)}`, { method: "DELETE" });
       // 404: already gone (another tab); the refresh shows the truth.
@@ -72,6 +98,7 @@ export function MailboxesSection({
       }
       setRemoved((prev) => new Set(prev).add(conn.id));
       setConfirming(null);
+      setAnnouncement(`Disconnected ${conn.email}`);
       router.refresh();
     } catch {
       setError("Couldn’t disconnect. Check your connection and try again.");
@@ -85,6 +112,7 @@ export function MailboxesSection({
       <p className="type-caption text-[var(--ink-muted)]">
         Connect your inbox once and receipts arrive by themselves. They land
         under Review needed for you to check.
+        {canConnect ? " Other email, like iCloud or Yahoo: forward it to the address below." : null}
       </p>
 
       {failed ? (
@@ -119,7 +147,7 @@ export function MailboxesSection({
                     <Mail className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold text-[var(--ink)] [overflow-wrap:anywhere]">
+                    <span className="block type-body font-semibold text-[var(--ink)] [overflow-wrap:anywhere]">
                       {conn.email}
                     </span>
                     <span className="block type-caption text-[var(--ink-muted)]">
@@ -138,7 +166,7 @@ export function MailboxesSection({
 
                 {isConfirming ? (
                   <div className="space-y-2">
-                    <p className="type-caption text-[var(--ink)]">
+                    <p ref={questionRef} tabIndex={-1} className="type-caption text-[var(--ink)] outline-none">
                       Disconnect {conn.email}? Receipts already saved stay. New ones stop arriving.
                     </p>
                     <div className="flex gap-2">
@@ -146,13 +174,15 @@ export function MailboxesSection({
                         type="button"
                         variant="outline"
                         className="h-11 flex-1"
-                        onClick={() => setConfirming(null)}
+                        onClick={() => {
+                          returnFocusTo.current = conn.id;
+                          setConfirming(null);
+                        }}
                         disabled={isBusy}
                       >
                         Cancel
                       </Button>
                       <Button
-                        ref={confirmRef}
                         type="button"
                         className="h-11 flex-1 gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         onClick={() => disconnect(conn)}
@@ -165,31 +195,45 @@ export function MailboxesSection({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {conn.status !== "active" && providers[conn.provider] ? (
-                      // A plain link: the connect route answers with a
-                      // redirect to the provider, which a form POST can't follow.
-                      <a
-                        href={connectHref(conn.provider)}
-                        className={cn(OUTLINE_LINK, "h-11")}
-                        aria-label={`Reconnect ${conn.email}`}
-                      >
-                        Reconnect
-                      </a>
+                  <div className="space-y-2">
+                    {conn.status === "needs_reconnect" && storeApp ? (
+                      <p className="type-caption text-[var(--ink-muted)]">
+                        Reconnect on app.unreceipt.com in your browser.
+                      </p>
                     ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 text-[var(--negative)] hover:text-[var(--negative)]"
-                      onClick={() => {
-                        setError(null);
-                        setConfirming(conn.id);
-                      }}
-                      disabled={busy !== null}
-                      aria-label={`Disconnect ${conn.email}`}
-                    >
-                      Disconnect
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      {conn.status === "needs_reconnect" && !storeApp && providers[conn.provider] ? (
+                        // Through the explainer, like a first connection: it
+                        // says what we read before the provider's screen.
+                        <Link
+                          href={explainerHref(conn.provider, { reconnect: true })}
+                          className={cn(OUTLINE_LINK, "h-11")}
+                          aria-label={`Reconnect ${conn.email}`}
+                        >
+                          Reconnect
+                        </Link>
+                      ) : null}
+                      {/* Ink outline like "Stop sharing": the red is kept for
+                          the confirm step. */}
+                      <Button
+                        ref={(el) => {
+                          if (el) disconnectRefs.current.set(conn.id, el);
+                          else disconnectRefs.current.delete(conn.id);
+                        }}
+                        type="button"
+                        variant="outline"
+                        className="h-11"
+                        onClick={() => {
+                          setError(null);
+                          setAnnouncement("");
+                          setConfirming(conn.id);
+                        }}
+                        disabled={busy !== null}
+                        aria-label={`Disconnect ${conn.email}`}
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
                   </div>
                 )}
               </li>
@@ -197,6 +241,15 @@ export function MailboxesSection({
           })}
         </ul>
       ) : null}
+
+      <p
+        ref={announcementRef}
+        role="status"
+        tabIndex={-1}
+        className={announcement ? "type-caption text-[var(--ink-muted)] outline-none" : "sr-only"}
+      >
+        {announcement}
+      </p>
 
       {error ? (
         <p
@@ -211,7 +264,7 @@ export function MailboxesSection({
       {canConnect && !atLimit ? (
         <div className="space-y-2">
           {shown.length > 0 ? (
-            <p className="type-caption text-[var(--ink)]" style={{ fontWeight: 600 }}>
+            <p className="type-caption font-semibold text-[var(--ink)]">
               Add another mailbox
             </p>
           ) : null}
@@ -224,18 +277,6 @@ export function MailboxesSection({
         </p>
       ) : null}
 
-      <Link
-        href="/app/settings/forwarding"
-        className="flex items-center justify-between gap-3 rounded-[10px] text-[var(--ink-muted)] outline-none transition-colors duration-100 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-        style={{ minHeight: "44px" }}
-      >
-        <span className="type-caption">
-          {canConnect || shown.length > 0
-            ? "Other email (iCloud, Yahoo…)? Forward instead"
-            : "Forward your email receipts, from any provider"}
-        </span>
-        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0" />
-      </Link>
     </div>
   );
 }

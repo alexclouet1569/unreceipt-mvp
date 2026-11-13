@@ -136,8 +136,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     // The header and tabs come from the (authed) layout (AppNav).
     <div>
       <div className="mx-auto max-w-[540px] space-y-8 px-4 py-6 max-sm:pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
-        <h1 className="type-display-lg text-[var(--ink)]">Settings</h1>
-        {mailboxResult ? <MailboxResultBanner result={mailboxResult} /> : null}
+        {/* tabIndex -1: the mailbox result banner hands focus back here. */}
+        <h1 tabIndex={-1} className="type-display-lg text-[var(--ink)] outline-none">
+          Settings
+        </h1>
+        {mailboxResult ? <MailboxResultBanner result={mailboxResult} limit={mailboxes.limit} /> : null}
         {firm ? (
           <section aria-labelledby="firm-portal-heading">
             <SectionLabel id="firm-portal-heading">Firm portal</SectionLabel>
@@ -170,12 +173,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             "Send us receipts" below is the whole story: no section here. */}
         {showMailboxes ? (
           <section aria-labelledby="mailboxes-heading">
-            <SectionLabel id="mailboxes-heading">Your email</SectionLabel>
+            <SectionLabel id="mailboxes-heading">Connected email</SectionLabel>
             <MailboxesSection
               providers={mailboxProviders}
               connections={mailboxes.connections}
               limit={mailboxes.limit}
               failed={mailboxes.failed}
+              storeApp={Boolean(nativeApp)}
             />
           </section>
         ) : null}

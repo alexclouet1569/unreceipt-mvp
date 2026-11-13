@@ -51,10 +51,10 @@ describe("MailboxesSection", () => {
       "/app/settings/mailboxes/connect?provider=microsoft",
     );
     expect(screen.queryByText("Add another mailbox")).toBeNull();
-    expect(screen.getByRole("link", { name: /Other email \(iCloud, Yahoo…\)\? Forward instead/ })).toHaveAttribute(
-      "href",
-      "/app/settings/forwarding",
-    );
+    // Forwarding is the "Send us receipts" section right below: no second
+    // link to the same guide here, just where to look.
+    expect(screen.queryByRole("link", { name: /Forward/ })).toBeNull();
+    expect(screen.getByText(/Other email, like iCloud or Yahoo: forward it to the address below/)).toBeInTheDocument();
   });
 
   it("hides a provider that isn't configured", () => {
@@ -63,23 +63,23 @@ describe("MailboxesSection", () => {
     expect(screen.getByRole("link", { name: "Connect Outlook" })).toBeInTheDocument();
   });
 
-  it("with no provider configured shows only the forwarding option", () => {
+  it("with no provider configured offers nothing to connect", () => {
     render(<MailboxesSection providers={NONE} connections={[]} limit={5} />);
-    expect(screen.queryByRole("link", { name: /Connect/ })).toBeNull();
-    expect(screen.getAllByRole("link")).toHaveLength(1);
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/app/settings/forwarding");
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    expect(screen.queryByText(/iCloud/)).toBeNull();
   });
 
   it("lists each mailbox with its status in plain words", () => {
     render(
       <MailboxesSection
         providers={BOTH}
-        limit={5}
+        limit={6}
         connections={[
           conn(),
           conn({ id: "2", provider: "microsoft", email: "anna@outlook.com", status: "needs_reconnect" }),
           conn({ id: "3", email: "new@gmail.com", lastSyncAt: null, lastReceiptAt: null }),
           conn({ id: "4", email: "quiet@gmail.com", lastReceiptAt: null }),
+          conn({ id: "5", email: "paused@gmail.com", status: "paused" }),
         ]}
       />,
     );
@@ -90,13 +90,15 @@ describe("MailboxesSection", () => {
     expect(rows[1]).toHaveTextContent("Outlook · Reconnect needed");
     expect(rows[2]).toHaveTextContent("Setting up…");
     expect(rows[3]).toHaveTextContent("Watching for receipts · none yet");
+    expect(rows[4]).toHaveTextContent("Paused: not reading new email. Disconnect and connect again.");
 
-    // Reconnect only where it's needed, straight to the connect route.
+    // Reconnect only where it's needed, through the explainer.
     expect(within(rows[1]).getByRole("link", { name: "Reconnect anna@outlook.com" })).toHaveAttribute(
       "href",
-      "/api/mailboxes/connect/microsoft",
+      "/app/settings/mailboxes/connect?provider=microsoft&reconnect=1",
     );
     expect(within(rows[0]).queryByRole("link", { name: /Reconnect/ })).toBeNull();
+    expect(within(rows[4]).queryByRole("link", { name: /Reconnect/ })).toBeNull();
 
     expect(screen.getByText("Add another mailbox")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect Gmail" })).toBeInTheDocument();
@@ -110,6 +112,33 @@ describe("MailboxesSection", () => {
     expect(screen.getByText(/5 mailboxes is the most you can connect/)).toBeInTheDocument();
   });
 
+  it("in the store app, a mailbox needing reconnection says where to do it", () => {
+    render(
+      <MailboxesSection
+        providers={NONE}
+        limit={5}
+        storeApp
+        connections={[conn({ status: "needs_reconnect" })]}
+      />,
+    );
+    const row = screen.getByRole("listitem");
+    expect(row).toHaveTextContent("Reconnect on app.unreceipt.com in your browser.");
+    expect(within(row).queryByRole("link")).toBeNull();
+    expect(within(row).getByRole("button", { name: "Disconnect anna@gmail.com" })).toBeInTheDocument();
+  });
+
+  it("keeps the red for the confirm step", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    render(<MailboxesSection providers={BOTH} connections={[conn()]} limit={5} />);
+    const disconnect = screen.getByRole("button", { name: "Disconnect anna@gmail.com" });
+    expect(disconnect.className).not.toMatch(/--negative|bg-destructive|text-destructive/);
+    await user.click(disconnect);
+    expect(screen.getByRole("button", { name: "Confirm: disconnect anna@gmail.com" }).className).toMatch(
+      /bg-destructive/,
+    );
+  });
+
   it("disconnects after a confirm step, then refreshes", async () => {
     vi.useRealTimers();
     const user = userEvent.setup();
@@ -117,11 +146,14 @@ describe("MailboxesSection", () => {
 
     await user.click(screen.getByRole("button", { name: "Disconnect anna@gmail.com" }));
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByText(/Receipts already saved stay/)).toBeInTheDocument();
+    // Focus lands on the question, never on the destructive button.
+    const question = screen.getByText(/Receipts already saved stay/);
+    expect(question).toHaveFocus();
 
-    // Cancel goes back without calling anything.
+    // Cancel goes back without calling anything, focus on that row's Disconnect.
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Disconnect anna@gmail.com" })).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: "Disconnect anna@gmail.com" }));
     await user.click(screen.getByRole("button", { name: "Confirm: disconnect anna@gmail.com" }));
@@ -129,7 +161,26 @@ describe("MailboxesSection", () => {
       method: "DELETE",
     });
     expect(refresh).toHaveBeenCalled();
-    expect(screen.queryByText("anna@gmail.com")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Connected mailboxes" })).toBeNull();
+    // Announced, and focus isn't lost with the row.
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Disconnected anna@gmail.com");
+    expect(status).toHaveFocus();
+  });
+
+  it("returns focus to the right row's Disconnect after Cancel", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    render(
+      <MailboxesSection
+        providers={BOTH}
+        limit={5}
+        connections={[conn(), conn({ id: "2", email: "work@gmail.com" })]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Disconnect work@gmail.com" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("button", { name: "Disconnect work@gmail.com" })).toHaveFocus();
   });
 
   it("keeps the mailbox and says so when the disconnect fails", async () => {

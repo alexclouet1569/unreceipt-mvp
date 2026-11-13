@@ -1,4 +1,4 @@
-// SERVER-ONLY. What Settings → "Your email" and the first-run step need:
+// SERVER-ONLY. What Settings → "Connected email" and the first-run step need:
 // the user's connected mailboxes and which providers can be connected,
 // read with the same store functions as GET /api/mailboxes (never the
 // token or the cursor: toSummary()). Never import from a "use client" file.

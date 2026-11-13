@@ -11,11 +11,11 @@ import { PROVIDER_NAME, configuredList, explainerHref, type MailboxProviders } f
 
 // White, hairline, ink: DESIGN.md's outline button, 48px tall.
 export const OUTLINE_LINK =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card px-4 text-[15px] font-semibold text-[var(--ink)] outline-none transition-colors duration-100 hover:bg-[var(--surface)] focus-visible:border-[var(--ring)] focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50";
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card px-4 type-body font-semibold text-[var(--ink)] outline-none transition-colors duration-100 hover:bg-[var(--surface)] focus-visible:border-[var(--ring)] focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50";
 
 // The screen's one green action (--brand-action, its label --on-brand-action).
 export const PRIMARY_LINK =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-primary px-4 text-[15px] font-semibold text-primary-foreground outline-none transition-colors duration-100 hover:bg-[var(--brand-action-deep)] focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50 focus-visible:ring-offset-2";
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-primary px-4 type-body font-semibold text-primary-foreground outline-none transition-colors duration-100 hover:bg-[var(--brand-action-deep)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 export function ConnectButtons({
   providers,

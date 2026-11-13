@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Mail } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import { isMailboxProviderId } from "@/lib/mailboxes/types";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import {
   PROVIDER_NAME,
   WHAT_WE_READ,
   connectHref,
+  type CopyPart,
 } from "../copy";
 
 // Our one screen before Google's or Microsoft's: what UnReceipt reads, in
@@ -22,7 +23,11 @@ import {
 // form-action 'self' on the redirect to the provider.
 export const dynamic = "force-dynamic";
 
-type Props = { searchParams: Promise<{ provider?: string | string[] }> };
+type Props = {
+  // ?reconnect=1: from a mailbox's Reconnect in Settings (same flow; the
+  // callback reactivates the existing connection for that address).
+  searchParams: Promise<{ provider?: string | string[]; reconnect?: string | string[] }>;
+};
 
 /**
  * Google shows "Google hasn't verified this app" until its review is done
@@ -37,8 +42,9 @@ export default async function ConnectMailboxPage({ searchParams }: Props) {
   const user = await getServerUser();
   if (!user) redirect("/app/login?next=/app/settings");
 
-  const raw = (await searchParams).provider;
-  const provider = Array.isArray(raw) ? raw[0] : raw;
+  const params = await searchParams;
+  const provider = first(params.provider);
+  const reconnect = first(params.reconnect) === "1";
   // Unknown or not set up here (preview, dev): back to Settings.
   if (!isMailboxProviderId(provider) || !loadMailboxProviders()[provider]) {
     redirect("/app/settings");
@@ -58,26 +64,13 @@ export default async function ConnectMailboxPage({ searchParams }: Props) {
           Settings
         </Link>
 
-        <div className="mt-4 flex flex-col items-center text-center">
-          <div
-            aria-hidden="true"
-            className="flex items-center justify-center"
-            style={{
-              width: "64px",
-              height: "64px",
-              borderRadius: "20px",
-              background: "var(--brand-tint)",
-              marginBottom: "20px",
-            }}
-          >
-            <Mail className="h-7 w-7 text-[var(--brand)]" />
-          </div>
-          <h1 className="type-display-lg text-[var(--ink)]">Connect {name}</h1>
-        </div>
+        <h1 className="mt-1 mb-6 type-display-lg text-[var(--ink)]">
+          {`${reconnect ? "Reconnect" : "Connect"} ${name}`}
+        </h1>
 
         <div
-          className="mt-6 space-y-3 bg-card"
-          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "14px 16px" }}
+          className="space-y-3 bg-card"
+          style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
         >
           <p className="type-body text-[var(--ink)]">{WHAT_WE_READ}</p>
           <p className="type-body text-[var(--ink-muted)]">{PERMISSION_NOTE[provider]}</p>
@@ -87,7 +80,7 @@ export default async function ConnectMailboxPage({ searchParams }: Props) {
               className="type-caption rounded-[10px] px-3 py-2 text-[var(--attention-deep)]"
               style={{ background: "var(--attention-tint)" }}
             >
-              {GOOGLE_UNVERIFIED_NOTE}
+              <RichText parts={GOOGLE_UNVERIFIED_NOTE} />
             </p>
           ) : null}
         </div>
@@ -104,5 +97,20 @@ export default async function ConnectMailboxPage({ searchParams }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+// The names of Google's buttons in bold, so they're easy to find on its screen.
+function RichText({ parts }: { parts: readonly CopyPart[] }) {
+  return (
+    <>
+      {parts.map((part, i) =>
+        typeof part === "string" ? part : <strong key={i} className="font-semibold">{part.strong}</strong>,
+      )}
+    </>
   );
 }

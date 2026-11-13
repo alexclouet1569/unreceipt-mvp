@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
 import { ForwardingUnavailable } from "./_forwarding-unavailable";
 import { ConnectButtons } from "./settings/mailboxes/ConnectButtons";
-import { NO_PROVIDERS, anyProvider, type MailboxProviders } from "./settings/mailboxes/copy";
+import { NO_PROVIDERS, anyProvider, providerNames, type MailboxProviders } from "./settings/mailboxes/copy";
 
 export type FirstRunStep = 1 | 2 | 3;
 
@@ -111,9 +111,8 @@ export function FirstRun({
         <>
           <Title titleRef={titleRef}>Connect your email</Title>
           <Subtitle>
-            Receipts in your inbox then arrive in UnReceipt by themselves,
-            ready to check. Before you allow anything, the next screen says
-            what UnReceipt looks at.
+            Connect {providerNames(mailboxProviders)} and receipts in your
+            inbox arrive here by themselves, ready to check.
           </Subtitle>
           <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "16px" }}>
             {/* Outlined, a pair of equal choices: the green is the next
@@ -130,7 +129,7 @@ export function FirstRun({
             ) : (
               <ForwardingUnavailable />
             )}
-            <GuideLink />
+            <GuideLink instead />
           </div>
           <Actions>
             <SkipButton onClick={onNext}>Not now</SkipButton>
@@ -228,7 +227,7 @@ function Title({
 function Subtitle({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="text-[var(--ink-muted)] max-w-[320px]"
+      className="text-[var(--ink-muted)] max-w-[320px] [overflow-wrap:anywhere]"
       style={{ fontSize: "15px", lineHeight: 1.5, marginBottom: "24px" }}
     >
       {children}
@@ -255,14 +254,16 @@ function SkipButton({ onClick, children }: { onClick: () => void; children: Reac
 
 // Leads to the step-by-step forwarding guide. Leaving mid-onboarding is
 // fine: the intro shows again on return until it's finished or skipped.
-export function GuideLink() {
+// `instead`: Connect Gmail / Outlook leads on this screen, so forwarding
+// is offered as the other way.
+export function GuideLink({ instead = false }: { instead?: boolean }) {
   return (
     <Link
       href="/app/settings/forwarding"
       className="inline-flex items-center text-[var(--ink-muted)] hover:text-[var(--ink)] underline underline-offset-2 transition-colors"
       style={{ minHeight: "44px", fontSize: "14px", fontWeight: 500 }}
     >
-      Make it automatic, step by step (3 min)
+      {instead ? "Set up forwarding instead, step by step" : "Make it automatic, step by step (3 min)"}
     </Link>
   );
 }

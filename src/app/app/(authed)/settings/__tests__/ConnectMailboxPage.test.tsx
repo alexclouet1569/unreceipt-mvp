@@ -18,8 +18,8 @@ vi.mock("next/navigation", () => ({
 
 import ConnectMailboxPage from "@/app/app/(authed)/settings/mailboxes/connect/page";
 
-const renderPage = async (provider: string | undefined) =>
-  render(await ConnectMailboxPage({ searchParams: Promise.resolve({ provider }) }));
+const renderPage = async (provider: string | undefined, reconnect?: string) =>
+  render(await ConnectMailboxPage({ searchParams: Promise.resolve({ provider, reconnect }) }));
 
 describe("/app/settings/mailboxes/connect", () => {
   beforeEach(() => {
@@ -34,19 +34,41 @@ describe("/app/settings/mailboxes/connect", () => {
   it("explains what we read, then continues to Google with a plain link", async () => {
     vi.stubEnv("GOOGLE_OAUTH_VERIFIED", "");
     await renderPage("google");
-    expect(screen.getByRole("heading", { name: "Connect Gmail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Connect Gmail" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        "UnReceipt looks only at emails that look like receipts or invoices, and saves only those. Everything else is never read into UnReceipt or stored. You can disconnect any time.",
+        "To spot receipts, UnReceipt checks the sender, subject and attachment names of new emails. Only receipts and invoices are opened and saved in your account, with the email as the original. Other emails are never opened or saved. We also pick up receipts from the last 30 days. UnReceipt can’t send, change or delete anything in your mailbox. Disconnect any time in Settings.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/Google will ask to let UnReceipt read your email/)).toBeInTheDocument();
-    expect(screen.getByTestId("google-unverified")).toHaveTextContent(
-      "Google may show a warning that the app isn’t verified yet: choose Advanced → Continue.",
+    const warning = screen.getByTestId("google-unverified");
+    expect(warning).toHaveTextContent(
+      "Google checks new apps before removing a warning, and ours is still being checked. You’ll see ‘Google hasn’t verified this app’. Tap Advanced, then Go to UnReceipt (unsafe). It doesn’t change what UnReceipt can see.",
     );
+    // Google's button names in bold, so they're easy to find on its screen.
+    expect([...warning.querySelectorAll("strong")].map((el) => el.textContent)).toEqual([
+      "Advanced",
+      "Go to UnReceipt (unsafe)",
+    ]);
     const go = screen.getByRole("link", { name: "Continue to Google" });
     expect(go).toHaveAttribute("href", "/api/mailboxes/connect/google");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/app/settings");
+  });
+
+  it("lays out like the other Settings steps: the way back, then the title, no mint mark", async () => {
+    const { container } = await renderPage("google");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/app/settings");
+    expect(container.innerHTML).not.toContain("--brand-tint");
+    expect(screen.getByRole("heading", { level: 1 })).not.toHaveClass("text-center");
+  });
+
+  it("says Reconnect when it comes from a mailbox's Reconnect", async () => {
+    await renderPage("google", "1");
+    expect(screen.getByRole("heading", { level: 1, name: "Reconnect Gmail" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continue to Google" })).toHaveAttribute(
+      "href",
+      "/api/mailboxes/connect/google",
+    );
   });
 
   it("drops the unverified warning once Google has verified the app", async () => {

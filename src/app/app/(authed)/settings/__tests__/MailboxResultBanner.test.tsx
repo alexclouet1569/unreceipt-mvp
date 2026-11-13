@@ -37,21 +37,44 @@ describe("MailboxResultBanner", () => {
   it.each([
     ["denied", "You didn’t allow access, nothing was connected."],
     ["admin_consent", "Your company’s Microsoft 365 admin must approve UnReceipt first."],
-    ["scope_missing", "Tick the box that lets UnReceipt read your email, then try again."],
+    [
+      "scope_missing",
+      "On Google’s screen, tick the box ‘Read your email messages and settings’, then try again.",
+    ],
     ["no_mailbox", "That Microsoft account has no Outlook mailbox"],
-    ["limit", "5 mailboxes"],
+    ["limit", "You’ve connected 5 mailboxes, the most there can be."],
     ["wrong_account", "different UnReceipt account"],
+    ["link_used", "That connection attempt expired or was already used. Start again."],
+    ["link_expired", "That connection attempt expired or was already used. Start again."],
+    ["invalid_state", "That connection attempt expired or was already used. Start again."],
+    ["no_access", "This account can’t connect a mailbox right now."],
   ])("explains %s as an alert", (reason, text) => {
-    render(<MailboxResultBanner result={{ kind: "error", reason }} />);
+    render(<MailboxResultBanner result={{ kind: "error", reason }} limit={5} />);
     expect(screen.getByRole("alert")).toHaveTextContent(text);
   });
 
-  it("closes and takes the result off the address", async () => {
+  it("words the limit from the limit it's given", () => {
+    render(<MailboxResultBanner result={{ kind: "error", reason: "limit" }} limit={3} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("You’ve connected 3 mailboxes");
+  });
+
+  it("moves focus to the sentence when it appears", () => {
+    render(<MailboxResultBanner result={{ kind: "error", reason: "denied" }} />);
+    expect(screen.getByText("You didn’t allow access, nothing was connected.")).toHaveFocus();
+  });
+
+  it("closes, takes the result off the address and hands focus to the page title", async () => {
     const user = userEvent.setup();
-    render(<MailboxResultBanner result={{ kind: "connected" }} />);
+    render(
+      <>
+        <h1 tabIndex={-1}>Settings</h1>
+        <MailboxResultBanner result={{ kind: "connected" }} />
+      </>,
+    );
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByTestId("mailbox-result")).toBeNull();
     expect(replace).toHaveBeenCalledWith("/app/settings", { scroll: false });
+    expect(screen.getByRole("heading", { name: "Settings" })).toHaveFocus();
   });
 });
 
@@ -62,6 +85,10 @@ describe("mailbox copy", () => {
       expect(text.length).toBeGreaterThan(10);
       if (reason !== "server_error") expect(text, reason).not.toBe(GENERIC);
     }
+    // A code the server may add before this list knows it keeps its own
+    // sentence too (no_access: the account has no product access).
+    expect(reasonMessage("no_access")).not.toBe(GENERIC);
+    expect(reasonMessage("no_access")).not.toMatch(/€|kr|\d/);
     // Unknown codes read as the generic error.
     expect(reasonMessage("something_new")).toBe(GENERIC);
     expect(reasonMessage(null)).toBe(GENERIC);
@@ -95,7 +122,10 @@ describe("mailbox copy", () => {
       lastSyncAt: "2026-11-13T11:00:00Z",
       createdAt: "2026-11-13T11:00:00Z",
     };
-    expect(statusLine({ ...base, status: "paused" }, now).tone).toBe("attention");
+    expect(statusLine({ ...base, status: "paused" }, now)).toEqual({
+      text: "Paused: not reading new email. Disconnect and connect again.",
+      tone: "attention",
+    });
     expect(statusLine({ ...base, status: "active", lastSyncAt: null }, now).text).toBe("Setting up…");
   });
 });

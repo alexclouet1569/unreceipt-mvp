@@ -41,6 +41,16 @@ describe("Connect your email: first run and empty inbox", () => {
     renderDashboard({ showOnboarding: true, mailboxProviders: BOTH });
 
     expect(screen.getByRole("heading", { name: "Connect your email" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Connect Gmail or Outlook and receipts in your inbox arrive here by themselves, ready to check.",
+      ),
+    ).toBeInTheDocument();
+    // Connect leads, so the guide link offers forwarding as the other way.
+    expect(screen.getByRole("link", { name: "Set up forwarding instead, step by step" })).toHaveAttribute(
+      "href",
+      "/app/settings/forwarding",
+    );
     expect(screen.getByRole("link", { name: "Connect Gmail" })).toHaveAttribute(
       "href",
       "/app/settings/mailboxes/connect?provider=google",
@@ -62,6 +72,7 @@ describe("Connect your email: first run and empty inbox", () => {
     renderDashboard({ showOnboarding: true, mailboxProviders: { google: false, microsoft: true } });
     expect(screen.queryByRole("link", { name: "Connect Gmail" })).toBeNull();
     expect(screen.getByRole("link", { name: "Connect Outlook" })).toBeInTheDocument();
+    expect(screen.getByText(/^Connect Outlook and receipts in your inbox/)).toBeInTheDocument();
   });
 
   it("step 1 says the email is connected once it is", () => {
@@ -77,6 +88,7 @@ describe("Connect your email: first run and empty inbox", () => {
     expect(screen.getByRole("heading", { name: "Your private receipts address" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Connect/ })).toBeNull();
     expect(screen.getByText("Forward email receipts to")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Make it automatic, step by step (3 min)" })).toBeInTheDocument();
   });
 
   it("the empty inbox offers to connect, forwarding second", () => {
@@ -85,11 +97,13 @@ describe("Connect your email: first run and empty inbox", () => {
     expect(screen.getByText(/Connect your email and receipts arrive by themselves/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Connect Gmail" })).toBeInTheDocument();
     expect(screen.getByText("Or forward receipts to")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Set up forwarding instead, step by step" })).toBeInTheDocument();
   });
 
   it("the empty inbox says which mailbox is being watched", () => {
     renderDashboard({ mailboxProviders: BOTH, connectedMailboxes: ["anna@gmail.com"] });
-    expect(screen.getByText(/Watching anna@gmail.com for receipts/)).toBeInTheDocument();
+    expect(screen.getByText(/Checking anna@gmail.com for new receipts/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Make it automatic, step by step (3 min)" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Connect/ })).toBeNull();
   });
 
