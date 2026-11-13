@@ -158,6 +158,21 @@ export function disconnectOutcome(status: number): "gone" | "failed" {
   return status === 200 || status === 404 ? "gone" : "failed";
 }
 
+/**
+ * After a disconnect the server couldn't end at the provider (`revoked:
+ * false`: always for Outlook, which has no per-app revoke; a failed Google
+ * revoke): where the user removes UnReceipt's access themselves. Null when
+ * it was revoked, or the answer doesn't say (a 404: already gone).
+ */
+export function removeAccessNote(
+  provider: MailboxProvider,
+  revoked: unknown,
+  t: Pick<MailboxStrings, "removeAccessGoogle" | "removeAccessMicrosoft">,
+): string | null {
+  if (revoked !== false) return null;
+  return provider === "google" ? t.removeAccessGoogle : t.removeAccessMicrosoft;
+}
+
 // ── The whole connect flow ───────────────────────────────────────────────
 
 type Result<T> = { ok: true; data: T } | { ok: false; status: number; code: string | null };

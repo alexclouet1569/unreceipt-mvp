@@ -68,6 +68,24 @@ describe("loadReceiptForActor", () => {
     expect(state.linkFilters).toEqual({ firm_id: "firm-1", organization_id: ORG, status: "active" });
   });
 
+  it("hides a mailbox receipt the owner hasn't confirmed from the firm (404), not from the owner", async () => {
+    state.member = { data: { firm_id: "firm-1" }, error: null };
+    state.link = { data: { id: "fc-1" }, error: null };
+    const pending = { ...RECEIPT, intake_channel: "mailbox", status: "pending_review" };
+    state.receipt = { data: pending, error: null };
+    expect(await loadReceiptForActor({ id: STAFF }, "r-1")).toBeNull();
+    expect(await loadReceiptForActor({ id: OWNER }, "r-1")).toEqual({ receipt: pending, via: "owner" });
+
+    // Confirmed: the firm sees it like any other.
+    const confirmed = { ...pending, status: "verified" };
+    state.receipt = { data: confirmed, error: null };
+    expect(await loadReceiptForActor({ id: STAFF }, "r-1")).toMatchObject({ via: "firm" });
+
+    // A forwarded receipt still in review stays visible to the firm (it can complete it).
+    state.receipt = { data: { ...RECEIPT, intake_channel: "forwarding", status: "pending_review" }, error: null };
+    expect(await loadReceiptForActor({ id: STAFF }, "r-1")).toMatchObject({ via: "firm" });
+  });
+
   it("hides it from a non-member, from another firm, and when the receipt has no company", async () => {
     expect(await loadReceiptForActor({ id: STAFF }, "r-1")).toBeNull();
     state.member = { data: { firm_id: "firm-2" }, error: null };

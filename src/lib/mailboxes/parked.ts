@@ -124,6 +124,32 @@ export async function revokeParked(row: RevocableParked, supabase?: SupabaseClie
 }
 
 /**
+ * Account deletion: takes every parked grant of `userId` out of the table
+ * (delete … returning, so a claim racing it finds nothing) and revokes each
+ * at the provider, unless an active connection (anyone's) uses the same
+ * address (revokeUnusedGrant). Best effort, never throws; the rows would
+ * cascade with the user anyway, the revoke is the point. Returns how many
+ * were taken.
+ */
+export async function releaseParkedForUser(supabase: SupabaseClient, userId: string): Promise<number> {
+  let rows: RevocableParked[];
+  try {
+    const { data, error } = await supabase
+      .from("mailbox_oauth_parked")
+      .delete()
+      .eq("user_id", userId)
+      .select("user_id, provider, email, refresh_token_enc");
+    if (error) throw new Error(`parked release failed (${error.code ?? "unknown"})`);
+    rows = (data ?? []) as RevocableParked[];
+  } catch (err) {
+    Sentry.captureException(err, { tags: { area: "mailboxes", step: "account_delete_parked" } });
+    return 0;
+  }
+  await Promise.all(rows.map((row) => revokeParked(row, supabase)));
+  return rows.length;
+}
+
+/**
  * Daily cleanup: parked grants past their expiry are revoked at the
  * provider (nobody claimed them, so nothing should keep them) and deleted.
  * Up to CLEANUP_BATCH a run, and only the rows it tried to revoke are

@@ -10,6 +10,8 @@ vi.mock("@/lib/supabase-admin", () => ({
     throw new Error("tests pass the fake client explicitly");
   },
 }));
+const access = vi.hoisted(() => ({ allowed: true }));
+vi.mock("@/lib/subscription-gate", () => ({ hasProductAccess: async () => access.allowed }));
 vi.mock("@/lib/mailboxes/google", async () => ({
   googleProvider: (await import("./fake-provider")).fakeProvider,
 }));
@@ -22,6 +24,7 @@ import { syncConnection } from "../sync";
 import { ACCOUNT_DELETE_BUDGET_MS, disconnectAllMailboxes, disconnectMailbox } from "../teardown";
 import { ReauthRequiredError, MailboxProviderError, type MailboxConnectionRef } from "../types";
 import { decryptToken } from "../crypto";
+import { parkGrant } from "../parked";
 
 const USER = "11111111-1111-4111-8111-111111111111";
 
@@ -40,6 +43,7 @@ beforeEach(() => {
   db = createFakeDb();
   client = db.client as unknown as SupabaseClient;
   resetFakeProvider(fakeProvider);
+  access.allowed = true;
 });
 
 describe("getAccessToken", () => {
@@ -72,6 +76,35 @@ describe("getAccessToken", () => {
 });
 
 describe("syncConnection", () => {
+  it("pauses instead of reading when the user has no product access", async () => {
+    const conn = await connect();
+    access.allowed = false;
+    expect(await syncConnection(conn, {}, { supabase: client })).toEqual({ skipped: true, reason: "paused" });
+    expect(fakeProvider.sync).not.toHaveBeenCalled();
+    expect(fakeProvider.refreshAccessToken).not.toHaveBeenCalled();
+    expect(db.tables.mailbox_connections[0].status).toBe("paused");
+  });
+
+  it("resumes a paused mailbox once access is back, and reads from its cursor", async () => {
+    const conn = await connect();
+    db.tables.mailbox_connections[0].status = "paused";
+    const out = await syncConnection({ ...conn, status: "paused" }, {}, { supabase: client });
+    expect(out).toMatchObject({ skipped: false, created: 1 });
+    expect(fakeProvider.sync).toHaveBeenCalledWith(expect.objectContaining({ status: "active" }), "ya29.fresh", {});
+    expect(db.tables.mailbox_connections[0].status).toBe("active");
+  });
+
+  it("doesn't resume over a needs_reconnect set meanwhile", async () => {
+    const conn = await connect();
+    db.tables.mailbox_connections[0].status = "needs_reconnect";
+    expect(await syncConnection({ ...conn, status: "paused" }, {}, { supabase: client })).toEqual({
+      skipped: true,
+      reason: "paused",
+    });
+    expect(db.tables.mailbox_connections[0].status).toBe("needs_reconnect");
+    expect(fakeProvider.sync).not.toHaveBeenCalled();
+  });
+
   it("runs the provider's sync and moves the cursor", async () => {
     const conn = await connect();
     const out = await syncConnection(conn, { backfillDays: 30, maxMessages: 100 }, { supabase: client });
@@ -162,6 +195,40 @@ describe("disconnect", () => {
 
     db.failNext.mailbox_connections = { code: "42P01", message: "relation does not exist" };
     await expect(disconnectAllMailboxes(USER, client)).resolves.toBe(0);
+  });
+
+  it("takes and revokes the user's parked grants after their mailboxes, and leaves other users' alone", async () => {
+    await connect("a@gmail.com");
+    // Parked for the same address the user had connected: revoked once that
+    // connection is gone, not kept as "in use".
+    await parkGrant(client, { userId: USER, provider: "google", email: "a@gmail.com", refreshToken: "1//parked-a" });
+    await parkGrant(client, { userId: USER, provider: "google", email: "c@gmail.com", refreshToken: "1//parked-c" });
+    const OTHER = "22222222-2222-4222-8222-222222222222";
+    await parkGrant(client, { userId: OTHER, provider: "google", email: "d@gmail.com", refreshToken: "1//other" });
+
+    expect(await disconnectAllMailboxes(USER, client)).toBe(1);
+    expect(fakeProvider.revoke.mock.calls.map((c) => (c as unknown[])[0]).sort()).toEqual(["1//parked-a", "1//parked-c", "1//rt"]);
+    expect(db.tables.mailbox_oauth_parked.map((r) => r.user_id)).toEqual([OTHER]);
+  });
+
+  it("leaves the shared grant alone when another account's connection of the address is only paused", async () => {
+    const OTHER = "22222222-2222-4222-8222-222222222222";
+    const other = await saveConnection({ userId: OTHER, provider: "google", email: "shared@gmail.com", refreshToken: "1//o" }, client);
+    if (!other.ok) throw new Error("not saved");
+    db.tables.mailbox_connections.find((r) => r.id === other.conn.id)!.status = "paused";
+    const mine = await connect("shared@gmail.com");
+    expect(await disconnectMailbox(mine, client)).toMatchObject({ deleted: true, revoked: false });
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+  });
+
+  it("keeps a parked grant whose address another account still has connected", async () => {
+    const OTHER = "22222222-2222-4222-8222-222222222222";
+    const other = await saveConnection({ userId: OTHER, provider: "google", email: "shared@gmail.com", refreshToken: "1//o" }, client);
+    expect(other.ok).toBe(true);
+    await parkGrant(client, { userId: USER, provider: "google", email: "shared@gmail.com", refreshToken: "1//parked" });
+    await disconnectAllMailboxes(USER, client);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(db.tables.mailbox_oauth_parked).toHaveLength(0);
   });
 
   it("releases mailboxes together and stops waiting after the budget, so account deletion goes on", async () => {

@@ -1,6 +1,10 @@
 // SERVER-ONLY. The daily upkeep of connected mailboxes (/api/cron/mailboxes),
 // for every provider through its adapter (./types.ts):
 //
+//   0. Access. Every live connection (active or paused) is paused while
+//      its user has no product access and resumed once they have it again
+//      (reconcileAccess, ./sync.ts); a paused one is neither renewed nor
+//      synced.
 //   1. Renew push. Every active connection whose watch ends within 48 h (or
 //      has none, e.g. its start failed at connect) gets provider.startWatch()
 //      again: a Gmail watch lasts 7 days, a Graph subscription about 3. The
@@ -14,15 +18,17 @@
 // the next notification). Never logs addresses.
 
 import * as Sentry from "@sentry/nextjs";
+import { hasProductAccess } from "@/lib/subscription-gate";
 import { getAccessToken } from "./access-token";
 import { getProvider } from "./providers";
 import { listActiveConnections, recordError, updateWatch } from "./store";
-import { syncConnection } from "./sync";
+import { reconcileAccess, syncConnection } from "./sync";
 import { MailboxProviderError, ReauthRequiredError, type MailboxConnectionRef } from "./types";
 
 export const RENEW_BEFORE_MS = 48 * 60 * 60 * 1000;
 export const CATCH_UP_AFTER_MS = 12 * 60 * 60 * 1000;
 const SYNC_CONCURRENCY = 4;
+const ACCESS_CONCURRENCY = 10;
 
 export type MailboxCronResult = {
   connections: number;
@@ -34,6 +40,10 @@ export type MailboxCronResult = {
   skippedUnconfigured: number;
   deferred: number;
   created: number;
+  /** Connections left (or set) paused: their user has no product access. */
+  paused: number;
+  /** Paused connections whose user has access again, active from this run. */
+  resumed: number;
 };
 
 const time = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
@@ -81,15 +91,46 @@ export async function runMailboxMaintenance({
     skippedUnconfigured: 0,
     deferred: 0,
     created: 0,
+    paused: 0,
+    resumed: 0,
   };
   const outOfTime = () => Date.now() - startedAt > startBudgetMs;
   const now = startedAt;
   const gone = new Set<string>();
-  const usable = conns.filter((conn) => {
+  const configured = conns.filter((conn) => {
     if (getProvider(conn.provider).configured()) return true;
     result.skippedUnconfigured++;
     return false;
   });
+
+  // 0. Access: pause or resume. Asked once per user (up to five
+  // mailboxes each), a few at a time.
+  const accessOf = new Map<string, boolean>();
+  await pool([...new Set(configured.map((c) => c.user_id))], ACCESS_CONCURRENCY, async (userId) => {
+    accessOf.set(userId, await hasProductAccess(userId));
+  });
+  // Kept in list order (oldest first).
+  const slots: Array<MailboxConnectionRef | null> = configured.map(() => null);
+  await pool(
+    configured.map((conn, i) => ({ conn, i })),
+    ACCESS_CONCURRENCY,
+    async ({ conn, i }) => {
+      try {
+        const live = await reconcileAccess(conn, { access: accessOf.get(conn.user_id) });
+        if (!live) {
+          result.paused++;
+          return;
+        }
+        if (conn.status === "paused") result.resumed++;
+        slots[i] = live;
+      } catch (err) {
+        // Status not written (database blip): left as it was until tomorrow.
+        Sentry.captureException(err, { tags: { area: "mailboxes", step: "cron_access", provider: conn.provider } });
+        if (conn.status === "active") slots[i] = conn;
+      }
+    },
+  );
+  const usable = slots.filter((c): c is MailboxConnectionRef => c !== null);
 
   // 1. Renew push.
   for (const conn of usable.filter((c) => needsRenewal(c, now))) {

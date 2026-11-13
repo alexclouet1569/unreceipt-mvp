@@ -89,6 +89,27 @@ export async function getConnection(
   return (data as MailboxConnectionRef | null) ?? null;
 }
 
+/**
+ * Whether the connection may still be read: its row exists and is active.
+ * Asked by the providers before each message download, so a mailbox
+ * disconnected (or an account deleted) during a sync stops it at the next
+ * message. False on a database error too: the sync stops and a later one
+ * resumes from the cursor.
+ */
+export async function isConnectionLive(connId: string, supabase?: SupabaseClient): Promise<boolean> {
+  try {
+    const { data, error } = await db(supabase)
+      .from("mailbox_connections")
+      .select("status")
+      .eq("id", connId)
+      .maybeSingle();
+    if (error) return false;
+    return (data as { status?: string } | null)?.status === "active";
+  } catch {
+    return false;
+  }
+}
+
 /** The plaintext refresh token. Throws when the row is gone or unreadable. */
 export async function getDecryptedToken(conn: MailboxConnectionRef, supabase?: SupabaseClient): Promise<string> {
   const { data, error } = await db(supabase)
@@ -181,6 +202,22 @@ export async function replaceRefreshToken(
 const ERROR_CODE = /^[a-z0-9_]{1,64}$/;
 const safeCode = (code: string) => (ERROR_CODE.test(code) ? code : "error");
 
+/**
+ * Pauses ('active' → 'paused') or resumes ('paused' → 'active') a
+ * connection, compare-and-set on the status so it never overwrites a
+ * needs_reconnect set meanwhile. True when this call changed it.
+ */
+export async function setPaused(connId: string, paused: boolean, supabase?: SupabaseClient): Promise<boolean> {
+  const { data, error } = await db(supabase)
+    .from("mailbox_connections")
+    .update({ status: paused ? "paused" : "active" })
+    .eq("id", connId)
+    .eq("status", paused ? "active" : "paused")
+    .select("id");
+  if (error) throw new MailboxStoreError(paused ? "pause" : "resume", error.code);
+  return (data ?? []).length > 0;
+}
+
 /** The provider refused the grant: the UI asks the user to connect again. */
 export async function markNeedsReconnect(
   connId: string,
@@ -262,9 +299,18 @@ export async function deleteConnection(connId: string, userId: string, supabase?
 }
 
 /**
- * The active connections of one provider for a mailbox address (a push
- * notification names the mailbox, not the user). Several users may have
- * connected the same address; each gets its own sync.
+ * Connections that still hold their grant and come back by themselves:
+ * active ones, and ones paused while their user has no product access
+ * (./sync.ts resumes them). needs_reconnect ones hold nothing usable.
+ */
+export const LIVE_STATUSES = ["active", "paused"] as const;
+
+/**
+ * The live connections (active or paused) of one provider for a mailbox
+ * address (a push notification names the mailbox, not the user). Several
+ * users may have connected the same address; each gets its own sync. A
+ * paused one counts too: it keeps the shared grant (./shared-grant.ts), and
+ * a push to it resumes it once its user has access again.
  */
 export async function findActiveConnectionsByEmail(
   provider: MailboxProviderId,
@@ -278,17 +324,20 @@ export async function findActiveConnectionsByEmail(
     .select(CONNECTION_COLUMNS)
     .eq("provider", provider)
     .eq("email", email)
-    .eq("status", "active");
+    .in("status", [...LIVE_STATUSES]);
   if (error) throw new MailboxStoreError("find by email", error.code);
   return (data ?? []) as MailboxConnectionRef[];
 }
 
-/** Every active connection, oldest first (the daily job's work list). */
+/**
+ * Every live connection (active or paused), oldest first: the daily job's
+ * work list. It pauses or resumes each by its user's access (./sync.ts).
+ */
 export async function listActiveConnections(supabase?: SupabaseClient): Promise<MailboxConnectionRef[]> {
   const { data, error } = await db(supabase)
     .from("mailbox_connections")
     .select(CONNECTION_COLUMNS)
-    .eq("status", "active")
+    .in("status", [...LIVE_STATUSES])
     .order("created_at", { ascending: true })
     .limit(5000);
   if (error) throw new MailboxStoreError("list active", error.code);
@@ -296,9 +345,10 @@ export async function listActiveConnections(supabase?: SupabaseClient): Promise<
 }
 
 /**
- * The active connection of one provider whose push subscription has this id
- * (a Graph change notification names its subscription, not the mailbox).
- * Null when none is active: an unknown, replaced or disconnected one.
+ * The live connection (active or paused) of one provider whose push
+ * subscription has this id (a Graph change notification names its
+ * subscription, not the mailbox). Null for an unknown, replaced,
+ * disconnected or needs_reconnect one.
  */
 export async function findActiveConnectionByWatchId(
   provider: MailboxProviderId,
@@ -310,7 +360,7 @@ export async function findActiveConnectionByWatchId(
     .select(CONNECTION_COLUMNS)
     .eq("provider", provider)
     .eq("watch_id", watchId)
-    .eq("status", "active")
+    .in("status", [...LIVE_STATUSES])
     .limit(1);
   if (error) throw new MailboxStoreError("find by watch", error.code);
   return ((data ?? []) as MailboxConnectionRef[])[0] ?? null;

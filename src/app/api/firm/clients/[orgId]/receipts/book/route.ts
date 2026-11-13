@@ -8,6 +8,7 @@ import { z } from "zod";
 import { isSameHost } from "@/lib/same-origin";
 import { FirmAuthError, firmAuthResponse, isUuid, requireFirmClientAccess, requireFirmMember } from "@/lib/require-firm";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { firmVisible } from "@/lib/firm/visibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,12 +58,15 @@ export async function POST(
       }
     : { booked_at: null, booked_by: null, booked_ref: null };
 
-  const { data, error } = await getSupabaseAdmin()
-    .from("receipts")
-    .update(update)
-    .in("id", parsed.data.receiptIds)
-    .eq("organization_id", access.organizationId)
-    .select("id");
+  // Only receipts the firm may see (src/lib/firm/visibility.ts): a mailbox
+  // receipt the owner hasn't confirmed is skipped like a foreign id.
+  const { data, error } = await firmVisible(
+    getSupabaseAdmin()
+      .from("receipts")
+      .update(update)
+      .in("id", parsed.data.receiptIds)
+      .eq("organization_id", access.organizationId)
+  ).select("id");
   if (error) {
     console.error("[/api/firm/clients/[orgId]/receipts/book] update failed", error.code);
     return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });

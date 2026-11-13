@@ -57,7 +57,7 @@ const RAW = Buffer.from("From: receipts@uber.com\r\nTo: anna@gmail.com\r\nSubjec
 function input(overrides: Partial<IngestInput> = {}): IngestInput {
   return {
     userId: USER_ID,
-    source: "mailbox",
+    source: "forwarding",
     rawEml: RAW,
     text: "Total: 189 SEK",
     html: null,
@@ -153,6 +153,7 @@ describe("ingestReceiptEmail", () => {
       organization_id: "org-1",
       // receipts_source_check allows only 'email' for any email channel.
       source: "email",
+      intake_channel: "forwarding",
       intake_ref: "<trip-1@uber.com>",
       merchant_name: "Uber",
       receipt_date: "2026-11-02",
@@ -162,6 +163,20 @@ describe("ingestReceiptEmail", () => {
     });
     expect(row.id).toBe((path as string).slice(USER_ID.length + 1, -4));
     expect(mocks.usage).toHaveBeenCalledWith({ userId: USER_ID, receiptId: "receipt-1", source: "email" });
+  });
+
+  it("keeps a mailbox receipt for the owner to confirm, whatever was read, and records the channel", async () => {
+    // Even a template the parser trusted: a mailbox receipt is the owner's
+    // alone until they confirm it (the firm doesn't see it before).
+    mocks.parseReceipt.mockResolvedValueOnce(UBER_OK);
+
+    const result = await ingestReceiptEmail(input({ source: "mailbox" }));
+
+    expect(result).toEqual({ kind: "created", receiptId: "receipt-1", status: "pending_review" });
+    const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row).toMatchObject({ source: "email", intake_channel: "mailbox", status: "pending_review" });
+    // Counted toward the plan only once confirmed.
+    expect(mocks.usage).not.toHaveBeenCalled();
   });
 
   it("returns the existing row for a message already filed, with no side effects", async () => {

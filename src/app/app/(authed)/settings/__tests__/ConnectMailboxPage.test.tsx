@@ -37,9 +37,14 @@ describe("/app/settings/mailboxes/connect", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Connect Gmail" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        "To spot receipts, UnReceipt checks the sender, subject and attachment names of new emails. Only receipts and invoices are opened and saved in your account, with the email as the original. Other emails are never opened or saved. We also pick up receipts from the last 30 days. UnReceipt can’t send, change or delete anything in your mailbox. Disconnect any time in Settings.",
+        "To spot receipts, UnReceipt checks the sender, subject and attachment names of new emails. Emails that look like a receipt, invoice or order confirmation are opened and saved in your account, with the email as the original. Other emails are never opened or saved. If something that isn’t a purchase gets in, delete it under Review needed. Saved receipts are read by Anthropic’s Claude AI on our behalf to fill in their fields (never used to train AI), and your accountant sees them once you’ve confirmed them. We also pick up receipts from the last 30 days. UnReceipt can’t send, change or delete anything in your mailbox.",
       ),
     ).toBeInTheDocument();
+    // How we handle the email: the privacy page's Gmail section.
+    expect(screen.getByRole("link", { name: "How we handle your email" })).toHaveAttribute(
+      "href",
+      "https://unreceipt.com/privacy#gmail",
+    );
     expect(screen.getByText(/Google will ask to let UnReceipt read your email/)).toBeInTheDocument();
     const warning = screen.getByTestId("google-unverified");
     expect(warning).toHaveTextContent(

@@ -37,5 +37,8 @@ export const CODE_LENGTH = 6;
  */
 export const PRIVACY_URL = "https://unreceipt.com/privacy";
 
+/** The privacy page's section on connected mailboxes (Google's Limited Use statement). */
+export const PRIVACY_MAILBOX_URL = `${PRIVACY_URL}#gmail`;
+
 /** Where an account without access in the app can ask for help. */
 export const SUPPORT_EMAIL = "support@unreceipt.com";

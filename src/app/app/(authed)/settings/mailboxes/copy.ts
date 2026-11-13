@@ -69,7 +69,13 @@ export function connectHref(provider: MailboxProviderId): string {
 }
 
 export const WHAT_WE_READ =
-  "To spot receipts, UnReceipt checks the sender, subject and attachment names of new emails. Only receipts and invoices are opened and saved in your account, with the email as the original. Other emails are never opened or saved. We also pick up receipts from the last 30 days. UnReceipt can’t send, change or delete anything in your mailbox. Disconnect any time in Settings.";
+  "To spot receipts, UnReceipt checks the sender, subject and attachment names of new emails. Emails that look like a receipt, invoice or order confirmation are opened and saved in your account, with the email as the original. Other emails are never opened or saved. If something that isn’t a purchase gets in, delete it under Review needed. Saved receipts are read by Anthropic’s Claude AI on our behalf to fill in their fields (never used to train AI), and your accountant sees them once you’ve confirmed them. We also pick up receipts from the last 30 days. UnReceipt can’t send, change or delete anything in your mailbox.";
+
+/** The privacy page's section on mailbox data (Google's Limited Use statement). */
+export const PRIVACY_LINK = {
+  href: "https://unreceipt.com/privacy#gmail",
+  text: "How we handle your email",
+} as const;
 
 export const PERMISSION_NOTE: Record<MailboxProviderId, string> = {
   google:
@@ -191,15 +197,26 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   }).format(date);
 }
 
+// After a disconnect that couldn't end UnReceipt's access at the provider
+// (Microsoft has no per-app revoke; a Google revoke can fail): where the
+// user removes it themselves.
+export const REMOVE_ACCESS_NOTE: Record<MailboxProviderId, string> = {
+  google:
+    "To remove UnReceipt’s access completely, also remove it in your Google account at myaccount.google.com/permissions.",
+  microsoft:
+    "To remove UnReceipt’s access completely, also remove it in your Microsoft account (account.microsoft.com → Privacy → Apps; work: myapps.microsoft.com).",
+};
+
+// No prices or plans here: the store apps show this too.
+export const PAUSED_TEXT = "Paused: your account doesn’t have access right now, so new email isn’t read.";
+
 export type StatusTone = "ok" | "attention" | "pending";
 
 export function statusLine(conn: MailboxView, now: number = Date.now()): { text: string; tone: StatusTone } {
   if (conn.status === "needs_reconnect") return { text: "Reconnect needed", tone: "attention" };
-  // Nothing sets "paused" yet (src/lib/mailboxes); if something does, the
-  // way out that always works is a fresh connection.
-  if (conn.status === "paused") {
-    return { text: "Paused: not reading new email. Disconnect and connect again.", tone: "attention" };
-  }
+  // Set while the account has no product access (src/lib/mailboxes/sync.ts);
+  // reading resumes by itself once it has.
+  if (conn.status === "paused") return { text: PAUSED_TEXT, tone: "attention" };
   // Active, but the first import hasn't finished yet.
   if (!conn.lastSyncAt) return { text: "Setting up…", tone: "pending" };
   const last = conn.lastReceiptAt ? relativeTime(conn.lastReceiptAt, now) : "";

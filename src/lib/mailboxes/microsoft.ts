@@ -55,6 +55,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { allowIngestRetry, claimMessage } from "./claim";
 import { MAX_RAW_BYTES, parseRawMessage } from "./raw-message";
 import { isLikelyReceipt } from "./select";
+import { isConnectionLive } from "./store";
 import { mailboxTrust } from "./trust";
 import {
   MailboxProviderError,
@@ -491,6 +492,9 @@ class GraphSync {
     const userLimited = await rateLimit("mailboxIngestUser", this.conn.user_id);
     if (!userLimited.ok) return "stop";
     if (!(await claimMessage(this.conn.id, row.id))) return onClaimed === "stop" ? "stop" : "done";
+    // Disconnected (or the account deleted, or paused) since the sync
+    // started: not one more download.
+    if (!(await isConnectionLive(this.conn.id))) return "stop";
 
     const res = await graphGet(this.accessToken, `${GRAPH}/me/messages/${encodeURIComponent(row.id)}/$value`, RAW_TIMEOUT_MS);
     if (THROTTLED.has(res.status)) throw new StopSync("throttled");
@@ -755,6 +759,7 @@ export const microsoftProvider: MailboxProvider = {
   // our encrypted copy of the token; the user can remove the app's access
   // under account.microsoft.com → Privacy → Apps (personal) or
   // myapps.microsoft.com (work).
+  canRevoke: false,
   async revoke() {},
 
   async startWatch(conn, accessToken): Promise<WatchResult> {

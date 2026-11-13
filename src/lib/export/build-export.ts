@@ -22,6 +22,7 @@ import { buildZip, zipSize, type ZipEntry } from "./zip";
 import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { getDefaultOrganizationId } from "@/lib/organizations";
+import { firmVisible } from "@/lib/firm/visibility";
 
 export const EXPORT_BUCKET = "exports";
 export const PART_TARGET_BYTES = 40 * 1024 * 1024;
@@ -124,10 +125,12 @@ async function loadReceipts(
   unexportedOnly: boolean,
 ): Promise<Receipt[]> {
   let query = getSupabaseAdmin().from("receipts").select("*");
+  // A firm's export holds only what the firm may see: a mailbox receipt the
+  // owner hasn't confirmed is left out (src/lib/firm/visibility.ts).
   query =
     scope.kind === "user"
       ? query.eq("user_id", scope.userId)
-      : query.eq("organization_id", scope.organizationId);
+      : firmVisible(query.eq("organization_id", scope.organizationId));
   // "Not exported yet" means ready receipts the firm hasn't booked from:
   // a receipt still in review has no PDF and would otherwise be stamped
   // before it was even complete, and then never reappear.

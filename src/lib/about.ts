@@ -43,7 +43,7 @@ export type About = {
   contact: string;
 };
 
-export const ABOUT_AS_OF = "2026-11-08";
+export const ABOUT_AS_OF = "2026-11-13";
 
 function pricingEn(pilot: boolean): string {
   if (!SHOW_PRICES)
@@ -86,13 +86,13 @@ function en(pilot: boolean): About {
       { label: "Where", value: "Sweden and France. The website is in English, Swedish and French; the app is in English." },
       {
         label: "How receipts arrive",
-        value: "Forwarded to the account's private UnReceipt email address (a Gmail or Outlook filter, set up once in a web browser, can forward them automatically), or photographed in the app — the fields fill themselves.",
+        value: "Forwarded to the account's private UnReceipt email address (a Gmail or Outlook filter, set up once in a web browser, can forward them automatically), read from a connected Gmail or Outlook mailbox (only emails that look like a receipt, invoice or order confirmation are opened and saved), or photographed in the app — the fields fill themselves.",
       },
       {
         label: "What is recorded",
         value: "Merchant, date, total, currency and category; line items, VAT amount and VAT rate when the receipt shows them; the photo as uploaded (large photos are reduced in size on the device first) or the forwarded email, kept unchanged; and a PDF once the receipt is complete.",
       },
-      { label: "Checking", value: "Each receipt is read automatically. Receipts that can't be read with confidence, and emails from senders that aren't trusted, wait in Review needed until you or your accountant confirm them." },
+      { label: "Checking", value: "Each receipt is read automatically. Receipts that can't be read with confidence, and emails from senders that aren't trusted, wait in Review needed until you or your accountant confirm them. Receipts from a connected mailbox always wait there, and the accountant sees them only once you have confirmed them." },
       {
         label: "Foreign currencies",
         value: "A receipt in EUR, USD, GBP, NOK, DKK, CHF, PLN or SEK keeps its own amount and gets an estimated home-currency amount from the ECB reference rate of the purchase day (or the last banking day before it). The amount from the bank statement can be entered and takes precedence.",
@@ -156,13 +156,13 @@ function sv(pilot: boolean): About {
       { label: "Var", value: "Sverige och Frankrike. Webbplatsen finns på svenska, engelska och franska; appen är på engelska." },
       {
         label: "Så kommer kvittona in",
-        value: "Vidarebefordrade till kontots privata UnReceipt-adress (ett filter i Gmail eller Outlook, som ställs in en gång i webbläsaren, kan göra det automatiskt), eller fotade i appen — fälten fylls i automatiskt.",
+        value: "Vidarebefordrade till kontots privata UnReceipt-adress (ett filter i Gmail eller Outlook, som ställs in en gång i webbläsaren, kan göra det automatiskt), hämtade från en ansluten Gmail- eller Outlook-inkorg (bara mejl som ser ut som ett kvitto, en faktura eller en orderbekräftelse öppnas och sparas), eller fotade i appen — fälten fylls i automatiskt.",
       },
       {
         label: "Vad som sparas",
         value: "Säljare, datum, belopp, valuta och kategori; kvittorader, momsbelopp och momssats när kvittot visar dem; fotot som det laddades upp (stora foton förminskas i mobilen först) eller det vidarebefordrade mejlet, sparat oförändrat; och en PDF när kvittot är komplett.",
       },
-      { label: "Kontroll", value: "Varje kvitto läses av automatiskt. Kvitton som inte kan läsas säkert, och mejl från avsändare som inte är betrodda, väntar i Review needed tills du eller din redovisningskonsult bekräftar dem." },
+      { label: "Kontroll", value: "Varje kvitto läses av automatiskt. Kvitton som inte kan läsas säkert, och mejl från avsändare som inte är betrodda, väntar i Review needed tills du eller din redovisningskonsult bekräftar dem. Kvitton från en ansluten inkorg väntar alltid där, och redovisningskonsulten ser dem först när du har bekräftat dem." },
       {
         label: "Utländsk valuta",
         value: "Ett kvitto i EUR, USD, GBP, NOK, DKK, CHF, PLN behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen (eller närmast föregående bankdag). Beloppet från kontoutdraget kan skrivas in och gäller då före.",
@@ -225,13 +225,13 @@ function fr(pilot: boolean): About {
       { label: "Où", value: "France et Suède. Le site est en français, en anglais et en suédois ; l’application est en anglais." },
       {
         label: "Comment arrivent les reçus",
-        value: "Transférés à l’adresse e-mail UnReceipt privée du compte (un filtre Gmail ou Outlook, réglé une fois dans le navigateur, peut le faire automatiquement), ou photographiés dans l’application — les champs se remplissent tout seuls.",
+        value: "Transférés à l’adresse e-mail UnReceipt privée du compte (un filtre Gmail ou Outlook, réglé une fois dans le navigateur, peut le faire automatiquement), lus dans une boîte Gmail ou Outlook connectée (seuls les e-mails qui ressemblent à un reçu, une facture ou une confirmation de commande sont ouverts et enregistrés), ou photographiés dans l’application — les champs se remplissent tout seuls.",
       },
       {
         label: "Ce qui est enregistré",
         value: "Fournisseur, date, montant, devise et catégorie ; lignes, montant et taux de TVA quand le justificatif les indique ; la photo telle qu’envoyée (les photos volumineuses sont réduites sur l’appareil) ou l’e-mail transféré, conservé à l’identique ; et un PDF une fois le reçu complet.",
       },
-      { label: "Vérification", value: "Chaque reçu est lu automatiquement. Les reçus qui ne peuvent pas être lus avec certitude, et les e-mails d’expéditeurs non reconnus, attendent dans « Review needed » que vous ou votre expert-comptable les confirmiez." },
+      { label: "Vérification", value: "Chaque reçu est lu automatiquement. Les reçus qui ne peuvent pas être lus avec certitude, et les e-mails d’expéditeurs non reconnus, attendent dans « Review needed » que vous ou votre expert-comptable les confirmiez. Les reçus d’une boîte mail connectée y attendent toujours, et l’expert-comptable ne les voit qu’une fois que vous les avez confirmés." },
       {
         label: "Devises",
         value: "Un reçu en SEK, USD, GBP, NOK, DKK, CHF ou PLN garde son montant et reçoit un montant estimé en euros au taux de référence de la BCE du jour de l’achat (ou du dernier jour ouvré). Le montant du relevé bancaire peut être saisi et prévaut.",

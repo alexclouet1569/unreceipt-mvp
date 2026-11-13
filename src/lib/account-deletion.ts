@@ -9,20 +9,28 @@
 //   1. Cancel any live Stripe subscription — a deleted customer must never
 //      be charged again. Stripe's customer and invoices are kept: they are
 //      UnReceipt's own billing records, which the law requires us to keep.
-//   2. Remove every stored file under `<user_id>/` in each private bucket.
-//   3. Settle the person's accounting firm, if any (src/lib/firm/
+//   2. Plan the accounting-firm step (read only), so the retention job
+//      refuses a firm member before anything is removed.
+//   3. Disconnect every connected mailbox and release the grants parked for
+//      the iPhone app's claim step (src/lib/mailboxes/teardown.ts): stop
+//      push notifications and revoke the grant at Google (Microsoft has no
+//      per-grant revoke) so no new receipt arrives mid-deletion. Before the
+//      files, so a sync can't store a new original behind the sweep. Best
+//      effort, never stops the run: the rows cascade with the user anyway.
+//   4. Remove every stored file under `<user_id>/` in each private bucket.
+//   5. Settle the person's accounting firm, if any (src/lib/firm/
 //      account-exit.ts): hand the admin role over, or close a firm nobody
 //      else has joined and email its clients that the link has ended.
-//   4. Disconnect every connected mailbox (src/lib/mailboxes/teardown.ts):
-//      stop push notifications and revoke the grant at Google/Microsoft so
-//      no new receipt arrives mid-deletion. Best effort, never stops the
-//      run: the rows cascade with the user anyway.
-//   5. Delete the receipts, then the auth user. profiles, subscriptions,
+//   6. Delete the receipts, then the auth user. profiles, subscriptions,
 //      receipt_usage (and transactions via profiles) cascade from
 //      auth.users ON DELETE CASCADE.
-//   6. Best-effort clean-up of data keyed by the user without a foreign
+//   7. Sweep the buckets once more: an ingest that was already running
+//      when its mailbox was disconnected may have stored a file after
+//      step 4. Best effort (the account is gone by then).
+//   8. Best-effort clean-up of data keyed by the user without a foreign
 //      key: rate-limit counters and a waitlist entry with the same email.
 
+import * as Sentry from "@sentry/nextjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
@@ -233,7 +241,6 @@ export async function deleteAccount(
   const canceledSubscriptions = await cancelStripeSubscriptions(supabase, userId, {
     refuseIfLive,
   });
-  const removedFiles = await removeUserFiles(supabase, userId);
 
   let firmPlan;
   try {
@@ -247,17 +254,22 @@ export async function deleteAccount(
   if (refuseIfLive && firmPlan.kind !== "none") {
     throw new AccountDeletionError("firm", "firm member, not deleting automatically");
   }
-  try {
-    await applyFirmExit(supabase, firmPlan);
-  } catch {
-    throw new AccountDeletionError("firm", "firm exit failed");
-  }
+
   // Never throws; a provider that is down leaves a grant the user can
-  // still remove in their Google/Microsoft account settings.
+  // still remove in their Google/Microsoft account settings. Before the
+  // files: once the rows are gone no new sync starts.
   try {
     await disconnectAllMailboxes(userId, supabase);
   } catch {
     console.error("[account-deletion] mailbox disconnect failed");
+  }
+
+  let removedFiles = await removeUserFiles(supabase, userId);
+
+  try {
+    await applyFirmExit(supabase, firmPlan);
+  } catch {
+    throw new AccountDeletionError("firm", "firm exit failed");
   }
   const { error: receiptsError } = await supabase
     .from("receipts")
@@ -267,6 +279,17 @@ export async function deleteAccount(
 
   const { error: authError } = await supabase.auth.admin.deleteUser(userId);
   if (authError) throw new AccountDeletionError("auth", "auth user delete failed");
+
+  // A mailbox ingest already past its connection check when the mailbox was
+  // disconnected may have stored an original after the first sweep (its
+  // row then went with the user). Once more, best effort: the account is
+  // already deleted, so a failure here is reported, not thrown.
+  try {
+    removedFiles += await removeUserFiles(supabase, userId);
+  } catch (err) {
+    console.error("[account-deletion] second file sweep failed");
+    Sentry.captureException(err, { tags: { area: "account-deletion", step: "second_sweep" } });
+  }
 
   // No foreign key to auth.users, so nothing cascades. Failures here don't
   // undo the deletion; they only leave a counter or a waitlist row behind.

@@ -24,6 +24,7 @@ import {
   disconnectOutcome,
   finishOutcome,
   onInbox,
+  removeAccessNote,
   runConnect,
   takeFromInbox,
   type ConnectDeps,
@@ -281,7 +282,11 @@ export function MailboxesProvider({ children }: { children: React.ReactNode }) {
                 const res = await disconnectMailbox(conn.id);
                 if (disconnectOutcome(res.ok ? 200 : res.status) === "gone") {
                   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  AccessibilityInfo.announceForAccessibility(s.mailboxes.disconnected);
+                  // Outlook (or a Google revoke that failed): where to remove
+                  // the access at the provider, in an alert VoiceOver reads.
+                  const note = removeAccessNote(conn.provider, res.ok ? res.data.revoked : undefined, s.mailboxes);
+                  if (note) Alert.alert(s.mailboxes.disconnected, note);
+                  else AccessibilityInfo.announceForAccessibility(s.mailboxes.disconnected);
                   setData((current) => {
                     if (!current) return current;
                     const next = { ...current, connections: current.connections.filter((c) => c.id !== conn.id) };

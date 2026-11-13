@@ -12,6 +12,7 @@ import { z } from "zod";
 import { isSameHost } from "@/lib/same-origin";
 import { FirmAuthError, firmAuthResponse, isUuid, requireFirmClientAccess, requireFirmMember } from "@/lib/require-firm";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { firmVisible } from "@/lib/firm/visibility";
 import { NO_RECEIPT_REASONS } from "@/lib/bank/match";
 
 export const runtime = "nodejs";
@@ -60,12 +61,10 @@ export async function PATCH(
   const body = parsed.data;
 
   if (body.action === "link") {
-    const { data: receipt, error } = await db
-      .from("receipts")
-      .select("id")
-      .eq("id", body.receiptId)
-      .eq("organization_id", access.organizationId)
-      .maybeSingle();
+    // Only a receipt the firm may see (src/lib/firm/visibility.ts).
+    const { data: receipt, error } = await firmVisible(
+      db.from("receipts").select("id").eq("id", body.receiptId).eq("organization_id", access.organizationId)
+    ).maybeSingle();
     if (error) {
       console.error("[/api/firm/clients/[orgId]/bank/lines] receipt check failed", error.code);
       return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });

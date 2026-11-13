@@ -62,10 +62,16 @@ export default function PrivacyPage() {
               With your permission (given on Google&apos;s or Microsoft&apos;s
               own screen) we keep a token, stored encrypted, that lets us read
               your inbox. For each new email we look only at its subject,
-              sender and attachment names to decide whether it looks like a
-              receipt or invoice. Only those emails are downloaded and saved,
-              as receipts like the ones you forward. Every other email is
-              never stored, not even its subject or that it existed.
+              sender, date and attachment names to decide whether it looks
+              like a receipt, an invoice or an order confirmation. Only those
+              emails are downloaded and saved, as receipts like the ones you
+              forward; anything that isn&apos;t a purchase can be deleted
+              under Review needed. Every other email is never stored, not
+              even its subject or that it existed. When you connect, we also
+              look back over the last 30 days; if Gmail no longer has the
+              history of what changed since our last check, we look back
+              over the last 7 days instead. Your accounting firm sees a
+              receipt from your mailbox only after you have confirmed it.
             </li>
             <li>
               <strong>Bank statement lines, if your accounting firm imports
@@ -118,7 +124,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>To work with your accounting firm</strong>, if you
-              connect one — your firm sees your receipts, can import your
+              connect one — your firm sees your receipts (those from a
+              connected mailbox once you have confirmed them), can import your
               bank statement to find payments without a receipt, and can
               have us email you a list of what is missing, by hand or on
               Mondays. Legal basis: contract performance (you asked us to
@@ -140,7 +147,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="Data from Google (Gmail)">
+        <Section id="gmail" title="Data from Google (Gmail)">
           <p className="mb-3">
             UnReceipt&apos;s use and transfer to any other app of information
             received from Google APIs will adhere to the{" "}
@@ -154,14 +161,17 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>
-              We use Gmail data only to find your receipts and invoices and
-              show them to you (and to your accounting firm, if you connect
-              one). Nothing else.
+              We use Gmail data, and anything we derive from it such as the
+              receipt fields, only to find your receipts, invoices and order
+              confirmations and show them to you (and, once you have
+              confirmed them, to your accounting firm, if you connect one).
+              Nothing else.
             </li>
             <li>
               The receipts we save are read by Anthropic&apos;s Claude model,
-              on our behalf, to fill in their fields. It is not used to train
-              AI models, by us or by Anthropic.
+              on our behalf, to fill in their fields. It is not used to
+              develop, improve or train generalised AI or machine-learning
+              models, by us or by Anthropic.
             </li>
             <li>
               We never sell it, use it for advertising, or use it to build
@@ -216,6 +226,10 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-3">
+            Google and Microsoft are your own email providers; we read from
+            them on your instruction.
+          </p>
+          <p className="mt-3">
             Some of these providers are US companies (Anthropic, Google,
             Resend, Stripe, Vercel). Where personal data is transferred outside the
             EU/EEA, the transfer relies on the EU–US Data Privacy Framework
@@ -244,8 +258,9 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Mailbox access:</strong> until you disconnect the
-              mailbox or delete your account, whichever comes first. Receipts
-              already brought in stay, like any other receipt.
+              mailbox or your account is deleted. After a subscription ends
+              we stop reading new email. Receipts already brought in stay,
+              like any other receipt.
             </li>
             <li>
               <strong>Bank statement lines and the reminder log:</strong> while
@@ -335,14 +350,17 @@ export default function PrivacyPage() {
 }
 
 function Section({
+  id,
   title,
   children,
 }: {
+  /** An anchor other pages link to (e.g. #gmail from the mailbox explainer). */
+  id?: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-8">
+    <section id={id} className="mb-8 scroll-mt-6">
       <h2 className="text-lg font-semibold text-[#303568] mb-3">{title}</h2>
       <div className="text-sm text-[#303568]/80 leading-relaxed space-y-3">
         {children}

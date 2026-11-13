@@ -25,6 +25,11 @@ export type ReceiptOriginalKind =
 // completes them. See src/lib/receipts/status.ts for the rule.
 export type ReceiptStatus = "verified" | "pending_review";
 
+// How an email receipt reached us (2026-11-13 block): the forwarding alias or
+// a connected Gmail/Outlook mailbox. Null for every other path. The firm sees
+// a mailbox receipt only once the owner confirmed it (src/lib/firm/visibility.ts).
+export type ReceiptIntakeChannel = "forwarding" | "mailbox";
+
 export type ReceiptCategory =
   | "meals"
   | "transport"
@@ -93,6 +98,9 @@ export interface Receipt {
   // Idempotency key — email Message-Id, Twilio MessageSid, or sha256 of
   // a paper upload. Re-forwarding the same email is a no-op.
   intake_ref: string | null;
+  // Email receipts only: 'forwarding' or 'mailbox' (2026-11-13). Optional
+  // because rows read before the column existed don't carry it.
+  intake_channel?: ReceiptIntakeChannel | null;
   // 0..1 parser confidence. Distinct from ocr_confidence — covers regex
   // match quality and LLM schema-validation pass-rate too, so it applies
   // to email/SMS intake where there is no OCR step.

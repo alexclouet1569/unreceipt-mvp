@@ -61,6 +61,20 @@ vi.mock("@/lib/supabase-admin", () => ({
         gte: () => q,
         not: (c: string) => (filters.push((r) => r[c] != null), q),
         is: (c: string, v: unknown) => (filters.push((r) => (r[c] ?? null) === v), q),
+        // PostgREST's `or`: "col.op.value" terms (is / eq / neq) joined by commas.
+        or: (expr: string) => (
+          filters.push((r) =>
+            expr.split(",").some((term) => {
+              const [c, op, ...rest] = term.split(".");
+              const v = rest.join(".");
+              if (op === "is") return (r[c] ?? null) === (v === "null" ? null : v);
+              if (op === "eq") return r[c] === v;
+              if (op === "neq") return r[c] != null && r[c] !== v;
+              throw new Error(`unsupported or term ${term}`);
+            }),
+          ),
+          q
+        ),
         order: () => q,
         limit: () => q,
         single: async () => {
@@ -174,6 +188,19 @@ describe("runWeeklyReminders", () => {
     const again = await runWeeklyReminders(new Date("2026-11-17T06:10:00Z"));
     expect(again).toMatchObject({ sent: 0, alreadySent: 1 });
     expect(mocks.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves out mailbox receipts the owner hasn't confirmed: the firm doesn't see them", async () => {
+    mocks.db.receipts.push(
+      { id: "m1", organization_id: "org-a", intake_channel: "mailbox", status: "pending_review", merchant_name: null, total: null, receipt_date: "2026-11-11", purchased_at: null, created_at: "2026-11-11T08:00:00Z" },
+      { id: "m2", organization_id: "org-a", intake_channel: "mailbox", status: "pending_review", merchant_name: "Clinic", total: 500, receipt_date: "2026-11-12", purchased_at: null, created_at: "2026-11-12T08:00:00Z" },
+      { id: "f1", organization_id: "org-a", intake_channel: "forwarding", status: "pending_review", merchant_name: null, total: 99, receipt_date: "2026-11-12", purchased_at: null, created_at: "2026-11-12T09:00:00Z" },
+    );
+    await runWeeklyReminders(MONDAY);
+    const mail = mocks.sendEmail.mock.calls[0][0];
+    expect(mail.text).not.toContain("Clinic");
+    // r1 and the forwarded f1 to complete, r2 to confirm; m1 and m2 not at all.
+    expect(mocks.db.client_reminders).toEqual([expect.objectContaining({ organization_id: "org-a", review_count: 3 })]);
   });
 
   it("skips a company already emailed this week before reading its bank lines or receipts", async () => {

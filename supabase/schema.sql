@@ -1867,3 +1867,35 @@ CREATE INDEX IF NOT EXISTS mailbox_oauth_parked_expires_idx
 
 ALTER TABLE public.mailbox_oauth_parked ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mailbox_oauth_parked FROM anon, authenticated;
+
+-- =============================================================================
+-- 2026-11-13 — Connected mailboxes: where an email receipt came from
+-- =============================================================================
+-- receipts.intake_channel records how an email receipt reached us:
+-- 'forwarding' (the user's forwarding alias, Resend inbound) or 'mailbox' (a
+-- connected Gmail/Outlook mailbox read with OAuth). Set once by
+-- ingestReceiptEmail() (src/lib/email/ingest.ts); NULL for every other path
+-- (photo, upload, admin paste) and for rows older than this block.
+-- receipts.source stays 'email' for both channels.
+--
+-- Founder decision: the accounting firm sees a mailbox receipt only once the
+-- owner has confirmed it (status 'verified'). Every firm read filters with
+-- src/lib/firm/visibility.ts; owner-side views are unchanged. Only the
+-- service role writes receipts (INSERT/UPDATE revoked above), so a firm or a
+-- user can't change the channel.
+
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS intake_channel TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_intake_channel_check'
+      AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_intake_channel_check
+      CHECK (intake_channel IS NULL OR intake_channel IN ('forwarding', 'mailbox'));
+  END IF;
+END $$;

@@ -11,10 +11,12 @@ const mocks = vi.hoisted(() => ({
   limit: vi.fn(),
   claim: vi.fn(),
   retry: vi.fn(),
+  live: vi.fn(),
 }));
 vi.mock("@/lib/email/ingest", () => ({ ingestReceiptEmail: mocks.ingest }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.limit }));
 vi.mock("@/lib/mailboxes/claim", () => ({ claimMessage: mocks.claim, allowIngestRetry: mocks.retry }));
+vi.mock("@/lib/mailboxes/store", () => ({ isConnectionLive: mocks.live }));
 
 import {
   acceptedSubscriptions,
@@ -207,6 +209,8 @@ beforeEach(() => {
   mocks.claim.mockResolvedValue(true);
   mocks.retry.mockReset();
   mocks.retry.mockResolvedValue(true);
+  mocks.live.mockReset();
+  mocks.live.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -609,6 +613,22 @@ describe("sync (delta)", () => {
     expect(out.cursor).toBeNull();
     expect(rawFetches()).toEqual(["m1"]);
     expect(mocks.retry).toHaveBeenCalledWith("conn-1", "m1");
+  });
+
+  it("stops before the next download once the mailbox was disconnected mid-sync", async () => {
+    messages = { m1: { subject: "Your receipt" }, m2: { subject: "Your receipt" } };
+    deltaPages = { "delta:t0": { ids: ["m1", "m2"], delta: "t1" } };
+    mocks.live.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const out = await microsoftProvider.sync({ ...CONN, cursor: storedCursor("t0") }, "at", {});
+    expect(mocks.live).toHaveBeenCalledWith("conn-1");
+    expect(rawFetches()).toEqual(["m1"]);
+    expect(mocks.ingest).toHaveBeenCalledTimes(1);
+    // The delta doesn't move past the message it didn't read.
+    expect(decodeCursor(out.cursor)?.link).not.toBe(`${DELTA_BASE}?$deltatoken=t1`);
+  });
+
+  it("can't revoke one grant, so a disconnect never claims it did", () => {
+    expect(microsoftProvider.canRevoke).toBe(false);
   });
 
   it("skips a message that failed to save too often, so the delta moves on", async () => {

@@ -224,4 +224,6 @@ export const claimMailbox = (code: string) => postJson<MobileMailboxClaim>("/api
 
 /** Disconnect: receipts already saved stay. */
 export const disconnectMailbox = (id: string) =>
-  apiResult<{ ok: true }>(`/api/mailboxes/${encodeURIComponent(id)}`, { method: "DELETE" }, { timeoutMs: 35_000 });
+  apiResult<{ ok: true; revoked?: boolean }>(`/api/mailboxes/${encodeURIComponent(id)}`, { method: "DELETE" }, {
+    timeoutMs: 35_000,
+  });

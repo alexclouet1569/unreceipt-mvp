@@ -5,7 +5,9 @@
 // step) and the connect buttons while under the limit. Forwarding, for
 // every other provider, is the "Send us receipts" section right below.
 // Disconnect is DELETE /api/mailboxes/<id>, then a refresh so the server's
-// list shows.
+// list shows. When the answer says the grant wasn't revoked at the provider
+// (always for Outlook; a failed Google revoke), the status line also says
+// where to remove UnReceipt's access there.
 //
 // Focus: the confirm step focuses its question (never the destructive
 // button); Cancel returns focus to that row's Disconnect; a removal is
@@ -20,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ConnectButtons, OUTLINE_LINK } from "./ConnectButtons";
 import {
   PROVIDER_NAME,
+  REMOVE_ACCESS_NOTE,
   anyProvider,
   explainerHref,
   statusLine,
@@ -62,6 +65,8 @@ export function MailboxesSection({
   // "Disconnected anna@gmail.com", in a status line that is always there
   // (a live region must exist before its text changes to be announced).
   const [announcement, setAnnouncement] = useState("");
+  // Where to remove access at the provider, after a disconnect that couldn't.
+  const [accessNote, setAccessNote] = useState<string | null>(null);
   const questionRef = useRef<HTMLParagraphElement>(null);
   const announcementRef = useRef<HTMLParagraphElement>(null);
   const disconnectRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -89,6 +94,7 @@ export function MailboxesSection({
     setBusy(conn.id);
     setError(null);
     setAnnouncement("");
+    setAccessNote(null);
     try {
       const res = await fetch(`/api/mailboxes/${encodeURIComponent(conn.id)}`, { method: "DELETE" });
       // 404: already gone (another tab); the refresh shows the truth.
@@ -96,8 +102,10 @@ export function MailboxesSection({
         setError(`Couldn’t disconnect ${conn.email}. Try again.`);
         return;
       }
+      const body = res.ok ? ((await res.json().catch(() => null)) as { revoked?: unknown } | null) : null;
       setRemoved((prev) => new Set(prev).add(conn.id));
       setConfirming(null);
+      setAccessNote(body?.revoked === false ? REMOVE_ACCESS_NOTE[conn.provider] : null);
       setAnnouncement(`Disconnected ${conn.email}`);
       router.refresh();
     } catch {
@@ -249,6 +257,7 @@ export function MailboxesSection({
         className={announcement ? "type-caption text-[var(--ink-muted)] outline-none" : "sr-only"}
       >
         {announcement}
+        {announcement && accessNote ? <span className="mt-1 block">{accessNote}</span> : null}
       </p>
 
       {error ? (

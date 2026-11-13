@@ -11,6 +11,7 @@ import {
   PERMISSION_NOTE,
   PROVIDER_COMPANY,
   PROVIDER_NAME,
+  PRIVACY_LINK,
   WHAT_WE_READ,
   connectHref,
   type CopyPart,
@@ -73,6 +74,15 @@ export default async function ConnectMailboxPage({ searchParams }: Props) {
           style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
         >
           <p className="type-body text-[var(--ink)]">{WHAT_WE_READ}</p>
+          <p className="type-body">
+            {/* The privacy page lives on the marketing host. */}
+            <a
+              href={PRIVACY_LINK.href}
+              className="text-[var(--ink)] underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] rounded-[2px]"
+            >
+              {PRIVACY_LINK.text}
+            </a>
+          </p>
           <p className="type-body text-[var(--ink-muted)]">{PERMISSION_NOTE[provider]}</p>
           {provider === "google" && !googleVerified() ? (
             <p

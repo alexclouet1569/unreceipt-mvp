@@ -752,6 +752,25 @@ describe("DELETE /api/mailboxes/[id]", () => {
     expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
   });
 
+  it("answers revoked:false for a provider that can't revoke one grant (Microsoft)", async () => {
+    const id = await connected();
+    fakeProvider.canRevoke = false;
+    const res = await del(id, `https://${HOST}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, revoked: false });
+    expect(fakeProvider.stopWatch).toHaveBeenCalled();
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
+  it("answers revoked:false when the revoke fails, and still deletes the row", async () => {
+    const id = await connected();
+    fakeProvider.revoke.mockRejectedValueOnce(new Error("google down"));
+    const res = await del(id, `https://${HOST}`);
+    expect(await res.json()).toEqual({ ok: true, revoked: false });
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
   it("leaves the grant and the watch alone when another account has the same address connected", async () => {
     const id = await connected();
     mocks.db.tables.mailbox_connections.push({

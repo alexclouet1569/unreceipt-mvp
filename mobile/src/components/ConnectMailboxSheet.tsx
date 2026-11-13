@@ -1,15 +1,19 @@
 // The one screen of ours before Google's or Microsoft's consent screen:
-// what UnReceipt reads, what the provider will ask, then Continue. A page
+// what UnReceipt reads (with a link to the privacy page's mailbox section),
+// what the provider will ask, then Continue. A page
 // sheet, swiped down or Cancel to close (same bar as the delete-account
 // sheet in StatusScreen).
 
 import { useEffect, useState } from "react";
 import { Modal, ScrollView, StyleSheet, View } from "react-native";
 import { SymbolView } from "expo-symbols";
+import * as WebBrowser from "expo-web-browser";
+import { PRIVACY_MAILBOX_URL } from "../config";
 import { fill, s } from "../i18n";
 import type { MailboxProvider } from "../lib/mailboxes";
-import { radius, space, makeStyles, useColors } from "../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { Button } from "./Button";
+import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 export function ConnectMailboxSheet({
@@ -61,6 +65,18 @@ export function ConnectMailboxSheet({
             {title}
           </Text>
           <Text variant="body">{s.mailboxes.whatWeRead}</Text>
+          {/* Like the sign-in screen's privacy link: underlined ink text. */}
+          <PressableScale
+            accessibilityRole="link"
+            accessibilityLabel={s.mailboxes.privacyLink}
+            accessibilityHint={s.mailboxes.privacyLinkHint}
+            onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_MAILBOX_URL)}
+            style={styles.linkTarget}
+          >
+            <Text variant="body" color={colors.ink} style={styles.link}>
+              {s.mailboxes.privacyLink}
+            </Text>
+          </PressableScale>
           <View style={styles.note}>
             <Text variant="caption" color={colors.inkMuted}>
               {google ? s.mailboxes.permissionGoogle : s.mailboxes.permissionMicrosoft}
@@ -106,6 +122,9 @@ const useStyles = makeStyles((colors) => ({
     alignSelf: "center",
   },
   center: { textAlign: "center" },
+  // At least 44 pt tall to tap, flush left under the text it belongs to.
+  linkTarget: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: -space.sm },
+  link: { fontFamily: fonts.semibold, textDecorationLine: "underline" },
   note: {
     gap: space.sm,
     padding: space.md,

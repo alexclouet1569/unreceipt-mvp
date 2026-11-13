@@ -14,6 +14,7 @@ import {
   isWebUrl,
   onInbox,
   parseMailboxUrl,
+  removeAccessNote,
   putInInbox,
   reasonKey,
   relativeAgo,
@@ -163,6 +164,35 @@ describe("messages", () => {
     expect(disconnectOutcome(500)).toBe("failed");
   });
 
+  it("after a disconnect that wasn't revoked, says where to remove access at the provider", () => {
+    expect(removeAccessNote("microsoft", false, en.mailboxes)).toBe(
+      "To remove UnReceipt’s access completely, also remove it in your Microsoft account (account.microsoft.com → Privacy → Apps; work: myapps.microsoft.com).",
+    );
+    expect(removeAccessNote("google", false, en.mailboxes)).toContain("myaccount.google.com/permissions");
+    // Revoked, or not said (a 404: already gone): nothing to add.
+    expect(removeAccessNote("google", true, en.mailboxes)).toBeNull();
+    expect(removeAccessNote("microsoft", undefined, en.mailboxes)).toBeNull();
+    for (const strings of [sv, fr]) {
+      expect(removeAccessNote("microsoft", false, strings.mailboxes)).toContain("myapps.microsoft.com");
+      expect(removeAccessNote("google", false, strings.mailboxes)).toContain("myaccount.google.com/permissions");
+    }
+  });
+
+  it("explains in every language that the AI reads saved receipts and the accountant sees confirmed ones", () => {
+    expect(en.mailboxes.whatWeRead).toContain("Claude AI");
+    expect(en.mailboxes.whatWeRead).toContain("your accountant sees them once you’ve confirmed them");
+    expect(en.mailboxes.whatWeRead).toContain("order confirmation");
+    expect(sv.mailboxes.whatWeRead).toContain("Claude");
+    expect(sv.mailboxes.whatWeRead).toContain("redovisningskonsult");
+    expect(fr.mailboxes.whatWeRead).toContain("Claude");
+    expect(fr.mailboxes.whatWeRead).toContain("expert-comptable");
+    for (const strings of [en, sv, fr]) {
+      // Each language names its own "To confirm" list.
+      expect(strings.mailboxes.whatWeRead).toContain(strings.receipts.toConfirm);
+      expect(strings.mailboxes.privacyLink.length).toBeGreaterThan(0);
+    }
+  });
+
   it("never names a price or a purchase", () => {
     for (const strings of [en, sv, fr]) {
       const all = JSON.stringify(strings.mailboxes);
@@ -200,7 +230,10 @@ describe("status line", () => {
     });
     expect(line({ status: "needs_reconnect" }).tone).toBe("attention");
     expect(line({ status: "needs_reconnect" }).text).toBe("Reconnect needed for anna@gmail.com");
-    expect(line({ status: "paused" }).tone).toBe("attention");
+    expect(line({ status: "paused" })).toEqual({
+      text: "Paused: your account doesn’t have access right now, so new email in anna@gmail.com isn’t read.",
+      tone: "attention",
+    });
     for (const strings of [sv, fr]) {
       const text = statusLine({ ...conn, lastSyncAt: ago(1), lastReceiptAt: ago(1) }, strings.mailboxes, "sv", now).text;
       expect(text).toContain("anna@gmail.com");

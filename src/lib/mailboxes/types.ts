@@ -82,6 +82,12 @@ export interface MailboxProvider {
    * transient failure.
    */
   refreshAccessToken(refreshToken: string): Promise<RefreshedAccessToken>;
+  /**
+   * Whether revoke() ends the grant at the provider. False for Microsoft,
+   * which has no per-token revoke: a disconnect then answers revoked:false
+   * and the screens tell the user where to remove the app's access.
+   */
+  readonly canRevoke: boolean;
   /** Best effort: revoke the grant at the provider. Must not throw on "already revoked". */
   revoke(refreshToken: string): Promise<void>;
   /** Start or renew push notifications for new mail. */

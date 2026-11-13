@@ -10,10 +10,15 @@ import { createFakeDb } from "@/lib/mailboxes/__tests__/fake-db";
 
 const mocks = vi.hoisted(() => ({
   db: null as unknown as ReturnType<typeof import("@/lib/mailboxes/__tests__/fake-db").createFakeDb>,
+  // Users without product access (a cancelled subscription).
+  noAccess: new Set<string>(),
 }));
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({ from: (table: string) => mocks.db.client.from(table) }),
+}));
+vi.mock("@/lib/subscription-gate", () => ({
+  hasProductAccess: async (userId: string) => !mocks.noAccess.has(userId),
 }));
 vi.mock("@/lib/mailboxes/google", async () => ({
   googleProvider: (await import("@/lib/mailboxes/__tests__/fake-provider")).fakeProvider,
@@ -63,6 +68,7 @@ beforeEach(() => {
   process.env.MAILBOX_TOKEN_KEY = randomBytes(32).toString("base64");
   process.env.CRON_SECRET = "test-cron-secret";
   mocks.db = createFakeDb();
+  mocks.noAccess = new Set();
   resetFakeProvider(fakeProvider);
   resetFakeProvider(outlook);
 });
@@ -159,6 +165,44 @@ describe("GET /api/cron/mailboxes", () => {
     const res = await cron();
     expect(await res.json()).toMatchObject({ skippedUnconfigured: 1, renewed: 0, synced: 0 });
     expect(outlook.startWatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/cron/mailboxes and product access", () => {
+  it("pauses a mailbox whose user has no access: no renewal, no sync", async () => {
+    const lapsed = await addConnection({ watch_expires_at: null, last_sync_at: null });
+    const paying = await addConnection({ last_sync_at: null });
+    mocks.noAccess.add(lapsed.user_id as string);
+    const res = await cron();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ connections: 2, paused: 1, resumed: 0, renewed: 0, synced: 1 });
+    expect(lapsed.status).toBe("paused");
+    expect(paying.status).toBe("active");
+    expect(fakeProvider.startWatch).not.toHaveBeenCalled();
+    expect(idsOf(fakeProvider.sync.mock.calls)).toEqual([paying.id]);
+  });
+
+  it("leaves a paused mailbox paused while access is still missing", async () => {
+    const paused = await addConnection({ status: "paused", last_sync_at: null });
+    mocks.noAccess.add(paused.user_id as string);
+    const res = await cron();
+    expect(await res.json()).toMatchObject({ connections: 1, paused: 1, resumed: 0, synced: 0 });
+    expect(paused.status).toBe("paused");
+    expect(fakeProvider.refreshAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("resumes a paused mailbox once its user has access again, renews it and catches up", async () => {
+    const back = await addConnection({ status: "paused", watch_expires_at: iso(-24 * HOUR), last_sync_at: iso(-72 * HOUR) });
+    const res = await cron();
+    expect(await res.json()).toMatchObject({ connections: 1, paused: 0, resumed: 1, renewed: 1, synced: 1 });
+    expect(back.status).toBe("active");
+    expect(back.cursor).toBe("1005");
+  });
+
+  it("never resumes a mailbox that needs reconnecting", async () => {
+    const stuck = await addConnection({ status: "needs_reconnect", last_sync_at: null });
+    await cron();
+    expect(stuck.status).toBe("needs_reconnect");
   });
 });
 

@@ -14,6 +14,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { withTimeout } from "@/lib/with-timeout";
 import { forgetAccessToken } from "./access-token";
 import { getProvider } from "./providers";
+import { releaseParkedForUser } from "./parked";
 import { WATCH_IS_PER_MAILBOX, addressInUse } from "./shared-grant";
 import { deleteConnection, getDecryptedToken, listConnections } from "./store";
 import type { MailboxConnectionRef } from "./types";
@@ -22,6 +23,12 @@ const PROVIDER_CALL_MS = 8000;
 // Releasing every mailbox during account deletion, all together.
 export const ACCOUNT_DELETE_BUDGET_MS = 20_000;
 
+/**
+ * `revoked`: the grant was ended at the provider. Always false for a
+ * provider that can't revoke one grant (Microsoft, `canRevoke`), for a
+ * shared grant, and when the revoke failed; the screens then tell the user
+ * where to remove UnReceipt's access themselves.
+ */
 export type ReleaseResult = { stopped: boolean; revoked: boolean };
 
 /**
@@ -52,7 +59,7 @@ export async function releaseAtProvider(
     }
   }
 
-  if (shared) return result;
+  if (shared || !provider.canRevoke) return result;
   try {
     await withTimeout("mailbox revoke", PROVIDER_CALL_MS, provider.revoke(tokenToRevoke));
     result.revoked = true;
@@ -96,33 +103,35 @@ export async function disconnectMailbox(
 
 /**
  * Account deletion: release every mailbox of the user at its provider and
- * delete the rows. Never throws (the rows cascade with auth.users anyway);
- * returns how many connections were found.
+ * delete the rows, then take and revoke the grants still parked for the
+ * iPhone app's claim step (./parked.ts; after the rows, so a parked grant
+ * of an address only this user had connected isn't kept as "in use").
+ * Never throws (the rows cascade with auth.users anyway); returns how many
+ * connections were found.
  */
 export async function disconnectAllMailboxes(
   userId: string,
   supabase: SupabaseClient = getSupabaseAdmin(),
 ): Promise<number> {
-  let conns: MailboxConnectionRef[];
+  let conns: MailboxConnectionRef[] = [];
   try {
     conns = await listConnections(userId, supabase);
   } catch (err) {
     // Table not created yet, or a database blip: the cascade cleans up.
     Sentry.captureException(err, { tags: { area: "mailboxes", step: "account_delete_list" } });
-    return 0;
   }
   // All at once, within one overall budget: one after another, five slow
   // providers (three calls of up to 8 s each) would outlast the 60 s
   // /api/account/delete has. Anything still running after the budget is
-  // left to the cascade with auth.users (the row) and to the provider's own
-  // expiry (the watch); the deletion itself goes on.
+  // left to the cascade with auth.users (the rows) and to the provider's
+  // own expiry (the watch); the deletion itself goes on.
   const all = Promise.allSettled(
     conns.map((conn) =>
       disconnectMailbox(conn, supabase).catch((err) => {
         Sentry.captureException(err, { tags: { area: "mailboxes", step: "account_delete", provider: conn.provider } });
       }),
     ),
-  );
+  ).then(() => releaseParkedForUser(supabase, userId));
   let timer: ReturnType<typeof setTimeout> | undefined;
   const budget = new Promise<"timeout">((resolve) => {
     timer = setTimeout(() => resolve("timeout"), ACCOUNT_DELETE_BUDGET_MS);

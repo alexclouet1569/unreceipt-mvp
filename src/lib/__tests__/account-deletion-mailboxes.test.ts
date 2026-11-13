@@ -1,8 +1,8 @@
 // @vitest-environment node
 // deleteAccount() releases every connected mailbox (stop watch, revoke the
-// grant) before the receipts and the user go, and a failure there never
-// stops the deletion. The teardown itself is tested in
-// src/lib/mailboxes/__tests__/lifecycle.test.ts.
+// grant, parked grants too) right after Stripe and before any file, receipt
+// or the user goes, and a failure there never stops the deletion. The
+// teardown itself is tested in src/lib/mailboxes/__tests__/lifecycle.test.ts.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,7 +32,15 @@ vi.mock("@/lib/supabase-admin", () => ({
         like: async () => ({ error: null }),
       }),
     }),
-    storage: { from: () => ({ list: async () => ({ data: [], error: null }), remove: async () => ({ error: null }) }) },
+    storage: {
+      from: (bucket: string) => ({
+        list: async () => {
+          state.calls.push(`list:${bucket}`);
+          return { data: [], error: null };
+        },
+        remove: async () => ({ error: null }),
+      }),
+    },
     auth: {
       admin: {
         deleteUser: async () => {
@@ -56,15 +64,17 @@ beforeEach(() => {
 });
 
 describe("deleteAccount and connected mailboxes", () => {
-  it("disconnects every mailbox before deleting receipts and the user", async () => {
+  const sweep = ["list:receipts", "list:receipt-originals", "list:exports"];
+
+  it("disconnects every mailbox before the files, the receipts and the user, then sweeps again", async () => {
     await deleteAccount(USER_ID);
     expect(state.disconnect).toHaveBeenCalledWith(USER_ID, expect.anything());
-    expect(state.calls).toEqual([`mailboxes:${USER_ID}`, "delete:receipts", "deleteUser"]);
+    expect(state.calls).toEqual([`mailboxes:${USER_ID}`, ...sweep, "delete:receipts", "deleteUser", ...sweep]);
   });
 
   it("still deletes the account when disconnecting fails", async () => {
     state.disconnect.mockRejectedValue(new Error("provider down"));
     await expect(deleteAccount(USER_ID)).resolves.toBeTruthy();
-    expect(state.calls).toEqual(["delete:receipts", "deleteUser"]);
+    expect(state.calls).toEqual([...sweep, "delete:receipts", "deleteUser", ...sweep]);
   });
 });

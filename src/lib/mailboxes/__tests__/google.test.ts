@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => ({
   limit: vi.fn(),
   claim: vi.fn(),
   retry: vi.fn(),
+  live: vi.fn(),
 }));
 vi.mock("@/lib/email/ingest", () => ({ ingestReceiptEmail: mocks.ingest }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.limit }));
 vi.mock("@/lib/mailboxes/claim", () => ({ claimMessage: mocks.claim, allowIngestRetry: mocks.retry }));
+vi.mock("@/lib/mailboxes/store", () => ({ isConnectionLive: mocks.live }));
 
 import {
   FALLBACK_DAYS,
@@ -21,6 +23,7 @@ import {
   googleProvider,
   parseGmailNotification,
   windowQuery,
+  METADATA_FIELDS,
 } from "../google";
 import { MAX_RAW_BYTES } from "../raw-message";
 import { MailboxProviderError, MissingScopeError, ReauthRequiredError, type MailboxConnectionRef } from "../types";
@@ -179,6 +182,8 @@ beforeEach(() => {
   mocks.claim.mockResolvedValue(true);
   mocks.retry.mockReset();
   mocks.retry.mockResolvedValue(true);
+  mocks.live.mockReset();
+  mocks.live.mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -366,6 +371,12 @@ describe("sync from history", () => {
     // Metadata asks for Subject and From only.
     const meta = calls.find((c) => c.url.searchParams.get("format") === "metadata")!;
     expect(meta.url.searchParams.getAll("metadataHeaders")).toEqual(["Subject", "From"]);
+    // …as a partial response: labels, size, those headers and part names;
+    // never the snippet.
+    const fields = meta.url.searchParams.get("fields")!;
+    expect(fields).toBe(METADATA_FIELDS);
+    expect(fields.startsWith("labelIds,sizeEstimate,payload(")).toBe(true);
+    expect(fields).not.toMatch(/snippet|body|raw|threadId|internalDate/);
   });
 
   it("hands the shared ingest the raw message, its fields and the trust verdict", async () => {
@@ -446,6 +457,10 @@ describe("sync from history", () => {
     const list = calls.find((c) => c.url.pathname.endsWith("/messages"))!;
     expect(list.url.searchParams.get("q")).toBe(windowQuery(FALLBACK_DAYS));
     expect(list.url.searchParams.get("q")).toMatch(/^in:inbox newer_than:7d \(subject:\(receipt OR .* OR filename:pdf\)$/);
+    // The mailbox's narrower words, not the forwarding rules' generic ones.
+    for (const generic of ["confirmed", "bokning", "réservation", "commande"]) {
+      expect(list.url.searchParams.get("q")).not.toContain(` OR ${generic} `);
+    }
   });
 
   it("reads the last 7 days when the connection has no cursor yet", async () => {
@@ -510,6 +525,16 @@ describe("sync from history", () => {
     expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1001", processed: 1, created: 1 });
     expect(mocks.claim).toHaveBeenCalledWith("conn-1", "m2");
     expect(rawFetches()).toEqual(["m1"]);
+  });
+
+  it("stops before the next download once the mailbox was disconnected mid-sync", async () => {
+    messages = { m1: { subject: "Receipt 1" }, m2: { subject: "Receipt 2" } };
+    historyPages = [{ history: [record("1001", "m1"), record("1002", "m2")], historyId: "1002" }];
+    mocks.live.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    expect(await googleProvider.sync(CONN, "at", {})).toEqual({ cursor: "1001", processed: 1, created: 1 });
+    expect(mocks.live).toHaveBeenCalledWith("conn-1");
+    expect(rawFetches()).toEqual(["m1"]);
+    expect(mocks.ingest).toHaveBeenCalledTimes(1);
   });
 
   it("stops before a message the ingest couldn't save, so it is read again", async () => {

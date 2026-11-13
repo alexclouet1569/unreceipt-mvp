@@ -23,6 +23,10 @@
 //
 // Every receipt made here has receipts.source 'email' whatever the channel:
 // receipts_source_check (supabase/schema.sql) allows no other email value.
+// The channel is kept in receipts.intake_channel ('forwarding' | 'mailbox',
+// 2026-11-13 block): the accounting firm sees a mailbox receipt only once
+// the owner has confirmed it (src/lib/firm/visibility.ts), so a mailbox
+// receipt is never saved verified here.
 
 import * as Sentry from "@sentry/nextjs";
 import { createHash } from "node:crypto";
@@ -31,7 +35,7 @@ import { recordReceiptUsage } from "@/lib/usage";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
-import type { ReceiptStatus } from "@/lib/types";
+import type { ReceiptIntakeChannel, ReceiptStatus } from "@/lib/types";
 import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
 import { loadOwnerAddresses } from "@/lib/owner-addresses";
 import { extractAttachments, pickReceiptAttachment, type EmailAttachment } from "@/lib/email/attachments";
@@ -71,10 +75,10 @@ export type IngestInput = {
   /** The company the receipt belongs to; the user's default one when absent. */
   organizationId?: string;
   /**
-   * How the email arrived. Logging only: receipts.source is 'email' for
-   * both (receipts_source_check allows nothing else for an email).
+   * How the email arrived, stored as receipts.intake_channel (receipts.source
+   * is 'email' for both: receipts_source_check allows nothing else).
    */
-  source: "forwarding" | "mailbox";
+  source: ReceiptIntakeChannel;
   /** The original RFC 822 message, when the channel has it. */
   rawEml: Buffer | null;
   text: string | null;
@@ -364,6 +368,7 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
     user_id: userId,
     organization_id: organizationId,
     source: "email" as const,
+    intake_channel: input.source,
     intake_ref: intakeRef,
     original_source_url: original ? original.path : null,
     original_source_kind: original ? (original.kind as "eml" | EmailAttachment["mediaType"]) : null,
@@ -415,6 +420,12 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
               : baseFields.notes,
         }
       : { ...baseFields, currency: await home(), status: "pending_review" as const };
+
+  // A mailbox receipt waits for the owner's confirmation whatever was read:
+  // until then it's the owner's alone (the firm doesn't see it). The
+  // mailbox trust rule already keeps templates from verifying one; this
+  // holds the rule even if that changes.
+  if (input.source === "mailbox") rowToInsert.status = "pending_review";
 
   const { data: inserted, error: insertError } = await supabase
     .from("receipts")

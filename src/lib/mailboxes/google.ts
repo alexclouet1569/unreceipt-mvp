@@ -15,8 +15,9 @@
 //           search of the last 7 days; so does a connection without one.
 //           The first sync after connecting (backfillDays) searches that
 //           window instead.
-//   Pick    each new message's metadata only (Subject, From, attachment
-//           names) → isLikelyReceipt() (./select.ts). Only a match is
+//   Pick    each new message's metadata only (labels, size, Subject, From,
+//           attachment names: a partial response, METADATA_FIELDS, no
+//           snippet) → isLikelyReceipt() (./select.ts). Only a match is
 //           downloaded in full (format=raw) and handed to the shared ingest
 //           (ingestReceiptEmail), after a short claim (./claim.ts) so two
 //           syncs running at once don't both pay for it. Nothing about
@@ -35,7 +36,8 @@ import { CLAUDE_CALL_BUDGET_MS } from "@/lib/ocr";
 import { rateLimit } from "@/lib/rate-limit";
 import { allowIngestRetry, claimMessage } from "./claim";
 import { MAX_RAW_BYTES, decodeHeaderValue, parseRawMessage } from "./raw-message";
-import { isLikelyReceipt } from "./select";
+import { isLikelyReceipt, MAILBOX_RECEIPT_WORDS } from "./select";
+import { isConnectionLive } from "./store";
 import { mailboxTrust } from "./trust";
 import {
   MailboxProviderError,
@@ -222,13 +224,23 @@ function readable(labelIds: unknown): boolean {
 }
 
 /**
- * The window search: the receipt words of the forwarding guide's Gmail
- * filter or a PDF, so Gmail itself drops most mail before we read any
- * metadata. isLikelyReceipt() still decides.
+ * The window search: the mailbox's receipt words (./select.ts) or a PDF, so
+ * Gmail itself drops most mail before we read any metadata.
+ * isLikelyReceipt() still decides.
  */
 export function windowQuery(days: number): string {
-  return `in:inbox newer_than:${days}d (${gmailFilterQuery()} OR filename:pdf)`;
+  return `in:inbox newer_than:${days}d (${gmailFilterQuery(MAILBOX_RECEIPT_WORDS)} OR filename:pdf)`;
 }
+
+/**
+ * The only parts of a message's metadata we ask Gmail for (a partial
+ * response): its labels, size, the Subject and From headers (metadataHeaders)
+ * and the MIME types and file names of its parts. No snippet, no other
+ * header, no body.
+ */
+export const METADATA_FIELDS =
+  "labelIds,sizeEstimate,payload(mimeType,filename,headers(name,value)," +
+  "parts(mimeType,filename,parts(mimeType,filename,parts(mimeType,filename,parts(mimeType,filename)))))";
 
 // ─── Push ───────────────────────────────────────────────────────────────
 
@@ -297,7 +309,7 @@ class GmailSync {
   }
 
   private async isCandidate(id: string): Promise<Candidate | null> {
-    const params = new URLSearchParams({ format: "metadata" });
+    const params = new URLSearchParams({ format: "metadata", fields: METADATA_FIELDS });
     params.append("metadataHeaders", "Subject");
     params.append("metadataHeaders", "From");
     const res = await gmailGet(this.accessToken, `/messages/${encodeURIComponent(id)}`, params);
@@ -374,6 +386,9 @@ class GmailSync {
     // Reading history, stop before it so the cursor can't pass it unread; a
     // window search returns a fixed cursor, so it just goes on.
     if (!(await claimMessage(this.conn.id, id))) return this.windowMode ? "skipped" : "stop";
+    // Disconnected (or the account deleted, or paused) since the sync
+    // started: not one more download.
+    if (!(await isConnectionLive(this.conn.id))) return "stop";
 
     const res = await gmailGet(
       this.accessToken,
@@ -629,6 +644,7 @@ export const googleProvider: MailboxProvider = {
     };
   },
 
+  canRevoke: true,
   revoke: revokeToken,
 
   async startWatch(_conn, accessToken): Promise<WatchResult> {

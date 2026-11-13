@@ -22,6 +22,7 @@ export function createFakeProvider() {
       email: "Anna@Gmail.com",
     })),
     refreshAccessToken: vi.fn(async () => ({ accessToken: "ya29.fresh", expiresAt: Date.now() + 3600_000 })),
+    canRevoke: true as boolean,
     revoke: vi.fn(async () => {}),
     startWatch: vi.fn(async () => ({ watchId: null, expiresAt: "2026-11-20T00:00:00.000Z", cursor: "1000" })),
     stopWatch: vi.fn(async () => {}),
@@ -36,6 +37,10 @@ export function resetFakeProvider(p: FakeProvider): void {
   const fresh = createFakeProvider();
   for (const key of Object.keys(fresh) as Array<keyof FakeProvider>) {
     if (key === "id") continue;
+    if (key === "canRevoke") {
+      p.canRevoke = fresh.canRevoke;
+      continue;
+    }
     const fn = p[key] as unknown as { mockReset: () => void; mockImplementation: (f: unknown) => void };
     fn.mockReset();
     fn.mockImplementation((fresh[key] as unknown as { getMockImplementation: () => unknown }).getMockImplementation());

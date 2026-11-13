@@ -21,6 +21,8 @@ const state = vi.hoisted(() => ({
   cancel: vi.fn(),
   firmPlan: { kind: "none" } as { kind: string; firmName?: string; clientOrganizationIds?: string[] },
   firmError: null as null | Error,
+  // Stored by an ingest still running while the user is deleted.
+  lateFile: null as null | { bucket: string; name: string },
 }));
 
 vi.mock("@/lib/firm/link-emails", () => ({
@@ -29,6 +31,10 @@ vi.mock("@/lib/firm/link-emails", () => ({
     return { sent: opts.organizationIds.length, failed: 0 };
   },
 }));
+
+// Mailbox teardown has its own tests (account-deletion-mailboxes.test.ts,
+// src/lib/mailboxes/__tests__/lifecycle.test.ts).
+vi.mock("@/lib/mailboxes/teardown", () => ({ disconnectAllMailboxes: async () => 0 }));
 
 // The firm step has its own tests (src/lib/firm/__tests__/account-exit.test.ts).
 vi.mock("@/lib/firm/account-exit", () => ({
@@ -87,7 +93,15 @@ vi.mock("@/lib/supabase-admin", () => ({
         }),
         remove: async (paths: string[]) => {
           state.calls.push({ op: `remove:${bucket}`, args: paths });
-          return { error: state.removeError };
+          if (state.removeError) return { error: state.removeError };
+          // Removed files are gone from later listings, as in Storage.
+          for (const path of paths) {
+            const folder = path.slice(0, path.lastIndexOf("/"));
+            const name = path.slice(path.lastIndexOf("/") + 1);
+            const entries = state.files[bucket]?.[folder];
+            if (entries) state.files[bucket][folder] = entries.filter((e) => e.name !== name);
+          }
+          return { error: null };
         },
       }),
     },
@@ -95,6 +109,10 @@ vi.mock("@/lib/supabase-admin", () => ({
       admin: {
         deleteUser: async (id: string) => {
           state.calls.push({ op: "deleteUser", args: [id] });
+          if (state.lateFile) {
+            const { bucket, name } = state.lateFile;
+            state.files[bucket] = { ...state.files[bucket], [id]: [{ name, id: "late" }] };
+          }
           return { error: state.deleteUserError };
         },
       },
@@ -122,6 +140,7 @@ beforeEach(() => {
   state.deleteUserError = null;
   state.firmPlan = { kind: "none" };
   state.firmError = null;
+  state.lateFile = null;
   state.cancel.mockReset().mockResolvedValue({});
 });
 
@@ -273,6 +292,30 @@ describe("deleteAccount", () => {
     state.firmError = new Error("db down");
     await expect(deleteAccount(USER_ID)).rejects.toMatchObject({ step: "firm" });
     expect(ops()).toEqual([]);
+  });
+
+  it("sweeps the buckets again once the user is gone, for a file stored mid-deletion", async () => {
+    state.files = { receipts: { [USER_ID]: [{ name: "a.jpg", id: "1" }] } };
+    state.lateFile = { bucket: "receipt-originals", name: "late.eml" };
+    const result = await deleteAccount(USER_ID);
+    expect(ops()).toEqual([
+      "remove:receipts",
+      "firm:none",
+      "delete:receipts",
+      "deleteUser",
+      "remove:receipt-originals",
+      "delete:rate_limits",
+    ]);
+    expect(state.calls.find((c) => c.op === "remove:receipt-originals")!.args).toEqual([`${USER_ID}/late.eml`]);
+    expect(result.removedFiles).toBe(2);
+  });
+
+  it("doesn't fail a finished deletion when the second sweep fails", async () => {
+    state.lateFile = { bucket: "receipts", name: "late.jpg" };
+    // The first sweep finds nothing; only the second one has a file to remove.
+    state.removeError = { message: "boom" };
+    await expect(deleteAccount(USER_ID)).resolves.toMatchObject({ removedFiles: 0 });
+    expect(ops()).toEqual(["firm:none", "delete:receipts", "deleteUser", "remove:receipts", "delete:rate_limits"]);
   });
 
   it("refuses an id that isn't a UUID (it becomes a storage prefix)", async () => {

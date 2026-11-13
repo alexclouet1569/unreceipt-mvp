@@ -31,6 +31,7 @@ import { homeCurrencyOf } from "@/lib/fx";
 import { loadBankMonth } from "@/lib/bank/load";
 import { dayLabel, receiptDay, type BankLineView } from "@/lib/bank/month";
 import { adjacentMonths } from "@/lib/firm/client-stats";
+import { firmVisible } from "@/lib/firm/visibility";
 import { missingFieldsText, missingRequiredFields } from "@/lib/receipts/status";
 import { formatAmount } from "@/lib/receipt-format";
 import { sendEmail } from "@/lib/email/send";
@@ -95,10 +96,15 @@ export async function collectClientNeeds(organizationId: string, now: Date): Pro
     .filter((l) => l.state.kind === "missing" && l.bookedOn <= lastBooked)
     .sort((a, b) => a.bookedOn.localeCompare(b.bookedOn) || a.id.localeCompare(b.id));
 
-  const { data, error } = await getSupabaseAdmin()
-    .from("receipts")
-    .select("id, merchant_name, total, receipt_date, purchased_at, created_at, status")
-    .eq("organization_id", organizationId)
+  // Sent on the firm's behalf, so only what the firm may see: a mailbox
+  // receipt waiting for the owner's confirmation is left out
+  // (src/lib/firm/visibility.ts).
+  const { data, error } = await firmVisible(
+    getSupabaseAdmin()
+      .from("receipts")
+      .select("id, merchant_name, total, receipt_date, purchased_at, created_at, status")
+      .eq("organization_id", organizationId)
+  )
     .eq("status", "pending_review")
     .gte("created_at", new Date(now.getTime() - RECEIPT_LOOKBACK_DAYS * DAY).toISOString())
     .order("created_at", { ascending: true })

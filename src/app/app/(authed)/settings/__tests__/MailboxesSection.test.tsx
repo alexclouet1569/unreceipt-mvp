@@ -90,7 +90,7 @@ describe("MailboxesSection", () => {
     expect(rows[1]).toHaveTextContent("Outlook · Reconnect needed");
     expect(rows[2]).toHaveTextContent("Setting up…");
     expect(rows[3]).toHaveTextContent("Watching for receipts · none yet");
-    expect(rows[4]).toHaveTextContent("Paused: not reading new email. Disconnect and connect again.");
+    expect(rows[4]).toHaveTextContent("Paused: your account doesn’t have access right now, so new email isn’t read.");
 
     // Reconnect only where it's needed, through the explainer.
     expect(within(rows[1]).getByRole("link", { name: "Reconnect anna@outlook.com" })).toHaveAttribute(
@@ -166,6 +166,49 @@ describe("MailboxesSection", () => {
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Disconnected anna@gmail.com");
     expect(status).toHaveFocus();
+  });
+
+  it("after an Outlook disconnect, says where to remove access at Microsoft", async () => {
+    vi.useRealTimers();
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, revoked: false }) });
+    const user = userEvent.setup();
+    render(
+      <MailboxesSection
+        providers={BOTH}
+        connections={[conn({ provider: "microsoft", email: "anna@outlook.com" })]}
+        limit={5}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Disconnect anna@outlook.com" }));
+    await user.click(screen.getByRole("button", { name: "Confirm: disconnect anna@outlook.com" }));
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Disconnected anna@outlook.com");
+    expect(status).toHaveTextContent(
+      "To remove UnReceipt’s access completely, also remove it in your Microsoft account (account.microsoft.com → Privacy → Apps; work: myapps.microsoft.com).",
+    );
+  });
+
+  it("after a Google disconnect whose revoke failed, points to Google's permissions page; not after one that worked", async () => {
+    vi.useRealTimers();
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, revoked: false }) });
+    const user = userEvent.setup();
+    render(
+      <MailboxesSection
+        providers={BOTH}
+        connections={[conn(), conn({ id: "2", email: "work@gmail.com" })]}
+        limit={5}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Disconnect anna@gmail.com" }));
+    await user.click(screen.getByRole("button", { name: "Confirm: disconnect anna@gmail.com" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("myaccount.google.com/permissions");
+
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true, revoked: true }) });
+    await user.click(screen.getByRole("button", { name: "Disconnect work@gmail.com" }));
+    await user.click(screen.getByRole("button", { name: "Confirm: disconnect work@gmail.com" }));
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Disconnected work@gmail.com");
+    expect(status).not.toHaveTextContent("myaccount.google.com");
   });
 
   it("returns focus to the right row's Disconnect after Cancel", async () => {

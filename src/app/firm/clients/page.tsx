@@ -1,6 +1,7 @@
 import { requireFirmMemberPage } from "@/lib/require-firm";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { firmVisible } from "@/lib/firm/visibility";
 import {
   computeClientStats,
   monthBounds,
@@ -70,7 +71,8 @@ async function loadRequests(email: string | null): Promise<FirmRequest[]> {
   }));
 }
 
-// One query for every active client: receipts in the month (with slack)
+// One query for every active client (receipts the firm may see, see
+// src/lib/firm/visibility.ts): receipts in the month (with slack)
 // plus anything created in the last 7 days, aggregated in memory.
 async function loadStats(
   organizationIds: string[],
@@ -82,24 +84,30 @@ async function loadStats(
   const supabase = getSupabaseAdmin();
   const cols = "organization_id, status, exported_at, created_at, purchased_at, receipt_date";
   const [inMonth, undated, recent] = await Promise.all([
-    supabase
-      .from("receipts")
-      .select(cols)
-      .in("organization_id", organizationIds)
+    firmVisible(
+      supabase
+        .from("receipts")
+        .select(cols)
+        .in("organization_id", organizationIds)
+    )
       .or(printedMonthFilter(month)),
     // Still without a date: counted in the month they arrived (receiptMonth()).
-    supabase
-      .from("receipts")
-      .select(cols)
-      .in("organization_id", organizationIds)
+    firmVisible(
+      supabase
+        .from("receipts")
+        .select(cols)
+        .in("organization_id", organizationIds)
+    )
       .is("receipt_date", null)
       .is("purchased_at", null)
       .gte("created_at", from)
       .lt("created_at", to),
-    supabase
-      .from("receipts")
-      .select(cols)
-      .in("organization_id", organizationIds)
+    firmVisible(
+      supabase
+        .from("receipts")
+        .select(cols)
+        .in("organization_id", organizationIds)
+    )
       .gte("created_at", weekAgo),
   ]);
   if (inMonth.error || undated.error || recent.error) {
