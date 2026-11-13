@@ -11,6 +11,8 @@ import type {
   MobileForwarding,
   MobileForwardingStatus,
   MobileHome,
+  MobileMailboxClaim,
+  MobileMailboxes,
   MobileReceiptDetail,
   MobileReceiptsPage,
 } from "@/lib/mobile/types";
@@ -209,3 +211,17 @@ export const respondToInvite = (inviteId: string, action: "accept" | "decline") 
 export function finishSignIn(): void {
   api("/api/auth/finish", { method: "POST" }).catch(() => {});
 }
+
+/** Account → Your email: the connected Gmail / Outlook mailboxes and which providers can be connected. */
+export const getMailboxes = () => api<MobileMailboxes>("/api/mobile/mailboxes");
+
+/** A 5-minute link for the system sign-in sheet (Connect Gmail / Outlook). */
+export const createMailboxConnectLink = (provider: "google" | "microsoft") =>
+  postJson<{ url: string; expiresAt: string }>("/api/mailboxes/connect-link", { provider });
+
+/** The last step of connecting: the one-time code from unreceipt://mailboxes?status=claim. */
+export const claimMailbox = (code: string) => postJson<MobileMailboxClaim>("/api/mailboxes/claim", { code });
+
+/** Disconnect: receipts already saved stay. */
+export const disconnectMailbox = (id: string) =>
+  apiResult<{ ok: true }>(`/api/mailboxes/${encodeURIComponent(id)}`, { method: "DELETE" }, { timeoutMs: 35_000 });

@@ -5,12 +5,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { Directory, Paths } from "expo-file-system";
-import type { MobileAccount, MobileAnalytics, MobileHome } from "@/lib/mobile/types";
+import type { MobileAccount, MobileAnalytics, MobileHome, MobileMailboxes } from "@/lib/mobile/types";
 import { deleteAllScans } from "./scans/files";
 
 const PREFIX = "home:v1:";
 const ACCOUNT_PREFIX = "account:v1:";
 const INSIGHTS_PREFIX = "insights:v1:";
+const MAILBOXES_PREFIX = "mailboxes:v1:";
 
 /** The last Insights answer for a period ("month:2026-11"), for an instant screen. */
 export async function readInsights(userId: string, key: string): Promise<MobileAnalytics | null> {
@@ -85,6 +86,24 @@ export async function writeAccount(userId: string, account: MobileAccount): Prom
   }
 }
 
+/** The connected mailboxes (Account → Your email), for an instant section. */
+export async function readMailboxes(userId: string): Promise<MobileMailboxes | null> {
+  try {
+    const raw = await AsyncStorage.getItem(MAILBOXES_PREFIX + userId);
+    return raw ? (JSON.parse(raw) as MobileMailboxes) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeMailboxes(userId: string, data: MobileMailboxes): Promise<void> {
+  try {
+    await AsyncStorage.setItem(MAILBOXES_PREFIX + userId, JSON.stringify(data));
+  } catch {
+    // Only costs the next visit its instant section.
+  }
+}
+
 /**
  * On sign-out: the saved list and the receipt photos kept by the image
  * cache. A sign-out the user asked for also deletes the scans still waiting
@@ -112,6 +131,7 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
           k.startsWith(PREFIX) ||
           k.startsWith(ACCOUNT_PREFIX) ||
           k.startsWith(INSIGHTS_PREFIX) ||
+          k.startsWith(MAILBOXES_PREFIX) ||
           (!keepScans && k.startsWith("scans:v1:")),
       ),
     );

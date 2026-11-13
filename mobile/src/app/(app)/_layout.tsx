@@ -7,6 +7,7 @@ import { StatusScreen } from "../../components/StatusScreen";
 import { AccountProvider } from "../../lib/AccountProvider";
 import { s } from "../../i18n";
 import { HomeProvider, useHome } from "../../lib/HomeProvider";
+import { MailboxesProvider } from "../../lib/MailboxesProvider";
 import { ReceiptActionsProvider } from "../../lib/ReceiptActions";
 import { ScanProvider } from "../../lib/scans/ScanProvider";
 import { overallCounts } from "../../lib/summary";
@@ -56,11 +57,13 @@ export default function AppLayout() {
   return (
     <HomeProvider>
       <AccountProvider>
-        <ScanProvider>
-          <ReceiptActionsProvider>
-            <Tabs />
-          </ReceiptActionsProvider>
-        </ScanProvider>
+        <MailboxesProvider>
+          <ScanProvider>
+            <ReceiptActionsProvider>
+              <Tabs />
+            </ReceiptActionsProvider>
+          </ScanProvider>
+        </MailboxesProvider>
       </AccountProvider>
     </HomeProvider>
   );

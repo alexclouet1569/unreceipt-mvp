@@ -39,12 +39,17 @@ export function Onboarding({
   onNext,
   onScan,
   onFinish,
+  onConnect,
+  connecting = false,
 }: {
   step: OnboardingStep;
   address: string;
   onNext: () => void;
   onScan: () => void;
   onFinish: () => void;
+  /** Gmail / Outlook can be connected: "Connect your email" becomes step 1's action. */
+  onConnect?: () => void;
+  connecting?: boolean;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -109,7 +114,24 @@ export function Onboarding({
       ) : null}
 
       <View style={styles.actions}>
-        {step === 1 ? (
+        {step === 1 && onConnect ? (
+          <>
+            <Button label={s.mailboxes.connectYourEmail} busy={connecting} onPress={onConnect} />
+            <Button kind="outline" label={s.onboarding.next} onPress={onNext} />
+            {/* A quiet text link: two outlined buttons under the green one would crowd it. */}
+            <PressableScale
+              scaleTo={0.97}
+              onPress={onFinish}
+              accessibilityRole="button"
+              accessibilityLabel={s.onboarding.skip}
+              style={styles.guide}
+            >
+              <Text variant="caption" color={colors.inkMuted} style={styles.guideText}>
+                {s.onboarding.skip}
+              </Text>
+            </PressableScale>
+          </>
+        ) : step === 1 ? (
           <>
             <Button label={s.onboarding.next} onPress={onNext} />
             {/* Outline, not plain: plain is green, and the step's button is the one green. */}

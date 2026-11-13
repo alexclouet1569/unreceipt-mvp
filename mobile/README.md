@@ -13,6 +13,7 @@ It replaces the Capacitor shell (`ios/`, `capacitor.config.ts`, `native/`), whic
 | `src/lib/api.ts` | Calls `app.unreceipt.com` with `Authorization: Bearer <access token>` (accepted by `getServerUser()` on the server) |
 | `src/lib/HomeProvider.tsx` | The home data: the saved copy at once, then `GET /api/mobile/home` |
 | `src/lib/AccountProvider.tsx` | The Account tab's data: the saved copy, then `GET /api/mobile/account` |
+| `src/lib/MailboxesProvider.tsx`, `src/lib/mailboxes.ts` | Account → Your email: connected Gmail / Outlook (`GET /api/mobile/mailboxes`). Connect = our explainer sheet → `POST /api/mailboxes/connect-link` → the system sign-in sheet (`openAuthSessionAsync`, back to `unreceipt://mailboxes`) → `POST /api/mailboxes/claim`. A result that arrives as a plain deep link goes through `src/app/+native-intent.tsx` |
 | `src/app/(app)/account/` | Export, currency, your accountant, delete account, and the forwarding guide (`GET /api/mobile/forwarding`) |
 | `src/i18n/` | English, Swedish, French. English is the reference; the others must have every key (TypeScript and a test check it) |
 | `src/theme.ts` | Tokens from `DESIGN.md` |

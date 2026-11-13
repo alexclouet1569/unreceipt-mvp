@@ -1,4 +1,5 @@
-// Account: the receipt address and its setup guide, the company (export,
+// Account: your email (connected Gmail / Outlook mailboxes), the receipt
+// address and its setup guide, the company (export,
 // currency, accountant), who is signed in, sign out, delete the account.
 // Each row pushes its own screen, like iOS Settings. Opens on the saved
 // copy; pull down to refresh.
@@ -11,6 +12,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "../../../auth/AuthProvider";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { Group, Row, Section } from "../../../components/Grouped";
+import { MailboxesSection } from "../../../components/MailboxesSection";
 import { GroupedSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { PRIVACY_URL } from "../../../config";
@@ -19,6 +21,7 @@ import type { MobileAccount } from "@/lib/mobile/types";
 import { useAccount } from "../../../lib/AccountProvider";
 import { dayTime } from "../../../lib/format";
 import { useHome } from "../../../lib/HomeProvider";
+import { useMailboxes } from "../../../lib/MailboxesProvider";
 import { useScans } from "../../../lib/scans/ScanProvider";
 import { radius, space, makeStyles, useColors } from "../../../theme";
 
@@ -38,6 +41,7 @@ export default function Account() {
   const { email, signOut } = useAuth();
   const { home, refresh: refreshHome } = useHome();
   const { account, error, refreshing, refresh } = useAccount();
+  const mailboxes = useMailboxes();
 
   const { pending } = useScans();
   // Everything not yet a receipt, "Try again" ones included.
@@ -59,7 +63,7 @@ export default function Account() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => void Promise.all([refresh(), refreshHome()])}
+          onRefresh={() => void Promise.all([refresh(), refreshHome(), mailboxes.refresh()])}
           tintColor={colors.inkMuted}
         />
       }
@@ -72,6 +76,8 @@ export default function Account() {
 
       {/* The very first load: shapes, never an empty screen or a spinner. */}
       {!ready && !account && !error ? <GroupedSkeleton /> : null}
+
+      {ready ? <MailboxesSection /> : null}
 
       {ready ? (
         <Section title={s.account.forwardingTitle} note={s.account.forwardingBody}>

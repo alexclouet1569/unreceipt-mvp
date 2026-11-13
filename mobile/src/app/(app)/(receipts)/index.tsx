@@ -29,6 +29,7 @@ import { ReceiptSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { fill, locale, s } from "../../../i18n";
 import { useHome } from "../../../lib/HomeProvider";
+import { useMailboxes } from "../../../lib/MailboxesProvider";
 import { UndoToast, useReceiptActions } from "../../../lib/ReceiptActions";
 import { useScans } from "../../../lib/scans/ScanProvider";
 import { buildSections } from "../../../lib/sections";
@@ -48,9 +49,17 @@ function Notice({ text }: { text: string }) {
   );
 }
 
+/** Gmail / Outlook can be connected and none is yet: "Connect your email" leads. */
+function useConnectOffer() {
+  const { data, canAdd, connect, connecting } = useMailboxes();
+  const offer = canAdd && data != null && data.connections.length === 0;
+  return { offer, connect, connecting };
+}
+
 function Empty({ address }: { address: string }) {
   const styles = useStyles();
   const colors = useColors();
+  const { offer, connect, connecting } = useConnectOffer();
   return (
     <Animated.View entering={FadeIn.duration(durations.medium)} style={styles.empty}>
       <View style={styles.emptyMark}>
@@ -60,9 +69,25 @@ function Empty({ address }: { address: string }) {
         {s.receipts.emptyTitle}
       </Text>
       <Text variant="body" color={colors.inkMuted} style={styles.center}>
-        {s.receipts.emptyBody}
+        {offer ? s.mailboxes.note : s.receipts.emptyBody}
       </Text>
-      <View style={styles.emptyCard}>
+      {offer ? (
+        <View style={styles.emptyCard}>
+          {/* Ink, not green: the scan button is the screen's green action. */}
+          <Button
+            kind="ink"
+            label={s.mailboxes.connectYourEmail}
+            busy={connecting != null}
+            onPress={() => connect()}
+          />
+        </View>
+      ) : null}
+      {offer ? (
+        <Text variant="caption" color={colors.inkMuted} style={[styles.center, styles.emptyOr]}>
+          {s.mailboxes.orForward}
+        </Text>
+      ) : null}
+      <View style={offer ? styles.emptyCardNear : styles.emptyCard}>
         <ForwardingCard address={address} />
       </View>
     </Animated.View>
@@ -191,6 +216,7 @@ export default function Receipts() {
   // finished it, and then stays until finished, even once the first
   // receipt has arrived. A fresh "no" before the user moved on stops it.
   const [onboarding, setOnboarding] = useState<OnboardingStep | null>(null);
+  const connectOffer = useConnectOffer();
   const [doneHere, setDoneHere] = useState<boolean | null>(null);
   useEffect(() => {
     if (!userId) return;
@@ -335,6 +361,8 @@ export default function Receipts() {
                 }}
                 onScan={() => void scan()}
                 onFinish={finishOnboarding}
+                onConnect={connectOffer.offer ? () => connectOffer.connect() : undefined}
+                connecting={connectOffer.connecting != null}
               />
             ) : home.receipts.length > 0 ? (
               <>
@@ -463,5 +491,7 @@ const useStyles = makeStyles((colors) => ({
     marginBottom: space.sm,
   },
   emptyCard: { alignSelf: "stretch", marginTop: space.md },
+  emptyOr: { marginTop: space.sm },
+  emptyCardNear: { alignSelf: "stretch" },
   failed: { justifyContent: "center", padding: space.xl, paddingTop: space.xxxl, gap: space.lg },
 }));
