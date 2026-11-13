@@ -85,6 +85,12 @@ export const RATE_LIMITS = {
     { limit: 300, windowSeconds: 60 * 60 },
     { limit: 2000, windowSeconds: 24 * 60 * 60 },
   ],
+  // The iPhone app reporting a scan that didn't go through: at most one
+  // per try (8 per scan), so a batch of failing scans stays well inside.
+  clientReport: [
+    { limit: 120, windowSeconds: 60 * 60 },
+    { limit: 500, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

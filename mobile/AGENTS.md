@@ -4,7 +4,7 @@ Read `README.md` here first, and the repository's root `AGENTS.md` and `DESIGN.m
 
 ## Expo has changed — don't trust memory
 
-This is Expo SDK 58 (`expo` in `package.json`) with React Native 0.88 and Expo Router. APIs move every SDK. Before using an Expo or React Native API, read its type definitions in `node_modules/` (they are exact for this version) or the versioned docs at `https://docs.expo.dev/versions/v58.0.0/` (reachable through Firecrawl when the session network blocks docs.expo.dev). Seen so far: `headerLargeTitle` is deprecated for `headerLargeTitleEnabled`; a TextInput ref is `TextInputInstance`; `StyleSheet.absoluteFillObject` is gone (use `absoluteFill`).
+This is Expo SDK 58 (`expo` in `package.json`) with React Native 0.88 and Expo Router. APIs move every SDK. Before using an Expo or React Native API, read its type definitions in `node_modules/` (they are exact for this version) or the versioned docs at `https://docs.expo.dev/versions/v58.0.0/` (reachable through Firecrawl when the session network blocks docs.expo.dev). Seen so far: `headerLargeTitle` is deprecated for `headerLargeTitleEnabled`; a TextInput ref is `TextInputInstance`; `StyleSheet.absoluteFillObject` is gone (use `absoluteFill`). The global `fetch` is Expo's (`expo/fetch`), not React Native's: a FormData file must be an `expo-file-system` `File` (`scanUploadFile()`), never `{ uri, name, type }`, which throws before the request leaves the phone (`src/lib/__tests__/upload-form.test.ts`).
 
 ## Rules
 

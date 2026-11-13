@@ -11,7 +11,20 @@ export type ScanState =
   | "waiting" // on the phone, to be sent (now or after `retryAt`)
   | "uploading" // being read by the server
   | "notReceipt" // the server says it isn't a receipt; the user removes it
+  | "missing" // the picture is no longer on the phone: only "Remove" helps
   | "failed"; // refused, or MAX_ATTEMPTS used up: "Try again" or remove
+
+/**
+ * Why the last try didn't go through, for an honest message. The app can't
+ * ask iOS whether it is online (that needs a native module), so "offline"
+ * is only set when a small call to the server failed too.
+ */
+export type UploadProblem =
+  | "offline" // the upload and a small call to the server both failed
+  | "unsent" // the server answered, but the upload itself didn't get through
+  | "timeout" // no answer within the upload timeout
+  | "server" // the server answered with an error (5xx, 408, an odd 200)
+  | "busy"; // 429: too many receipts in a short time
 
 export type PendingScan = {
   id: string;
@@ -22,6 +35,8 @@ export type PendingScan = {
   attempts: number;
   /** Epoch ms before which a waiting scan isn't retried. */
   retryAt: number;
+  /** Why the last try failed (absent before the first try, and in queues saved by older versions). */
+  problem?: UploadProblem;
 };
 
 /** How many scans are read at the same time (as the website's batch sheet). */
@@ -81,6 +96,46 @@ export function nextRetryAt(queue: PendingScan[]): number | null {
   return times.length > 0 ? Math.min(...times) : null;
 }
 
+/**
+ * The scan's file in today's documents folder. iOS can move an app's
+ * folder when the app is updated or reinstalled, so a full path saved by
+ * an earlier run may point nowhere: only the file name is kept from it.
+ */
+export function rebaseScanUri(fileUri: string, dirUri: string): string {
+  const name = fileUri.split("/").filter(Boolean).pop() ?? "";
+  return `${dirUri.replace(/\/+$/, "")}/${name}`;
+}
+
+/** Which sentence a scan on its way shows (keys of the app's `scan` strings). */
+export type ScanMessage = "reading" | "waiting" | "unsent" | "timeout" | "serverBusy" | "tooMany" | "notReceipt" | "missing" | "failed";
+
+export function scanMessage(scan: Pick<PendingScan, "state" | "attempts" | "problem">): ScanMessage {
+  switch (scan.state) {
+    case "notReceipt":
+    case "missing":
+    case "failed":
+      return scan.state;
+    case "uploading":
+      return "reading";
+    case "waiting":
+      if (scan.attempts === 0) return "reading";
+      switch (scan.problem) {
+        case "offline":
+          return "waiting";
+        case "timeout":
+          return "timeout";
+        case "server":
+          return "serverBusy";
+        case "busy":
+          return "tooMany";
+        default:
+          // "unsent", or a queue saved before problems were recorded: never
+          // claim the phone is offline without knowing it.
+          return "unsent";
+      }
+  }
+}
+
 /** After a restart nothing is in flight any more. */
 export function resumeQueue(queue: PendingScan[]): PendingScan[] {
   return queue.map((s) => (s.state === "uploading" ? { ...s, state: "waiting", retryAt: 0 } : s));
@@ -101,7 +156,7 @@ export type ScanSaved = {
 export type UploadOutcome =
   | { kind: "saved"; saved: ScanSaved }
   | { kind: "notReceipt" }
-  | { kind: "retry" } // offline, rate-limited or a server error: try again later
+  | { kind: "retry"; problem: "server" | "busy" } // rate-limited or a server error: try again later
   | { kind: "failed" }; // refused for good: trying again won't help
 
 /** What a response from /api/capture/scan means for the queue. */
@@ -110,10 +165,11 @@ export function classifyUpload(status: number, body: unknown): UploadOutcome {
   if (status >= 200 && status < 300) {
     if (b.skipped === true) return { kind: "notReceipt" };
     if (b.ok === true && typeof b.id === "string") return { kind: "saved", saved: b as unknown as ScanSaved };
-    return { kind: "retry" };
+    return { kind: "retry", problem: "server" };
   }
   // 408 timeout, 429 rate limit, 5xx: the scan is fine, the moment wasn't.
-  if (status === 408 || status === 429 || status >= 500) return { kind: "retry" };
+  if (status === 429) return { kind: "retry", problem: "busy" };
+  if (status === 408 || status >= 500) return { kind: "retry", problem: "server" };
   return { kind: "failed" };
 }
 
