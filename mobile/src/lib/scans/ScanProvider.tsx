@@ -14,7 +14,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { s } from "../../i18n";
 import { ApiError, apiResponse, reportScanProblem } from "../api";
 import { useHome } from "../HomeProvider";
-import { currentScanUri, deleteFile, deleteScansOlderThan, prepareScan, scanFileSize } from "./files";
+import { currentScanUri, deleteFile, deleteScansOlderThan, prepareScan, scanFileSize, scanUploadFile } from "./files";
 import {
   MAX_ATTEMPTS,
   classifyUpload,
@@ -92,8 +92,12 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       let retryAfter: number | null = null;
       try {
         const form = new FormData();
-        // React Native reads the file from its uri when sending.
-        form.append("file", { uri: item.fileUri, name: `${item.id}.jpg`, type: "image/jpeg" } as unknown as Blob);
+        // The file itself, never React Native's `{ uri, name, type }`: the
+        // app's fetch is Expo's (expo/fetch, installed globally by Expo),
+        // which can't send that shape and fails before anything leaves the
+        // phone. An expo-file-system File has the bytes, the file name
+        // (`<id>.jpg`) and its type (image/jpeg) that the server checks.
+        form.append("file", scanUploadFile(item.fileUri));
         // The scan's own id: a resend is answered with the receipt already
         // saved, never read twice (POST /api/capture/scan).
         form.append("client_id", item.id);

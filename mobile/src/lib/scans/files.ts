@@ -64,6 +64,11 @@ export function scanFileSize(uri: string): number | null {
   }
 }
 
+/** The scan as a FormData part that expo/fetch can send (see ScanProvider). */
+export function scanUploadFile(uri: string): Blob {
+  return new File(uri) as unknown as Blob;
+}
+
 export function deleteFile(uri: string): void {
   try {
     const file = new File(uri);
