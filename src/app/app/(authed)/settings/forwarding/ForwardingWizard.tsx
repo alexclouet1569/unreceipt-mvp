@@ -34,6 +34,8 @@ type Status = {
     receivedAt: string;
     // We confirmed the request for the user (their own Gmail asked).
     autoConfirmed?: boolean;
+    // Gmail's own confirmation page (its email now has this, not a code).
+    confirmUrl?: string | null;
   } | null;
   lastEmailAt: string | null;
 };
@@ -239,8 +241,11 @@ export function ForwardingWizard({
   const nextLabel =
     index === total - 1 && isLastAction
       ? "Done"
-      : chapter?.kind === "code" && actionIndex === 0 && status?.confirmation?.code && !autoConfirmed
-        ? "I've verified it"
+      : chapter?.kind === "code" &&
+          actionIndex === 0 &&
+          (status?.confirmation?.code || status?.confirmation?.confirmUrl) &&
+          !autoConfirmed
+        ? "I've confirmed it"
         : "Next";
 
   const icloudWords = icloudRuleWords(lang);
@@ -602,6 +607,17 @@ function OpenLink({ href, children }: { href: string; children: React.ReactNode 
 
 function CodeBox({ status }: { status: Status | null }) {
   const confirmation = status?.confirmation ?? null;
+  const from = confirmation?.forAddress ? (
+    <>
+      {" "}from <Strong>{confirmation.forAddress}</Strong>
+    </>
+  ) : null;
+  const confirmLink = confirmation?.confirmUrl ? (
+    <OpenLink href={confirmation.confirmUrl}>Confirm in Gmail</OpenLink>
+  ) : null;
+  const codeRow = confirmation?.code ? (
+    <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
+  ) : null;
   return (
     <div role="status">
       {confirmation?.autoConfirmed ? (
@@ -609,23 +625,17 @@ function CodeBox({ status }: { status: Status | null }) {
           <p className="flex items-start gap-2 text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
             <Check className="mt-0.5 w-5 h-5 shrink-0 text-[var(--ink)]" aria-hidden="true" />
             <span>
-              Done. Gmail asked us to approve forwarding
-              {confirmation.forAddress ? (
-                <>
-                  {" "}from <Strong>{confirmation.forAddress}</Strong>
-                </>
-              ) : null}
-              , and we approved it for you. Nothing to type.
+              Done. Gmail asked us to approve forwarding{from}, and we approved it for you. Nothing to type: reload
+              Gmail and your address is confirmed.
             </span>
           </p>
-          {confirmation.code ? (
+          {confirmLink || codeRow ? (
             <>
               <ActionHint>
-                Gmail still says your UnReceipt address is unverified? Reload
-                Gmail. If it stays that way, type this code in Gmail&apos;s
-                Forwarding settings, in the box next to your UnReceipt address:
+                Gmail still says your UnReceipt address is unconfirmed after reloading?{" "}
+                {confirmLink ? "Open Gmail's page and press Confirm there." : "Type this code in the box next to your address:"}
               </ActionHint>
-              <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
+              {confirmLink ?? codeRow}
             </>
           ) : null}
         </div>
@@ -637,17 +647,30 @@ function CodeBox({ status }: { status: Status | null }) {
           <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
           Waiting for Gmail&apos;s email… This updates by itself.
         </p>
-      ) : !confirmation.code ? (
+      ) : confirmLink ? (
+        <div className="space-y-3">
+          <p className="text-[var(--ink)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+            Gmail asks to forward{from} to your UnReceipt address. If that&apos;s your Gmail, open Gmail&apos;s page and
+            press <Strong>Confirm</Strong>. Then reload Gmail.
+          </p>
+          {confirmLink}
+          {codeRow ? (
+            <>
+              <ActionHint>Or type Gmail&apos;s code in the box next to your address:</ActionHint>
+              {codeRow}
+            </>
+          ) : null}
+        </div>
+      ) : codeRow ? (
+        codeRow
+      ) : (
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px", lineHeight: 1.5 }}>
-          Gmail&apos;s email arrived, but we couldn&apos;t read the code in it.
-          Write to{" "}
+          Gmail&apos;s email arrived, but we couldn&apos;t read it. Write to{" "}
           <a href="mailto:support@unreceipt.com" className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2">
             support@unreceipt.com
           </a>{" "}
-          and we&apos;ll send it to you.
+          and we&apos;ll confirm it with you.
         </p>
-      ) : (
-        <IntakeRow callout="Gmail's code" value={confirmation.code} mono={false} copyLabel="Copy Gmail confirmation code" quiet />
       )}
     </div>
   );

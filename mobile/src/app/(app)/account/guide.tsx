@@ -131,8 +131,12 @@ function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
   const styles = useStyles();
   const colors = useColors();
   const c = status?.confirmation ?? null;
+  const address = c?.forAddress ?? s.forwarding.someGmail;
+  // Gmail's email now carries a link and no code (2026-11-13). The server
+  // sends confirmUrl only when it is exactly Gmail's own page.
+  const link = c?.confirmUrl ?? null;
   // Said once when Gmail's email lands (the screen polls for it).
-  const state = c?.autoConfirmed ? "auto" : !c ? "waiting" : c.code ? "code" : "unreadable";
+  const state = c?.autoConfirmed ? "auto" : !c ? "waiting" : link ? "link" : c.code ? "code" : "unreadable";
   useEffect(() => {
     if (state === "waiting") return;
     void Haptics.notificationAsync(
@@ -140,35 +144,19 @@ function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
     );
     AccessibilityInfo.announceForAccessibility(
       state === "auto"
-        ? fill(s.forwarding.codeAuto, { address: c?.forAddress ?? "" })
-        : state === "unreadable"
-          ? s.forwarding.codeUnreadable
-          : `${s.forwarding.codeLabel}: ${(c?.code ?? "").split("").join(" ")}`,
+        ? fill(s.forwarding.codeAuto, { address })
+        : state === "link"
+          ? fill(s.forwarding.codeLink, { address })
+          : state === "unreadable"
+            ? s.forwarding.codeUnreadable
+            : `${s.forwarding.codeLabel}: ${(c?.code ?? "").split("").join(" ")}`,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per state change
   }, [state]);
-  if (c?.autoConfirmed) {
-    return (
-      <Text variant="body" color={colors.ink}>
-        {fill(s.forwarding.codeAuto, { address: c.forAddress ?? "" })}
-      </Text>
-    );
-  }
-  if (!c) {
-    return (
-      <Text variant="body" color={colors.inkMuted}>
-        {s.forwarding.codeWaiting}
-      </Text>
-    );
-  }
-  if (!c.code) {
-    return (
-      <Text variant="body" color={colors.attentionDeep}>
-        {s.forwarding.codeUnreadable}
-      </Text>
-    );
-  }
-  return (
+  const confirmButton = link ? (
+    <Button label={s.forwarding.confirmInGmail} kind="outline" onPress={() => void WebBrowser.openBrowserAsync(link)} />
+  ) : null;
+  const codeCard = c?.code ? (
     <View style={styles.codeCard}>
       <Text variant="micro" color={colors.inkMuted}>
         {s.forwarding.codeLabel}
@@ -178,7 +166,57 @@ function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
       </Text>
       <Button label={s.forwarding.copy} kind="outline" onPress={() => copy(c.code as string)} />
     </View>
-  );
+  ) : null;
+  if (c?.autoConfirmed) {
+    return (
+      <View style={styles.extra}>
+        <Text variant="body" color={colors.ink}>
+          {fill(s.forwarding.codeAuto, { address })}
+        </Text>
+        {confirmButton ? (
+          <>
+            <Text variant="body" color={colors.inkMuted}>
+              {s.forwarding.codeAutoFallback}
+            </Text>
+            {confirmButton}
+          </>
+        ) : null}
+      </View>
+    );
+  }
+  if (!c) {
+    return (
+      <Text variant="body" color={colors.inkMuted}>
+        {s.forwarding.codeWaiting}
+      </Text>
+    );
+  }
+  if (confirmButton) {
+    return (
+      <View style={styles.extra}>
+        <Text variant="body" color={colors.ink}>
+          {fill(s.forwarding.codeLink, { address })}
+        </Text>
+        {confirmButton}
+        {codeCard ? (
+          <>
+            <Text variant="body" color={colors.inkMuted}>
+              {s.forwarding.codeOr}
+            </Text>
+            {codeCard}
+          </>
+        ) : null}
+      </View>
+    );
+  }
+  if (!codeCard) {
+    return (
+      <Text variant="body" color={colors.attentionDeep}>
+        {s.forwarding.codeUnreadable}
+      </Text>
+    );
+  }
+  return codeCard;
 }
 
 function TestBox({ status, since }: { status: MobileForwardingStatus | null; since: number }) {
@@ -365,7 +403,7 @@ export default function GuideScreen() {
   const code = status?.confirmation;
   const nextLabel = last
     ? s.forwarding.done
-    : step.extra === "code" && code?.code && !code.autoConfirmed
+    : step.extra === "code" && (code?.code || code?.confirmUrl) && !code.autoConfirmed
       ? s.forwarding.verified
       : s.forwarding.next;
 

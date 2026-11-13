@@ -534,9 +534,11 @@ describe("POST /api/intake/email", () => {
       expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
 
       expect(googleFetch).not.toHaveBeenCalled();
+      // The link is kept, so the guide can offer "Confirm in Gmail" to the
+      // alias owner (who sees which account asks before confirming).
       expect(mocks.upsert).toHaveBeenCalledWith(
         "email_forwarding_confirmations",
-        expect.objectContaining({ code: "593872831", auto_confirmed_at: null }),
+        expect.objectContaining({ code: "593872831", auto_confirmed_at: null, confirm_url: CONFIRM_LINK }),
         { onConflict: "user_id" },
       );
     });
@@ -552,6 +554,7 @@ describe("POST /api/intake/email", () => {
 
       expect(mocks.upsert).toHaveBeenCalledTimes(2);
       expect(mocks.upsert.mock.calls[1][1]).not.toHaveProperty("auto_confirmed_at");
+      expect(mocks.upsert.mock.calls[1][1]).not.toHaveProperty("confirm_url");
       expect(mocks.upsert.mock.calls[1][1]).toMatchObject({ code: "593872831" });
     });
   });

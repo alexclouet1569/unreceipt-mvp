@@ -233,7 +233,7 @@ export interface Profile {
   updated_at: string;
 }
 
-// Latest Gmail forwarding confirmation code sent to a user's alias
+// Latest Gmail forwarding confirmation sent to a user's alias
 // (public.email_forwarding_confirmations), shown in the forwarding guide.
 export interface EmailForwardingConfirmation {
   user_id: string;
@@ -243,6 +243,8 @@ export interface EmailForwardingConfirmation {
   received_at: string;
   // Set when /api/intake/email confirmed the request itself (2026-11-08).
   auto_confirmed_at: string | null;
+  // Gmail's own confirmation page, offered as "Confirm in Gmail" (2026-11-13).
+  confirm_url: string | null;
 }
 
 // An address the user declared as their own (public.user_email_addresses):

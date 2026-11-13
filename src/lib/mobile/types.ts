@@ -328,6 +328,15 @@ export type MobileForwarding = {
 
 /** GET /api/forwarding/status, as the guide polls it. */
 export type MobileForwardingStatus = {
-  confirmation: { code: string | null; forAddress: string | null; receivedAt: string; autoConfirmed?: boolean } | null;
+  confirmation: {
+    code: string | null;
+    forAddress: string | null;
+    receivedAt: string;
+    autoConfirmed?: boolean;
+    // Gmail's own confirmation page (mail-settings.google.com/mail/vf-…):
+    // Gmail's current email has this link and no code. Absent from older
+    // servers.
+    confirmUrl?: string | null;
+  } | null;
   lastEmailAt: string | null;
 };

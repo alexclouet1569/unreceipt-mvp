@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
+import { isGmailConfirmUrl, parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 
 const BODY = `anna.svensson@gmail.com has requested to automatically forward mail to your email
 address receipts+abc12345mn@in.unreceipt.com.
@@ -22,6 +22,36 @@ describe("parseForwardingConfirmation", () => {
         text: BODY,
       }),
     ).toEqual({ provider: "gmail", code: "593872831", forAddress: "anna.svensson@gmail.com", forAddressExact: true, confirmUrl: null });
+  });
+
+  it("reads Gmail's current format: no code at all, only the confirmation link (seen 2026-11-13)", () => {
+    const link =
+      "https://mail-settings.google.com/mail/vf-%5BANGjdJ_kwASwe7-Afyltugz7xoTg2zHh01jGFOwVrcTRi2M7VXERIxMltoNUAp%5D-RIOIPKF9aEQteQQn2f2v9NVe28U";
+    const text = `anna.svensson@gmail.com has requested to automatically forward mail
+to your email
+address receipts+abc12345mn@in.unreceipt.com.
+
+To allow anna.svensson@gmail.com to automatically forward mail to
+your address,
+please click the link below to confirm the request:
+
+${link}
+
+If you click the link and it appears to be broken, please copy and paste it
+into a new browser window.
+click this link to cancel this
+verification:
+https://mail-settings.google.com/mail/uf-%5BANGjdJ96q7s9mUqFVC_GY5p%5D-RIOIPKF9aEQteQQn2f2v9NVe28U
+`;
+    expect(
+      parseForwardingConfirmation({
+        dmarc: "pass",
+        from: "forwarding-noreply@google.com",
+        // The subject Gmail sent, character for character (no "#code").
+        subject: "(Gmail Forwarding confirmation \u2013 Receive mail from anna.svensson@gmail.com",
+        text,
+      }),
+    ).toEqual({ provider: "gmail", code: null, forAddress: "anna.svensson@gmail.com", forAddressExact: true, confirmUrl: link });
   });
 
   it("falls back to the body when the subject is localised and has no code", () => {
@@ -211,5 +241,25 @@ describe("Gmail auto-confirmation, hostile addresses", () => {
     fetchMock.mockResolvedValueOnce({ status: 200 });
     expect(await confirmGmailForwarding(link)).toBe(true);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("isGmailConfirmUrl", () => {
+  it("accepts only Gmail's own confirmation page", () => {
+    expect(isGmailConfirmUrl("https://mail-settings.google.com/mail/vf-%5BABCDEFGHIJK%5D-XYZ")).toBe(true);
+    for (const bad of [
+      "http://mail-settings.google.com/mail/vf-%5BABCDEFGHIJK%5D-XYZ",
+      "https://mail-settings.google.com.evil.com/mail/vf-%5BABCDEFGHIJK%5D-XYZ",
+      "https://evil.com/?https://mail-settings.google.com/mail/vf-%5BABCDEFGHIJK%5D",
+      "https://mail-settings.google.com/mail/uf-%5BABCDEFGHIJK%5D-XYZ",
+      "https://mail-settings.google.com/mail/vf-%5BABCDEFGHIJK%5D-XYZ?next=https://evil.com",
+      "https://mail-settings.google.com/mail/vf-%5BABCDEFGHIJK%5D-XYZ#x",
+      "javascript:alert(1)//https://mail-settings.google.com/mail/vf-%5BABCDEFGHIJK%5D",
+      "https://mail-settings.google.com/mail/vf-short",
+      null,
+      42,
+    ]) {
+      expect(isGmailConfirmUrl(bad)).toBe(false);
+    }
   });
 });

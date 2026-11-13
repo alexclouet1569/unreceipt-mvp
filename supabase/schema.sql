@@ -1712,3 +1712,18 @@ ALTER TABLE public.receipts ADD COLUMN IF NOT EXISTS client_upload_id UUID;
 
 CREATE UNIQUE INDEX IF NOT EXISTS receipts_user_client_upload_unique
   ON public.receipts(user_id, client_upload_id) WHERE client_upload_id IS NOT NULL;
+
+-- =============================================================================
+-- 2026-11-13 — Gmail's confirmation link for the forwarding guide
+-- =============================================================================
+-- Gmail's "confirm forwarding" email now carries only a link
+-- (mail-settings.google.com/mail/vf-…), no code, while Gmail's settings
+-- screen still shows a code box. /api/intake/email keeps that link (only
+-- when it is exactly Gmail's own page, isGmailConfirmUrl()) so the guide
+-- can offer "Confirm in Gmail". Same lifetime as the code: the daily
+-- cleanup deletes the row after 7 days. Service role only (RLS on, no
+-- policies, as before). Intake works without this column (it falls back
+-- to saving without the link).
+
+ALTER TABLE public.email_forwarding_confirmations
+  ADD COLUMN IF NOT EXISTS confirm_url TEXT;

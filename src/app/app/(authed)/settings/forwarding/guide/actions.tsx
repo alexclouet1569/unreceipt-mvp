@@ -132,14 +132,18 @@ export const CHAPTERS: Record<Provider, Chapter[]> = {
         {
           id: "gmail-code",
           scene: GMAIL_SCENES["gmail-verify"],
-          text: ({ lang, autoConfirmed }) =>
-            autoConfirmed ? (
-              "Nothing to type: we confirmed it for you"
-            ) : (
-              <>
-                Paste Gmail&apos;s code next to your address, then click <Q label={GMAIL.verify} lang={lang} />
-              </>
-            ),
+          // Gmail's email now has a link and no code, while Gmail's settings
+          // still show a code box: never ask for a code that doesn't exist.
+          text: ({ autoConfirmed }) =>
+            autoConfirmed
+              ? "Nothing to type: we confirmed it for you. Reload Gmail"
+              : "Confirm with Gmail's link below, then reload Gmail",
+          hint: ({ lang }) => (
+            <>
+              Leave Gmail&apos;s code box empty: Gmail now confirms with a link, not a code. After you reload, your
+              address no longer asks you to <Q label={GMAIL.verify} lang={lang} />.
+            </>
+          ),
           extra: "code",
         },
         {

@@ -58,10 +58,27 @@ describe("/api/forwarding/status", () => {
     mocks.latest = { data: { created_at: "2026-10-16T12:00:00Z" }, error: null };
     const body = await (await GET()).json();
     expect(body).toEqual({
-      confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt, autoConfirmed: false },
+      confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt, autoConfirmed: false, confirmUrl: null },
       lastEmailAt: "2026-10-16T12:00:00Z",
     });
     expect(mocks.eqs.filter(([c]) => c === "user_id").every(([, v]) => v === mocks.user?.id)).toBe(true);
+  });
+
+  it("offers Gmail's confirmation link, and only Gmail's own page", async () => {
+    const receivedAt = new Date().toISOString();
+    const link = "https://mail-settings.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456";
+    mocks.confirmation = {
+      data: { code: null, for_address: "anna@gmail.com", received_at: receivedAt, confirm_url: link },
+      error: null,
+    };
+    expect((await (await GET()).json()).confirmation).toMatchObject({ code: null, confirmUrl: link });
+
+    // A stored value that isn't exactly Gmail's page is never sent out.
+    mocks.confirmation = {
+      data: { code: null, for_address: "anna@gmail.com", received_at: receivedAt, confirm_url: "https://evil.example/vf-x" },
+      error: null,
+    };
+    expect((await (await GET()).json()).confirmation.confirmUrl).toBeNull();
   });
 
   it("drops a code older than 7 days", async () => {

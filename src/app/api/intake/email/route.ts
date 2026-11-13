@@ -288,7 +288,8 @@ export async function POST(request: NextRequest) {
   const dmarc = content.authentication?.dmarc ?? null;
 
   // Gmail's "confirm this forwarding address" email isn't a receipt: keep
-  // its code for the setup guide and stop here. 500 on a failed write so
+  // its link (and code, in the older format) for the setup guide and stop
+  // here. 500 on a failed write so
   // Resend retries; the user can't finish the Gmail setup without it.
   const confirmation = parseForwardingConfirmation({
     from: fromAddr,
@@ -317,13 +318,19 @@ export async function POST(request: NextRequest) {
       for_address: confirmation.forAddress,
       received_at: new Date().toISOString(),
     };
-    const save = (withAuto: boolean) =>
+    const save = (full: boolean) =>
       supabase
         .from("email_forwarding_confirmations")
-        .upsert(withAuto ? { ...row, auto_confirmed_at: autoConfirmedAt } : row, { onConflict: "user_id" });
+        .upsert(
+          full
+            ? { ...row, auto_confirmed_at: autoConfirmedAt, confirm_url: confirmation.confirmUrl }
+            : row,
+          { onConflict: "user_id" },
+        );
     let { error: confirmationError } = await save(true);
-    // The 2026-11-08 column isn't there yet (schema.sql not applied): keep
-    // the code, which is all the guide needs.
+    // A newer column isn't there yet (schema.sql not re-applied: 2026-11-08
+    // auto_confirmed_at, 2026-11-13 confirm_url): keep what the old table
+    // holds rather than lose the email.
     if (confirmationError?.code === "PGRST204" || confirmationError?.code === "42703") {
       ({ error: confirmationError } = await save(false));
     }

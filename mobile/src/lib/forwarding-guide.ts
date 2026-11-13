@@ -55,7 +55,16 @@ export const GUIDE: Record<GuideProvider, GuideStep[]> = {
     { id: "gmail-paste", chapter: "gmailAdd", text: "pasteThenClick", labels: { button: ["gmail", "next"] }, extra: "copyAddress" },
     { id: "gmail-proceed", chapter: "gmailAdd", text: "gmailProceed", labels: { button: ["gmail", "proceed"] }, hint: "gmailProceed" },
     { id: "gmail-ok", chapter: "gmailAdd", text: "click", labels: { button: ["gmail", "ok"] } },
-    { id: "gmail-code", chapter: "gmailConfirm", text: "gmailCode", labels: { button: ["gmail", "verify"] }, extra: "code" },
+    // Gmail's email now has a link and no code (2026-11-13): the step never
+    // asks for a code; the hint says to leave Gmail's code box empty.
+    {
+      id: "gmail-code",
+      chapter: "gmailConfirm",
+      text: "gmailCode",
+      extra: "code",
+      hint: "gmailCode",
+      hintLabels: { button: ["gmail", "verify"] },
+    },
     {
       id: "gmail-leave",
       chapter: "gmailConfirm",
