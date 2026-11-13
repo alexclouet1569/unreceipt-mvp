@@ -50,6 +50,10 @@ describe("OAuth helpers", () => {
     expect(providerErrorReason("access_denied", "AADSTS65001: The user or administrator has not consented")).toBe("admin_consent");
     expect(providerErrorReason("access_denied", "AADSTS90094: Admin consent is required")).toBe("admin_consent");
     expect(providerErrorReason("consent_required", null)).toBe("admin_consent");
+    expect(providerErrorReason("access_denied", "AADSTS90095: Admin consent is required for the permissions")).toBe("admin_consent");
+    expect(providerErrorReason("invalid_request", "AADSTS50105: Your administrator has configured the application")).toBe("admin_consent");
+    expect(providerErrorReason("access_denied", "AADSTS53003: Access has been blocked by Conditional Access")).toBe("admin_consent");
+    expect(providerErrorReason("access_denied", "AADSTS65004: User declined to consent to access the app.")).toBe("denied");
     expect(providerErrorReason("server_error", null)).toBe("provider_unavailable");
   });
 

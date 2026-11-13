@@ -301,3 +301,24 @@ export async function listActiveConnections(supabase?: SupabaseClient): Promise<
   if (error) throw new MailboxStoreError("list active", error.code);
   return (data ?? []) as MailboxConnectionRef[];
 }
+
+/**
+ * The active connection of one provider whose push subscription has this id
+ * (a Graph change notification names its subscription, not the mailbox).
+ * Null when none is active: an unknown, replaced or disconnected one.
+ */
+export async function findActiveConnectionByWatchId(
+  provider: MailboxProviderId,
+  watchId: string,
+  supabase?: SupabaseClient,
+): Promise<MailboxConnectionRef | null> {
+  const { data, error } = await db(supabase)
+    .from("mailbox_connections")
+    .select(CONNECTION_COLUMNS)
+    .eq("provider", provider)
+    .eq("watch_id", watchId)
+    .eq("status", "active")
+    .limit(1);
+  if (error) throw new MailboxStoreError("find by watch", error.code);
+  return ((data ?? []) as MailboxConnectionRef[])[0] ?? null;
+}

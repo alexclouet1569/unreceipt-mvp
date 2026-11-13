@@ -100,11 +100,14 @@ export const BACKFILL = { backfillDays: 30, maxMessages: 100 } as const;
 /**
  * The provider's own refusal, as a reason code. Microsoft puts the AADSTS
  * code in error_description: 65001 (consent required), 90094/90095 (admin
- * approval required) mean the user's organisation must approve the app.
+ * approval required), 90099 (app not authorised in the tenant), 50105 (the
+ * tenant lets only assigned users use the app) and 53003 (blocked by a
+ * Conditional Access policy) mean the user's organisation must approve
+ * the app. 65004 (the user declined) arrives as access_denied.
  */
 export function providerErrorReason(error: string, description: string | null): ResultReason {
   const text = `${error} ${description ?? ""}`;
-  if (/AADSTS(65001|90094|90095|90099)\b/.test(text) || /admin[_ ]consent|admin approval|need admin/i.test(text)) {
+  if (/AADSTS(65001|90094|90095|90099|50105|53003)\b/.test(text) || /admin[_ ]consent|admin approval|need admin/i.test(text)) {
     return "admin_consent";
   }
   if (error === "consent_required") return "admin_consent";
