@@ -103,6 +103,13 @@ export const RATE_LIMITS = {
     { limit: 20, windowSeconds: 60 * 60 },
     { limit: 60, windowSeconds: 24 * 60 * 60 },
   ],
+  // The iPhone app claiming a parked mailbox grant (POST /api/mailboxes/claim).
+  // One claim per finished flow; the code is 32 random bytes, so this only
+  // stops a loop.
+  mailboxClaim: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per connection, before each Claude call on a mailbox message (steps
   // 3/4): the first backfill reads up to 100 messages, then a mailbox
   // sees a few receipts a day.

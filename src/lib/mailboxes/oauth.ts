@@ -10,13 +10,15 @@
 //                  pair replayed in another browser is refused.
 //
 // Where the flow ends is never taken from the request: the website goes to
-// /app/settings, the iPhone app to unreceipt://mailboxes.
+// /app/settings, the iPhone app to unreceipt://mailboxes. The app's flow
+// never saves the mailbox in the callback: it parks the grant and hands the
+// app a one-time code to claim with its own sign-in (parked.ts).
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { absoluteAppUrl } from "@/lib/app-url";
 import type { MailboxOAuthPending } from "@/lib/types";
-import type { MailboxProviderId } from "./types";
+import { MailboxProviderError, MissingScopeError, type MailboxProviderId } from "./types";
 
 export const PENDING_TTL_MS = 10 * 60 * 1000;
 export const APP_RETURN_URL = "unreceipt://mailboxes";
@@ -82,6 +84,9 @@ export const RESULT_REASONS = [
   "wrong_browser",
   "wrong_account",
   "exchange_failed",
+  // A Microsoft account without an Outlook mailbox (Graph answers
+  // MailboxNotEnabledForRESTAPI): nothing to read.
+  "no_mailbox",
   // The mail permission was unticked on Google's consent screen.
   "scope_missing",
   "limit",
@@ -115,17 +120,39 @@ export function providerErrorReason(error: string, description: string | null): 
   return "provider_unavailable";
 }
 
+/**
+ * Why a code exchange failed, as a reason code. The adapters throw
+ * MissingScopeError when the mail permission was unticked and a
+ * MailboxProviderError("no_mailbox") for a Microsoft account without a
+ * mailbox; anything else is "exchange_failed".
+ */
+export function exchangeErrorReason(err: unknown): ResultReason | null {
+  if (err instanceof MissingScopeError) return "scope_missing";
+  if (err instanceof MailboxProviderError && err.code === "no_mailbox") return "no_mailbox";
+  return null;
+}
+
+export type FlowOutcome =
+  | { status: "connected" }
+  | { status: "error"; reason: ResultReason }
+  | { status: "cancelled" }
+  // iPhone app only: the grant is parked; the app claims it with `code`.
+  | { status: "claim"; code: string; provider: MailboxProviderId };
+
 /** Where a finished (or failed) flow sends the browser. Fixed targets only. */
-export function resultUrl(
-  client: OAuthClient,
-  outcome: { status: "connected" } | { status: "error"; reason: ResultReason } | { status: "cancelled" },
-): string {
+export function resultUrl(client: OAuthClient, outcome: FlowOutcome): string {
   const params = new URLSearchParams();
   if (client === "app") {
     params.set("status", outcome.status);
     if (outcome.status === "error") params.set("reason", outcome.reason);
+    if (outcome.status === "claim") {
+      params.set("code", outcome.code);
+      params.set("provider", outcome.provider);
+    }
     return `${APP_RETURN_URL}?${params}`;
   }
+  // The website never parks: a claim outcome there is a programming error.
+  if (outcome.status === "claim") throw new Error("claim outcome is for the iPhone app only");
   params.set("mailbox", outcome.status === "connected" ? "connected" : outcome.status === "cancelled" ? "cancelled" : "error");
   if (outcome.status === "error") params.set("reason", outcome.reason);
   return absoluteAppUrl(`/app/settings?${params}`);

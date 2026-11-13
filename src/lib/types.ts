@@ -428,3 +428,20 @@ export interface MailboxOAuthPending {
   created_at: string;
   expires_at: string;
 }
+
+// The iPhone app's claim step (2026-11-13, src/lib/mailboxes/parked.ts): an
+// app flow's grant waits here until the app claims it with its own sign-in.
+// Taken out on claim (single use), 10 minutes, service role only.
+export interface MailboxOAuthParked {
+  // sha256 hex of the one-time code in the unreceipt:// redirect.
+  code_hash: string;
+  // Who minted the connect link: the only user who may claim it.
+  user_id: string;
+  provider: MailboxProviderId;
+  // Lowercased.
+  email: string;
+  // "v1.<iv>.<tag>.<ciphertext>", AAD bound to user_id.
+  refresh_token_enc: string;
+  created_at: string;
+  expires_at: string;
+}

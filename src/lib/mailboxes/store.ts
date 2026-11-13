@@ -7,7 +7,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import type { MailboxConnection, MailboxConnectionStatus } from "@/lib/types";
+import type { MobileMailboxConnection } from "@/lib/mobile/types";
+import type { MailboxConnection } from "@/lib/types";
 import { decryptToken, encryptToken } from "./crypto";
 import type { MailboxConnectionRef, MailboxProviderId } from "./types";
 
@@ -29,15 +30,7 @@ export class MailboxStoreError extends Error {
 }
 
 /** What the website and the iPhone app see: never the token or the cursor. */
-export type MailboxConnectionSummary = {
-  id: string;
-  provider: MailboxProviderId;
-  email: string;
-  status: MailboxConnectionStatus;
-  lastReceiptAt: string | null;
-  lastSyncAt: string | null;
-  createdAt: string;
-};
+export type MailboxConnectionSummary = MobileMailboxConnection;
 
 export function toSummary(conn: MailboxConnectionRef): MailboxConnectionSummary {
   return {

@@ -8,6 +8,7 @@ import {
   bindingMatches,
   createPending,
   deleteExpiredPending,
+  exchangeErrorReason,
   maskAddress,
   newPkce,
   providerErrorReason,
@@ -15,6 +16,7 @@ import {
   sha256Hex,
   takePending,
 } from "../oauth";
+import { MailboxProviderError, MissingScopeError } from "../types";
 import { createFakeDb } from "./fake-db";
 
 const USER = "11111111-1111-4111-8111-111111111111";
@@ -43,6 +45,18 @@ describe("OAuth helpers", () => {
     );
     expect(resultUrl("app", { status: "error", reason: "limit" })).toBe("unreceipt://mailboxes?status=error&reason=limit");
     expect(resultUrl("app", { status: "connected" })).toBe("unreceipt://mailboxes?status=connected");
+    expect(resultUrl("app", { status: "claim", code: "c0de", provider: "microsoft" })).toBe(
+      "unreceipt://mailboxes?status=claim&code=c0de&provider=microsoft",
+    );
+    // The website never parks.
+    expect(() => resultUrl("web", { status: "claim", code: "c0de", provider: "google" })).toThrow();
+  });
+
+  it("names the exchange failures that aren't ours", () => {
+    expect(exchangeErrorReason(new MissingScopeError("google"))).toBe("scope_missing");
+    expect(exchangeErrorReason(new MailboxProviderError("no_mailbox", 404))).toBe("no_mailbox");
+    expect(exchangeErrorReason(new MailboxProviderError("exchange_failed", 400))).toBeNull();
+    expect(exchangeErrorReason(new Error("boom"))).toBeNull();
   });
 
   it("names the provider's refusals", () => {

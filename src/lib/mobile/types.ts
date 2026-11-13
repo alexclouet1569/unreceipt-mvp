@@ -3,7 +3,13 @@
 // `import type`, which disappears at build time, so the server and the app
 // share one definition without the app ever bundling server code.
 
-import type { ReceiptCategory, ReceiptSource, ReceiptStatus } from "@/lib/types";
+import type {
+  MailboxConnectionStatus,
+  MailboxProviderId,
+  ReceiptCategory,
+  ReceiptSource,
+  ReceiptStatus,
+} from "@/lib/types";
 import type { RequiredField } from "@/lib/receipts/status";
 
 export type MobileReceipt = {
@@ -344,3 +350,42 @@ export type MobileForwardingStatus = {
   } | null;
   lastEmailAt: string | null;
 };
+
+/**
+ * One connected Gmail/Outlook mailbox (Account → Your email). Never the
+ * token or the sync cursor. "needs_reconnect": the provider refused the
+ * grant; connecting the same address again fixes it.
+ */
+export type MobileMailboxConnection = {
+  id: string;
+  provider: MailboxProviderId;
+  email: string;
+  status: MailboxConnectionStatus;
+  lastReceiptAt: string | null;
+  lastSyncAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * GET /api/mobile/mailboxes (same body as GET /api/mailboxes): the user's
+ * mailboxes, which providers can be connected right now, and the per-user
+ * limit (a new address past it is refused).
+ */
+export type MobileMailboxes = {
+  connections: MobileMailboxConnection[];
+  providers: Record<MailboxProviderId, boolean>;
+  limit: number;
+};
+
+/**
+ * POST /api/mailboxes/claim { code }, with the code from
+ * unreceipt://mailboxes?status=claim&code=<code>&provider=<id>.
+ * 200 ok · 400/404 invalid (malformed, unknown or already used) · 410
+ * expired · 403 wrong_account (the connect link was another account's) ·
+ * 409 limit · 500 server_error. Every refusal after the code was read has
+ * already revoked the grant: the user starts again from "Connect".
+ */
+export type MobileMailboxClaim =
+  | { ok: true; connection: MobileMailboxConnection }
+  | { error: "invalid" | "expired" | "wrong_account" | "server_error" }
+  | { error: "limit"; limit: number };

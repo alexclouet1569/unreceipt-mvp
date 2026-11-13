@@ -8,9 +8,17 @@
 // website also require the signed-in user to be the one who started it.
 // A refusal on the provider's screen (access_denied, or a Microsoft tenant
 // that needs its admin's consent) ends with a clear reason. Then exchange
-// the code, store the mailbox (re-connecting an address replaces its token;
-// a new one is refused past 5), start push notifications, and queue the
-// first 30-day backfill with after().
+// the code.
+//
+// Website: save the mailbox, start push and queue the first 30-day backfill
+// (completeConnection(), src/lib/mailboxes/complete.ts).
+//
+// iPhone app: NEVER saved here. The sign-in sheet has no session, so nothing
+// proves the person who approved is the user who minted the connect link.
+// The grant is parked (src/lib/mailboxes/parked.ts) and the browser goes to
+// unreceipt://mailboxes?status=claim&code=<one-time code>&provider=<id>; the
+// app then claims it with its own sign-in (POST /api/mailboxes/claim), which
+// only the link's user can do.
 //
 // The browser ends on a fixed page: /app/settings?mailbox=… on the website,
 // unreceipt://mailboxes?status=… in the iPhone app. Never a target from the
@@ -20,27 +28,26 @@
 // a mailbox belongs to whoever authorised it on the provider's screen.
 
 import * as Sentry from "@sentry/nextjs";
-import { after, NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { forgetAccessToken, primeAccessToken } from "@/lib/mailboxes/access-token";
+import { completeConnection } from "@/lib/mailboxes/complete";
 import {
   bindingCookieName,
   bindingCookieOptions,
   bindingMatches,
-  BACKFILL,
+  exchangeErrorReason,
   providerErrorReason,
   redirectUri,
   resultUrl,
   takePending,
+  type FlowOutcome,
   type OAuthClient,
   type ResultReason,
 } from "@/lib/mailboxes/oauth";
+import { parkGrant } from "@/lib/mailboxes/parked";
 import { configuredProvider } from "@/lib/mailboxes/providers";
 import { noStore } from "@/lib/mailboxes/start-flow";
-import { recordError, saveConnection, updateWatch } from "@/lib/mailboxes/store";
-import { syncConnection } from "@/lib/mailboxes/sync";
-import { MissingScopeError, ReauthRequiredError, type MailboxConnectionRef } from "@/lib/mailboxes/types";
 import { withTimeout } from "@/lib/with-timeout";
 
 export const runtime = "nodejs";
@@ -60,7 +67,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   const state = search.get("state") ?? "";
   const cookieName = state ? bindingCookieName(state) : null;
 
-  const finish = (client: OAuthClient, outcome: { status: "connected" } | { status: "error"; reason: ResultReason }) => {
+  const finish = (client: OAuthClient, outcome: FlowOutcome) => {
     const res = noStore(NextResponse.redirect(resultUrl(client, outcome), 303));
     if (cookieName) res.cookies.set(cookieName, "", bindingCookieOptions(0));
     return res;
@@ -103,59 +110,46 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       redirectUri: redirectUri(provider.id),
     });
   } catch (err) {
-    // Not an error on our side: the user granted sign-in but not mail.
-    if (err instanceof MissingScopeError) return fail(client, "scope_missing");
+    // Not errors on our side: the user granted sign-in but not mail, or a
+    // Microsoft account has no mailbox to read.
+    const known = exchangeErrorReason(err);
+    if (known) return fail(client, known);
     Sentry.captureException(err, { tags: { area: "mailboxes", step: "exchange", provider: provider.id } });
     return fail(client, "exchange_failed");
   }
 
-  let conn: MailboxConnectionRef;
-  try {
-    const saved = await saveConnection(
-      { userId: pending.user_id, provider: provider.id, email: tokens.email, refreshToken: tokens.refreshToken },
-      supabase,
-    );
-    if (!saved.ok) {
-      // Not stored, so not kept at the provider either.
-      await withTimeout("mailbox revoke", 8000, provider.revoke(tokens.refreshToken)).catch(() => {});
-      return fail(client, saved.error === "limit" ? "limit" : "exchange_failed");
-    }
-    conn = saved.conn;
-  } catch (err) {
-    Sentry.captureException(err, { tags: { area: "mailboxes", step: "save", provider: provider.id } });
-    return fail(client, "server_error");
-  }
-
-  forgetAccessToken(conn.id);
-  primeAccessToken(conn.id, tokens.accessToken, tokens.expiresAt);
-
-  // Push notifications. A failure doesn't undo the connection: the daily
-  // job starts the watch again.
-  try {
-    const watch = await provider.startWatch(conn, tokens.accessToken);
-    await updateWatch(conn.id, watch, supabase);
-    conn = {
-      ...conn,
-      watch_id: watch.watchId,
-      watch_expires_at: watch.expiresAt,
-      cursor: watch.cursor ?? conn.cursor,
-    };
-  } catch (err) {
-    Sentry.captureException(err, { tags: { area: "mailboxes", step: "start_watch", provider: provider.id } });
-    await recordError(conn.id, "watch_failed", supabase).catch(() => {});
-  }
-
-  const backfillFor = conn;
-  after(async () => {
+  if (client === "app") {
+    let reason: ResultReason;
     try {
-      // Stops in time to save its cursor inside maxDuration.
-      await syncConnection(backfillFor, { ...BACKFILL, deadline: startedAt + (maxDuration - 20) * 1000 }, { supabase });
+      const parked = await parkGrant(supabase, {
+        userId: pending.user_id,
+        provider: provider.id,
+        email: tokens.email,
+        refreshToken: tokens.refreshToken,
+      });
+      if (parked.ok) return finish(client, { status: "claim", code: parked.code, provider: provider.id });
+      reason = "exchange_failed";
     } catch (err) {
-      if (!(err instanceof ReauthRequiredError)) {
-        Sentry.captureException(err, { tags: { area: "mailboxes", step: "backfill", provider: backfillFor.provider } });
-      }
+      Sentry.captureException(err, { tags: { area: "mailboxes", step: "park", provider: provider.id } });
+      reason = "server_error";
     }
-  });
+    // Not parked, so not kept at the provider either.
+    await withTimeout("mailbox revoke", 8000, provider.revoke(tokens.refreshToken)).catch(() => {});
+    return fail(client, reason);
+  }
 
+  const done = await completeConnection({
+    provider,
+    userId: pending.user_id,
+    email: tokens.email,
+    refreshToken: tokens.refreshToken,
+    accessToken: { token: tokens.accessToken, expiresAt: tokens.expiresAt },
+    startedAt,
+    maxDurationSeconds: maxDuration,
+    supabase,
+  });
+  if (!done.ok) {
+    return fail(client, done.reason === "limit" ? "limit" : done.reason === "invalid_email" ? "exchange_failed" : "server_error");
+  }
   return finish(client, { status: "connected" });
 }

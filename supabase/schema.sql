@@ -1833,3 +1833,37 @@ CREATE INDEX IF NOT EXISTS mailbox_oauth_pending_expires_idx
 
 ALTER TABLE public.mailbox_oauth_pending ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.mailbox_oauth_pending FROM anon, authenticated;
+
+-- =============================================================================
+-- 2026-11-13 — Connected mailboxes: app claim step
+-- =============================================================================
+-- The iPhone app's "Connect Gmail/Outlook" runs in the system sign-in sheet,
+-- which has no UnReceipt session, so the OAuth callback can't tell who
+-- approved. It no longer saves an app flow's mailbox: it parks the grant here
+-- and sends the device that approved a one-time code
+-- (unreceipt://mailboxes?status=claim&code=…); the app claims it with its own
+-- sign-in (POST /api/mailboxes/claim), which succeeds only for the user who
+-- minted the connect link (src/lib/mailboxes/parked.ts).
+--
+-- code_hash is the sha256 of the code (the code itself is never stored).
+-- refresh_token_enc is encrypted like mailbox_connections' (AES-256-GCM,
+-- MAILBOX_TOKEN_KEY), bound to user_id. A claim deletes the row before using
+-- it (single use); rows live 10 minutes, and the daily cleanup
+-- (/api/cron/cleanup-exports) revokes and deletes expired ones. Service role
+-- only: RLS on, no policies, every grant revoked. Rows cascade with the user.
+
+CREATE TABLE IF NOT EXISTS public.mailbox_oauth_parked (
+  code_hash TEXT PRIMARY KEY CHECK (code_hash ~ '^[0-9a-f]{64}$'),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  email TEXT NOT NULL CHECK (char_length(email) BETWEEN 3 AND 254),
+  refresh_token_enc TEXT NOT NULL CHECK (refresh_token_enc ~ '^v[0-9]+\.'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS mailbox_oauth_parked_expires_idx
+  ON public.mailbox_oauth_parked(expires_at);
+
+ALTER TABLE public.mailbox_oauth_parked ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.mailbox_oauth_parked FROM anon, authenticated;

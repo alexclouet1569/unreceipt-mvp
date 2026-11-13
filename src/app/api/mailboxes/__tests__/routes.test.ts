@@ -1,7 +1,7 @@
 // @vitest-environment node
 // /api/mailboxes/* with a fake provider (standing in for Gmail) and an
 // in-memory database: connect (website and iPhone app link), callback,
-// list, disconnect and the app's connect link.
+// the app's claim, list, disconnect and the app's connect link.
 
 import { createHash, randomBytes } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -55,6 +55,7 @@ import { sha256Hex } from "@/lib/mailboxes/oauth";
 import { forgetAccessToken } from "@/lib/mailboxes/access-token";
 import { GET as connectGET, POST as connectPOST } from "@/app/api/mailboxes/connect/[provider]/route";
 import { GET as callbackGET } from "@/app/api/mailboxes/callback/[provider]/route";
+import { POST as claimPOST } from "@/app/api/mailboxes/claim/route";
 import { POST as linkPOST } from "@/app/api/mailboxes/connect-link/route";
 import { GET as listGET } from "@/app/api/mailboxes/route";
 import { DELETE as deleteRoute } from "@/app/api/mailboxes/[id]/route";
@@ -87,6 +88,48 @@ const callback = (query: string, cookie?: string) =>
     params({ provider: "google" }),
   );
 
+/**
+ * The iPhone app's whole flow in the sign-in sheet (no session there): the
+ * link minted for `linkUser`, Continue, the provider, the callback. Returns
+ * the callback's redirect.
+ */
+async function appFlow(linkUser = USER): Promise<NextResponse> {
+  const signedIn = mocks.user;
+  mocks.user = null;
+  const token = signConnectLink({ userId: linkUser, provider: "google" }).token;
+  const start = await connectPOST(
+    req("/api/mailboxes/connect/google", {
+      method: "POST",
+      headers: { origin: `https://${HOST}`, "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ link: token }).toString(),
+    }),
+    params({ provider: "google" }),
+  );
+  const [cookie] = start.cookies.getAll();
+  const state = mocks.db.tables.mailbox_oauth_pending.at(-1)!.nonce as string;
+  const res = await callback(`state=${state}&code=4/abc`, `${cookie.name}=${cookie.value}`);
+  mocks.user = signedIn;
+  return res;
+}
+
+/** The one-time code from unreceipt://mailboxes?status=claim&code=…. */
+function claimCode(res: Response): string {
+  const url = new URL(location(res));
+  expect(url.protocol + url.host + url.pathname).toBe("unreceipt:mailboxes");
+  expect(url.searchParams.get("status")).toBe("claim");
+  expect(url.searchParams.get("provider")).toBe("google");
+  return url.searchParams.get("code")!;
+}
+
+const claim = (body: unknown, headers: Record<string, string> = {}) =>
+  claimPOST(
+    req("/api/mailboxes/claim", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    }),
+  );
+
 function seedConnections(userId: string, n: number) {
   for (let i = 0; i < n; i++) {
     mocks.db.tables.mailbox_connections.push({
@@ -111,7 +154,7 @@ function seedConnections(userId: string, n: number) {
 beforeEach(() => {
   process.env.MAILBOX_TOKEN_KEY = randomBytes(32).toString("base64");
   process.env.MAILBOX_STATE_SECRET = "a-test-secret-that-is-long-enough-1234567890";
-  mocks.db = createFakeDb({ mailbox_connections: [], mailbox_oauth_pending: [] });
+  mocks.db = createFakeDb({ mailbox_connections: [], mailbox_oauth_pending: [], mailbox_oauth_parked: [] });
   mocks.user = { id: USER, email: "anna@acme.se" };
   mocks.users = { [USER]: { id: USER, email: "anna@acme.se" }, [OTHER]: { id: OTHER, email: "eve@evil.test" } };
   mocks.limit.mockReset().mockResolvedValue({ ok: true });
@@ -335,22 +378,45 @@ describe("GET /api/mailboxes/callback/[provider]", () => {
     expect(location(await callback("code=y"))).toContain("reason=invalid_state");
   });
 
-  it("ends the app's flow in the app, without a session", async () => {
-    mocks.user = null;
-    const token = signConnectLink({ userId: USER, provider: "google" }).token;
-    const start = await connectPOST(
-      req("/api/mailboxes/connect/google", {
-        method: "POST",
-        headers: { origin: `https://${HOST}`, "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ link: token }).toString(),
-      }),
-      params({ provider: "google" }),
+  it("never saves an app flow's mailbox: it parks the grant and hands the app a one-time code", async () => {
+    const res = await appFlow();
+    const code = claimCode(res);
+    expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(res.cookies.getAll()[0]).toMatchObject({ value: "", maxAge: 0 });
+
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+    expect(fakeProvider.startWatch).not.toHaveBeenCalled();
+    await Promise.all(mocks.afterTasks);
+    expect(fakeProvider.sync).not.toHaveBeenCalled();
+
+    const [parked] = mocks.db.tables.mailbox_oauth_parked;
+    expect(parked).toMatchObject({ code_hash: sha256Hex(code), user_id: USER, provider: "google", email: "anna@gmail.com" });
+    // Neither the code nor the token is stored in the clear.
+    expect(JSON.stringify(parked)).not.toContain(code);
+    expect(JSON.stringify(parked)).not.toContain("1//refresh-token-secret");
+    expect(parked.refresh_token_enc).toMatch(/^v1\./);
+    expect(Date.parse(parked.expires_at as string) - Date.now()).toBeLessThanOrEqual(10 * 60_000);
+  });
+
+  it("revokes the grant when it can't be parked", async () => {
+    mocks.db.failNext.mailbox_oauth_parked = { code: "XX000", message: "down" };
+    const res = await appFlow();
+    expect(location(res)).toBe("unreceipt://mailboxes?status=error&reason=server_error");
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//refresh-token-secret");
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
+  it("names a Microsoft account without a mailbox", async () => {
+    const { MailboxProviderError } = await import("@/lib/mailboxes/types");
+    fakeProvider.exchangeCode.mockRejectedValueOnce(new MailboxProviderError("no_mailbox", 404));
+    const { state, cookie } = await startWebFlow();
+    expect(location(await callback(`state=${state}&code=x`, cookie))).toBe(
+      "https://app.unreceipt.com/app/settings?mailbox=error&reason=no_mailbox",
     );
-    const [cookie] = start.cookies.getAll();
-    const state = mocks.db.tables.mailbox_oauth_pending[0].nonce as string;
-    const res = await callback(`state=${state}&code=4/abc`, `${cookie.name}=${cookie.value}`);
-    expect(location(res)).toBe("unreceipt://mailboxes?status=connected");
-    expect(mocks.db.tables.mailbox_connections[0]).toMatchObject({ user_id: USER });
+    fakeProvider.exchangeCode.mockRejectedValueOnce(new MailboxProviderError("no_mailbox", 404));
+    expect(location(await appFlow())).toBe("unreceipt://mailboxes?status=error&reason=no_mailbox");
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(0);
   });
 
   it("refuses a 6th address (and revokes what it was given) but reconnects a known one at the cap", async () => {
@@ -389,6 +455,146 @@ describe("GET /api/mailboxes/callback/[provider]", () => {
     const res = await callback(`state=${state}&code=x`, cookie);
     expect(location(res)).toBe("https://app.unreceipt.com/app/settings?mailbox=connected");
     expect(mocks.db.tables.mailbox_connections[0]).toMatchObject({ last_error: "watch_failed" });
+  });
+});
+
+describe("POST /api/mailboxes/claim (iPhone app)", () => {
+  it("saves the mailbox for the user who minted the link, starts the watch and the backfill", async () => {
+    const code = claimCode(await appFlow());
+    const res = await claim({ code }); // bearer: no Origin
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    const body = await res.json();
+    const [conn] = mocks.db.tables.mailbox_connections;
+    expect(conn).toMatchObject({ user_id: USER, provider: "google", email: "anna@gmail.com", status: "active" });
+    expect(body).toEqual({
+      ok: true,
+      connection: {
+        id: conn.id,
+        provider: "google",
+        email: "anna@gmail.com",
+        status: "active",
+        lastReceiptAt: null,
+        lastSyncAt: null,
+        createdAt: conn.created_at,
+      },
+    });
+    expect(JSON.stringify(body)).not.toMatch(/refresh|v1\.|cursor/);
+    expect(mocks.limit).toHaveBeenCalledWith("mailboxClaim", USER);
+    // The connection row holds its own encryption of the token.
+    const { getDecryptedToken } = await import("@/lib/mailboxes/store");
+    expect(await getDecryptedToken(conn as never)).toBe("1//refresh-token-secret");
+
+    // The exchange's access token is gone by now: a fresh one starts the watch.
+    expect(fakeProvider.refreshAccessToken).toHaveBeenCalledWith("1//refresh-token-secret");
+    expect(fakeProvider.startWatch).toHaveBeenCalledWith(expect.objectContaining({ id: conn.id }), "ya29.fresh");
+    await Promise.all(mocks.afterTasks);
+    expect(fakeProvider.sync).toHaveBeenCalledWith(
+      expect.objectContaining({ id: conn.id, cursor: "1000" }),
+      "ya29.fresh",
+      { backfillDays: 30, maxMessages: 100, deadline: expect.any(Number) },
+    );
+    expect(mocks.db.tables.mailbox_connections[0].cursor).toBe("1005");
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(0);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    forgetAccessToken(conn.id as string);
+  });
+
+  it("refuses another signed-in user, revokes the grant and forgets it", async () => {
+    // An attacker minted the link for their own account; the victim
+    // approved, and the victim's app (signed in as the victim) claims.
+    const code = claimCode(await appFlow(OTHER));
+    const res = await claim({ code });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "wrong_account" });
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//refresh-token-secret");
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(0);
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+    expect(fakeProvider.startWatch).not.toHaveBeenCalled();
+
+    // The link's own user can't claim it afterwards either.
+    mocks.user = { id: OTHER };
+    const again = await claim({ code });
+    expect(again.status).toBe(404);
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
+  it("works once", async () => {
+    const code = claimCode(await appFlow());
+    expect((await claim({ code })).status).toBe(200);
+    const again = await claim({ code });
+    expect(again.status).toBe(404);
+    expect(await again.json()).toEqual({ error: "invalid" });
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(1);
+    await Promise.all(mocks.afterTasks);
+    forgetAccessToken(mocks.db.tables.mailbox_connections[0].id as string);
+  });
+
+  it("refuses an expired grant and revokes it", async () => {
+    const code = claimCode(await appFlow());
+    mocks.db.tables.mailbox_oauth_parked[0].expires_at = new Date(Date.now() - 1000).toISOString();
+    const res = await claim({ code });
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: "expired" });
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//refresh-token-secret");
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(0);
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
+  });
+
+  it("refuses a 6th address (revoking the grant) but reconnects a known one at the cap", async () => {
+    let code = claimCode(await appFlow());
+    seedConnections(USER, 5);
+    let res = await claim({ code });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "limit", limit: 5 });
+    expect(fakeProvider.revoke).toHaveBeenCalledWith("1//refresh-token-secret");
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(5);
+
+    fakeProvider.exchangeCode.mockResolvedValueOnce({
+      refreshToken: "1//new",
+      accessToken: "at",
+      expiresAt: Date.now() + 3600_000,
+      email: "seed0@gmail.com",
+    });
+    // seed0@gmail.com is already connected: claiming it again is a
+    // reconnect, fine at the cap (a fifth mailbox arrives meanwhile).
+    const fifth = mocks.db.tables.mailbox_connections.pop()!;
+    code = claimCode(await appFlow());
+    mocks.db.tables.mailbox_connections.push(fifth);
+    res = await claim({ code });
+    expect(res.status).toBe(200);
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(5);
+    await Promise.all(mocks.afterTasks);
+  });
+
+  it("refuses the signed-out, cross-site, bad bodies, unknown codes and floods without touching a grant", async () => {
+    const code = claimCode(await appFlow());
+    mocks.user = null;
+    expect((await claim({ code })).status).toBe(401);
+    mocks.user = { id: USER };
+    expect((await claim({ code }, { origin: "https://evil.test" })).status).toBe(403);
+    expect((await claim({ nope: 1 })).status).toBe(400);
+    expect((await claim({ code: "x".repeat(43) })).status).toBe(404);
+    expect((await claim({ code: "short" })).status).toBe(404);
+    mocks.limit.mockResolvedValueOnce({ ok: false, retryAfterSeconds: 60 });
+    expect((await claim({ code })).status).toBe(429);
+    // Still there for the real claim.
+    expect(mocks.db.tables.mailbox_oauth_parked).toHaveLength(1);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+    expect((await claim({ code }, { origin: `https://${HOST}` })).status).toBe(200);
+    await Promise.all(mocks.afterTasks);
+  });
+
+  it("answers 500 when the grant can't be read", async () => {
+    const code = claimCode(await appFlow());
+    mocks.db.failNext.mailbox_oauth_parked = { code: "XX000", message: "down" };
+    expect((await claim({ code })).status).toBe(500);
+    // A key changed since parking: nothing is saved.
+    process.env.MAILBOX_TOKEN_KEY = randomBytes(32).toString("base64");
+    const res = await claim({ code });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "server_error" });
+    expect(mocks.db.tables.mailbox_connections).toHaveLength(0);
   });
 });
 

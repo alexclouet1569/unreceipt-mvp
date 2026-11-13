@@ -19,6 +19,7 @@ const UNIQUES: Record<string, Array<(r: Row) => string | null>> = {
     (r) => `nonce|${r.nonce}`,
     (r) => (r.link_jti ? `jti|${r.link_jti}` : null),
   ],
+  mailbox_oauth_parked: [(r) => `code|${r.code_hash}`],
 };
 
 const DEFAULTS: Record<string, () => Row> = {

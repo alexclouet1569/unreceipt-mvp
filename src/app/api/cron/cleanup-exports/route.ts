@@ -5,7 +5,9 @@
 // (src/lib/forwarding-confirmation-cleanup.ts), and capture-sheet photos
 // stored while being read but never saved (src/lib/receipts/staging.ts),
 // and "Connect Gmail/Outlook" flows that were started but never finished
-// (mailbox_oauth_pending rows past their 10-minute expiry).
+// (mailbox_oauth_pending rows past their 10-minute expiry), and iPhone app
+// grants nobody claimed (mailbox_oauth_parked past its 10 minutes, revoked
+// at the provider, src/lib/mailboxes/parked.ts).
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
@@ -15,6 +17,7 @@ import { cleanupForwardingConfirmations } from "@/lib/forwarding-confirmation-cl
 import { cleanupStagedPhotos } from "@/lib/receipts/staging";
 import { cleanupOrphanScans } from "@/lib/receipts/scans";
 import { deleteExpiredPending } from "@/lib/mailboxes/oauth";
+import { deleteExpiredParked } from "@/lib/mailboxes/parked";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -62,6 +65,13 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] mailbox flow cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "mailbox-pending-cleanup" } });
   }
+  let mailboxGrantsDeleted: number | null = null;
+  try {
+    mailboxGrantsDeleted = await deleteExpiredParked(getSupabaseAdmin());
+  } catch (err) {
+    console.error("[cron/cleanup-exports] parked mailbox cleanup failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "mailbox-parked-cleanup" } });
+  }
   if (!exportResult) return NextResponse.json({ error: "failed" }, { status: 500 });
   return NextResponse.json({
     ...exportResult,
@@ -69,5 +79,6 @@ export async function GET(request: Request) {
     stagedPhotosDeleted,
     orphanScansDeleted,
     mailboxFlowsDeleted,
+    mailboxGrantsDeleted,
   });
 }
