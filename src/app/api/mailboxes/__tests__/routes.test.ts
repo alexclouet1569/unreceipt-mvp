@@ -211,6 +211,16 @@ describe("GET /api/mailboxes/connect/[provider] (website)", () => {
     expect(location(res)).toBe("https://app.unreceipt.com/app/settings?mailbox=error&reason=rate_limited");
     expect(mocks.db.tables.mailbox_oauth_pending).toHaveLength(0);
   });
+
+  it("at 5 mailboxes, still lets a mailbox that needs reconnecting be reconnected", async () => {
+    seedConnections(USER, 5);
+    (mocks.db.tables.mailbox_connections[2] as { status: string }).status = "needs_reconnect";
+    const res = await connectGET(req("/api/mailboxes/connect/google"), params({ provider: "google" }));
+    expect(location(res)).toContain(FAKE_AUTH_BASE);
+    expect(mocks.db.tables.mailbox_oauth_pending).toHaveLength(1);
+    // (All five active is refused: see the test above. The callback still
+    // refuses a sixth new address.)
+  });
 });
 
 describe("/api/mailboxes/connect/[provider]?link= (iPhone app)", () => {

@@ -17,7 +17,7 @@ import {
   type OAuthClient,
   type ResultReason,
 } from "./oauth";
-import { CONNECTION_LIMIT, countConnections } from "./store";
+import { CONNECTION_LIMIT, countConnections, listConnections } from "./store";
 import type { MailboxProvider } from "./types";
 
 export function noStore(res: NextResponse): NextResponse {
@@ -46,8 +46,13 @@ export async function startConnectFlow(input: {
   try {
     // Checked again in the callback (a reconnect of a known address is
     // allowed there even at the cap); this spares a trip to the provider.
+    // At the cap, a mailbox of this provider that needs reconnecting must
+    // still be reachable: which address the person picks is only known in
+    // the callback, which refuses a sixth new one.
     if ((await countConnections(userId, supabase)) >= CONNECTION_LIMIT) {
-      return finishWith(client, "limit");
+      const own = await listConnections(userId, supabase);
+      const reconnecting = own.some((c) => c.provider === provider.id && c.status !== "active");
+      if (!reconnecting) return finishWith(client, "limit");
     }
   } catch (err) {
     Sentry.captureException(err, { tags: { area: "mailboxes", step: "connect_count" } });
