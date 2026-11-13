@@ -11,6 +11,8 @@ import { PilotBanner } from "./_pilot-banner";
 import { UsageNoticeBanner } from "@/components/UsageNoticeBanner";
 import { getUsage } from "@/lib/usage";
 import { usageNotice, type UsageNotice } from "@/lib/usage-copy";
+import { loadConnectedEmails, loadMailboxProviders } from "./settings/mailboxes/load";
+import { NO_PROVIDERS, anyProvider } from "./settings/mailboxes/copy";
 
 // The gate reads cookies + DB on every request — never cache.
 export const dynamic = "force-dynamic";
@@ -78,6 +80,17 @@ export default async function AppPage({ searchParams }: AppPageProps) {
 
   const inStoreApp = Boolean(await getNativeApp());
 
+  // "Connect your email" (Gmail / Outlook) leads the first-run step and the
+  // empty inbox when a provider is set up. Not in the Capacitor shell: the
+  // provider's screen opens in Safari there, away from the cookie that
+  // binds the flow, so it couldn't finish. The list is read only for those
+  // two screens.
+  const mailboxProviders = inStoreApp ? NO_PROVIDERS : loadMailboxProviders();
+  const connectedMailboxes =
+    anyProvider(mailboxProviders) && (showOnboarding || receipts.length === 0)
+      ? await loadConnectedEmails(user.id)
+      : [];
+
   const dashboard = (
     <Dashboard
       userEmail={user.email ?? ""}
@@ -88,6 +101,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       accountantInvites={accountantInvites}
       homeCurrency={homeCurrency}
       older={older}
+      mailboxProviders={mailboxProviders}
+      connectedMailboxes={connectedMailboxes}
     />
   );
 

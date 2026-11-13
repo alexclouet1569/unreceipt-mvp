@@ -25,6 +25,8 @@ import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 import { ForwardingUnavailable } from "./_forwarding-unavailable";
 import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
+import { ConnectButtons } from "./settings/mailboxes/ConnectButtons";
+import { NO_PROVIDERS, anyProvider, type MailboxProviders } from "./settings/mailboxes/copy";
 
 type DashboardProps = {
   userEmail: string;
@@ -46,6 +48,11 @@ type DashboardProps = {
   // Every receipt beyond `receipts` (the newest 50), summed on the server:
   // the stat cards add it to their own list. Null when it couldn't be read.
   older?: OlderSummary | null;
+  // Gmail / Outlook that can be connected here; none (the default, also in
+  // the demo tour) keeps the forwarding address as the first way in.
+  mailboxProviders?: MailboxProviders;
+  // Addresses already connected (read only for first run and empty inbox).
+  connectedMailboxes?: string[];
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -65,6 +72,8 @@ export function Dashboard({
   accountantInvites = [],
   homeCurrency,
   older = null,
+  mailboxProviders = NO_PROVIDERS,
+  connectedMailboxes = [],
 }: DashboardProps) {
   const router = useRouter();
   // Saved edits and deletes from the receipt dialog show at once; the
@@ -327,6 +336,8 @@ export function Dashboard({
           <FirstRun
             step={onboardingStep}
             forwardingEmail={forwardingEmail}
+            mailboxProviders={mailboxProviders}
+            connectedMailboxes={connectedMailboxes}
             onNext={() =>
               setOnboardingStep((s) => (s === 1 ? 2 : 3))
             }
@@ -337,6 +348,8 @@ export function Dashboard({
           <EmptyState
             forwardingEmail={forwardingEmail}
             intakeSmsNumber={intakeSmsNumber}
+            mailboxProviders={mailboxProviders}
+            connectedMailboxes={connectedMailboxes}
             onCapture={() => setCaptureOpen(true)}
           />
         ) : (
@@ -498,12 +511,20 @@ export function Dashboard({
 function EmptyState({
   forwardingEmail,
   intakeSmsNumber,
+  mailboxProviders,
+  connectedMailboxes,
   onCapture,
 }: {
   forwardingEmail: string | null;
   intakeSmsNumber: string | null;
+  mailboxProviders: MailboxProviders;
+  connectedMailboxes: string[];
   onCapture: () => void;
 }) {
+  // A mailbox is connected: its receipts are on their way. None yet but
+  // Gmail / Outlook can be connected: that leads, forwarding comes second.
+  const watching = connectedMailboxes.length > 0;
+  const connectFirst = !watching && anyProvider(mailboxProviders);
   return (
     <div className="flex flex-col items-center text-center py-10 px-2">
       <div
@@ -526,21 +547,27 @@ function EmptyState({
         Your inbox is empty
       </h2>
       <p
-        className="font-accent italic text-[var(--ink-muted)] max-w-[280px]"
+        className="font-accent italic text-[var(--ink-muted)] max-w-[280px] [overflow-wrap:anywhere]"
         style={{ fontSize: "14px", lineHeight: 1.5, marginBottom: "24px" }}
       >
-        {intakeSmsNumber
-          ? "Forward email receipts or text us a photo. We'll have them VAT-ready in minutes."
-          : "Forward email receipts or snap a paper one. We'll have them VAT-ready in minutes."}
+        {watching
+          ? `Watching ${connectedMailboxes.join(", ")} for receipts. They show up here as they arrive.`
+          : connectFirst
+            ? "Connect your email and receipts arrive by themselves. We'll have them VAT-ready in minutes."
+            : intakeSmsNumber
+              ? "Forward email receipts or text us a photo. We'll have them VAT-ready in minutes."
+              : "Forward email receipts or snap a paper one. We'll have them VAT-ready in minutes."}
       </p>
 
       <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "20px" }}>
+        {connectFirst ? <ConnectButtons providers={mailboxProviders} stacked /> : null}
         {forwardingEmail ? (
           <IntakeRow
-            callout="Forward email receipts to"
+            callout={connectFirst || watching ? "Or forward receipts to" : "Forward email receipts to"}
             value={forwardingEmail}
             mono
             copyLabel="Copy forwarding address"
+            quiet={connectFirst}
           />
         ) : (
           <ForwardingUnavailable />
@@ -551,6 +578,7 @@ function EmptyState({
             value={intakeSmsNumber}
             mono
             copyLabel="Copy concierge SMS number"
+            quiet={connectFirst}
           />
         ) : null}
         <GuideLink />

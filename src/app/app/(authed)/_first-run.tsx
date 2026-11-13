@@ -6,24 +6,33 @@ import { Camera, Check, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntakeRow } from "@/components/IntakeRow";
 import { ForwardingUnavailable } from "./_forwarding-unavailable";
+import { ConnectButtons } from "./settings/mailboxes/ConnectButtons";
+import { NO_PROVIDERS, anyProvider, type MailboxProviders } from "./settings/mailboxes/copy";
 
 export type FirstRunStep = 1 | 2 | 3;
 
 /**
  * First-run onboarding (launch plan action 47), shown in place of the empty
  * inbox until finished or skipped: your forwarding address → snap your
- * first receipt → done. Layout follows DESIGN.md's empty state (64×64
+ * first receipt → done. When Gmail / Outlook can be connected, step 1 is
+ * "Connect your email" instead, with the address as the second way in.
+ * Layout follows DESIGN.md's empty state (64×64
  * brand-tint mark, display-lg title, accent subtitle, hero spacing).
  */
 export function FirstRun({
   step,
   forwardingEmail,
+  mailboxProviders = NO_PROVIDERS,
+  connectedMailboxes = [],
   onNext,
   onCapture,
   onFinish,
 }: {
   step: FirstRunStep;
   forwardingEmail: string | null;
+  mailboxProviders?: MailboxProviders;
+  // Addresses already connected (back from Google's / Microsoft's screen).
+  connectedMailboxes?: string[];
   onNext: () => void;
   onCapture: () => void;
   onFinish: () => void;
@@ -83,7 +92,52 @@ export function FirstRun({
         <Icon className="w-7 h-7 text-[var(--brand)]" />
       </div>
 
-      {step === 1 ? (
+      {step === 1 && connectedMailboxes.length > 0 ? (
+        <>
+          <Title titleRef={titleRef}>Your email is connected</Title>
+          <Subtitle>
+            Receipts from {connectedMailboxes.join(", ")} arrive by themselves.
+            Those from the last 30 days are being imported; they appear under
+            Review needed.
+          </Subtitle>
+          <Actions>
+            <Button type="button" className="w-full h-12 text-[15px]" onClick={onNext}>
+              Next
+            </Button>
+            <SkipButton onClick={onFinish}>Skip intro</SkipButton>
+          </Actions>
+        </>
+      ) : step === 1 && anyProvider(mailboxProviders) ? (
+        <>
+          <Title titleRef={titleRef}>Connect your email</Title>
+          <Subtitle>
+            Receipts in your inbox then arrive in UnReceipt by themselves,
+            ready to check. Before you allow anything, the next screen says
+            what UnReceipt looks at.
+          </Subtitle>
+          <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "16px" }}>
+            {/* Outlined, a pair of equal choices: the green is the next
+                screen's Continue (DESIGN.md: one green per screen). */}
+            <ConnectButtons providers={mailboxProviders} stacked />
+            {forwardingEmail ? (
+              <IntakeRow
+                callout="Or forward receipts to"
+                value={forwardingEmail}
+                mono
+                copyLabel="Copy forwarding address"
+                quiet
+              />
+            ) : (
+              <ForwardingUnavailable />
+            )}
+            <GuideLink />
+          </div>
+          <Actions>
+            <SkipButton onClick={onNext}>Not now</SkipButton>
+            <SkipButton onClick={onFinish}>Skip intro</SkipButton>
+          </Actions>
+        </>
+      ) : step === 1 ? (
         <>
           <Title titleRef={titleRef}>Your private receipts address</Title>
           <Subtitle>
