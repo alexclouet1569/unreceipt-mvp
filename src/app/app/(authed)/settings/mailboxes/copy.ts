@@ -208,7 +208,8 @@ export const REMOVE_ACCESS_NOTE: Record<MailboxProviderId, string> = {
 };
 
 // No prices or plans here: the store apps show this too.
-export const PAUSED_TEXT = "Paused: your account doesn’t have access right now, so new email isn’t read.";
+export const PAUSED_TEXT =
+  "Paused: your account doesn’t have access right now, so new email isn’t read. After 30 days paused, the mailbox is disconnected.";
 
 export type StatusTone = "ok" | "attention" | "pending";
 

@@ -259,8 +259,10 @@ export default function PrivacyPage() {
             <li>
               <strong>Mailbox access:</strong> until you disconnect the
               mailbox or your account is deleted. After a subscription ends
-              we stop reading new email. Receipts already brought in stay,
-              like any other receipt.
+              we stop reading new email, and 30 days later we disconnect the
+              mailbox and give up our access to it (you can connect it again
+              any time). Receipts already brought in stay, like any other
+              receipt.
             </li>
             <li>
               <strong>Bank statement lines and the reminder log:</strong> while

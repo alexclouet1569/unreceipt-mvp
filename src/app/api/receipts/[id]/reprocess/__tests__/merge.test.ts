@@ -93,9 +93,9 @@ describe("mergeExtraction", () => {
     expect(patch.payment_method).toBe("card");
     expect(patch.items).toHaveLength(2);
     expect(patch.parse_confidence).toBe(0.92);
-    expect(patch.status).toBe("verified");
+    // A re-run fills the fields but never confirms: only the owner does.
+    expect(patch.status).toBe("pending_review");
     expect(changed).toContain("items");
-    expect(changed).toContain("status");
   });
 
   it("does NOT overwrite user-edited fields when the new run is lower-confidence", () => {
@@ -168,17 +168,19 @@ describe("mergeExtraction", () => {
     expect(patch.items).toBeUndefined();
   });
 
-  it("recomputes status to verified when the merged view satisfies all requirements", () => {
-    const row = baseRow({ status: "pending_review" });
-    const { patch } = mergeExtraction(row, {
+  it("never confirms a receipt in Review needed, however confident the model is", () => {
+    const row = baseRow({ status: "pending_review", intake_channel: "mailbox", parse_confidence: 0.7 });
+    const { patch, changed } = mergeExtraction(row, {
       merchant: "ICA",
       amount: 49,
       currency: "SEK",
       receipt_date: "2026-05-14",
-      confidence: 0.9,
+      confidence: 0.99,
     });
 
-    expect(patch.status).toBe("verified");
+    expect(patch.merchant_name).toBe("ICA");
+    expect(patch.status).toBe("pending_review");
+    expect(changed).not.toContain("status");
   });
 
   it("ignores unknown currency / category values", () => {

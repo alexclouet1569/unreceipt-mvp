@@ -171,7 +171,8 @@ export async function POST(
 //   - On a verified receipt, only empty fields are filled.
 //   - Fields the customer corrected (`edited_fields`) are never
 //     overwritten: their correction beats any extraction.
-//   - Status is recomputed from the merged result.
+//   - Status is recomputed from the merged result, but a re-run never
+//     moves a receipt from Review needed to verified (only Confirm does).
 export function mergeExtraction(
   existing: Receipt,
   fresh: OcrResult
@@ -285,15 +286,21 @@ export function mergeExtraction(
     patch.parse_confidence = Math.max(newConf, oldConf);
   }
 
-  // Recompute status from the merged view.
+  // Recompute status from the merged view. A re-run never confirms a
+  // receipt: the fields come from the model and its own self-reported
+  // confidence, which is exactly what Review needed exists for. Only the
+  // owner's Confirm (PATCH, which also records usage) moves a receipt to
+  // verified, so the accounting firm never sees an unconfirmed mailbox
+  // receipt (src/lib/firm/visibility.ts) because of a re-run.
   const mergedView = { ...existing, ...patch } as Receipt;
-  patch.status = computeReceiptStatus({
+  const recomputed = computeReceiptStatus({
     merchant_name: mergedView.merchant_name,
     purchased_at: mergedView.purchased_at,
     receipt_date: mergedView.receipt_date,
     total: mergedView.total,
     parse_confidence: mergedView.parse_confidence,
   });
+  patch.status = existing.status === "verified" ? recomputed : "pending_review";
   if (patch.status !== existing.status) changed.push("status");
 
   return { patch, changed };

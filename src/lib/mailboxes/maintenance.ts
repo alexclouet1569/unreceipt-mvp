@@ -4,7 +4,13 @@
 //   0. Access. Every live connection (active or paused) is paused while
 //      its user has no product access and resumed once they have it again
 //      (reconcileAccess, ./sync.ts); a paused one is neither renewed nor
-//      synced.
+//      synced. One paused for RELEASE_PAUSED_AFTER_MS (30 days) is
+//      disconnected like a press on Disconnect (disconnectMailbox,
+//      ./teardown.ts: row deleted, watch stopped, grant revoked unless
+//      another live connection uses the address), so read access is never
+//      kept with no end date for an account that stopped using UnReceipt.
+//      The pause time is the row's updated_at: nothing writes a paused row
+//      until it is resumed.
 //   1. Renew push. Every active connection whose watch ends within 48 h (or
 //      has none, e.g. its start failed at connect) gets provider.startWatch()
 //      again: a Gmail watch lasts 7 days, a Graph subscription about 3. The
@@ -23,10 +29,12 @@ import { getAccessToken } from "./access-token";
 import { getProvider } from "./providers";
 import { listActiveConnections, recordError, updateWatch } from "./store";
 import { reconcileAccess, syncConnection } from "./sync";
+import { disconnectMailbox } from "./teardown";
 import { MailboxProviderError, ReauthRequiredError, type MailboxConnectionRef } from "./types";
 
 export const RENEW_BEFORE_MS = 48 * 60 * 60 * 1000;
 export const CATCH_UP_AFTER_MS = 12 * 60 * 60 * 1000;
+export const RELEASE_PAUSED_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 const SYNC_CONCURRENCY = 4;
 const ACCESS_CONCURRENCY = 10;
 
@@ -44,6 +52,8 @@ export type MailboxCronResult = {
   paused: number;
   /** Paused connections whose user has access again, active from this run. */
   resumed: number;
+  /** Connections paused for 30 days, disconnected by this run. */
+  released: number;
 };
 
 const time = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
@@ -51,6 +61,13 @@ const time = (iso: string | null) => (iso ? Date.parse(iso) : NaN);
 export function needsRenewal(conn: MailboxConnectionRef, now: number): boolean {
   const ends = time(conn.watch_expires_at);
   return !Number.isFinite(ends) || ends < now + RENEW_BEFORE_MS;
+}
+
+/** Paused (already, before this run) for RELEASE_PAUSED_AFTER_MS or longer. */
+export function pausedTooLong(conn: MailboxConnectionRef, now: number): boolean {
+  if (conn.status !== "paused") return false;
+  const since = time(conn.updated_at);
+  return Number.isFinite(since) && since <= now - RELEASE_PAUSED_AFTER_MS;
 }
 
 export function needsCatchUp(conn: MailboxConnectionRef, now: number): boolean {
@@ -93,6 +110,7 @@ export async function runMailboxMaintenance({
     created: 0,
     paused: 0,
     resumed: 0,
+    released: 0,
   };
   const outOfTime = () => Date.now() - startedAt > startBudgetMs;
   const now = startedAt;
@@ -118,6 +136,14 @@ export async function runMailboxMaintenance({
       try {
         const live = await reconcileAccess(conn, { access: accessOf.get(conn.user_id) });
         if (!live) {
+          // Still without access 30 days after it was paused: let go of it.
+          if (accessOf.get(conn.user_id) === false && pausedTooLong(conn, now)) {
+            const { deleted } = await disconnectMailbox(conn);
+            if (deleted) {
+              result.released++;
+              return;
+            }
+          }
           result.paused++;
           return;
         }

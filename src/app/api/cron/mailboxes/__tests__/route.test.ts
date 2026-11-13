@@ -191,6 +191,37 @@ describe("GET /api/cron/mailboxes and product access", () => {
     expect(fakeProvider.refreshAccessToken).not.toHaveBeenCalled();
   });
 
+  it("disconnects a mailbox paused for 30 days and revokes its grant", async () => {
+    const old = await addConnection({ status: "paused", updated_at: iso(-31 * 24 * HOUR) });
+    const recent = await addConnection({ status: "paused", updated_at: iso(-29 * 24 * HOUR) });
+    mocks.noAccess.add(old.user_id as string);
+    mocks.noAccess.add(recent.user_id as string);
+    const res = await cron();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ connections: 2, released: 1, paused: 1 });
+    const ids = mocks.db.tables.mailbox_connections.map((r) => r.id);
+    expect(ids).toEqual([recent.id]);
+    expect(fakeProvider.revoke).toHaveBeenCalledTimes(1);
+    expect(fakeProvider.sync).not.toHaveBeenCalled();
+  });
+
+  it("keeps the shared grant when another account still uses the address", async () => {
+    const old = await addConnection({ status: "paused", updated_at: iso(-40 * 24 * HOUR) });
+    const other = await addConnection({ email: old.email });
+    mocks.noAccess.add(old.user_id as string);
+    const res = await cron();
+    expect(await res.json()).toMatchObject({ released: 1 });
+    expect(mocks.db.tables.mailbox_connections.map((r) => r.id)).toEqual([other.id]);
+    expect(fakeProvider.revoke).not.toHaveBeenCalled();
+  });
+
+  it("never disconnects a paused mailbox whose user has access again", async () => {
+    const back = await addConnection({ status: "paused", updated_at: iso(-90 * 24 * HOUR) });
+    const res = await cron();
+    expect(await res.json()).toMatchObject({ released: 0, resumed: 1 });
+    expect(back.status).toBe("active");
+  });
+
   it("resumes a paused mailbox once its user has access again, renews it and catches up", async () => {
     const back = await addConnection({ status: "paused", watch_expires_at: iso(-24 * HOUR), last_sync_at: iso(-72 * HOUR) });
     const res = await cron();

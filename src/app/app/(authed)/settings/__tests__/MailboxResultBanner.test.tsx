@@ -123,7 +123,7 @@ describe("mailbox copy", () => {
       createdAt: "2026-11-13T11:00:00Z",
     };
     expect(statusLine({ ...base, status: "paused" }, now)).toEqual({
-      text: "Paused: your account doesn’t have access right now, so new email isn’t read.",
+      text: "Paused: your account doesn’t have access right now, so new email isn’t read. After 30 days paused, the mailbox is disconnected.",
       tone: "attention",
     });
     expect(statusLine({ ...base, status: "active", lastSyncAt: null }, now).text).toBe("Setting up…");
