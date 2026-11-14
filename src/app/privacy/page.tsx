@@ -62,8 +62,11 @@ export default function PrivacyPage() {
               With your permission (given on Google&apos;s or Microsoft&apos;s
               own screen) we keep a token, stored encrypted, that lets us read
               your inbox. For each new email we look only at its subject,
-              sender, date and attachment names to decide whether it looks
-              like a receipt, an invoice or an order confirmation. Only those
+              sender, date, attachment names and whether it is a reply or a
+              mailing-list message, to decide whether it looks like a
+              receipt, an invoice or an order confirmation. Replies and
+              mailing-list messages count only when they carry a receipt or
+              invoice PDF. Only those
               emails are downloaded and saved, as receipts like the ones you
               forward; anything that isn&apos;t a purchase can be deleted
               under Review needed. Every other email is never stored, not

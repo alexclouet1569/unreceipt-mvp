@@ -234,7 +234,8 @@ export function windowQuery(days: number): string {
 
 /**
  * The only parts of a message's metadata we ask Gmail for (a partial
- * response): its labels, size, the Subject and From headers (metadataHeaders)
+ * response): its labels, size, the Subject, From and List-Id headers
+ * (metadataHeaders; List-Id marks a mailing list or notification feed)
  * and the MIME types and file names of its parts. No snippet, no other
  * header, no body.
  */
@@ -312,6 +313,7 @@ class GmailSync {
     const params = new URLSearchParams({ format: "metadata", fields: METADATA_FIELDS });
     params.append("metadataHeaders", "Subject");
     params.append("metadataHeaders", "From");
+    params.append("metadataHeaders", "List-Id");
     const res = await gmailGet(this.accessToken, `/messages/${encodeURIComponent(id)}`, params);
     if (res.status === 404) return null;
     if (!res.ok) await failOn(res, "gmail_message_failed");
@@ -322,6 +324,7 @@ class GmailSync {
     const meta = {
       subject: decodeHeaderValue(headerOf(payload, "Subject")),
       from: decodeHeaderValue(headerOf(payload, "From")),
+      listId: headerOf(payload, "List-Id"),
       attachmentNames: attachmentNamesOf(payload),
       hasAttachments: false,
     };
