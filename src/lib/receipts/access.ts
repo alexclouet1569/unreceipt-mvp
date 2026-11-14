@@ -2,11 +2,13 @@
 // firm actively linked to the receipt's organisation. One helper so PATCH,
 // /pdf and /original answer the same way. A receipt the caller may not see
 // is indistinguishable from one that doesn't exist (null → 404), so ids
-// can't be probed.
+// can't be probed. The firm never sees a mailbox receipt the owner hasn't
+// confirmed yet (src/lib/firm/visibility.ts).
 
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "../supabase-admin";
 import type { Receipt } from "../types";
+import { isFirmVisible } from "../firm/visibility";
 
 export class ReceiptAccessError extends Error {
   constructor(message = "receipt lookup failed") {
@@ -41,6 +43,9 @@ export async function loadReceiptForActor(
 
   if (receipt.user_id === user.id) return { receipt, via: "owner" };
   if (!receipt.organization_id) return null;
+  // A mailbox receipt the owner hasn't confirmed is the owner's alone
+  // (src/lib/firm/visibility.ts): to the firm it doesn't exist.
+  if (!isFirmVisible(receipt)) return null;
 
   // Firm staff: the session user's firm must hold an active link to the
   // receipt's organisation.

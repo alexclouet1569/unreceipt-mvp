@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   eqs: [] as [string, unknown][],
   send: vi.fn(),
   limit: vi.fn(),
+  extraAddresses: [] as string[],
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: async () => mocks.user }));
@@ -31,6 +32,7 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 vi.mock("@/lib/email/send", () => ({ sendEmail: mocks.send }));
+vi.mock("@/lib/owner-addresses", () => ({ listExtraAddresses: async () => mocks.extraAddresses }));
 vi.mock("@/lib/rate-limit", async (orig) => ({
   ...(await orig<typeof import("@/lib/rate-limit")>()),
   rateLimit: mocks.limit,
@@ -45,6 +47,7 @@ describe("/api/forwarding/status", () => {
     mocks.confirmation = { data: null, error: null };
     mocks.latest = { data: null, error: null };
     mocks.eqs = [];
+    mocks.extraAddresses = [];
   });
 
   it("needs a signed-in user", async () => {
@@ -58,10 +61,51 @@ describe("/api/forwarding/status", () => {
     mocks.latest = { data: { created_at: "2026-10-16T12:00:00Z" }, error: null };
     const body = await (await GET()).json();
     expect(body).toEqual({
-      confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt, autoConfirmed: false },
+      confirmation: {
+        code: "593872831",
+        forAddress: "anna@gmail.com",
+        receivedAt,
+        autoConfirmed: false,
+        confirmUrl: null,
+        // anna@gmail.com is neither the sign-in address nor a listed one.
+        ownInbox: false,
+      },
       lastEmailAt: "2026-10-16T12:00:00Z",
     });
     expect(mocks.eqs.filter(([c]) => c === "user_id").every(([, v]) => v === mocks.user?.id)).toBe(true);
+  });
+
+  it("offers Gmail's confirmation link, and only Gmail's own page", async () => {
+    const receivedAt = new Date().toISOString();
+    const link = "https://mail-settings.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456";
+    mocks.confirmation = {
+      data: { code: null, for_address: "anna@gmail.com", received_at: receivedAt, confirm_url: link },
+      error: null,
+    };
+    expect((await (await GET()).json()).confirmation).toMatchObject({ code: null, confirmUrl: link });
+
+    // An unknown requester: no button, since nobody could tell whose it is.
+    mocks.confirmation = {
+      data: { code: null, for_address: null, received_at: receivedAt, confirm_url: link },
+      error: null,
+    };
+    expect((await (await GET()).json()).confirmation).toMatchObject({ confirmUrl: null, ownInbox: null });
+
+    // A stored value that isn't exactly Gmail's page is never sent out.
+    mocks.confirmation = {
+      data: { code: null, for_address: "anna@gmail.com", received_at: receivedAt, confirm_url: "https://evil.example/vf-x" },
+      error: null,
+    };
+    expect((await (await GET()).json()).confirmation.confirmUrl).toBeNull();
+  });
+
+  it("says whether the Gmail asking is one of the user's own addresses (dots and +tags ignored)", async () => {
+    const receivedAt = new Date().toISOString();
+    mocks.extraAddresses = ["Anna.Svensson+work@gmail.com"];
+    mocks.confirmation = { data: { code: null, for_address: "annasvensson@gmail.com", received_at: receivedAt }, error: null };
+    expect((await (await GET()).json()).confirmation.ownInbox).toBe(true);
+    mocks.confirmation = { data: { code: null, for_address: "stranger@gmail.com", received_at: receivedAt }, error: null };
+    expect((await (await GET()).json()).confirmation.ownInbox).toBe(false);
   });
 
   it("drops a code older than 7 days", async () => {

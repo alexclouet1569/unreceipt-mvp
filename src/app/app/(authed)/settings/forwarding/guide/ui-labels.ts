@@ -63,6 +63,10 @@ export const GMAIL = {
   ),
   // FR confirmed ("Valider", next to the "Code de confirmation" box); SV not.
   verify: l("Verify", "Verifiera", "Valider", false),
+  // The button on Google's confirmation page (mail-settings.google.com/mail/
+  // vf-…), which follows the Google account's language. Not yet checked on
+  // a real screen in any language.
+  confirmPage: l("Confirm", "Bekräfta", "Confirmer", false),
   filtersTab: l("Filters and Blocked Addresses", "Filter och blockerade adresser", "Filtres et adresses bloquées"),
   // SV confirmed from a screenshot; FR only from Google community experts.
   createNewFilter: l("Create a new filter", "Skapa ett nytt filter", "Créer un filtre", false),

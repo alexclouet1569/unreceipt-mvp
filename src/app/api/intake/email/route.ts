@@ -1,4 +1,4 @@
-// Resend Inbound webhook → canonical digital_receipts row.
+// Resend Inbound webhook → canonical receipts row.
 //
 // Flow:
 //   1. Verify Svix-style signature against RESEND_INBOUND_WEBHOOK_SECRET.
@@ -12,50 +12,35 @@
 //      API by email_id — the webhook itself carries metadata only.
 //   3c. Gmail's forwarding confirmation email → keep its code for the
 //      setup guide and stop (it isn't a receipt).
-//   4. Compute intake_ref = Message-Id header || sha256(raw .eml).
-//   5. Upsert by (user_id, intake_ref). Existing row → 200 idempotent.
-//   6. Upload raw .eml to receipt-originals/{user_id}/{receipt_id}.eml.
-//   7. Run parser. Parser throw → fall back to pending_review (row still
-//      inserted with nullable canonical fields so the user can complete).
-//   7b. An attached PDF or photo (the usual case for a forwarded invoice
-//      or a photographed receipt) is read with Claude OCR instead of the
-//      email text, unless a trusted template already read the mail. The
-//      attachment is then stored as the original, byte for byte, in
-//      place of the .eml; its fields land in Review needed like any
-//      untrusted extraction.
-//   8. Insert row.
+//   4. Everything else is the shared email → receipt pipeline,
+//      ingestReceiptEmail() in src/lib/email/ingest.ts (intake_ref and
+//      dedupe, attachment OCR, templates and their trust, originals in
+//      storage, the insert, usage). Its result maps to the status here:
+//      created/duplicate → 200, retry → 500 so Resend redelivers.
 //
 // Provider needs a 2xx to stop retrying. We return 200 even on logical
 // no-ops (unknown alias still returns 404 — Resend will dead-letter
-// those, which is correct). Signature failures return 401 so the
+// those, which is correct; a failed alias lookup is a 503, retried). Signature failures return 401 so the
 // provider's retry logic kicks in (real signing issues are usually
 // transient config drift on the provider side).
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { recordReceiptUsage } from "@/lib/usage";
-import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 import {
+  AliasLookupError,
   findUserByAliasHash,
   parseAliasFromTo,
 } from "@/lib/email-alias";
-import { parseReceipt } from "@/lib/receipts/parser";
-import { computeReceiptStatus } from "@/lib/receipts/status";
 import { fetchReceivedEmail, type ReceivedEmailContent } from "@/lib/resend-inbound";
 import { parseForwardingConfirmation } from "@/lib/forwarding-confirmation";
 import { confirmGmailForwarding, isOwnInbox } from "@/lib/forwarding-autoconfirm";
 import { buildForwardingAddress } from "@/lib/email-alias";
-import { rawHeaderValues, recipientOwnership, type RecipientOwnership } from "@/lib/email-address";
 import { loadOwnerAddresses } from "@/lib/owner-addresses";
-import { extractAttachments, pickReceiptAttachment, type EmailAttachment } from "@/lib/email/attachments";
-import { extractReceipt } from "@/lib/ocr";
-import { fieldsFromOcr } from "@/lib/receipts/ocr-fields";
-import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
-import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
+import { CLAUDE_CALL_BUDGET_MS } from "@/lib/ocr";
+import { cleanSubject, ingestReceiptEmail, stripNul, type IngestResult } from "@/lib/email/ingest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,19 +49,12 @@ export const dynamic = "force-dynamic";
 // kicks in.
 export const maxDuration = 60;
 
-// The attached PDF or photo the email carries, when one fits the upload
-// rules (type, 4 MB, PDF page cap). Null means "read the text".
-async function receiptAttachmentOf(rawEml: Buffer | null): Promise<EmailAttachment | null> {
-  if (!rawEml || rawEml.length === 0) return null;
-  const picked = pickReceiptAttachment(extractAttachments(rawEml));
-  if (!picked) return null;
-  if (picked.mediaType === "application/pdf") {
-    // Unopenable or too long: read the email text instead.
-    const pages = await pdfPageCount(picked.bytes);
-    if (pages === null || pages > MAX_PDF_PAGES) return null;
-  }
-  return picked;
-}
+// A further Claude call (each bounded by CLAUDE_CALL_BUDGET_MS) starts only
+// while it can still finish, with ~10 s left to store the files and insert
+// the row, inside maxDuration. The attachment read comes first; when it
+// took long, the email text isn't read by the LLM as well (its templates
+// still run) and the receipt waits in Review needed.
+const LAST_CLAUDE_CALL_START_MS = maxDuration * 1000 - CLAUDE_CALL_BUDGET_MS - 10_000;
 
 type AddressLike = string | { address?: unknown; name?: unknown };
 
@@ -148,23 +126,6 @@ function pickAddress(addr: AddressLike | AddressLike[] | undefined): string {
   return "";
 }
 
-function pickHeader(
-  headers: Record<string, string | string[] | undefined> | undefined,
-  name: string
-): string | null {
-  if (!headers) return null;
-  // Headers can be case-mixed depending on provider normalization.
-  const lower = name.toLowerCase();
-  for (const [k, v] of Object.entries(headers)) {
-    if (k.toLowerCase() !== lower) continue;
-    if (typeof v === "string") return v;
-    if (Array.isArray(v) && typeof v[0] === "string") return v[0];
-  }
-  return null;
-}
-
-
-
 function genericNotFound() {
   // Same body whether the alias was malformed or simply not registered —
   // an attacker spraying aliases should not be able to enumerate which
@@ -173,6 +134,7 @@ function genericNotFound() {
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   const secret = process.env.RESEND_INBOUND_WEBHOOK_SECRET;
   if (!secret) {
     console.error("[intake/email] RESEND_INBOUND_WEBHOOK_SECRET missing");
@@ -234,7 +196,17 @@ export async function POST(request: NextRequest) {
     return genericNotFound();
   }
 
-  const owner = await findUserByAliasHash(aliasHash);
+  let owner: { user_id: string } | null;
+  try {
+    owner = await findUserByAliasHash(aliasHash);
+  } catch (err) {
+    // The database didn't answer: 503 so Resend retries. A 404 here would
+    // dead-letter a real receipt.
+    if (!(err instanceof AliasLookupError)) {
+      Sentry.captureException(err, { tags: { area: "intake-alias-lookup" } });
+    }
+    return NextResponse.json({ error: "temporarily unavailable" }, { status: 503 });
+  }
   if (!owner) {
     console.warn("[intake/email] unknown alias hash", { aliasHash });
     return genericNotFound();
@@ -254,18 +226,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "email content unavailable" }, { status: 502 });
   }
   const supabase = getSupabaseAdmin();
-  // Postgres text can't hold NUL; one in the subject failed the insert and
-  // lost the email on every retry.
-  // Capped too: real subjects are short, and long ones feed slow regexes.
-  const subject =
-    typeof data.subject === "string" ? data.subject.replace(/\u0000/g, "").slice(0, 500) : "";
-  const text = content.text?.replace(/\u0000/g, "") ?? null;
-  const html = content.html?.replace(/\u0000/g, "") ?? null;
+  // No NUL (Postgres text can't hold one) and a capped subject, for the
+  // confirmation check below as for the receipt (src/lib/email/ingest.ts).
+  const subject = cleanSubject(data.subject);
+  const text = content.text == null ? null : stripNul(content.text);
+  const html = content.html == null ? null : stripNul(content.html);
   // Resend's own DMARC verdict: the From: domain is genuine.
   const dmarc = content.authentication?.dmarc ?? null;
 
   // Gmail's "confirm this forwarding address" email isn't a receipt: keep
-  // its code for the setup guide and stop here. 500 on a failed write so
+  // its link (and code, in the older format) for the setup guide and stop
+  // here. 500 on a failed write so
   // Resend retries; the user can't finish the Gmail setup without it.
   const confirmation = parseForwardingConfirmation({
     from: fromAddr,
@@ -294,13 +265,19 @@ export async function POST(request: NextRequest) {
       for_address: confirmation.forAddress,
       received_at: new Date().toISOString(),
     };
-    const save = (withAuto: boolean) =>
+    const save = (full: boolean) =>
       supabase
         .from("email_forwarding_confirmations")
-        .upsert(withAuto ? { ...row, auto_confirmed_at: autoConfirmedAt } : row, { onConflict: "user_id" });
+        .upsert(
+          full
+            ? { ...row, auto_confirmed_at: autoConfirmedAt, confirm_url: confirmation.confirmUrl }
+            : row,
+          { onConflict: "user_id" },
+        );
     let { error: confirmationError } = await save(true);
-    // The 2026-11-08 column isn't there yet (schema.sql not applied): keep
-    // the code, which is all the guide needs.
+    // A newer column isn't there yet (schema.sql not re-applied: 2026-11-08
+    // auto_confirmed_at, 2026-11-13 confirm_url): keep what the old table
+    // holds rather than lose the email.
     if (confirmationError?.code === "PGRST204" || confirmationError?.code === "42703") {
       ({ error: confirmationError } = await save(false));
     }
@@ -314,256 +291,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, forwardingConfirmation: true });
   }
 
-  const rawEml = content.rawEml;
-  const hasRaw = rawEml !== null && rawEml.length > 0;
+  const result = await ingestReceiptEmail({
+    userId,
+    source: "forwarding",
+    rawEml: content.rawEml,
+    text,
+    html,
+    subject,
+    from: fromAddr,
+    to: toAddr,
+    messageId: content.messageId,
+    headers: content.headers,
+    // The hash the route has always used, kept so a redelivery of a mail
+    // without Message-Id or raw message still finds its earlier row.
+    fallbackIdentity: {
+      emailId: data.email_id,
+      toAddr,
+      fromAddr,
+      subject: data.subject,
+      text,
+    },
+    trust: {
+      dmarc,
+      recipient: { from: "to-header", aliasAddress: buildForwardingAddress(aliasHash) },
+    },
+    deadline: startedAt + LAST_CLAUDE_CALL_START_MS,
+  });
+  return ingestResponse(result);
+}
 
-  // intake_ref: prefer Message-Id (provider-stable identity that survives
-  // re-forwarding by the user). Fall back to sha256 of the raw .eml so we
-  // still get idempotency on senders that strip Message-Id.
-  const messageId = content.messageId ?? pickHeader(content.headers, "Message-Id");
-  let intakeRef: string | null = messageId && messageId.trim().length > 0 ? messageId.trim() : null;
-  if (!intakeRef) {
-    if (hasRaw) {
-      intakeRef = `sha256:${createHash("sha256").update(rawEml).digest("hex")}`;
-    } else {
-      // No Message-Id and no raw payload — fall back to a hash of the
-      // visible fields so re-deliveries of the same body still dedupe.
-      intakeRef = `sha256:${createHash("sha256")
-        .update(
-          JSON.stringify({
-            emailId: data.email_id,
-            toAddr,
-            fromAddr,
-            subject: data.subject,
-            text,
-          })
-        )
-        .digest("hex")}`;
-    }
-  }
-
-  // Idempotency: existing row → 200 with its id, no side effects. Scoped
-  // to the user: Message-Id is sender-controlled, so a global key would let
-  // one user's row swallow another user's copy of the same email.
-  const { data: existing, error: existingError } = await supabase
-    .from("receipts")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("intake_ref", intakeRef)
-    .maybeSingle();
-  if (existingError) {
-    console.error("[intake/email] intake_ref lookup failed", existingError);
-    return NextResponse.json({ error: "lookup failed" }, { status: 500 });
-  }
-  if (existing) {
-    return NextResponse.json({ ok: true, id: existing.id, duplicate: true });
-  }
-
-  // Who the email was originally sent to: the To: header of the message
-  // itself, read from the raw .eml, never the webhook's recipient list or
-  // the envelope that brought it here. Without the raw message we can't
-  // count To: headers reliably, so nothing is trusted. Only looked up for a
-  // DMARC-authenticated mail, the only kind a template can trust.
-  let recipient: RecipientOwnership = "none";
-  if (dmarc === "pass" && rawEml && hasRaw) {
-    const toHeaders = rawHeaderValues(rawEml.toString("latin1"), "to");
-    const owner = await loadOwnerAddresses(userId, buildForwardingAddress(aliasHash));
-    recipient = recipientOwnership(toHeaders, owner);
-  }
-
-  // An attached PDF or photo is the receipt more often than the text is.
-  const attachment = await receiptAttachmentOf(hasRaw ? rawEml : null);
-
-  // Parse (best-effort). Throw → pending_review. With an attachment the
-  // text parser runs its templates only; the LLM reads the attachment.
-  const parseText = async (templatesOnly: boolean) => {
-    try {
-      return await parseReceipt({
-        kind: "email",
-        raw: {
-          from: fromAddr,
-          to: toAddr,
-          subject,
-          text,
-          html,
-          authenticated: dmarc === "pass",
-          recipient,
-          templatesOnly,
+// The status codes Resend sees: 2xx stops its retries, 5xx asks for a
+// redelivery (nothing was saved).
+function ingestResponse(result: IngestResult) {
+  switch (result.kind) {
+    case "created":
+      return NextResponse.json({ ok: true, id: result.receiptId });
+    case "duplicate":
+      return NextResponse.json({ ok: true, id: result.receiptId, duplicate: true });
+    case "retry":
+      return NextResponse.json(
+        {
+          error:
+            result.reason === "lookup_failed"
+              ? "lookup failed"
+              : result.reason === "upload_failed"
+                ? "upload failed"
+                : "insert failed",
         },
-      });
-    } catch (err) {
-      console.error("[intake/email] parser threw", err);
-      Sentry.captureException(err, { tags: { area: "intake-parse" } });
-      return { status: "pending_review" as const };
-    }
-  };
-  let parseResult: Awaited<ReturnType<typeof parseReceipt>> = await parseText(attachment !== null);
-
-  // A trusted template hit (Uber, Stripe) beats the attachment: it is
-  // verified, the attachment never is. Otherwise OCR the attachment, and
-  // if that can't read it, let the LLM read the text after all.
-  const templateTrusted =
-    parseResult.status === "ok" && parseResult.fields.parse_confidence >= 0.75;
-  // True once OCR read the attachment: it then becomes the stored original.
-  let readFromAttachment = false;
-  if (attachment && !templateTrusted) {
-    let fromAttachment: Awaited<ReturnType<typeof parseReceipt>> | null = null;
-    try {
-      const ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType);
-      const fields = fieldsFromOcr(ocr);
-      if (fields) {
-        fromAttachment = { status: "ok", fields };
-        readFromAttachment = true;
-      }
-    } catch (err) {
-      console.error("[intake/email] attachment OCR failed", err instanceof Error ? err.message : "unknown");
-      Sentry.captureException(err, { tags: { area: "intake-attachment-ocr" } });
-    }
-    parseResult = fromAttachment ?? (await parseText(false));
+        { status: 500 }
+      );
   }
-
-  // Generate the receipt id up front so the storage path and the row both
-  // reference the same uuid. If the insert later loses an idempotency race
-  // (23505 on intake_ref), we best-effort delete the storage object.
-  const receiptId = crypto.randomUUID();
-  // The original stored for the receipt: the attachment when its fields
-  // came from it (what the accountant needs, and what a re-run reads),
-  // else the whole message. The message itself is kept in both cases
-  // (BFL 7 kap.: räkenskapsinformation in the form it was received); it
-  // sits next to the attachment as <id>.eml and is deleted with the row.
-  const original: { path: string; bytes: Buffer; contentType: string; kind: string } | null =
-    attachment && readFromAttachment
-      ? {
-          path: `${userId}/${receiptId}.${EXTENSION_BY_TYPE[attachment.mediaType]}`,
-          bytes: attachment.bytes,
-          contentType: attachment.mediaType,
-          kind: attachment.mediaType,
-        }
-      : hasRaw
-        ? { path: `${userId}/${receiptId}.eml`, bytes: rawEml, contentType: "message/rfc822", kind: "eml" }
-        : null;
-  const storagePath = original?.path ?? `${userId}/${receiptId}.eml`;
-
-  if (original) {
-    const { error: uploadError } = await supabase.storage
-      .from("receipt-originals")
-      .upload(original.path, original.bytes, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: original.contentType,
-      });
-    if (uploadError) {
-      console.error("[intake/email] original upload failed", uploadError);
-      // Soft-fail — keep going, the row is the user-visible artifact.
-      // We just won't have an "Original source" toggle for this one.
-    }
-    if (original.kind !== "eml" && hasRaw) {
-      const { error: emlError } = await supabase.storage
-        .from("receipt-originals")
-        .upload(`${userId}/${receiptId}.eml`, rawEml, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: "message/rfc822",
-        });
-      if (emlError) console.error("[intake/email] eml upload failed", emlError);
-    }
-  }
-
-  const baseFields = {
-    id: receiptId,
-    user_id: userId,
-    organization_id: await getOrCreateDefaultOrganization(userId),
-    source: "email" as const,
-    intake_ref: intakeRef,
-    original_source_url: original ? original.path : null,
-    original_source_kind: original ? (original.kind as "eml" | EmailAttachment["mediaType"]) : null,
-    // Capped: a 100 KB subject was stored whole.
-    notes: subject.length > 0 ? `Subject: ${subject.slice(0, 300)}` : null,
-  };
-
-  const rowToInsert =
-    parseResult.status === "ok"
-      ? {
-          ...baseFields,
-          merchant_name: parseResult.fields.merchant_name,
-          purchased_at: parseResult.fields.purchased_at,
-          receipt_date: parseResult.fields.purchased_at.slice(0, 10),
-          total: parseResult.fields.total,
-          currency: parseResult.fields.currency,
-          subtotal: parseResult.fields.subtotal ?? null,
-          tax_amount: parseResult.fields.tax_amount ?? null,
-          tax_rate: parseResult.fields.tax_rate ?? null,
-          seller_org_number: parseResult.fields.seller_org_number ?? null,
-          merchant_vat_number: parseResult.fields.merchant_vat_number ?? null,
-          vat_lines: parseResult.fields.vat_lines ?? null,
-          payment_method: parseResult.fields.payment_method ?? null,
-          card_last_four: parseResult.fields.card_last_four ?? null,
-          category: parseResult.fields.category ?? "other",
-          items: parseResult.fields.items ?? null,
-          parse_confidence: parseResult.fields.parse_confidence,
-          status: computeReceiptStatus({
-            merchant_name: parseResult.fields.merchant_name,
-            purchased_at: parseResult.fields.purchased_at,
-            total: parseResult.fields.total,
-            parse_confidence: parseResult.fields.parse_confidence,
-          }),
-          notes:
-            parseResult.fields.notes && parseResult.fields.notes.length > 0
-              ? parseResult.fields.notes
-              : baseFields.notes,
-        }
-      : { ...baseFields, status: "pending_review" as const };
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("receipts")
-    .insert(rowToInsert)
-    .select("id")
-    .single();
-
-  if (insertError || !inserted) {
-    // 23505 = unique_violation on (user_id, intake_ref) — concurrent retry won the
-    // race. Best-effort delete the orphan blob and return the existing
-    // row's id so the provider stops retrying.
-    if (insertError && (insertError as { code?: string }).code === "23505") {
-      if (original) {
-        await supabase.storage
-          .from("receipt-originals")
-          .remove([storagePath])
-          .catch(() => {});
-      }
-      const { data: winner } = await supabase
-        .from("receipts")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("intake_ref", intakeRef)
-        .maybeSingle();
-      if (winner) {
-        return NextResponse.json({ ok: true, id: winner.id, duplicate: true });
-      }
-    }
-
-    console.error("[intake/email] insert failed", insertError);
-    Sentry.captureException(new Error("intake insert failed"), {
-      tags: { area: "intake-insert" },
-      extra: { code: (insertError as { code?: string } | null)?.code },
-    });
-    if (original) {
-      await supabase.storage
-        .from("receipt-originals")
-        .remove([storagePath])
-        .catch(() => {});
-    }
-    return NextResponse.json({ error: "insert failed" }, { status: 500 });
-  }
-
-  // Anyone who knows an alias can email it, so an inbound email only
-  // counts toward the plan once it's a verified receipt. Rows that land
-  // in pending_review (spam, newsletters, unparseable mail) count when
-  // the user confirms them (PATCH /api/receipts/[id]); deleting them
-  // costs nothing.
-  if (rowToInsert.status === "verified") {
-    await recordReceiptUsage({ userId, receiptId: inserted.id, source: "email" });
-  }
-
-  return NextResponse.json({ ok: true, id: inserted.id });
 }

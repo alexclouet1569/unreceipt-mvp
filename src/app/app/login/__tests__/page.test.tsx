@@ -37,6 +37,7 @@ const renderCard = (
     linkError: boolean;
     notice: string | null;
     inStoreApp: boolean;
+    next: string;
   }> = {}
 ) =>
   render(
@@ -46,6 +47,7 @@ const renderCard = (
       linkError={props.linkError ?? false}
       notice={props.notice ?? null}
       inStoreApp={props.inStoreApp ?? false}
+      {...(props.next ? { next: props.next } : {})}
     />
   );
 
@@ -368,6 +370,31 @@ describe("/app/login — create account", () => {
     expect(screen.getByRole("tab", { name: "Sign in" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText(/Email address/i)).toHaveValue("alex@example.se");
   });
+
+  it("sends a sign-in code when the address already has an account, without saying so", async () => {
+    // A confirmed address: no error, a user with identities: [], no session,
+    // and Supabase sends no email. We send a normal sign-in code instead, so
+    // the screen is the same as for a new address (no account enumeration).
+    mocks.signUp.mockResolvedValue({
+      data: { session: null, user: { id: "u1", identities: [] } },
+      error: null,
+    });
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup" });
+    await fillSignUp(user);
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+
+    await vi.waitFor(() =>
+      expect(mocks.signInWithOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "alex@example.se",
+          options: expect.objectContaining({ shouldCreateUser: false }),
+        })
+      )
+    );
+    expect(screen.queryByText("That email already has an account.")).not.toBeInTheDocument();
+  });
 });
 
 describe("/app/login — inside the store apps", () => {
@@ -392,5 +419,60 @@ describe("/app/login — inside the store apps", () => {
 
     expect(await screen.findByText(/signs you in to your browser, not to the app/)).toBeInTheDocument();
     expect(screen.queryByText(/even on another device/)).not.toBeInTheDocument();
+  });
+});
+
+describe("/app/login — ?next= (invite links, /firm)", () => {
+  const NEXT = "/app/accountant/accept?token=abc123";
+  const NEXT_CALLBACK = "http://localhost:3000/auth/callback?next=/app/accountant/accept%3Ftoken%3Dabc123";
+
+  it("continues to next after a password sign-in", async () => {
+    mocks.signInWithPassword.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard({ next: "/firm" });
+    await user.type(screen.getByLabelText(/Email address/i), "eva@byran.se");
+    await user.type(screen.getByLabelText(/^Password$/i), "supersecret");
+    await user.click(screen.getByRole("button", { name: /^Sign in$/i }));
+    expect(window.location.assign).toHaveBeenCalledWith("/firm");
+  });
+
+  it("puts next in the email link and continues there after the code", async () => {
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
+    mocks.verifyOtp.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard({ next: NEXT });
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@gmail.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+    expect(mocks.signInWithOtp).toHaveBeenCalledWith({
+      email: "alex@gmail.com",
+      options: { emailRedirectTo: NEXT_CALLBACK },
+    });
+    await user.type(await screen.findByLabelText(/6-digit code/i), "123456");
+    await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith(NEXT));
+  });
+
+  it("signs up with next in the confirmation link and continues there", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: { access_token: "t" } }, error: null });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup", next: NEXT });
+    await fillSignUp(user);
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+    expect(mocks.signUp.mock.calls[0][0].options.emailRedirectTo).toBe(NEXT_CALLBACK);
+    await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith(NEXT));
+  });
+
+  it("keeps next in the address when switching between Sign in and Create account", async () => {
+    const replaceState = vi.spyOn(window.history, "replaceState").mockImplementation(() => {});
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, href: "http://localhost:3000/app/login?next=%2Ffirm" },
+    });
+    const user = userEvent.setup();
+    renderCard({ next: "/firm" });
+    await user.click(screen.getByRole("tab", { name: /Create account/i }));
+    const url = replaceState.mock.calls[0][2] as URL;
+    expect(url.searchParams.get("next")).toBe("/firm");
+    expect(url.searchParams.get("mode")).toBe("signup");
   });
 });

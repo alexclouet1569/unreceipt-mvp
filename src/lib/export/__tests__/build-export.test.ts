@@ -7,6 +7,8 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 const state = vi.hoisted(() => ({
   rows: [] as unknown[],
   orFilter: null as string | null,
+  // Every `or` filter of the last query, in order (orFilter is the last one).
+  ors: [] as string[],
   files: {} as Record<string, Uint8Array>,
   uploads: [] as Array<{ bucket: string; path: string; size: number }>,
   previous: [] as Array<{ name: string; id: string | null }>,
@@ -43,6 +45,7 @@ vi.mock("@/lib/supabase-admin", () => ({
         },
         or: (f: string) => {
           state.orFilter = f;
+          state.ors.push(f);
           return q;
         },
         order: () => q,
@@ -84,6 +87,7 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 
+import { FIRM_VISIBLE_FILTER } from "@/lib/firm/visibility";
 import { FX_CONVERTED_CURRENCIES, INPUT_VAT_CURRENCY } from "@/lib/bookkeeping/rules";
 import {
   MAX_EXPORT_RECEIPTS,
@@ -116,6 +120,7 @@ const row = (i: number, o: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   state.rows = [];
   state.orFilter = null;
+  state.ors = [];
   state.files = {};
   state.uploads = [];
   state.previous = [];
@@ -277,6 +282,8 @@ describe("buildExport", () => {
     expect(res.missing).toBe(0);
     expect(state.eqs).toEqual([["organization_id", ORG], ["status", "verified"]]);
     expect(state.isNull).toEqual(["exported_at"]);
+    // Only receipts the firm may see: a mailbox receipt waits for the owner.
+    expect(state.ors[0]).toBe(FIRM_VISIBLE_FILTER);
     // The ZIP belongs to the staff member, keyed by client.
     expect(state.uploads[0].path.startsWith(`${STAFF}/${ORG}-`)).toBe(true);
     // Only the ready receipt is stamped (after the upload): the one still
@@ -286,6 +293,24 @@ describe("buildExport", () => {
         payload: { exported_at: now.toISOString(), exported_by: STAFF },
         ids: [row(1).id],
       },
+    ]);
+  });
+
+  it("leaves the firm-visibility filter off a customer's own export", async () => {
+    await own({ kind: "all" });
+    expect(state.ors).not.toContain(FIRM_VISIBLE_FILTER);
+  });
+
+  it("filters a firm's period export to what the firm may see, as well as by period", async () => {
+    await buildExport({
+      scope: { kind: "organization", organizationId: "33333333-3333-4333-8333-333333333333" },
+      actorUserId: USER_ID,
+      period: { kind: "month", month: "2026-10" },
+    });
+    expect(state.ors).toEqual([
+      FIRM_VISIBLE_FILTER,
+      "and(receipt_date.gte.2026-10-01,receipt_date.lt.2026-11-01)," +
+        "and(receipt_date.is.null,purchased_at.gte.2026-10-01T00:00:00Z,purchased_at.lt.2026-11-01T00:00:00Z)",
     ]);
   });
 

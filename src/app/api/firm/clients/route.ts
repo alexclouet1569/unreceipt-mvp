@@ -13,7 +13,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
 import { sendEmail, founderReplyTo } from "@/lib/email/send";
 import { firmInviteEmail } from "@/lib/email/templates";
-import { appUrl } from "@/lib/app-url";
+import { absoluteAppUrl } from "@/lib/app-url";
 import { inviteAcceptPath, inviteExpiry, mintInviteToken } from "@/lib/firm/invites";
 
 export const runtime = "nodejs";
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   const content = firmInviteEmail({
     firmName: ctx.firmName,
     clientName: parsed.data.client_name,
-    url: appUrl(inviteAcceptPath(token)),
+    url: absoluteAppUrl(inviteAcceptPath(token)),
   });
   const sent = await sendEmail({
     to: email,

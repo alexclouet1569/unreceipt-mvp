@@ -25,7 +25,7 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { isAdminEmail } from "./auth-admin";
 import { deleteAccount } from "./account-deletion";
 import { isPilotMode } from "./pilot";
-import { appUrl } from "./app-url";
+import { absoluteAppUrl } from "./app-url";
 import { founderReplyTo, sendEmail } from "./email/send";
 import { retentionReminderEmail } from "./email/templates";
 
@@ -224,8 +224,8 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionRun
           // moves later when receipts keep arriving).
           endedOn: stockholmDate(fresh.subscriptionEnded),
           deleteOn: stockholmDate(deleteOn),
-          settingsUrl: appUrl("/app/settings"),
-          subscribeUrl: appUrl("/subscribe"),
+          settingsUrl: absoluteAppUrl("/app/settings"),
+          subscribeUrl: absoluteAppUrl("/subscribe"),
           canReply: founderReplyTo() != null,
         });
         const sent = await sendEmail({

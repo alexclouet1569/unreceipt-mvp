@@ -118,3 +118,17 @@ export function recipientOwnership(
   const alias = normalizeAddress(owner.alias);
   return alias != null && recipients.has(alias) ? "alias" : "none";
 }
+
+// The signed-in user's address in the form invites and firm seats are
+// stored in (normalizeAddress: lower case, Gmail without dots or +tag,
+// googlemail.com → gmail.com), or null unless the address is confirmed.
+// Every comparison of a session with a stored invite address goes through
+// this, so "Anna.Svensson@googlemail.com" signed in matches an invite
+// stored as "annasvensson@gmail.com".
+export function normalizedSessionEmail(user: {
+  email?: string | null;
+  email_confirmed_at?: string | null;
+}): string | null {
+  if (typeof user.email !== "string" || !user.email_confirmed_at) return null;
+  return normalizeAddress(user.email);
+}

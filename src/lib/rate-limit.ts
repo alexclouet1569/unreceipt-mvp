@@ -39,6 +39,11 @@ export const RATE_LIMITS = {
   // Account deletion is heavy (Stripe, storage listing) and one real
   // person needs it once; a few retries after a failure is plenty.
   accountDelete: [{ limit: 5, windowSeconds: 60 * 60 }],
+  // Opens a Stripe customer-portal session (one Stripe API call each).
+  billingPortal: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
   // Each export renders a PDF per receipt and writes a ZIP to storage.
   export: [
     { limit: 10, windowSeconds: 60 * 60 },
@@ -84,6 +89,43 @@ export const RATE_LIMITS = {
   analytics: [
     { limit: 300, windowSeconds: 60 * 60 },
     { limit: 2000, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Connected mailboxes (2026-11-13). Each start of a Gmail/Outlook OAuth
+  // flow writes a pending row and sends the user to the provider: a few
+  // tries (wrong account, cancelled) is all a real person needs.
+  mailboxConnect: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
+  // The iPhone app asking for a one-time connect link (no write, but each
+  // link can start a flow).
+  mailboxConnectLink: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
+  // The iPhone app claiming a parked mailbox grant (POST /api/mailboxes/claim).
+  // One claim per finished flow; the code is 32 random bytes, so this only
+  // stops a loop.
+  mailboxClaim: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Per connection, before each Claude call on a mailbox message (steps
+  // 3/4): the first backfill reads up to 100 messages, then a mailbox
+  // sees a few receipts a day.
+  mailboxIngest: [
+    { limit: 150, windowSeconds: 60 * 60 },
+    { limit: 400, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Per user, across all their mailboxes, checked next to mailboxIngest:
+  // five connections (and a reconnect makes a new connection id) must not
+  // multiply the per-connection ceiling. The daily cap matches intakeEmail
+  // (forwarding); the hourly one stays above one first backfill (100
+  // messages, BACKFILL in mailboxes/oauth.ts), which a window search can't
+  // resume once stopped.
+  mailboxIngestUser: [
+    { limit: 120, windowSeconds: 60 * 60 },
+    { limit: 200, windowSeconds: 24 * 60 * 60 },
   ],
   // The iPhone app reporting a scan that didn't go through: at most one
   // per try (8 per scan), so a batch of failing scans stays well inside.

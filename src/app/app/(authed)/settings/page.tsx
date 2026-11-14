@@ -17,6 +17,8 @@ import { DeleteAccountSection } from "./DeleteAccountSection";
 import { ExportPanel } from "@/components/ExportPanel";
 import { AccountantSection } from "./AccountantSection";
 import { CurrencySetting } from "./CurrencySetting";
+import { ManageBillingButton } from "./ManageBillingButton";
+import { loadBillingAccount } from "@/lib/stripe-billing";
 import { homeCurrencyOf } from "@/lib/fx";
 import { getDefaultOrganizationId } from "@/lib/organizations";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
@@ -24,6 +26,11 @@ import { firmExitNotice, planFirmExit } from "@/lib/firm/account-exit";
 import { getNativeApp } from "@/lib/native-app-server";
 import { loadFirstReceiptDate } from "@/lib/receipts/first-date";
 import { findFirmForUser } from "@/lib/require-firm";
+import { ForwardingUnavailable } from "../_forwarding-unavailable";
+import { MailboxesSection } from "./mailboxes/MailboxesSection";
+import { MailboxResultBanner } from "./mailboxes/MailboxResultBanner";
+import { loadMailboxes } from "./mailboxes/load";
+import { NO_PROVIDERS, anyProvider, parseMailboxResult } from "./mailboxes/copy";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -54,6 +61,18 @@ async function loadFirmNotice(userId: string): Promise<string | null> {
   }
 }
 
+// The Stripe customer behind "Manage billing". Best-effort: on an error
+// the section is left out rather than breaking Settings.
+async function loadBillingCustomer(userId: string): Promise<string | null> {
+  try {
+    return (await loadBillingAccount(userId)).customerId;
+  } catch (err) {
+    console.error("[/app/settings] billing lookup failed", err);
+    Sentry.captureException(err, { tags: { area: "settings-billing" } });
+    return null;
+  }
+}
+
 async function loadUsage(userId: string): Promise<Usage | null> {
   try {
     return await getUsage(userId);
@@ -63,9 +82,17 @@ async function loadUsage(userId: string): Promise<Usage | null> {
   }
 }
 
-export default async function SettingsPage() {
+type SettingsPageProps = {
+  // ?mailbox=connected|error|cancelled&reason=<code>: where a Gmail /
+  // Outlook connect flow ends (resultUrl() in src/lib/mailboxes/oauth.ts).
+  searchParams: Promise<{ mailbox?: string | string[]; reason?: string | string[] }>;
+};
+
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
+  const { mailbox, reason } = await searchParams;
+  const mailboxResult = parseMailboxResult(mailbox, reason);
 
   const [
     profile,
@@ -77,6 +104,8 @@ export default async function SettingsPage() {
     firmNotice,
     nativeApp,
     firm,
+    billingCustomer,
+    mailboxes,
   ] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
@@ -91,15 +120,27 @@ export default async function SettingsPage() {
       Sentry.captureException(err, { tags: { area: "settings-firm-link" } });
       return null;
     }),
+    loadBillingCustomer(user.id),
+    loadMailboxes(user.id),
   ]);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
+  // The Capacitor shell can't finish an OAuth flow (Google's screen opens
+  // in Safari, away from the cookie that binds the flow to this browser):
+  // no connect buttons there. Mailboxes already connected still show.
+  const mailboxProviders = nativeApp ? NO_PROVIDERS : mailboxes.providers;
+  const showMailboxes =
+    anyProvider(mailboxProviders) || mailboxes.connections.length > 0 || mailboxes.failed;
 
   return (
     // The header and tabs come from the (authed) layout (AppNav).
     <div>
       <div className="mx-auto max-w-[540px] space-y-8 px-4 py-6 max-sm:pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
-        <h1 className="type-display-lg text-[var(--ink)]">Settings</h1>
+        {/* tabIndex -1: the mailbox result banner hands focus back here. */}
+        <h1 tabIndex={-1} className="type-display-lg text-[var(--ink)] outline-none">
+          Settings
+        </h1>
+        {mailboxResult ? <MailboxResultBanner result={mailboxResult} limit={mailboxes.limit} /> : null}
         {firm ? (
           <section aria-labelledby="firm-portal-heading">
             <SectionLabel id="firm-portal-heading">Firm portal</SectionLabel>
@@ -128,6 +169,21 @@ export default async function SettingsPage() {
           </section>
         ) : null}
 
+        {/* Without a provider set up (preview, dev) and nothing connected,
+            "Send us receipts" below is the whole story: no section here. */}
+        {showMailboxes ? (
+          <section aria-labelledby="mailboxes-heading">
+            <SectionLabel id="mailboxes-heading">Connected email</SectionLabel>
+            <MailboxesSection
+              providers={mailboxProviders}
+              connections={mailboxes.connections}
+              limit={mailboxes.limit}
+              failed={mailboxes.failed}
+              storeApp={Boolean(nativeApp)}
+            />
+          </section>
+        ) : null}
+
         <section aria-labelledby="intake-heading">
           <SectionLabel id="intake-heading">Send us receipts</SectionLabel>
           <div className="space-y-3">
@@ -139,10 +195,7 @@ export default async function SettingsPage() {
                 copyLabel="Copy forwarding address"
               />
             ) : (
-              <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-                Your forwarding address isn&apos;t ready yet. Reload this page
-                in a moment.
-              </p>
+              <ForwardingUnavailable />
             )}
             {intakeSmsNumber ? (
               <IntakeRow
@@ -183,6 +236,24 @@ export default async function SettingsPage() {
               suggestion={planSuggestion(usage)}
               hidePrices={Boolean(nativeApp)}
             />
+          </section>
+        ) : null}
+
+        {/* Website only: the store apps point to no purchase management
+            (App Store 3.1.3(f)), and /api/billing/portal refuses them too. */}
+        {billingCustomer && !nativeApp ? (
+          <section aria-labelledby="billing-heading">
+            <SectionLabel id="billing-heading">Billing</SectionLabel>
+            <div
+              className="bg-card space-y-3"
+              style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
+            >
+              <p className="type-body text-[var(--ink-muted)]">
+                Change your plan, update your card, download invoices or
+                cancel. Opens Stripe, our payment provider.
+              </p>
+              <ManageBillingButton />
+            </div>
           </section>
         ) : null}
 

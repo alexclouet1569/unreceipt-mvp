@@ -1,9 +1,31 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { SHOW_PRICES } from "../src/lib/pricing-visibility";
+
+// The public site names no prices while SHOW_PRICES is off (pricing model
+// under review, src/lib/pricing-visibility.ts). The price tests below run
+// only when it is on; the price-free tests pin the current behaviour.
+const PRICES_HIDDEN_REASON =
+  "SHOW_PRICES is off: the marketing site shows no pricing section or plan prices";
+
+// A plan price on its own, not the tail of an example receipt's amount
+// (the French receipts include "Fnac 129,99 €"): no digit or thousands
+// separator right before it.
+const price = (text: string) =>
+  new RegExp(`(?<![\\d\u00a0\u202f,.])${text.replace(/[.]/g, "\\.").replace(/\s/g, "\\s")}`);
+
+// No pricing section, no nav link to it, and none of the plan prices.
+async function expectNoPrices(page: Page, planPrices: readonly RegExp[]) {
+  await expect(page.locator("#pricing")).toHaveCount(0);
+  await expect(page.locator('a[href="#pricing"]')).toHaveCount(0);
+  for (const planPrice of planPrices) {
+    await expect(page.locator("body")).not.toContainText(planPrice);
+  }
+}
 
 /**
  * The landing page now has to close the funnel — every CTA in the hero,
- * the nav, and the pricing card must take a cold visitor to
- * /app/login?mode=signup, which opens on "Create account". Pin those routes
+ * the nav, and (while prices are shown) the pricing card must take a cold
+ * visitor to /app/login?mode=signup, which opens on "Create account". Pin those routes
  * here so a future copy edit doesn't silently break signup.
  */
 test.describe("landing → /app/login funnel", () => {
@@ -43,6 +65,7 @@ test.describe("landing → /app/login funnel", () => {
   });
 
   test("the pricing card CTA also routes to /app/login", async ({ page }) => {
+    test.skip(!SHOW_PRICES, PRICES_HIDDEN_REASON);
     await page.goto("/");
 
     // There are multiple "Start your free week" links across the page —
@@ -64,9 +87,19 @@ test.describe("landing → /app/login funnel", () => {
     await expect(page).toHaveURL(/\/app\/login\?mode=signup$/);
   });
 
+  test("names no prices while SHOW_PRICES is off", async ({ page }) => {
+    test.skip(SHOW_PRICES, "prices are shown; the tests below check them");
+    await page.goto("/");
+
+    await expectNoPrices(page, ["€5.99", "€14.99", "€29.99", "€0.40"].map(price));
+    // The note under the hero buttons uses its price-free wording.
+    await expect(page.getByText("First week free. Cancel anytime.")).toBeVisible();
+  });
+
   test("pricing shows the three flat monthly plans with first-week-free", async ({
     page,
   }) => {
+    test.skip(!SHOW_PRICES, PRICES_HIDDEN_REASON);
     await page.goto("/");
 
     const pricing = page.locator("#pricing");
@@ -87,6 +120,7 @@ test.describe("landing → /app/login funnel", () => {
   test("the receipts slider highlights the plan that fits", async ({
     page,
   }) => {
+    test.skip(!SHOW_PRICES, PRICES_HIDDEN_REASON);
     await page.goto("/");
 
     const pricing = page.locator("#pricing");
@@ -116,9 +150,8 @@ test.describe("landing waitlist (demoted)", () => {
 
     await page.goto("/");
 
-    // Scroll the waitlist section into view; jump-link is friendlier than
-    // a manual scroll on small viewports.
-    await page.locator('a[href="#waitlist"]').first().click().catch(() => {});
+    // The English page ends with the waitlist form (the Swedish and French
+    // pages end with a sign-up button instead). There is no jump link to it.
     const waitlist = page.locator("#waitlist");
     await waitlist.scrollIntoViewIfNeeded();
 
@@ -132,9 +165,7 @@ test.describe("landing waitlist (demoted)", () => {
 });
 
 test.describe("Swedish landing (/sv)", () => {
-  test("is in Swedish, prices in kronor, and links both languages", async ({
-    page,
-  }) => {
+  test("is in Swedish, and links both languages", async ({ page }) => {
     await page.goto("/sv");
 
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
@@ -146,8 +177,21 @@ test.describe("Swedish landing (/sv)", () => {
       "href",
       "https://unreceipt.com"
     );
-    await expect(page.locator("h1")).toContainText("Från kaos");
+    // The h1 carries the search words; the slogan sits below it.
+    await expect(page.locator("h1")).toHaveText(
+      "Kvittohantering för småföretag, enskild firma och redovisningsbyråer"
+    );
+    await expect(page.getByText("Från kaos", { exact: false }).first()).toBeVisible();
 
+    await expect(page.locator("#faq")).toContainText("Hur länge måste företag spara kvitton?");
+
+    // The language switch goes back to English.
+    await expect(page.locator('footer a[hreflang="en"]')).toHaveAttribute("href", "/");
+  });
+
+  test("prices in kronor", async ({ page }) => {
+    test.skip(!SHOW_PRICES, PRICES_HIDDEN_REASON);
+    await page.goto("/sv");
     const pricing = page.locator("#pricing");
     for (const [name, price] of [
       ["Light", "69 kr"],
@@ -157,10 +201,13 @@ test.describe("Swedish landing (/sv)", () => {
       await expect(pricing.locator(`[data-plan="${name}"]`)).toContainText(price);
     }
     await expect(pricing).not.toContainText("€");
-    await expect(page.locator("#faq")).toContainText("Hur länge måste företag spara kvitton?");
+  });
 
-    // The language switch goes back to English.
-    await expect(page.locator('footer a[hreflang="en"]')).toHaveAttribute("href", "/");
+  test("names no prices while SHOW_PRICES is off", async ({ page }) => {
+    test.skip(SHOW_PRICES, "prices are shown; the test above checks them");
+    await page.goto("/sv");
+    await expectNoPrices(page, ["69 kr", "169 kr", "329 kr", "4,90 kr"].map(price));
+    await expect(page.getByText("Första veckan gratis. Avsluta när du vill.")).toBeVisible();
   });
 
   test("the hero CTA navigates to /app/login", async ({ page }) => {
@@ -173,7 +220,7 @@ test.describe("Swedish landing (/sv)", () => {
 });
 
 test.describe("French landing (/fr)", () => {
-  test("is in French, prices in euros, and links every language", async ({ page }) => {
+  test("is in French, and links every language", async ({ page }) => {
     await page.goto("/fr");
 
     await expect(page.locator("html")).toHaveAttribute("lang", "fr");
@@ -185,8 +232,20 @@ test.describe("French landing (/fr)", () => {
       "href",
       "https://unreceipt.com/sv"
     );
-    await expect(page.locator("h1")).toContainText("Du chaos");
+    await expect(page.locator("h1")).toHaveText(
+      "Gestion des justificatifs pour TPE, indépendants et experts-comptables"
+    );
+    await expect(page.getByText("Du chaos", { exact: false }).first()).toBeVisible();
 
+    await expect(page.locator("#faq")).toContainText("Puis-je jeter le ticket papier");
+
+    await expect(page.locator('footer a[hreflang="en"]')).toHaveAttribute("href", "/");
+    await expect(page.locator('footer a[hreflang="sv"]')).toHaveAttribute("href", "/sv");
+  });
+
+  test("prices in euros", async ({ page }) => {
+    test.skip(!SHOW_PRICES, PRICES_HIDDEN_REASON);
+    await page.goto("/fr");
     const pricing = page.locator("#pricing");
     for (const [name, price] of [
       ["Light", /5,99\s€/],
@@ -196,10 +255,13 @@ test.describe("French landing (/fr)", () => {
       await expect(pricing.locator(`[data-plan="${name}"]`)).toContainText(price);
     }
     await expect(pricing).not.toContainText("kr");
-    await expect(page.locator("#faq")).toContainText("Puis-je jeter le ticket papier");
+  });
 
-    await expect(page.locator('footer a[hreflang="en"]')).toHaveAttribute("href", "/");
-    await expect(page.locator('footer a[hreflang="sv"]')).toHaveAttribute("href", "/sv");
+  test("names no prices while SHOW_PRICES is off", async ({ page }) => {
+    test.skip(SHOW_PRICES, "prices are shown; the test above checks them");
+    await page.goto("/fr");
+    await expectNoPrices(page, ["5,99 €", "14,99 €", "29,99 €", "0,40 €"].map(price));
+    await expect(page.getByText("Première semaine gratuite. Sans engagement.")).toBeVisible();
   });
 
   test("the hero CTA navigates to /app/login", async ({ page }) => {

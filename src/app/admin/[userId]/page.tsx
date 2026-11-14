@@ -7,6 +7,7 @@ import { ReceiptListItem } from "@/components/receipt/ReceiptListItem";
 import { formatAmount } from "@/lib/receipt-format";
 import type { Receipt } from "@/lib/types";
 import { requireAdminPage } from "@/lib/require-admin";
+import { splitForAdmin } from "@/lib/admin/customer-receipts";
 import { PasteForm } from "./PasteForm";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,9 @@ async function loadCustomer(userId: string) {
 
   if (userRes.error || !userRes.data.user) return null;
 
-  const receipts = (receiptsRes.data ?? []) as Receipt[];
+  const fetched = (receiptsRes.data ?? []) as Receipt[];
+  // Mailbox receipts are counted, never shown (src/lib/admin/customer-receipts.ts).
+  const { shown: receipts, mailboxCount } = splitForAdmin(fetched);
 
   const monthStart = new Date();
   monthStart.setDate(1);
@@ -61,7 +64,9 @@ async function loadCustomer(userId: string) {
           trial_end: subRes.data.trial_end as string | null,
         }
       : null,
+    fetchedCount: fetched.length,
     receipts,
+    mailboxCount,
     monthTotal,
   };
 }
@@ -107,8 +112,8 @@ export default async function AdminCustomerDetailPage({ params }: PageProps) {
               Total receipts
             </p>
             <p className="font-semibold text-sm mt-1">
-              {customer.receipts.length}
-              {customer.receipts.length === RECEIPT_FETCH_LIMIT ? "+" : ""}
+              {customer.fetchedCount}
+              {customer.fetchedCount === RECEIPT_FETCH_LIMIT ? "+" : ""}
             </p>
           </CardContent>
         </Card>
@@ -130,7 +135,12 @@ export default async function AdminCustomerDetailPage({ params }: PageProps) {
         <h2 className="text-sm font-medium text-muted-foreground">
           Recent receipts
         </h2>
-        {customer.receipts.length === 0 ? (
+        {customer.mailboxCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {customer.mailboxCount} from a connected mailbox, not shown here.
+          </p>
+        )}
+        {customer.receipts.length === 0 && customer.mailboxCount > 0 ? null : customer.receipts.length === 0 ? (
           <Card>
             <CardContent className="py-6 text-center text-sm text-muted-foreground">
               No receipts yet — paste the first one above.

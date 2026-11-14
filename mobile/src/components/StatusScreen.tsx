@@ -1,12 +1,14 @@
 // A calm full screen for accounts the app can't show receipts for: firm-only
 // staff (the portal is on the web) and accounts without an active plan.
-// No price, no plan, no purchase link (App Store 3.1.3(f)). Deleting the
-// account stays reachable here too (App Store 5.1.1(v)).
+// No price, no plan, no purchase link (App Store 3.1.3(f)); an account
+// without access can email support instead of hitting a dead end. Deleting
+// the account stays reachable here too (App Store 5.1.1(v)).
 
 import { useState } from "react";
-import { Alert, Modal, StyleSheet, View } from "react-native";
+import { Alert, Linking, Modal, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
+import { SUPPORT_EMAIL } from "../config";
 import { fill, s } from "../i18n";
 import { useScans } from "../lib/scans/ScanProvider";
 import { space, makeStyles, useColors } from "../theme";
@@ -15,7 +17,7 @@ import { Button } from "./Button";
 import { DeleteAccount } from "./DeleteAccount";
 import { Text } from "./Text";
 
-export function StatusScreen({ title, body }: { title: string; body: string }) {
+export function StatusScreen({ title, body, support = false }: { title: string; body: string; support?: boolean }) {
   const styles = useStyles();
   const colors = useColors();
   const { email, signOut } = useAuth();
@@ -38,6 +40,13 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
           </Text>
         ) : null}
       </View>
+      {support ? (
+        <Button
+          label={s.states.contactSupport}
+          kind="outline"
+          onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})}
+        />
+      ) : null}
       <Button
         label={s.account.signOut}
         kind="outline"
@@ -75,7 +84,7 @@ export function StatusScreen({ title, body }: { title: string; body: string }) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  screen: { flex: 1, backgroundColor: colors.surface, padding: space.xl },
+  screen: { flex: 1, backgroundColor: colors.surface, padding: space.xl, gap: space.sm },
   middle: { flex: 1, justifyContent: "center", alignItems: "center", gap: space.lg },
   center: { textAlign: "center" },
   sheet: { flex: 1, backgroundColor: colors.surface },

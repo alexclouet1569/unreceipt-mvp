@@ -35,12 +35,19 @@ export async function getDefaultOrganizationId(
  * the unique default_for_user_id index and the loser re-reads the winner's
  * row. Returns null only when the database refuses; callers fall back to
  * the insert trigger, which fills organization_id from the same row.
+ *
+ * The owner membership is upserted on every call, the existing-company path
+ * included: if it failed once after the company was created, the next call
+ * repairs it instead of leaving a company nobody owns.
  */
 export async function getOrCreateDefaultOrganization(
   userId: string
 ): Promise<string | null> {
   const existing = await getDefaultOrganizationId(userId);
-  if (existing) return existing;
+  if (existing) {
+    await ensureOwnerMembership(existing, userId);
+    return existing;
+  }
 
   const supabase = getSupabaseAdmin();
 
@@ -78,17 +85,19 @@ export async function getOrCreateDefaultOrganization(
   }
   if (!organizationId) return null;
 
-  const { error: membershipError } = await supabase
+  await ensureOwnerMembership(organizationId, userId);
+  return organizationId;
+}
+
+// Idempotent: an existing membership (whatever its role) is left as it is.
+async function ensureOwnerMembership(organizationId: string, userId: string): Promise<void> {
+  const { error } = await getSupabaseAdmin()
     .from("memberships")
     .upsert(
       { organization_id: organizationId, user_id: userId, role: "owner" },
       { onConflict: "organization_id,user_id", ignoreDuplicates: true }
     );
-  if (membershipError) {
-    console.error("[organizations] membership upsert failed", membershipError);
-  }
-
-  return organizationId;
+  if (error) console.error("[organizations] membership upsert failed", error);
 }
 
 /** True when the user belongs to at least one organisation (as a customer). */

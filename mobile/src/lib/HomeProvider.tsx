@@ -13,6 +13,7 @@ import type { MobileHome, MobileReceipt } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, getHome, getOlderReceipts } from "./api";
 import { readHome, writeHome } from "./cache";
+import { loadMoreCursor } from "./sections";
 import { shareHome, shareReceipts } from "./share";
 
 type HomeState = {
@@ -178,9 +179,10 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     // a receipt added or deleted meanwhile never makes one go missing).
     const byId = new Map(extra.map((r) => [r.id, r]));
     const shown = [...home.receipts, ...olderIds.flatMap((id) => byId.get(id) ?? [])];
-    const after = shown[shown.length - 1]?.listKey;
+    const after = loadMoreCursor(shown);
     if (!after) {
-      // A list saved by an older version of the app: fetch it again first.
+      // A list saved by an older version of the app (no list keys at all):
+      // fetch it again first.
       setOlderFailed(true);
       void refresh();
       return;

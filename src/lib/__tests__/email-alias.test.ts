@@ -17,6 +17,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 }));
 
 import {
+  AliasLookupError,
   buildForwardingAddress,
   findUserByAliasHash,
   generateAliasHash,
@@ -178,5 +179,14 @@ describe("findUserByAliasHash", () => {
 
     const result = await findUserByAliasHash("nosuchhash");
     expect(result).toBeNull();
+  });
+
+  it("throws AliasLookupError (not null) when the database can't answer", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: { message: "timeout" } });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    mocks.fromBuilder.mockReturnValueOnce({ select });
+
+    await expect(findUserByAliasHash("abc12345mn")).rejects.toBeInstanceOf(AliasLookupError);
   });
 });

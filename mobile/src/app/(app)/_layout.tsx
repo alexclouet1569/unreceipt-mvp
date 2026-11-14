@@ -7,6 +7,7 @@ import { StatusScreen } from "../../components/StatusScreen";
 import { AccountProvider } from "../../lib/AccountProvider";
 import { s } from "../../i18n";
 import { HomeProvider, useHome } from "../../lib/HomeProvider";
+import { MailboxesProvider } from "../../lib/MailboxesProvider";
 import { ReceiptActionsProvider } from "../../lib/ReceiptActions";
 import { ScanProvider } from "../../lib/scans/ScanProvider";
 import { overallCounts } from "../../lib/summary";
@@ -19,7 +20,7 @@ function Tabs() {
     return <StatusScreen title={s.states.firmOnlyTitle} body={s.states.firmOnlyBody} />;
   }
   if (home?.state === "inactive") {
-    return <StatusScreen title={s.states.inactiveTitle} body={s.states.inactiveBody} />;
+    return <StatusScreen title={s.states.inactiveTitle} body={s.states.inactiveBody} support />;
   }
   // Every receipt waiting, not only the newest 50 in the list.
   const toConfirm = home?.state === "ready" ? overallCounts(home.receipts, home.older).toConfirm : 0;
@@ -56,11 +57,13 @@ export default function AppLayout() {
   return (
     <HomeProvider>
       <AccountProvider>
-        <ScanProvider>
-          <ReceiptActionsProvider>
-            <Tabs />
-          </ReceiptActionsProvider>
-        </ScanProvider>
+        <MailboxesProvider>
+          <ScanProvider>
+            <ReceiptActionsProvider>
+              <Tabs />
+            </ReceiptActionsProvider>
+          </ScanProvider>
+        </MailboxesProvider>
       </AccountProvider>
     </HomeProvider>
   );

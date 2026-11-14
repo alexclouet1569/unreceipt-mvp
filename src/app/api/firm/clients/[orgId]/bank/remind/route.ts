@@ -20,7 +20,7 @@ import { monthLabel } from "@/lib/firm/client-stats";
 import { formatAmount } from "@/lib/receipt-format";
 import { sendEmail } from "@/lib/email/send";
 import { missingReceiptsEmail } from "@/lib/email/templates";
-import { appUrl } from "@/lib/app-url";
+import { absoluteAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,7 +95,7 @@ export async function POST(
       amount: formatAmount(-l.amount, l.currency),
     })),
     total: view.missingTotals.map((t) => formatAmount(t.amount, t.currency)).join(" + "),
-    appUrl: appUrl("/app"),
+    appUrl: absoluteAppUrl("/app"),
   });
   const replyTo = ctx.user.email && ctx.user.email_confirmed_at ? ctx.user.email : null;
 

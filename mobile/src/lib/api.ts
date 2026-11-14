@@ -11,25 +11,17 @@ import type {
   MobileForwarding,
   MobileForwardingStatus,
   MobileHome,
+  MobileMailboxClaim,
+  MobileMailboxes,
   MobileReceiptDetail,
   MobileReceiptsPage,
 } from "@/lib/mobile/types";
 import { API_URL } from "../config";
+import { ApiError } from "./api-error";
+import { afterUnauthorized } from "./auth-retry";
 import { supabase } from "./supabase";
 
-export type ApiErrorKind = "unauthorized" | "offline" | "server";
-
-export class ApiError extends Error {
-  constructor(
-    readonly kind: ApiErrorKind,
-    message?: string,
-    /** For "offline": no answer in time, rather than a failed request. */
-    readonly timedOut = false,
-  ) {
-    super(message ?? kind);
-    this.name = "ApiError";
-  }
-}
+export { ApiError, type ApiErrorKind } from "./api-error";
 
 const TIMEOUT_MS = 15_000;
 // Sending a scan on a slow line plus up to ~30 s of reading on the server
@@ -78,7 +70,9 @@ async function send(path: string, token: string, init: RequestInit, timeoutMs?: 
 
 /**
  * A call as the signed-in user, returning the raw response (for callers
- * that read the status themselves). Refreshes an expired token once.
+ * that read the status themselves). Refreshes an expired token once
+ * (auth-retry.ts: only a refused refresh is "unauthorized"; a 401 again
+ * after a refresh that worked is "server").
  */
 export async function apiResponse(path: string, init: RequestInit = {}, opts: CallOptions = {}): Promise<Response> {
   // An expired token is refreshed here. Offline, that refresh fails with a
@@ -87,27 +81,17 @@ export async function apiResponse(path: string, init: RequestInit = {}, opts: Ca
   const { data, error } = await supabase.auth.getSession();
   if (!data.session) throw new ApiError(isAuthRetryableFetchError(error) ? "offline" : "unauthorized");
 
-  const read401 = async (r: Response) =>
-    opts.keep401 ? opts.keep401((await r.clone().json().catch(() => ({}))) as { error?: string }) : false;
-
-  let res = await send(path, data.session.access_token, init, opts.timeoutMs);
-  // A 401 the caller reads (account deletion's "sign in again") comes back
-  // at once: a refreshed token keeps the old sign-in time, so resending
-  // would only spend the route's rate limit.
-  if (res.status === 401 && (await read401(res))) return res;
-  if (res.status === 401) {
-    const refreshed = await supabase.auth.refreshSession();
-    if (refreshed.data.session) {
-      res = await send(path, refreshed.data.session.access_token, init, opts.timeoutMs);
-    } else if (isAuthRetryableFetchError(refreshed.error)) {
-      throw new ApiError("offline");
-    }
-  }
-  if (res.status === 401) {
-    if (await read401(res)) return res;
-    throw new ApiError("unauthorized");
-  }
-  return res;
+  const first = await send(path, data.session.access_token, init, opts.timeoutMs);
+  return afterUnauthorized(first, {
+    keep401: async (r) =>
+      opts.keep401 ? opts.keep401((await r.clone().json().catch(() => ({}))) as { error?: string }) : false,
+    refresh: async () => {
+      const refreshed = await supabase.auth.refreshSession();
+      if (refreshed.data.session) return { kind: "token", accessToken: refreshed.data.session.access_token };
+      return isAuthRetryableFetchError(refreshed.error) ? { kind: "offline" } : { kind: "signedOut" };
+    },
+    resend: (accessToken) => send(path, accessToken, init, opts.timeoutMs),
+  });
 }
 
 /** What the app tells the server about a scan that didn't go through. */
@@ -138,7 +122,8 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; 
 /**
  * A call whose refusals the screen explains in the app's language: the
  * status and the server's error code (its English sentences are never
- * shown). Throws ApiError only for offline and signed out.
+ * shown). Throws ApiError only for offline, signed out, and a 401 that
+ * outlived a token refresh ("server").
  */
 export async function apiResult<T>(
   path: string,
@@ -249,3 +234,19 @@ export const respondToInvite = (inviteId: string, action: "accept" | "decline") 
 export function finishSignIn(): void {
   api("/api/auth/finish", { method: "POST" }).catch(() => {});
 }
+
+/** Account → Your email: the connected Gmail / Outlook mailboxes and which providers can be connected. */
+export const getMailboxes = () => api<MobileMailboxes>("/api/mobile/mailboxes");
+
+/** A 5-minute link for the system sign-in sheet (Connect Gmail / Outlook). */
+export const createMailboxConnectLink = (provider: "google" | "microsoft") =>
+  postJson<{ url: string; expiresAt: string }>("/api/mailboxes/connect-link", { provider });
+
+/** The last step of connecting: the one-time code from unreceipt://mailboxes?status=claim. */
+export const claimMailbox = (code: string) => postJson<MobileMailboxClaim>("/api/mailboxes/claim", { code });
+
+/** Disconnect: receipts already saved stay. */
+export const disconnectMailbox = (id: string) =>
+  apiResult<{ ok: true; revoked?: boolean }>(`/api/mailboxes/${encodeURIComponent(id)}`, { method: "DELETE" }, {
+    timeoutMs: 35_000,
+  });

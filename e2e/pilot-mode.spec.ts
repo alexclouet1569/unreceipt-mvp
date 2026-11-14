@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { SHOW_PRICES } from "../src/lib/pricing-visibility";
 
 /**
  * Pilot mode is a server-side env-var toggle, so this suite is gated:
@@ -27,9 +28,17 @@ test.describe("pilot mode landing copy", () => {
     ).toHaveCount(0);
   });
 
+  test("the hero note says the pilot is free, with no price", async ({ page }) => {
+    test.skip(SHOW_PRICES, "prices are shown; the pricing test below checks the pilot copy");
+    await page.goto("/");
+    await expect(page.getByText("Free during the pilot. No card needed.")).toBeVisible();
+    await expect(page.locator("#pricing")).toHaveCount(0);
+  });
+
   test("pricing says the plans are free during the pilot", async ({
     page,
   }) => {
+    test.skip(!SHOW_PRICES, "SHOW_PRICES is off: there is no pricing section");
     await page.goto("/");
     const pricing = page.locator("#pricing");
     await expect(pricing).toContainText(/Free during the pilot/i);

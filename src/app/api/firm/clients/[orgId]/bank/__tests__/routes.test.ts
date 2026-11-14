@@ -26,7 +26,10 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit }));
 vi.mock("@/lib/fx", () => ({ homeCurrencyOf: async () => "SEK" }));
 vi.mock("@/lib/email/send", () => ({ sendEmail: mocks.sendEmail }));
 vi.mock("@/lib/bank/load", () => ({ loadBankMonth: mocks.loadBankMonth }));
-vi.mock("@/lib/app-url", () => ({ appUrl: (p: string) => `https://app.unreceipt.com${p}` }));
+vi.mock("@/lib/app-url", () => ({
+  appUrl: (p: string) => `https://app.unreceipt.com${p}`,
+  absoluteAppUrl: (p: string) => `https://app.unreceipt.com${p}`,
+}));
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     auth: { admin: { getUserById: mocks.getUserById } },
@@ -60,6 +63,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 }));
 
 import { FirmAuthError } from "@/lib/require-firm";
+import { FIRM_VISIBLE_FILTER } from "@/lib/firm/visibility";
 import { POST as importPost } from "@/app/api/firm/clients/[orgId]/bank/import/route";
 import { PATCH as linePatch } from "@/app/api/firm/clients/[orgId]/bank/lines/[lineId]/route";
 import { POST as remindPost } from "@/app/api/firm/clients/[orgId]/bank/remind/route";
@@ -170,6 +174,8 @@ describe("PATCH bank/lines/[lineId]", () => {
     expect(res.status).toBe(200);
     const [check, update] = mocks.calls;
     expect(filter(check, "organization_id")).toBe(ORG);
+    // Only a receipt the firm may see (a mailbox one waits for the owner).
+    expect(check.filters).toContainEqual(["or", FIRM_VISIBLE_FILTER, undefined]);
     expect(update.op).toBe("update");
     expect(update.args[0]).toMatchObject({ linked_receipt_id: RECEIPT, no_receipt_reason: null, decided_by: "u-staff" });
     expect(filter(update, "organization_id")).toBe(ORG);

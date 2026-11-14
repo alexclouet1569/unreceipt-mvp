@@ -44,6 +44,7 @@ const APP_ONLY_PREFIX = [
   "/auth",
   "/subscribe",
   "/api/checkout",
+  "/api/billing",
   "/api/webhooks",
   "/api/admin",
 ];
@@ -112,26 +113,25 @@ export async function proxy(request: NextRequest) {
   // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
   // Official Supabase + Next.js App Router pattern: read the auth cookies
   // off the request, call getUser() (which silently rotates an expiring
-  // access token using the refresh token), and replay any Set-Cookie the
-  // SDK emits onto whatever response we ultimately return. This runs BEFORE
-  // the host-routing and admin logic below but deliberately does NOT
+  // access token using the refresh token), write the new cookies onto the
+  // REQUEST as well (so the page, layout or route handler behind this
+  // proxy reads the rotated session instead of refreshing again with the
+  // refresh token that was just used up), and replay them as Set-Cookie on
+  // whatever response we ultimately return. This runs BEFORE the
+  // host-routing and admin logic below but deliberately does NOT
   // short-circuit them — it is refresh-only and adds no redirect or gate,
   // so it cannot change who can reach what.
   //
   // Skipped for /admin + /api/admin: adminGate() already runs getUser() and
-  // writes refreshed cookies onto its own response, so refreshing here too
-  // would be a redundant second token rotation on the same request.
+  // forwards refreshed cookies the same way, so refreshing here too would
+  // be a redundant second token rotation on the same request.
   const isAdminPath =
     path.startsWith("/admin") || path.startsWith("/api/admin");
-  const refreshedCookies = isAdminPath
-    ? []
-    : await refreshSessionCookies(request);
-  const withRefreshedCookies = (res: NextResponse): NextResponse => {
-    for (const { name, value, options } of refreshedCookies) {
-      res.cookies.set({ name, value, ...options });
-    }
-    return res;
-  };
+  const refreshed = isAdminPath
+    ? NO_REFRESH
+    : await refreshSession(request);
+  const withRefreshedCookies = (res: NextResponse): NextResponse =>
+    applyRefresh(res, refreshed);
   // ─── END session refresh ───
 
   // Cross-host redirects for the remaining app-only paths (/admin, /auth,
@@ -163,34 +163,77 @@ export async function proxy(request: NextRequest) {
     return adminGate(request);
   }
 
-  return withRefreshedCookies(NextResponse.next());
+  return withRefreshedCookies(nextWithRequest(request, refreshed));
+}
+
+type RefreshedCookie = { name: string; value: string; options: CookieOptions };
+type Refresh = {
+  cookies: RefreshedCookie[];
+  // Cache-Control / Expires / Pragma that @supabase/ssr asks for whenever
+  // it sets auth cookies, so no CDN caches one user's session for another.
+  headers: Record<string, string>;
+};
+const NO_REFRESH: Refresh = { cookies: [], headers: {} };
+
+// Pass-through response. When the session was rotated, the request's
+// cookie header (already updated by setRequestCookies) is forwarded
+// upstream, so server components see the new tokens.
+function nextWithRequest(request: NextRequest, refresh: Refresh): NextResponse {
+  return refresh.cookies.length > 0
+    ? NextResponse.next({ request })
+    : NextResponse.next();
+}
+
+function applyRefresh(res: NextResponse, refresh: Refresh): NextResponse {
+  for (const { name, value, options } of refresh.cookies) {
+    res.cookies.set({ name, value, ...options });
+  }
+  for (const [key, value] of Object.entries(refresh.headers)) {
+    res.headers.set(key, value);
+  }
+  return res;
+}
+
+// Writes rotated auth cookies onto the incoming request (a removal arrives
+// as an empty value with maxAge 0 and is deleted there).
+function setRequestCookies(request: NextRequest, cookies: RefreshedCookie[]) {
+  for (const { name, value, options } of cookies) {
+    if (value === "" || options?.maxAge === 0) request.cookies.delete(name);
+    else request.cookies.set(name, value);
+  }
 }
 
 // TEMPORARY helper for the session-refresh block in proxy() above — remove
 // alongside it. Builds a request-scoped Supabase client, refreshes the
-// session via getUser(), and returns the cookies the SDK wants to set so the
-// caller can replay them onto the outgoing response. Returns [] when the env
-// is unconfigured; never throws.
-async function refreshSessionCookies(
-  request: NextRequest
-): Promise<{ name: string; value: string; options: CookieOptions }[]> {
+// session via getUser(), writes the rotated cookies onto the request and
+// returns them (with the SDK's no-cache headers) so the caller can replay
+// them onto the outgoing response. Returns NO_REFRESH when the env is
+// unconfigured; never throws.
+async function refreshSession(request: NextRequest): Promise<Refresh> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) return [];
+  if (!url || !anon) return NO_REFRESH;
 
-  const refreshed: { name: string; value: string; options: CookieOptions }[] =
-    [];
+  const refresh: Refresh = { cookies: [], headers: {} };
   const supabase = createServerClient(url, anon, {
     cookies: {
       getAll: () => request.cookies.getAll(),
-      setAll: (toSet) => {
-        for (const cookie of toSet) refreshed.push(cookie);
+      setAll: (toSet, headers) => {
+        setRequestCookies(request, toSet);
+        refresh.cookies.push(...toSet);
+        Object.assign(refresh.headers, headers ?? {});
       },
     },
   });
 
-  await supabase.auth.getUser();
-  return refreshed;
+  try {
+    await supabase.auth.getUser();
+  } catch (err) {
+    // Refresh-only: a Supabase outage must not take every page down. The
+    // page's own getServerUser() decides what the visitor may see.
+    console.error("[proxy] session refresh failed", err instanceof Error ? err.message : "unknown");
+  }
+  return refresh;
 }
 
 async function adminGate(request: NextRequest) {
@@ -202,14 +245,14 @@ async function adminGate(request: NextRequest) {
     return forbid(request, isApiPath);
   }
 
-  const response = NextResponse.next();
+  const refresh: Refresh = { cookies: [], headers: {} };
   const supabase = createServerClient(supabaseUrl, supabaseAnon, {
     cookies: {
       getAll: () => request.cookies.getAll(),
-      setAll: (toSet) => {
-        for (const { name, value, options } of toSet) {
-          response.cookies.set({ name, value, ...options });
-        }
+      setAll: (toSet, headers) => {
+        setRequestCookies(request, toSet);
+        refresh.cookies.push(...toSet);
+        Object.assign(refresh.headers, headers ?? {});
       },
     },
   });
@@ -222,7 +265,8 @@ async function adminGate(request: NextRequest) {
     return forbid(request, isApiPath);
   }
 
-  return response;
+  // requireAdmin() behind this reads the rotated session from the request.
+  return applyRefresh(nextWithRequest(request, refresh), refresh);
 }
 
 function forbid(request: NextRequest, isApiPath: boolean) {

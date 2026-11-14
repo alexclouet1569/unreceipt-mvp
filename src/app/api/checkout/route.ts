@@ -1,9 +1,12 @@
+import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { getServerUser } from "@/lib/supabase-server";
 import { getStripe } from "@/lib/stripe";
 import { PLAN_IDS, planPriceEnv } from "@/lib/plans";
 import { parseNativeApp } from "@/lib/native-app";
+import { loadBillingAccount, type BillingAccount } from "@/lib/stripe-billing";
 
 // The customer picks a plan; each plan is one flat monthly price for the
 // whole company (no per-user quantity).
@@ -35,6 +38,30 @@ export async function POST(request: NextRequest) {
   }
   const { plan } = parsed.data;
 
+  // One subscription per account: a second Checkout would bill the company
+  // twice and hand out a second free week. Fail closed when we can't tell.
+  let billing: BillingAccount;
+  try {
+    billing = await loadBillingAccount(user.id);
+  } catch (err) {
+    console.error("[checkout] subscriptions lookup failed", err);
+    Sentry.captureException(err, { tags: { area: "checkout" } });
+    return NextResponse.json(
+      { error: "Couldn't check your current plan. Try again in a moment." },
+      { status: 503 }
+    );
+  }
+  if (billing.hasLiveSubscription) {
+    return NextResponse.json(
+      {
+        error:
+          "You already have a plan. Change or cancel it under Manage billing in Settings.",
+        code: "already_subscribed",
+      },
+      { status: 409 }
+    );
+  }
+
   // No fallback to another price: a missing env var must fail loudly
   // rather than bill the customer for a plan they didn't choose.
   const priceId = process.env[planPriceEnv(plan)];
@@ -64,6 +91,18 @@ export async function POST(request: NextRequest) {
   ];
   if (overagePriceId) lineItems.push({ price: overagePriceId });
 
+  // A returning customer keeps their Stripe customer (one invoice history,
+  // one portal) instead of getting a new one from their email address.
+  // Checkout then needs leave to write the billing address and company
+  // name it collects back onto that customer (Stripe Tax and tax IDs
+  // require it). `customer` and `customer_email` are mutually exclusive.
+  const customerParams: Pick<
+    Stripe.Checkout.SessionCreateParams,
+    "customer" | "customer_email" | "customer_update"
+  > = billing.customerId
+    ? { customer: billing.customerId, customer_update: { address: "auto", name: "auto" } }
+    : { customer_email: user.email };
+
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
@@ -71,12 +110,13 @@ export async function POST(request: NextRequest) {
       // metadata.user_id rides on the subscription itself so the
       // customer.subscription.updated / .deleted webhooks know whose row
       // to update (client_reference_id only exists on the Checkout session).
+      // The free week is for the first subscription only.
       subscription_data: {
-        trial_period_days: 7,
+        ...(billing.hadSubscription ? {} : { trial_period_days: 7 }),
         metadata: { user_id: user.id, plan },
       },
       client_reference_id: user.id,
-      customer_email: user.email,
+      ...customerParams,
       // Stripe Tax: charge VAT automatically based on the customer's
       // billing address. Requires F-tax / VAT registration in the
       // Stripe Dashboard (Tax → Registrations) for the relevant

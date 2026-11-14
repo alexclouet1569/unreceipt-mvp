@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { loadBankMonth } from "@/lib/bank/load";
 import type { ReminderState } from "./ReminderSwitch";
+import { firmVisible } from "@/lib/firm/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -14,23 +15,28 @@ const MAX_ROWS = 500;
 
 // Every receipt of the client printed in the month (printed-day.ts), and
 // those still without a date that arrived in it, newest first. Scoped by the organisation id that requireFirmClientAccess()
-// returned; nothing else may scope this query.
+// returned; nothing else may scope this query. Mailbox receipts the owner
+// hasn't confirmed are left out (src/lib/firm/visibility.ts).
 async function loadMonthReceipts(organizationId: string, month: string): Promise<Receipt[]> {
   const { from, to } = monthBounds(month);
   const db = getSupabaseAdmin();
   const [dated, undated] = await Promise.all([
-    db
-      .from("receipts")
-      .select("*")
-      .eq("organization_id", organizationId)
+    firmVisible(
+      db
+        .from("receipts")
+        .select("*")
+        .eq("organization_id", organizationId)
+    )
       .or(printedMonthFilter(month))
       .order("purchased_at", { ascending: false })
       .limit(MAX_ROWS),
     // Rows still waiting for a date (review needed) sort by creation time.
-    db
-      .from("receipts")
-      .select("*")
-      .eq("organization_id", organizationId)
+    firmVisible(
+      db
+        .from("receipts")
+        .select("*")
+        .eq("organization_id", organizationId)
+    )
       .is("purchased_at", null)
       .is("receipt_date", null)
       .gte("created_at", from)

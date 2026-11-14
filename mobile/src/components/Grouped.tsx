@@ -11,10 +11,13 @@ import { Text } from "./Text";
 export function Section({
   title,
   note,
+  titleRef,
   children,
 }: {
   title?: string;
   note?: string | null;
+  /** For moving VoiceOver to the section (after its row went away). */
+  titleRef?: React.Ref<React.ComponentRef<typeof View>>;
   children: React.ReactNode;
 }) {
   const styles = useStyles();
@@ -22,17 +25,26 @@ export function Section({
   return (
     <View style={styles.section}>
       {title ? (
-        <Text variant="micro" color={colors.inkMuted} accessibilityRole="header" style={styles.title}>
-          {title}
-        </Text>
+        <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={title}>
+          <Text variant="micro" color={colors.inkMuted} style={styles.title}>
+            {title}
+          </Text>
+        </View>
       ) : null}
       {children}
-      {note ? (
-        <Text variant="caption" color={colors.inkMuted} style={styles.note}>
-          {note}
-        </Text>
-      ) : null}
+      {note ? <SectionNote text={note} /> : null}
     </View>
+  );
+}
+
+/** A section's note, for when it belongs between two groups. */
+export function SectionNote({ text, color }: { text: string; color?: string }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Text variant="caption" color={color ?? colors.inkMuted} style={styles.note}>
+      {text}
+    </Text>
   );
 }
 
@@ -45,6 +57,7 @@ export function Group({ children }: { children: React.ReactNode }) {
 export function Row({
   label,
   detail,
+  detailColor,
   value,
   onPress,
   chevron = Boolean(onPress),
@@ -59,6 +72,8 @@ export function Row({
   label: string;
   /** A second line under the label. */
   detail?: string | null;
+  /** The second line's colour when it needs the user (honey). */
+  detailColor?: string;
   /** On the right, before the chevron (iOS's "value" style). */
   value?: string | null;
   onPress?: () => void;
@@ -86,7 +101,7 @@ export function Row({
           {label}
         </Text>
         {detail ? (
-          <Text variant="caption" color={colors.inkMuted}>
+          <Text variant="caption" color={detailColor ?? colors.inkMuted}>
             {detail}
           </Text>
         ) : null}

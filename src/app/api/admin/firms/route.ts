@@ -13,7 +13,7 @@ import { normalizeAddress } from "@/lib/email-address";
 import { isAcceptableDisplayName } from "@/lib/firm/names";
 import { founderReplyTo, sendEmail } from "@/lib/email/send";
 import { firmWelcomeEmail } from "@/lib/email/templates";
-import { appUrl } from "@/lib/app-url";
+import { absoluteAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
   const sent = await sendEmail({
     to: email,
-    ...firmWelcomeEmail({ firmName: name, signInUrl: appUrl("/app/login?next=/firm") }),
+    ...firmWelcomeEmail({ firmName: name, signInUrl: absoluteAppUrl("/app/login?next=/firm") }),
     replyTo: founderReplyTo(),
     tag: "firm_welcome",
   });

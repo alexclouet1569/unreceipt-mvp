@@ -25,6 +25,11 @@ export type ReceiptOriginalKind =
 // completes them. See src/lib/receipts/status.ts for the rule.
 export type ReceiptStatus = "verified" | "pending_review";
 
+// How an email receipt reached us (2026-11-13 block): the forwarding alias or
+// a connected Gmail/Outlook mailbox. Null for every other path. The firm sees
+// a mailbox receipt only once the owner confirmed it (src/lib/firm/visibility.ts).
+export type ReceiptIntakeChannel = "forwarding" | "mailbox";
+
 export type ReceiptCategory =
   | "meals"
   | "transport"
@@ -93,6 +98,9 @@ export interface Receipt {
   // Idempotency key — email Message-Id, Twilio MessageSid, or sha256 of
   // a paper upload. Re-forwarding the same email is a no-op.
   intake_ref: string | null;
+  // Email receipts only: 'forwarding' or 'mailbox' (2026-11-13). Optional
+  // because rows read before the column existed don't carry it.
+  intake_channel?: ReceiptIntakeChannel | null;
   // 0..1 parser confidence. Distinct from ocr_confidence — covers regex
   // match quality and LLM schema-validation pass-rate too, so it applies
   // to email/SMS intake where there is no OCR step.
@@ -233,7 +241,7 @@ export interface Profile {
   updated_at: string;
 }
 
-// Latest Gmail forwarding confirmation code sent to a user's alias
+// Latest Gmail forwarding confirmation sent to a user's alias
 // (public.email_forwarding_confirmations), shown in the forwarding guide.
 export interface EmailForwardingConfirmation {
   user_id: string;
@@ -243,6 +251,8 @@ export interface EmailForwardingConfirmation {
   received_at: string;
   // Set when /api/intake/email confirmed the request itself (2026-11-08).
   auto_confirmed_at: string | null;
+  // Gmail's own confirmation page, offered as "Confirm in Gmail" (2026-11-13).
+  confirm_url: string | null;
 }
 
 // An address the user declared as their own (public.user_email_addresses):
@@ -382,4 +392,64 @@ export interface VatLine {
   rate: number;
   net: number | null;
   vat: number;
+}
+
+// A Gmail or Outlook mailbox the user connected with OAuth (2026-11-13,
+// src/lib/mailboxes/). Service-role only: refresh_token_enc never leaves
+// the server (see MailboxConnectionSummary for what the API returns).
+export type MailboxProviderId = "google" | "microsoft";
+export type MailboxConnectionStatus = "active" | "needs_reconnect" | "paused";
+
+export interface MailboxConnection {
+  id: string;
+  user_id: string;
+  provider: MailboxProviderId;
+  // Lowercased.
+  email: string;
+  // "v1.<iv>.<tag>.<ciphertext>", src/lib/mailboxes/crypto.ts.
+  refresh_token_enc: string;
+  status: MailboxConnectionStatus;
+  // Gmail historyId / Graph deltaLink.
+  cursor: string | null;
+  watch_id: string | null;
+  watch_expires_at: string | null;
+  last_sync_at: string | null;
+  last_receipt_at: string | null;
+  // Short code only (e.g. "reauth_required"), never message content.
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// One OAuth flow in progress; deleted by the callback (single use).
+export interface MailboxOAuthPending {
+  // The `state` sent to the provider.
+  nonce: string;
+  user_id: string;
+  provider: MailboxProviderId;
+  code_verifier: string;
+  client: "web" | "app";
+  // sha256 hex of the cookie set on the browser that started the flow.
+  browser_binding: string;
+  // The iPhone app's one-time link id, null on the website.
+  link_jti: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+// The iPhone app's claim step (2026-11-13, src/lib/mailboxes/parked.ts): an
+// app flow's grant waits here until the app claims it with its own sign-in.
+// Taken out on claim (single use), 10 minutes, service role only.
+export interface MailboxOAuthParked {
+  // sha256 hex of the one-time code in the unreceipt:// redirect.
+  code_hash: string;
+  // Who minted the connect link: the only user who may claim it.
+  user_id: string;
+  provider: MailboxProviderId;
+  // Lowercased.
+  email: string;
+  // "v1.<iv>.<tag>.<ciphertext>", AAD bound to user_id.
+  refresh_token_enc: string;
+  created_at: string;
+  expires_at: string;
 }

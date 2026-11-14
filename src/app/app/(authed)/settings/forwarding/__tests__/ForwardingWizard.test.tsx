@@ -11,7 +11,7 @@ import { RECEIPT_SUBJECT_WORDS, gmailFilterQuery, icloudRuleWords, outlookSubjec
 const ADDRESS = "receipts+abc12345mn@in.unreceipt.com";
 const fetchMock = vi.fn();
 let status = {
-  confirmation: null as null | { code: string | null; forAddress: string | null; receivedAt: string; autoConfirmed?: boolean },
+  confirmation: null as null | { code: string | null; forAddress: string | null; receivedAt: string; autoConfirmed?: boolean; confirmUrl?: string | null; ownInbox?: boolean | null },
   lastEmailAt: null as string | null,
 };
 
@@ -153,7 +153,7 @@ describe("ForwardingWizard", () => {
     window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
     await setup();
     expect(await screen.findByText("593872831")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "I've verified it" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "I've confirmed it" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/forwarding/status", { cache: "no-store" });
   });
 
@@ -171,11 +171,71 @@ describe("ForwardingWizard", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 
-  it("says when Gmail's email came but its code couldn't be read", async () => {
+  it("offers Gmail's confirmation link when the email has no code (Gmail's current format)", async () => {
+    const link = "https://mail-settings.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456";
+    status = {
+      confirmation: { code: null, forAddress: "anna@gmail.com", receivedAt: new Date().toISOString(), confirmUrl: link },
+      lastEmailAt: null,
+    };
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
+    await setup();
+    const confirm = await screen.findByRole("link", { name: /Confirm in Gmail/ });
+    expect(confirm).toHaveAttribute("href", link);
+    expect(confirm).toHaveAttribute("rel", "noopener noreferrer");
+    // Never asks for a code that Gmail didn't send, and names both buttons:
+    // ours only opens Google's page, Google's Confirm is what confirms.
+    expect(currentStep()).toHaveTextContent("Confirm your UnReceipt address with the box below, then refresh the Gmail page");
+    expect(screen.getByText(/leave its code box empty/)).toBeInTheDocument();
+    expect(currentStep()).not.toHaveTextContent(/Paste Gmail.s code/);
+    expect(screen.getByRole("status")).toHaveTextContent(/On the Google page that opens, press “Confirm”/);
+    expect(screen.getByText("anna@gmail.com")).toBeInTheDocument();
+    // The link is outside the live region, so it isn't read out with it.
+    expect(screen.getByRole("status")).not.toContainElement(confirm);
+    expect(screen.getByRole("button", { name: "I've confirmed it" })).toBeInTheDocument();
+  });
+
+  it("warns when the Gmail asking isn't one of the user's addresses", async () => {
+    status = {
+      confirmation: {
+        code: null,
+        forAddress: "stranger@gmail.com",
+        receivedAt: new Date().toISOString(),
+        confirmUrl: "https://mail-settings.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456",
+        ownInbox: false,
+      },
+      lastEmailAt: null,
+    };
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
+    await setup();
+    expect(await screen.findByText(/isn.t one of your email addresses: only confirm if you set this up yourself/)).toBeInTheDocument();
+  });
+
+  it("gives the old code-only email its own instruction, without the 'leave the box empty' hint", async () => {
+    status = { confirmation: { code: "593872831", forAddress: "anna@gmail.com", receivedAt: new Date().toISOString() }, lastEmailAt: null };
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
+    await setup();
+    expect(await screen.findByText("593872831")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/Type this code in the box next to your address/);
+    expect(screen.queryByText(/leave its code box empty/)).toBeNull();
+  });
+
+  it("keeps the link as a fallback after confirming for the user", async () => {
+    const link = "https://mail-settings.google.com/mail/vf-%5BANGjdJ8abc%5D-xyzTOKEN123456";
+    status = {
+      confirmation: { code: null, forAddress: "anna@gmail.com", receivedAt: new Date().toISOString(), autoConfirmed: true, confirmUrl: link },
+      lastEmailAt: null,
+    };
+    window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
+    await setup();
+    expect(await screen.findByText(/we approved it for you/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Confirm in Gmail/ })).toHaveAttribute("href", link);
+  });
+
+  it("says when Gmail's email came but couldn't be read", async () => {
     status = { confirmation: { code: null, forAddress: null, receivedAt: new Date().toISOString() }, lastEmailAt: null };
     window.localStorage.setItem("unreceipt.forwarding-wizard", JSON.stringify({ provider: "gmail", step: 1, done: false }));
     await setup();
-    expect(await screen.findByText(/couldn.t read the code/)).toBeInTheDocument();
+    expect(await screen.findByText(/couldn.t read it/)).toBeInTheDocument();
     expect(screen.queryByText(/Waiting for Gmail/)).toBeNull();
   });
 

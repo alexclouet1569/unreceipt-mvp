@@ -134,6 +134,18 @@ describe("GET /api/mobile/home", () => {
     expect(text).not.toContain("SECRET");
   });
 
+  it("answers 503 (try again) rather than an address that doesn't route", async () => {
+    mocks.loadHome.mockResolvedValue({
+      kind: "ready",
+      access: "pilot",
+      data: { receipts: [], forwardingEmail: null, showOnboarding: false, accountantInvites: [], homeCurrency: "SEK" },
+    });
+    const res = await GET();
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toContain("no-store");
+    expect(await res.json()).toEqual({ error: "server_error" });
+  });
+
   it("answers 500 when loading fails", async () => {
     mocks.loadHome.mockRejectedValue(new Error("db down"));
     const res = await GET();

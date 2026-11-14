@@ -9,6 +9,7 @@ import {
 import { listExtraAddresses } from "@/lib/owner-addresses";
 import { ForwardingGuide } from "./ForwardingGuide";
 import { OwnAddresses } from "./OwnAddresses";
+import { ForwardingUnavailable } from "../../_forwarding-unavailable";
 
 // The setup guide for the forwarding address (launch plan actions 84–85):
 // what the address does and a step-by-step wizard for Gmail, Outlook and
@@ -54,10 +55,7 @@ export default async function ForwardingPage() {
             }
           />
         ) : (
-          <p className="text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-            Your forwarding address isn&apos;t ready yet. Reload this page in a
-            moment.
-          </p>
+          <ForwardingUnavailable />
         )}
       </div>
     </div>

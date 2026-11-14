@@ -44,7 +44,10 @@ vi.mock("@/lib/rate-limit", async (orig) => ({
   ...(await orig<typeof import("@/lib/rate-limit")>()),
   rateLimit: mocks.limit,
 }));
-vi.mock("@/lib/app-url", () => ({ appUrl: (p: string) => `https://app.unreceipt.com${p}` }));
+vi.mock("@/lib/app-url", () => ({
+  appUrl: (p: string) => `https://app.unreceipt.com${p}`,
+  absoluteAppUrl: (p: string) => `https://app.unreceipt.com${p}`,
+}));
 
 import { FirmAuthError } from "@/lib/require-firm";
 import { POST } from "@/app/api/firm/clients/route";

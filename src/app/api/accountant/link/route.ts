@@ -49,12 +49,34 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // Read first: what ends with the link depends on what it was. Only an
+  // active link has bank lines and a reminder log; withdrawing a request
+  // that was never answered must not touch the work of the firm that is
+  // connected now.
+  const { data: link, error: readError } = await db
+    .from("firm_clients")
+    .select("id, organization_id, status, direction")
+    .eq("id", parsed.data.linkId)
+    .in("organization_id", organizationIds)
+    .in("status", ["active", "invited"])
+    .maybeSingle();
+  if (readError) {
+    console.error("[/api/accountant/link] read failed", readError.code);
+    return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });
+  }
+  const wasActive = link?.status === "active";
+  // A firm-sent invite is declined by its addressee, not withdrawn here.
+  if (!link || (!wasActive && link.direction !== "client")) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const { data, error } = await db
     .from("firm_clients")
     .update({ status: "revoked", revoked_at: new Date().toISOString(), invite_token_hash: null })
-    .eq("id", parsed.data.linkId)
-    .in("organization_id", organizationIds)
-    .or("status.eq.active,and(status.eq.invited,direction.eq.client)")
+    .eq("id", link.id as string)
+    .eq("organization_id", link.organization_id as string)
+    // Only if it is still what was read (no race with an accept).
+    .eq("status", link.status as string)
     .select("id, organization_id")
     .maybeSingle();
   if (error) {
@@ -62,8 +84,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Couldn't update. Try again." }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  // The firm's bank check ends with the link (src/lib/bank/cleanup.ts).
-  if (typeof data.organization_id === "string") {
+  // The firm's bank check ends with an active link (src/lib/bank/cleanup.ts).
+  if (wasActive && typeof data.organization_id === "string") {
     const lines = await deleteBankLines(db, [data.organization_id]);
     if (!lines.ok) Sentry.captureMessage("bank lines kept after link end", { level: "warning", tags: { area: "bank-cleanup" } });
   }

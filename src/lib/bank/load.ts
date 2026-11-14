@@ -1,12 +1,14 @@
 // SERVER-ONLY. Loads one client company's bank lines and receipts around a
 // month and matches them (src/lib/bank/month.ts). Called by the firm's
 // client page and the reminder route, always with an organisation id that
-// came from requireFirmClientAccess().
+// came from requireFirmClientAccess(). Only receipts the firm may see are
+// matched (src/lib/firm/visibility.ts).
 
 import * as Sentry from "@sentry/nextjs";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { ensureHomeAmounts } from "@/lib/fx";
 import type { BankTransaction, Receipt } from "@/lib/types";
+import { firmVisible } from "@/lib/firm/visibility";
 import { bankWindow, buildBankMonth, type BankMonthView } from "./month";
 
 const MAX_LINES = 5000;
@@ -37,10 +39,9 @@ export async function loadBankMonth(
     // keep a day of slack each side, harmless now that nothing is shifted.
     const tsFrom = new Date(Date.parse(`${w.receiptFrom}T00:00:00Z`) - 86_400_000).toISOString();
     const tsTo = new Date(Date.parse(`${w.receiptTo}T00:00:00Z`) + 2 * 86_400_000).toISOString();
-    const receipts = await db
-      .from("receipts")
-      .select("*")
-      .eq("organization_id", organizationId)
+    const receipts = await firmVisible(
+      db.from("receipts").select("*").eq("organization_id", organizationId)
+    )
       .or(
         `and(receipt_date.gte.${w.receiptFrom},receipt_date.lte.${w.receiptTo}),` +
           `and(receipt_date.is.null,purchased_at.gte.${tsFrom},purchased_at.lt.${tsTo})`
@@ -56,11 +57,9 @@ export async function loadBankMonth(
       ...new Set(transactions.map((t) => t.linked_receipt_id).filter((id): id is string => !!id && !have.has(id))),
     ];
     for (let i = 0; i < linked.length; i += 100) {
-      const more = await db
-        .from("receipts")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .in("id", linked.slice(i, i + 100));
+      const more = await firmVisible(
+        db.from("receipts").select("*").eq("organization_id", organizationId)
+      ).in("id", linked.slice(i, i + 100));
       if (more.error) throw new Error(`linked receipts read failed (${more.error.code})`);
       loaded.push(...((more.data ?? []) as Receipt[]));
     }

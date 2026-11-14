@@ -90,6 +90,19 @@ describe("extractReceipt", () => {
     expect(result).toEqual({ merchant: "Stripe" });
   });
 
+  it("bounds the call well below the routes' maxDuration (per-attempt timeout, one retry, overall deadline)", async () => {
+    mocks.create.mockResolvedValue({ content: [{ type: "text", text: "{}" }] });
+    const { extractReceipt, CLAUDE_ATTEMPT_TIMEOUT_MS, CLAUDE_CALL_BUDGET_MS } = await importOcr();
+    await extractReceipt("x", "image/jpeg");
+    const opts = mocks.create.mock.calls[0][1];
+    expect(opts).toMatchObject({ timeout: 20_000, maxRetries: 1 });
+    expect(opts.signal).toBeInstanceOf(AbortSignal);
+    expect(opts.signal.aborted).toBe(false);
+    // Fits /api/capture/scan's 30 s with room to store the file and answer.
+    expect(CLAUDE_ATTEMPT_TIMEOUT_MS).toBeLessThan(CLAUDE_CALL_BUDGET_MS);
+    expect(CLAUDE_CALL_BUDGET_MS).toBeLessThanOrEqual(25_000);
+  });
+
   it("returns not_a_receipt passthrough", async () => {
     mocks.create.mockResolvedValue({
       content: [{ type: "text", text: '{"not_a_receipt":true}' }],
@@ -229,6 +242,13 @@ describe("extractReceiptCall", () => {
     expect(req.model).toBe("claude-haiku-5-5");
     expect(req.max_tokens).toBe(16000);
     expect(req.output_config).toEqual({ effort: "low" });
+  });
+
+  it("leaves the SDK's request defaults to the eval unless it passes its own", async () => {
+    mocks.create.mockResolvedValue({ content: [{ type: "text", text: "{}" }] });
+    const { extractReceiptCall } = await importOcr();
+    await extractReceiptCall("x", "image/jpeg");
+    expect(mocks.create.mock.calls[0][1]).toBeUndefined();
   });
 
   it("uses the production effort when none is given", async () => {

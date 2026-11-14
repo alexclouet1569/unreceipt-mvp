@@ -127,48 +127,56 @@ function Words({ words }: { words: string[] }) {
   );
 }
 
-function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
+// Gmail's labels for the confirmation step, quoted in the mail's language.
+const CONFIRM_LABELS: Parameters<typeof stepPieces>[1] = { verify: ["gmail", "verify"], confirm: ["gmail", "confirmPage"] };
+
+function CodeBox({
+  status,
+  data,
+  mailLang,
+}: {
+  status: MobileForwardingStatus | null;
+  data: MobileForwarding;
+  mailLang: Locale;
+}) {
   const styles = useStyles();
   const colors = useColors();
   const c = status?.confirmation ?? null;
+  const address = c?.forAddress ?? s.forwarding.someGmail;
+  // Gmail's email now carries a link and no code (2026-11-13). The server
+  // sends confirmUrl only when it is exactly Gmail's own page and the
+  // requesting Gmail is known.
+  const link = c?.confirmUrl ?? null;
+  const state = c?.autoConfirmed ? "auto" : !c ? "waiting" : link ? "link" : c.code ? "code" : "unreadable";
+  // Our button only opens Google's page; Google's own Confirm is what
+  // confirms, so the text names both. "confirm" falls back to the app's
+  // word when an older server sends no label for it.
+  const say = (template: string) =>
+    stepPieces(template, CONFIRM_LABELS, data, mailLang, { address, confirm: s.forwarding.confirmWord });
+  const plain = (template: string) => say(template).map((p) => p.text).join("");
   // Said once when Gmail's email lands (the screen polls for it).
-  const state = c?.autoConfirmed ? "auto" : !c ? "waiting" : c.code ? "code" : "unreadable";
   useEffect(() => {
     if (state === "waiting") return;
-    void Haptics.notificationAsync(
-      state === "unreadable" ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success,
-    );
+    // Success only when nothing is left to do; a neutral tap when the person
+    // still has to act.
+    if (state === "auto") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    else if (state === "unreadable") void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    else void Haptics.selectionAsync();
     AccessibilityInfo.announceForAccessibility(
       state === "auto"
-        ? fill(s.forwarding.codeAuto, { address: c?.forAddress ?? "" })
-        : state === "unreadable"
-          ? s.forwarding.codeUnreadable
-          : `${s.forwarding.codeLabel}: ${(c?.code ?? "").split("").join(" ")}`,
+        ? plain(s.forwarding.codeAuto)
+        : state === "link"
+          ? `${plain(s.forwarding.codeLink)}${c?.ownInbox === false ? ` ${s.forwarding.codeNotYours}` : ""}`
+          : state === "unreadable"
+            ? s.forwarding.codeUnreadable
+            : `${s.forwarding.codeLabel}: ${(c?.code ?? "").split("").join(" ")}`,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per state change
   }, [state]);
-  if (c?.autoConfirmed) {
-    return (
-      <Text variant="body" color={colors.ink}>
-        {fill(s.forwarding.codeAuto, { address: c.forAddress ?? "" })}
-      </Text>
-    );
-  }
-  if (!c) {
-    return (
-      <Text variant="body" color={colors.inkMuted}>
-        {s.forwarding.codeWaiting}
-      </Text>
-    );
-  }
-  if (!c.code) {
-    return (
-      <Text variant="body" color={colors.attentionDeep}>
-        {s.forwarding.codeUnreadable}
-      </Text>
-    );
-  }
-  return (
+  const confirmButton = link ? (
+    <Button label={s.forwarding.confirmInGmail} kind="outline" onPress={() => void WebBrowser.openBrowserAsync(link)} />
+  ) : null;
+  const codeCard = c?.code ? (
     <View style={styles.codeCard}>
       <Text variant="micro" color={colors.inkMuted}>
         {s.forwarding.codeLabel}
@@ -178,6 +186,56 @@ function CodeBox({ status }: { status: MobileForwardingStatus | null }) {
       </Text>
       <Button label={s.forwarding.copy} kind="outline" onPress={() => copy(c.code as string)} />
     </View>
+  ) : null;
+  if (state === "auto") {
+    return (
+      <View style={styles.extra}>
+        <RichText pieces={say(s.forwarding.codeAuto)} variant="body" />
+        {confirmButton || codeCard ? (
+          <>
+            <RichText
+              pieces={say(confirmButton ? s.forwarding.codeAutoFallback : s.forwarding.codeTyped)}
+              variant="body"
+              color={colors.inkMuted}
+            />
+            {confirmButton ?? codeCard}
+          </>
+        ) : null}
+      </View>
+    );
+  }
+  if (state === "waiting") {
+    return (
+      <Text variant="body" color={colors.inkMuted}>
+        {s.forwarding.codeWaiting}
+      </Text>
+    );
+  }
+  if (state === "link") {
+    return (
+      <View style={styles.extra}>
+        <RichText pieces={say(s.forwarding.codeLink)} variant="body" />
+        {c?.ownInbox === false ? (
+          <Text variant="body" color={colors.attentionDeep}>
+            {s.forwarding.codeNotYours}
+          </Text>
+        ) : null}
+        {confirmButton}
+      </View>
+    );
+  }
+  if (state === "code") {
+    return (
+      <View style={styles.extra}>
+        <RichText pieces={say(s.forwarding.codeTyped)} variant="body" />
+        {codeCard}
+      </View>
+    );
+  }
+  return (
+    <Text variant="body" color={colors.attentionDeep}>
+      {s.forwarding.codeUnreadable}
+    </Text>
   );
 }
 
@@ -285,7 +343,7 @@ function StepExtra({
         </View>
       );
     case "code":
-      return <CodeBox status={status} />;
+      return <CodeBox status={status} data={data} mailLang={mailLang} />;
     case "test":
       return <TestBox status={status} since={since} />;
     case "paid":
@@ -341,9 +399,17 @@ export default function GuideScreen() {
         : [],
     [data, step, mailLang],
   );
+  // Gmail's older email had a code: then the "leave the code box empty"
+  // hint would contradict the box, which says to type it.
+  const codeOnly = Boolean(
+    status?.confirmation?.code && !status.confirmation.confirmUrl && !status.confirmation.autoConfirmed,
+  );
   const hint = useMemo(
-    () => (data && step.hint ? stepPieces(s.forwarding.hints[step.hint], step.hintLabels, data, mailLang) : null),
-    [data, step, mailLang],
+    () =>
+      data && step.hint && !(step.id === "gmail-code" && codeOnly)
+        ? stepPieces(s.forwarding.hints[step.hint], step.hintLabels, data, mailLang)
+        : null,
+    [data, step, mailLang, codeOnly],
   );
 
   // VoiceOver hears the new step after Back or Next (focus stays on the button).
@@ -365,7 +431,7 @@ export default function GuideScreen() {
   const code = status?.confirmation;
   const nextLabel = last
     ? s.forwarding.done
-    : step.extra === "code" && code?.code && !code.autoConfirmed
+    : step.extra === "code" && (code?.code || code?.confirmUrl) && !code.autoConfirmed
       ? s.forwarding.verified
       : s.forwarding.next;
 

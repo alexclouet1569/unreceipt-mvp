@@ -20,12 +20,11 @@ import { expect, test, type Page } from "@playwright/test";
  * fix).
  */
 
-const FAKE_HOST = "https://test.supabase.co";
-
 const stubGoneUser = async (page: Page) => {
   // /auth/v1/user always 401 with a "user does not exist" payload —
   // matches what Supabase returns for a deleted user whose JWT is
   // still floating around in the client.
+  // The fake Supabase host playwright.config.ts gives the dev server.
   await page.route(/^https:\/\/test\.supabase\.co\//, async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/auth/v1/user")) {

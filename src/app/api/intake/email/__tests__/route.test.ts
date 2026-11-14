@@ -40,6 +40,7 @@ vi.mock("@/lib/resend-inbound", () => ({
 }));
 
 vi.mock("@/lib/email-alias", () => ({
+  AliasLookupError: class AliasLookupError extends Error {},
   findUserByAliasHash: mocks.findUserByAliasHash,
   parseAliasFromTo: mocks.parseAliasFromTo,
   buildForwardingAddress: (hash: string) => `receipts+${hash}@in.unreceipt.com`,
@@ -55,7 +56,10 @@ vi.mock("@/lib/receipts/parser", () => ({
 }));
 
 const ocrMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/ocr", () => ({ extractReceipt: ocrMock }));
+vi.mock("@/lib/ocr", () => ({ extractReceipt: ocrMock, CLAUDE_CALL_BUDGET_MS: 25_000 }));
+
+const homeCurrencyMock = vi.hoisted(() => vi.fn<(orgId: string | null) => Promise<string>>(async () => "SEK"));
+vi.mock("@/lib/fx", () => ({ homeCurrencyOf: homeCurrencyMock }));
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
@@ -89,6 +93,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 }));
 
 import { POST } from "@/app/api/intake/email/route";
+import { AliasLookupError } from "@/lib/email-alias";
 
 const NOW_SEC = 1747_000_000;
 
@@ -189,6 +194,31 @@ describe("POST /api/intake/email", () => {
     // same as a malformed-alias path.
     expect(json).toEqual({ error: "not deliverable" });
     expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("answers 503 (retried, not dead-lettered like a 404) when the alias lookup itself fails", async () => {
+    mocks.findUserByAliasHash.mockRejectedValue(new AliasLookupError());
+    const body = inboundPayload();
+    const res = await POST(buildRequest(body, sign(body)));
+    expect(res.status).toBe(503);
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("gives an unread email the company's own currency, not the column's EUR default", async () => {
+    homeCurrencyMock.mockResolvedValueOnce("SEK");
+    const body = inboundPayload();
+    expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+    expect(homeCurrencyMock).toHaveBeenCalledWith("org-1");
+    expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({ status: "pending_review", currency: "SEK" });
+  });
+
+  it("answers 500 before inserting anything when the original can't be stored", async () => {
+    mocks.storageUpload.mockResolvedValueOnce({ error: { message: "storage down" } });
+    const body = inboundPayload();
+    const res = await POST(buildRequest(body, sign(body)));
+    expect(res.status).toBe(500);
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+    expect(mocks.storageRemove).not.toHaveBeenCalled();
   });
 
   it("returns 404 with the same generic body when the To: cannot be parsed", async () => {
@@ -504,9 +534,11 @@ describe("POST /api/intake/email", () => {
       expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
 
       expect(googleFetch).not.toHaveBeenCalled();
+      // The link is kept, so the guide can offer "Confirm in Gmail" to the
+      // alias owner (who sees which account asks before confirming).
       expect(mocks.upsert).toHaveBeenCalledWith(
         "email_forwarding_confirmations",
-        expect.objectContaining({ code: "593872831", auto_confirmed_at: null }),
+        expect.objectContaining({ code: "593872831", auto_confirmed_at: null, confirm_url: CONFIRM_LINK }),
         { onConflict: "user_id" },
       );
     });
@@ -522,6 +554,7 @@ describe("POST /api/intake/email", () => {
 
       expect(mocks.upsert).toHaveBeenCalledTimes(2);
       expect(mocks.upsert.mock.calls[1][1]).not.toHaveProperty("auto_confirmed_at");
+      expect(mocks.upsert.mock.calls[1][1]).not.toHaveProperty("confirm_url");
       expect(mocks.upsert.mock.calls[1][1]).toMatchObject({ code: "593872831" });
     });
   });
@@ -693,6 +726,159 @@ describe("POST /api/intake/email — attachments", () => {
     });
     expect(row.original_source_url).toBe(path);
     expect(usageMock).not.toHaveBeenCalled();
+  });
+
+  describe("storing the attachment and the message", () => {
+    beforeEach(() => {
+      ocrMock.mockResolvedValue({
+        merchant: "ICA Maxi",
+        amount: 181,
+        currency: "SEK",
+        receipt_date: "2026-11-02",
+        confidence: 0.97,
+      });
+    });
+
+    it("answers 500 and inserts nothing when the attachment original can't be stored", async () => {
+      mocks.storageUpload.mockResolvedValueOnce({ error: { message: "storage down" } });
+      const body = inboundPayload({ raw: emlWithPdf() });
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(500);
+      expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+      expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+    });
+
+    it("removes the stored attachment and answers 500 when the message beside it can't be stored", async () => {
+      mocks.storageUpload.mockResolvedValueOnce({ error: null }).mockResolvedValueOnce({ error: { message: "boom" } });
+      const body = inboundPayload({ raw: emlWithPdf() });
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(500);
+      expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+      const pdfPath = mocks.storageUpload.mock.calls[0][0] as string;
+      expect(mocks.storageRemove).toHaveBeenCalledWith([pdfPath]);
+    });
+
+    it("removes both the attachment and the message when a concurrent delivery won the insert", async () => {
+      mocks.receiptsInsert.mockResolvedValueOnce({ data: null, error: { code: "23505" } });
+      mocks.receiptsLookup
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { id: "winner-id" }, error: null });
+      const body = inboundPayload({ raw: emlWithPdf() });
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ id: "winner-id", duplicate: true });
+      const paths = mocks.storageUpload.mock.calls.map((c) => c[0]);
+      expect(paths).toHaveLength(2);
+      expect(mocks.storageRemove).toHaveBeenCalledWith(paths);
+    });
+
+    it("removes both files when the insert fails", async () => {
+      mocks.receiptsInsert.mockResolvedValueOnce({ data: null, error: { code: "XX000" } });
+      const body = inboundPayload({ raw: emlWithPdf() });
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(500);
+      const paths = mocks.storageUpload.mock.calls.map((c) => c[0]);
+      expect(paths).toHaveLength(2);
+      expect(mocks.storageRemove).toHaveBeenCalledTimes(1);
+      expect(mocks.storageRemove).toHaveBeenCalledWith(paths);
+    });
+  });
+
+  describe("an attachment OCR could only partly read", () => {
+    it("keeps what OCR read and the attachment as the original, filling the gaps from the email text", async () => {
+      ocrMock.mockResolvedValue({ merchant: "ICA Maxi", currency: "SEK", tax_amount: 31, confidence: 0.9 });
+      mocks.parseReceipt
+        .mockResolvedValueOnce({ status: "pending_review" })
+        .mockResolvedValueOnce({
+          status: "ok",
+          fields: {
+            merchant_name: "ica",
+            purchased_at: "2026-11-02T12:00:00.000Z",
+            total: 181,
+            currency: "SEK",
+            tax_amount: 36.2,
+            parse_confidence: 0.92,
+          },
+        });
+      const body = inboundPayload({ text: "Ditt kvitto bifogas. Summa 181 kr", raw: emlWithPdf() });
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+
+      expect(mocks.parseReceipt).toHaveBeenCalledTimes(2);
+      expect(mocks.parseReceipt.mock.calls[1][0]).toMatchObject({ raw: { templatesOnly: false } });
+      const pdfPath = mocks.storageUpload.mock.calls[0][0] as string;
+      expect(pdfPath).toMatch(/\.pdf$/);
+      const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
+      expect(row).toMatchObject({
+        merchant_name: "ICA Maxi", // OCR's reading wins
+        total: 181,
+        currency: "SEK",
+        receipt_date: "2026-11-02",
+        tax_amount: 36.2,
+        original_source_kind: "application/pdf",
+        original_source_url: pdfPath,
+        status: "pending_review",
+      });
+      expect(row.parse_confidence as number).toBeLessThanOrEqual(0.7);
+      expect(usageMock).not.toHaveBeenCalled();
+    });
+
+    it("never pairs the text's amount with a different currency OCR read; the amount is left to fill in", async () => {
+      const textSaysSek = {
+        status: "ok",
+        fields: { merchant_name: "Netto", purchased_at: "2026-11-02T12:00:00.000Z", total: 500, currency: "SEK", parse_confidence: 0.6 },
+      };
+      // A currency the app handles, and one it doesn't (kept out of the row).
+      for (const [seen, stored] of [["GBP", "GBP"], ["DKK", "SEK"]]) {
+        mocks.receiptsInsert.mockClear();
+        ocrMock.mockResolvedValue({ merchant: "Netto", currency: seen, receipt_date: "2026-11-02" });
+        mocks.parseReceipt.mockResolvedValueOnce({ status: "pending_review" }).mockResolvedValueOnce(textSaysSek);
+        const body = inboundPayload({ raw: emlWithPdf() });
+        expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+        const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
+        expect(row).toMatchObject({ merchant_name: "Netto", total: null, currency: stored, status: "pending_review" });
+        expect(row.original_source_kind).toBe("application/pdf");
+      }
+    });
+
+    it("uses the company's currency when OCR read none and the text gives nothing", async () => {
+      homeCurrencyMock.mockResolvedValue("EUR");
+      ocrMock.mockResolvedValue({ merchant: "Carrefour", amount: 42 });
+      const body = inboundPayload({ raw: emlWithPdf() });
+      expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+      const row = mocks.receiptsInsert.mock.calls[0][0] as Record<string, unknown>;
+      expect(row).toMatchObject({ merchant_name: "Carrefour", total: null, currency: "EUR", status: "pending_review" });
+      expect(row.original_source_kind).toBe("application/pdf");
+      homeCurrencyMock.mockResolvedValue("SEK");
+    });
+
+    it("reads the text instead, the message staying the original, when OCR read nothing or no receipt", async () => {
+      for (const answer of [{}, { not_a_receipt: true }]) {
+        mocks.parseReceipt.mockClear();
+        mocks.storageUpload.mockClear();
+        mocks.receiptsInsert.mockClear();
+        ocrMock.mockResolvedValue(answer);
+        const body = inboundPayload({ raw: emlWithPdf() });
+        expect((await POST(buildRequest(body, sign(body)))).status).toBe(200);
+        expect(mocks.parseReceipt).toHaveBeenCalledTimes(2);
+        expect(mocks.storageUpload).toHaveBeenCalledTimes(1);
+        expect(mocks.storageUpload.mock.calls[0][0]).toMatch(/\.eml$/);
+        expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({ original_source_kind: "eml", currency: "SEK" });
+      }
+    });
+
+    it("skips the LLM reading of the text when the attachment read used up the time", async () => {
+      ocrMock.mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 26_000);
+        throw new Error("timed out");
+      });
+      const body = inboundPayload({ raw: emlWithPdf() });
+      const res = await POST(buildRequest(body, sign(body)));
+      expect(res.status).toBe(200);
+      // Templates only, no second (LLM) pass.
+      expect(mocks.parseReceipt).toHaveBeenCalledTimes(1);
+      expect(mocks.receiptsInsert.mock.calls[0][0]).toMatchObject({ status: "pending_review", original_source_kind: "eml" });
+    });
   });
 
   it("keeps a trusted template hit over the attachment and stores the message as the original", async () => {

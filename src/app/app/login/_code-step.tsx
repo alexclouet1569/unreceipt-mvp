@@ -31,6 +31,8 @@ type CodeStepProps = {
   onSignInInstead?: () => void;
   /** Inside the store apps: the email's button would sign in the browser, not the app. */
   inStoreApp?: boolean;
+  /** Where to go once signed in (already checked by safeNext()). */
+  next?: string;
 };
 
 export function CodeStep({
@@ -40,6 +42,7 @@ export function CodeStep({
   onChangeEmail,
   onSignInInstead,
   inStoreApp = false,
+  next = "/app",
 }: CodeStepProps) {
   const [code, setCode] = useState("");
   const [focused, setFocused] = useState(true);
@@ -58,7 +61,7 @@ export function CodeStep({
     if (doneRef.current) return;
     doneRef.current = true;
     setStatus("done");
-    void finishSignIn();
+    void finishSignIn(next);
   };
 
   const verify = async (token: string) => {
@@ -105,7 +108,9 @@ export function CodeStep({
       clearInterval(t);
       document.removeEventListener("visibilitychange", check);
     };
-    // complete() only reads refs and stable setters.
+    // complete() only reads refs, stable setters and `next` (fixed per page),
+    // so re-subscribing on each render would only restart the poll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
   const handleResend = async () => {
@@ -240,7 +245,7 @@ export function CodeStep({
       <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] mt-5">
         {inStoreApp
           ? "Type the code here: the button in the email signs you in to your browser, not to the app. "
-          : "The email also has a button — tapping it works too, even on another device. "}
+          : "The email also has a button: it works in this browser. On another device, type the code. "}
         Not there after a minute? Check your spam folder.
       </p>
 

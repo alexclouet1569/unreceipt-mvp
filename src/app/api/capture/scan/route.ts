@@ -19,7 +19,7 @@
 // receipt is not saved. A receipt with the same merchant, amount and day
 // as one already there is saved with a note, so nobody books it twice.
 //
-// The iPhone app sends each scan's own id as `client_id` (a UUID). The app
+// The iPhone app and the web batch send each file's own id as `client_id` (a UUID). The app
 // sends a scan again when the answer was lost (bad connection, app closed),
 // so a scan already saved is answered with its receipt: no second reading,
 // no second receipt. The unique (user_id, client_upload_id) index settles

@@ -4,13 +4,15 @@
 // The link token alone is not enough (since 2026-11-05): someone who opens
 // the email while signed in to another account gets "wrong_account".
 // Accepting links the firm to the caller's default organisation; one active
-// firm per company. The client then gets a confirmation email.
+// firm per company. The client then gets a confirmation email, and any
+// request the company sent to another accountant is withdrawn.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { normalizedSessionEmail } from "@/lib/email-address";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { isInviteExpired } from "@/lib/firm/invites";
 import { sendLinkConfirmation } from "@/lib/firm/link-emails";
@@ -65,11 +67,10 @@ export async function POST(request: NextRequest) {
   if (isInviteExpired(invite.invite_expires_at)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  const signedInAs =
-    typeof user.email === "string" && user.email_confirmed_at
-      ? user.email.trim().toLowerCase()
-      : null;
-  if (signedInAs !== invite.invited_email) {
+  // Invites are stored normalised (normalizeAddress): a dotted Gmail or a
+  // googlemail.com sign-in must match the same mailbox.
+  const signedInAs = normalizedSessionEmail(user);
+  if (!signedInAs || signedInAs !== invite.invited_email) {
     return NextResponse.json({ error: "wrong_account" }, { status: 403 });
   }
 
@@ -117,6 +118,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Couldn't connect. Try again." }, { status: 500 });
   }
   if (!updated) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  // The company now has its accountant: a request it sent to another one
+  // (direction 'client', still waiting) is withdrawn. Best effort.
+  const { error: withdrawError } = await db
+    .from("firm_clients")
+    .update({ status: "revoked", revoked_at: new Date().toISOString(), invite_token_hash: null })
+    .eq("organization_id", organizationId)
+    .eq("direction", "client")
+    .eq("status", "invited");
+  if (withdrawError) console.error("[/api/accountant/respond] withdraw requests failed", withdrawError.code);
   // Best effort: the link is made whether or not the email goes out.
   await sendLinkConfirmation({ clientUserId: user.id, firmId: invite.firm_id as string });
   return NextResponse.json({ ok: true, status: "active" });

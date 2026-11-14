@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   getNativeApp: vi.fn(),
   isPilotMode: vi.fn(),
+  loadBillingAccount: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: mocks.getServerUser }));
@@ -15,7 +16,15 @@ vi.mock("next/navigation", () => ({
     throw new Error(`redirect:${to}`);
   },
 }));
-vi.mock("../SubscribeButton", () => ({ SubscribeButton: () => <button>Subscribe</button> }));
+vi.mock("@/lib/stripe-billing", () => ({ loadBillingAccount: mocks.loadBillingAccount }));
+vi.mock("../SubscribeButton", () => ({
+  SubscribeButton: ({ trial }: { trial?: boolean }) => (
+    <button data-trial={String(trial)}>Subscribe</button>
+  ),
+}));
+vi.mock("@/app/app/(authed)/settings/ManageBillingButton", () => ({
+  ManageBillingButton: () => <button>Manage billing</button>,
+}));
 
 import SubscribePage from "../page";
 
@@ -30,6 +39,11 @@ describe("/subscribe", () => {
     mocks.getServerUser.mockResolvedValue({ id: "u1", email: "anna@example.se" });
     mocks.getNativeApp.mockResolvedValue(null);
     mocks.isPilotMode.mockReturnValue(false);
+    mocks.loadBillingAccount.mockResolvedValue({
+      customerId: null,
+      hasLiveSubscription: false,
+      hadSubscription: false,
+    });
   });
   afterEach(() => cleanup());
 
@@ -37,6 +51,36 @@ describe("/subscribe", () => {
     await renderPage();
     expect(screen.getByRole("button", { name: "Subscribe" })).toBeInTheDocument();
     expect(screen.getByText(/First week free/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Subscribe" })).toHaveAttribute("data-trial", "true");
+  });
+
+  it("with a running subscription: Manage billing instead of a second purchase", async () => {
+    mocks.loadBillingAccount.mockResolvedValue({
+      customerId: "cus_1",
+      hasLiveSubscription: true,
+      hadSubscription: true,
+    });
+    await renderPage();
+    expect(screen.getByRole("button", { name: "Manage billing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument();
+    expect(screen.getByText(/You already have a plan/)).toBeInTheDocument();
+  });
+
+  it("a returning customer gets no second free week", async () => {
+    mocks.loadBillingAccount.mockResolvedValue({
+      customerId: "cus_1",
+      hasLiveSubscription: false,
+      hadSubscription: true,
+    });
+    await renderPage();
+    expect(screen.getByRole("button", { name: "Subscribe" })).toHaveAttribute("data-trial", "false");
+    expect(screen.queryByText(/First week free/)).not.toBeInTheDocument();
+  });
+
+  it("still shows the plans when the billing lookup fails", async () => {
+    mocks.loadBillingAccount.mockRejectedValue(new Error("db down"));
+    await renderPage();
+    expect(screen.getByRole("button", { name: "Subscribe" })).toBeInTheDocument();
   });
 
   it("in the store app: no button, price, trial or link out when the account has no plan", async () => {

@@ -146,19 +146,49 @@ export class OcrOutputError extends Error {
   }
 }
 
+// The routes that call Claude run under Vercel's maxDuration (30 s for
+// /api/ocr and /api/capture/scan, 60 s for the email intake), far below the
+// SDK's defaults (10 minutes, 2 retries). Each attempt gets
+// CLAUDE_ATTEMPT_TIMEOUT_MS and one retry (an overloaded or dropped call
+// usually fails fast), and the whole call, retry and reading the answer
+// included, is cut off at CLAUDE_CALL_BUDGET_MS so the route can still
+// answer before the platform kills it. Shared with llm-extract.ts.
+export const CLAUDE_ATTEMPT_TIMEOUT_MS = 20_000;
+export const CLAUDE_CALL_BUDGET_MS = 25_000;
+export const CLAUDE_MAX_RETRIES = 1;
+
+/** Request options for a Claude call made inside a route. */
+export function routeRequestOptions(signal?: AbortSignal | null): Anthropic.RequestOptions {
+  const budget = AbortSignal.timeout(CLAUDE_CALL_BUDGET_MS);
+  return {
+    timeout: CLAUDE_ATTEMPT_TIMEOUT_MS,
+    maxRetries: CLAUDE_MAX_RETRIES,
+    signal: signal ? AbortSignal.any([signal, budget]) : budget,
+  };
+}
+
 export async function extractReceipt(
   imageBase64: string,
   mediaType: OcrMediaType
 ): Promise<OcrResult> {
-  return (await extractReceiptCall(imageBase64, mediaType)).result;
+  return (await extractReceiptCall(imageBase64, mediaType, {}, routeRequestOptions())).result;
 }
 
+/**
+ * `requestOptions` defaults to the SDK's own (the eval has no deadline);
+ * every route goes through extractReceipt / extractReceiptStreaming, which
+ * pass routeRequestOptions().
+ */
 export async function extractReceiptCall(
   imageBase64: string,
   mediaType: OcrMediaType,
-  options: OcrOptions = {}
+  options: OcrOptions = {},
+  requestOptions?: Anthropic.RequestOptions
 ): Promise<OcrCall> {
-  const res = await getClient().messages.create(ocrRequest(imageBase64, mediaType, options));
+  const res = await getClient().messages.create(
+    ocrRequest(imageBase64, mediaType, options),
+    requestOptions
+  );
   return callFromMessage(res);
 }
 
@@ -174,7 +204,10 @@ export async function extractReceiptStreaming(
   signal?: AbortSignal
 ): Promise<OcrCall> {
   // Aborting stops the model too: nobody pays for line items no one reads.
-  const stream = getClient().messages.stream(ocrRequest(imageBase64, mediaType, {}), { signal });
+  const stream = getClient().messages.stream(
+    ocrRequest(imageBase64, mediaType, {}),
+    routeRequestOptions(signal)
+  );
   let text = "";
   stream.on("text", (delta) => {
     text += delta;

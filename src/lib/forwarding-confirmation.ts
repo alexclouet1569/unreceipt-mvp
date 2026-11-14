@@ -1,18 +1,23 @@
-// Gmail only starts auto-forwarding to an address once someone types the
-// confirmation code Gmail mails to that address. For us that address is the
-// user's receipts+<hash>@ alias, so the email lands in /api/intake/email.
-// This module recognises it, so intake can keep the code for the setup
-// guide (/app/settings/forwarding) instead of filing it as a receipt
-// (launch plan action 84).
+// Gmail only starts auto-forwarding to an address once that address approves
+// it. For us that address is the user's receipts+<hash>@ alias, so Gmail's
+// "confirm forwarding" email lands in /api/intake/email. This module
+// recognises it, so intake can keep what the setup guide needs instead of
+// filing it as a receipt (launch plan action 84).
+//
+// Gmail's format changed (seen 2026-11-13): the email now carries only a
+// confirmation link (mail-settings.google.com/mail/vf-…), no code, while
+// Gmail's settings screen still shows a code box. So the link is what the
+// guide offers ("Confirm in Gmail"); a code is still read from the older
+// format.
 //
 // Pure: no I/O. The From: header is spoofable, so we require Resend's DMARC
 // pass (computed on receipt, not forgeable by the sender) as proof the
 // email really came from google.com. Without it the email falls through to
-// the normal receipt path (Review needed, where the user can still read the
-// code in the original). Either way we keep only what is safe to show the
-// alias owner: a digits-only code (a fake one simply fails in Gmail) and the
-// Gmail address, if it looks like one. Never the link: a spoofed link would
-// be a phishing lure shown inside our own UI.
+// the normal receipt path (Review needed). Either way we keep only what is
+// safe to show the alias owner: a digits-only code, the Gmail address if it
+// looks like one, and the link only when it is exactly Gmail's own
+// confirmation page (isGmailConfirmUrl: that host and path, nothing else),
+// so it can never become a lure to another site inside our UI.
 
 export const GMAIL_FORWARDING_SENDER = "forwarding-noreply@google.com";
 
@@ -23,8 +28,7 @@ export const CONFIRMATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ForwardingConfirmation = {
   provider: "gmail";
-  // Null when the email came from Gmail's forwarding sender but no code
-  // could be read (a format change). The guide then says so.
+  // Null in Gmail's current format (link only) or when no code could be read.
   code: string | null;
   // The Gmail account asking to forward, if it could be read.
   forAddress: string | null;
@@ -32,14 +36,25 @@ export type ForwardingConfirmation = {
   // subject ("… Receive Mail from x@y"). Only then may it be acted on: the
   // body fallback can read just the start of a crafted long address.
   forAddressExact: boolean;
-  // Gmail's own confirmation link (mail-settings.google.com/mail/vf-…).
-  // Kept in memory for confirmForwarding() only: never stored, never shown.
+  // Gmail's own confirmation link (mail-settings.google.com/mail/vf-…), only
+  // when it passes isGmailConfirmUrl(). Used to confirm for the user and,
+  // stored, offered as "Confirm in Gmail" in the guide.
   confirmUrl: string | null;
 };
 
 // "https://mail-settings.google.com/mail/vf-%5B…%5D-…" up to the first
 // character that can't be in it.
 const CONFIRM_URL = /https:\/\/mail-settings\.google\.com\/mail\/vf-[A-Za-z0-9%._~\-]{10,600}/;
+const CONFIRM_URL_EXACT = /^https:\/\/mail-settings\.google\.com\/mail\/vf-[A-Za-z0-9%._~\-]{10,600}$/;
+
+/**
+ * True only for Gmail's own forwarding-confirmation page: https, exactly
+ * mail-settings.google.com, path /mail/vf-…, no query or fragment. Checked
+ * again wherever a stored link is read back, before it is shown.
+ */
+export function isGmailConfirmUrl(url: unknown): url is string {
+  return typeof url === "string" && CONFIRM_URL_EXACT.test(url);
+}
 
 // "Gmail Team <forwarding-noreply@google.com>" → "forwarding-noreply@google.com"
 function bareAddress(from: string): string {
@@ -111,6 +126,6 @@ export function parseForwardingConfirmation(input: {
     code: findCode(subject, text),
     forAddress: forAddress.address,
     forAddressExact: forAddress.exact,
-    confirmUrl: text.match(CONFIRM_URL)?.[0] ?? null,
+    confirmUrl: ((u) => (isGmailConfirmUrl(u) ? u : null))(text.match(CONFIRM_URL)?.[0]),
   };
 }

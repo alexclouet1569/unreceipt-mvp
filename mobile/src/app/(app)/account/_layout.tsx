@@ -19,6 +19,8 @@ export default function AccountStack() {
       }}
     >
       <Stack.Screen name="index" options={{ title: s.account.title, headerLargeTitleEnabled: true }} />
+      {/* Titled with the provider's name by the screen itself. */}
+      <Stack.Screen name="mailbox" options={{ title: s.mailboxes.title, headerLargeTitleEnabled: true }} />
       <Stack.Screen name="forwarding" options={{ title: s.forwarding.title, headerLargeTitleEnabled: true }} />
       <Stack.Screen name="guide" options={{ title: s.forwarding.title }} />
       <Stack.Screen name="export" options={{ title: s.exporting.title, headerLargeTitleEnabled: true }} />

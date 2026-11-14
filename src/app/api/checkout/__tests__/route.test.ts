@@ -11,6 +11,23 @@ import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   createSession: vi.fn(),
+  // The user's subscriptions rows, newest first, or a database error.
+  subscriptions: { data: [] as unknown[] | null, error: null as { code: string } | null },
+}));
+
+vi.mock("@/lib/supabase-admin", () => ({
+  getSupabaseAdmin: () => ({
+    from: (table: string) => {
+      if (table !== "subscriptions") throw new Error(`unexpected table ${table}`);
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        order: () => chain,
+        limit: async () => mocks.subscriptions,
+      };
+      return chain;
+    },
+  }),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({
@@ -51,6 +68,7 @@ describe("POST /api/checkout", () => {
     Object.assign(process.env, PRICE_ENV);
     mocks.getServerUser.mockReset();
     mocks.createSession.mockReset();
+    mocks.subscriptions = { data: [], error: null };
   });
 
   afterEach(() => {
@@ -183,5 +201,76 @@ describe("POST /api/checkout", () => {
     const body = await res.json();
     expect(body.error).toMatch(/checkout/i);
     expect(body.error).not.toMatch(/Stripe is down/);
+  });
+
+  describe("an account that already has, or had, a subscription", () => {
+    const row = (status: string, customer = "cus_123") => ({
+      stripe_customer_id: customer,
+      status,
+    });
+
+    it.each(["active", "trialing", "past_due"])(
+      "returns 409 and starts no Checkout while a subscription is %s",
+      async (status) => {
+        mocks.getServerUser.mockResolvedValue(adminUser);
+        mocks.subscriptions = { data: [row(status)], error: null };
+
+        const res = await POST(buildRequest());
+        expect(res.status).toBe(409);
+        const body = await res.json();
+        expect(body.code).toBe("already_subscribed");
+        expect(body.error).toMatch(/Manage billing/);
+        expect(mocks.createSession).not.toHaveBeenCalled();
+      }
+    );
+
+    it("blocks when an older row is still live even if the newest one ended", async () => {
+      mocks.getServerUser.mockResolvedValue(adminUser);
+      mocks.subscriptions = { data: [row("canceled"), row("active", "cus_old")], error: null };
+
+      const res = await POST(buildRequest());
+      expect(res.status).toBe(409);
+      expect(mocks.createSession).not.toHaveBeenCalled();
+    });
+
+    it("reuses the Stripe customer and gives no second free week after a cancellation", async () => {
+      mocks.getServerUser.mockResolvedValue(adminUser);
+      mocks.subscriptions = { data: [row("canceled", "cus_back")], error: null };
+      mocks.createSession.mockResolvedValue({ url: "https://checkout.stripe.com/x" });
+
+      const res = await POST(buildRequest());
+      expect(res.status).toBe(200);
+      const args = mocks.createSession.mock.calls[0][0];
+      expect(args.customer).toBe("cus_back");
+      expect(args).not.toHaveProperty("customer_email");
+      // Stripe Tax and tax ID collection write the address and name back.
+      expect(args.customer_update).toEqual({ address: "auto", name: "auto" });
+      expect(args.subscription_data).not.toHaveProperty("trial_period_days");
+      expect(args.subscription_data.metadata).toEqual({ user_id: adminUser.id, plan: "regular" });
+      // AGENTS.md: Checkout picks SEK/EUR from the customer's country.
+      expect(args).not.toHaveProperty("currency");
+    });
+
+    it("refuses with 503 (and charges nothing) when the subscriptions lookup fails", async () => {
+      mocks.getServerUser.mockResolvedValue(adminUser);
+      mocks.subscriptions = { data: null, error: { code: "57014" } };
+
+      const res = await POST(buildRequest());
+      expect(res.status).toBe(503);
+      expect(mocks.createSession).not.toHaveBeenCalled();
+    });
+  });
+
+  it("a first-time customer gets the free week, their email and no currency", async () => {
+    mocks.getServerUser.mockResolvedValue(adminUser);
+    mocks.createSession.mockResolvedValue({ url: "https://checkout.stripe.com/x" });
+
+    await POST(buildRequest());
+    const args = mocks.createSession.mock.calls[0][0];
+    expect(args.subscription_data.trial_period_days).toBe(7);
+    expect(args.customer_email).toBe(adminUser.email);
+    expect(args).not.toHaveProperty("customer");
+    expect(args).not.toHaveProperty("customer_update");
+    expect(args).not.toHaveProperty("currency");
   });
 });

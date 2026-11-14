@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 const m = vi.hoisted(() => ({
   tables: {} as Record<string, { data: unknown; error: unknown }>,
   getFirmMembership: vi.fn(),
+  findPendingFirmSeat: vi.fn(),
   checkSubscriptionGate: vi.fn(),
   loadAccountantLinks: vi.fn(),
   getOrCreateAliasForUser: vi.fn(),
@@ -27,7 +28,10 @@ vi.mock("@/lib/supabase-admin", () => ({
     },
   }),
 }));
-vi.mock("@/lib/require-firm", () => ({ getFirmMembership: m.getFirmMembership }));
+vi.mock("@/lib/require-firm", () => ({
+  getFirmMembership: m.getFirmMembership,
+  findPendingFirmSeat: m.findPendingFirmSeat,
+}));
 vi.mock("@/lib/subscription-gate", () => ({ checkSubscriptionGate: m.checkSubscriptionGate }));
 vi.mock("@/lib/firm/client-links", () => ({ loadAccountantLinks: m.loadAccountantLinks }));
 vi.mock("@/lib/email-alias", () => ({
@@ -56,6 +60,7 @@ beforeEach(() => {
     organizations: { data: { id: "org-1", currency: "EUR" }, error: null },
   };
   m.getFirmMembership.mockResolvedValue(null);
+  m.findPendingFirmSeat.mockResolvedValue(null);
   m.checkSubscriptionGate.mockResolvedValue({ kind: "allow_with_warning", reason: "pilot_mode" });
   m.loadAccountantLinks.mockResolvedValue([]);
   m.ensureHomeAmounts.mockImplementation(async (rows: unknown[]) => rows);
@@ -133,6 +138,54 @@ describe("loadHome", () => {
     const home = await loadHome(USER, null);
     if (home.kind !== "ready") throw new Error(home.kind);
     expect(home.data.showOnboarding).toBe(false);
-    expect(home.data.forwardingEmail).toBe("concierge@unreceipt.com");
+    // Never the unrouted u-xxxx@ concierge address: null, and the screen
+    // says to reload.
+    expect(home.data.forwardingEmail).toBeNull();
+  });
+
+  it("asks a confirmed address with a pending firm seat and no company (website), minting nothing", async () => {
+    const accountant = { ...USER, email: "Eva.Lind@googlemail.com", email_confirmed_at: "2026-11-01" } as User;
+    m.tables.profiles = { data: { onboarded_at: null, email_alias_hash: null }, error: null };
+    m.tables.organizations = { data: null, error: null };
+    m.tables.receipts = { data: [], error: null };
+    m.findPendingFirmSeat.mockResolvedValue({ firmName: "Byrån AB" });
+    expect(await loadHome(accountant, null, { askAboutFirmSeat: true })).toEqual({
+      kind: "firm_pending",
+      firmName: "Byrån AB",
+    });
+    expect(m.findPendingFirmSeat).toHaveBeenCalledWith(accountant);
+    expect(m.getOrCreateAliasForUser).not.toHaveBeenCalled();
+    expect(m.getOrCreateDefaultOrganization).not.toHaveBeenCalled();
+
+    // Paid mode too: the question, not /subscribe.
+    m.checkSubscriptionGate.mockResolvedValue({ kind: "redirect_subscribe" });
+    expect((await loadHome(accountant, null, { askAboutFirmSeat: true })).kind).toBe("firm_pending");
+  });
+
+  it("never treats a pending seat as firm membership: without the website's question it goes on as a customer", async () => {
+    // The iPhone app's call: a seat a firm added can't pull anyone into it.
+    const user = { ...USER, email_confirmed_at: "2026-11-01" } as User;
+    m.tables.organizations = { data: null, error: null };
+    m.findPendingFirmSeat.mockResolvedValue({ firmName: "Byrån AB" });
+    m.getOrCreateDefaultOrganization.mockResolvedValue("org-new");
+    m.homeCurrencyOf.mockResolvedValue("SEK");
+    const home = await loadHome(user, null);
+    expect(home.kind).toBe("ready");
+    expect(m.findPendingFirmSeat).not.toHaveBeenCalled();
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id);
+  });
+
+  it("keeps the company of someone with a pending seat who already has one", async () => {
+    // Default organisation exists: no seat lookup at all.
+    m.findPendingFirmSeat.mockResolvedValue({ firmName: "Byrån AB" });
+    expect((await loadHome(USER, null)).kind).toBe("ready");
+    expect(m.findPendingFirmSeat).not.toHaveBeenCalled();
+
+    // Member of a company without a default one of their own.
+    m.tables.organizations = { data: null, error: null };
+    m.hasAnyMembership.mockResolvedValue(true);
+    m.getOrCreateDefaultOrganization.mockResolvedValue("org-new");
+    m.homeCurrencyOf.mockResolvedValue("SEK");
+    expect((await loadHome(USER, null)).kind).toBe("ready");
   });
 });

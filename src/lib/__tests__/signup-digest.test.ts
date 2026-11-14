@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   waitlist: [] as Record<string, unknown>[],
   waitlistRange: [] as string[],
   sent: [] as { to: string; subject: string; html: string; text: string; tag: string }[],
+  sendOk: true,
 }));
 
 vi.mock("@/lib/supabase-admin", () => ({
@@ -49,11 +50,11 @@ vi.mock("@/lib/email/send", () => ({
   founderReplyTo: () => process.env.CONCIERGE_ADMIN_EMAILS?.split(",")[0] ?? null,
   sendEmail: async (email: (typeof state.sent)[number]) => {
     state.sent.push(email);
-    return { ok: true, id: "e1" };
+    return state.sendOk ? { ok: true, id: "e1" } : { ok: false, reason: "rejected", status: 500 };
   },
 }));
 
-import { digestWindow, runSignupDigest } from "@/lib/signup-digest";
+import { digestFailed, digestWindow, runSignupDigest } from "@/lib/signup-digest";
 
 const NOW = new Date("2026-10-18T19:37:00Z");
 
@@ -66,6 +67,7 @@ beforeEach(() => {
   state.waitlist = [];
   state.waitlistRange = [];
   state.sent = [];
+  state.sendOk = true;
 });
 
 describe("digestWindow", () => {
@@ -140,5 +142,21 @@ describe("runSignupDigest", () => {
     const result = await runSignupDigest(NOW);
     expect(result).toMatchObject({ sent: false, reason: "no_recipient" });
     expect(state.sent).toHaveLength(0);
+  });
+});
+
+describe("digestFailed", () => {
+  it("reports a failed send so the cron run shows as failed", async () => {
+    state.sendOk = false;
+    state.waitlist = [{ email: "x@acme.fr", source: null, signed_up_at: "2026-10-18T12:00:00Z" }];
+    const result = await runSignupDigest(NOW);
+    expect(result).toMatchObject({ sent: false, reason: "send_failed" });
+    expect(digestFailed(result)).toBe(true);
+  });
+
+  it("fails without a founder address, but not on a quiet day or a sent digest", () => {
+    expect(digestFailed({ sent: false, reason: "no_recipient", accounts: 0, waitlist: 1 })).toBe(true);
+    expect(digestFailed({ sent: false, reason: "no_signups", accounts: 0, waitlist: 0 })).toBe(false);
+    expect(digestFailed({ sent: true, accounts: 1, waitlist: 0 })).toBe(false);
   });
 });

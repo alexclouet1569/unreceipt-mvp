@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-11-09";
+const LAST_UPDATED = "2026-11-13";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -58,6 +58,22 @@ export default function PrivacyPage() {
               notes, the last four digits of a payment card).
             </li>
             <li>
+              <strong>Your mailbox, if you connect Gmail or Outlook.</strong>{" "}
+              With your permission (given on Google&apos;s or Microsoft&apos;s
+              own screen) we keep a token, stored encrypted, that lets us read
+              your inbox. For each new email we look only at its subject,
+              sender, date and attachment names to decide whether it looks
+              like a receipt, an invoice or an order confirmation. Only those
+              emails are downloaded and saved, as receipts like the ones you
+              forward; anything that isn&apos;t a purchase can be deleted
+              under Review needed. Every other email is never stored, not
+              even its subject or that it existed. When you connect, we also
+              look back over the last 30 days; if Gmail no longer has the
+              history of what changed since our last check, we look back
+              over the last 7 days instead. Your accounting firm sees a
+              receipt from your mailbox only after you have confirmed it.
+            </li>
+            <li>
               <strong>Bank statement lines, if your accounting firm imports
               them.</strong> Date, amount, currency and the bank&apos;s text
               of each payment out on the account statement your firm uploads
@@ -98,8 +114,18 @@ export default function PrivacyPage() {
               basis: contract performance.
             </li>
             <li>
+              <strong>To bring in receipts from your mailbox</strong>, if you
+              connect Gmail or Outlook — so receipts arrive without you
+              forwarding them. Legal basis: contract performance (you asked
+              for it). You can disconnect at any time in Settings → Your
+              email; we then stop reading and revoke our access at Google
+              (Microsoft: we delete our access token and stop notifications;
+              you can also remove UnReceipt from your Microsoft account).
+            </li>
+            <li>
               <strong>To work with your accounting firm</strong>, if you
-              connect one — your firm sees your receipts, can import your
+              connect one — your firm sees your receipts (those from a
+              connected mailbox once you have confirmed them), can import your
               bank statement to find payments without a receipt, and can
               have us email you a list of what is missing, by hand or on
               Mondays. Legal basis: contract performance (you asked us to
@@ -117,6 +143,43 @@ export default function PrivacyPage() {
             <li>
               <strong>To prevent abuse and meet our security obligations</strong>{" "}
               — minimal request logs. Legal basis: legitimate interest.
+            </li>
+          </ul>
+        </Section>
+
+        <Section id="gmail" title="Data from Google (Gmail)">
+          <p className="mb-3">
+            UnReceipt&apos;s use and transfer to any other app of information
+            received from Google APIs will adhere to the{" "}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="underline"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements. In practice:
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>
+              We use Gmail data, and anything we derive from it such as the
+              receipt fields, only to find your receipts, invoices and order
+              confirmations and show them to you (and, once you have
+              confirmed them, to your accounting firm, if you connect one).
+              Nothing else.
+            </li>
+            <li>
+              The receipts we save are read by Anthropic&apos;s Claude model,
+              on our behalf, to fill in their fields. It is not used to
+              develop, improve or train generalised AI or machine-learning
+              models, by us or by Anthropic.
+            </li>
+            <li>
+              We never sell it, use it for advertising, or use it to build
+              profiles.
+            </li>
+            <li>
+              No person at UnReceipt reads it, unless you ask us to (for
+              support), it is needed for security, or the law requires it.
             </li>
           </ul>
         </Section>
@@ -151,14 +214,24 @@ export default function PrivacyPage() {
               receipt images and emails to extract their fields.
             </li>
             <li>
+              <strong>Google Cloud</strong> — only if you connect Gmail:
+              delivers Gmail&apos;s &ldquo;new email arrived&rdquo;
+              notifications to us (your address and a change number, never
+              the email itself).
+            </li>
+            <li>
               <strong>Sentry</strong> — error monitoring, EU region. Error
               reports are stripped of request contents, cookies and personal
               details before they are sent.
             </li>
           </ul>
           <p className="mt-3">
-            Some of these providers are US companies (Anthropic, Resend,
-            Stripe, Vercel). Where personal data is transferred outside the
+            Google and Microsoft are your own email providers; we read from
+            them on your instruction.
+          </p>
+          <p className="mt-3">
+            Some of these providers are US companies (Anthropic, Google,
+            Resend, Stripe, Vercel). Where personal data is transferred outside the
             EU/EEA, the transfer relies on the EU–US Data Privacy Framework
             for certified providers, or on the European Commission&apos;s
             Standard Contractual Clauses.
@@ -182,6 +255,14 @@ export default function PrivacyPage() {
               our providers&apos; backups disappear when those backups
               expire. Billing records that we must keep for our own accounts
               (invoices, via Stripe) are kept as the law requires.
+            </li>
+            <li>
+              <strong>Mailbox access:</strong> until you disconnect the
+              mailbox or your account is deleted. After a subscription ends
+              we stop reading new email, and 30 days later we disconnect the
+              mailbox and give up our access to it (you can connect it again
+              any time). Receipts already brought in stay, like any other
+              receipt.
             </li>
             <li>
               <strong>Bank statement lines and the reminder log:</strong> while
@@ -271,14 +352,17 @@ export default function PrivacyPage() {
 }
 
 function Section({
+  id,
   title,
   children,
 }: {
+  /** An anchor other pages link to (e.g. #gmail from the mailbox explainer). */
+  id?: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-8">
+    <section id={id} className="mb-8 scroll-mt-6">
       <h2 className="text-lg font-semibold text-[#303568] mb-3">{title}</h2>
       <div className="text-sm text-[#303568]/80 leading-relaxed space-y-3">
         {children}
