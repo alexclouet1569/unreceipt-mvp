@@ -212,11 +212,17 @@ export function Dashboard({
     if (newReceipts.items.some((n) => n.id === r.id)) newReceipts.open(r.id);
   };
   // Review in the notice: the row from the list, else the one the server sent.
+  // Without a row (no access to rows), it stays new and the list reloads.
   const reviewNew = (id: string) => {
     const row = serverReceipts.find((r) => r.id === id) ?? newReceipts.items.find((n) => n.id === id)?.receipt ?? null;
+    if (!row) {
+      router.refresh();
+      return;
+    }
     newReceipts.open(id);
-    if (row) setOpenReceipt(row);
+    setOpenReceipt(row);
   };
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const [chosenFilter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("date");
 
@@ -345,11 +351,13 @@ export function Dashboard({
           on a phone): --fab-bottom in globals.css. */}
       <div className="mx-auto max-w-[540px] px-4 py-6 pb-[calc(var(--fab-bottom)+88px)]">
         <div className="mb-6">
-          <h1 className="type-display-lg text-[var(--ink)]">Your receipts</h1>
+          <h1 ref={titleRef} tabIndex={-1} className="type-display-lg text-[var(--ink)] outline-none">
+            Your receipts
+          </h1>
           <p className="mt-0.5 type-caption text-[var(--ink-muted)]">{userEmail}</p>
         </div>
 
-        {onboardingStep == null ? <NewReceiptsNotice notice={newReceipts} onOpen={reviewNew} /> : null}
+        {onboardingStep == null ? <NewReceiptsNotice notice={newReceipts} onOpen={reviewNew} onGone={() => titleRef.current?.focus()} /> : null}
 
         <AccountantInviteNotice invites={accountantInvites} />
 

@@ -4,7 +4,11 @@
 // and is easy to miss: Review opens the newest one; back on the list the
 // card counts the rest, so Review again walks through them. × counts them
 // all as seen. The data comes from HomeProvider's foreground polling.
+// Ink, not green: the scan button stays the screen's one green action.
+// VoiceOver hears the count when it goes up (iOS has no live regions).
 
+import { useEffect, useRef } from "react";
+import { AccessibilityInfo } from "react-native";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
@@ -20,8 +24,13 @@ export function NewReceiptsCard() {
   const colors = useColors();
   const { newReceipts } = useHome();
   const count = newReceipts.items.length;
-  if (count === 0) return null;
   const label = count === 1 ? s.receipts.newFromEmailOne : fill(s.receipts.newFromEmailMany, { count });
+  const announced = useRef(0);
+  useEffect(() => {
+    if (count > announced.current) AccessibilityInfo.announceForAccessibility(label);
+    announced.current = count;
+  }, [count, label]);
+  if (count === 0) return null;
   const review = () => {
     const id = newReceipts.items[0].id;
     void Haptics.selectionAsync();
@@ -33,14 +42,13 @@ export function NewReceiptsCard() {
       entering={FadeIn.duration(durations.short)}
       exiting={FadeOut.duration(durations.short)}
       style={styles.card}
-      accessibilityLiveRegion="polite"
     >
-      <SymbolView name="envelope" size={17} weight="medium" tintColor={colors.brandAction} />
+      <SymbolView name="envelope" size={17} weight="medium" tintColor={colors.inkMuted} />
       <Text variant="caption" style={styles.label} numberOfLines={2}>
         {label}
       </Text>
-      <PressableScale scaleTo={0.94} onPress={review} accessibilityRole="button" accessibilityLabel={`${s.receipts.newReview}, ${label}`} style={styles.review}>
-        <Text variant="caption" style={styles.reviewText} color={colors.brandAction}>
+      <PressableScale scaleTo={0.94} onPress={review} accessibilityRole="button" accessibilityLabel={s.receipts.newReview} style={styles.review}>
+        <Text variant="caption" style={styles.reviewText} color={colors.ink}>
           {s.receipts.newReview}
         </Text>
       </PressableScale>

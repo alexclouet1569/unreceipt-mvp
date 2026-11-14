@@ -707,7 +707,15 @@ export function FirmApp({
             url: "about:blank",
             kind: "eml",
             filename: `original-${id}.eml`,
-            preview: { type: "eml", from: EML[id].from, subject: EML[id].subject, date: r?.created_at ?? null, text: EML[id].text, truncated: false },
+            preview: {
+              type: "eml",
+              from: EML[id].from,
+              to: "receipts+hb7q2k@in.unreceipt.com",
+              subject: EML[id].subject,
+              date: r?.created_at ? new Date(r.created_at).toUTCString() : null,
+              text: EML[id].text,
+              truncated: false,
+            },
           });
         }
         if (PDF[id]) {

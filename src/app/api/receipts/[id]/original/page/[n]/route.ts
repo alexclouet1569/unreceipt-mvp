@@ -6,7 +6,8 @@
 // anything. Same access as ../route.ts: the owner, or staff of the linked
 // accounting firm (a mailbox receipt only once confirmed), through
 // loadReceiptForActor(); the file must be in the owner's folder. Rate
-// limited (originalView): drawing a page costs CPU.
+// limited (originalPage): drawing a page costs CPU, and a
+// file that ran out of time or memory is refused at once afterwards.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
@@ -14,7 +15,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { originalFileOf } from "@/lib/receipts/original-file";
-import { PdfPreviewError, renderPdfPage } from "@/lib/receipts/pdf-render";
+import { knownHeavy, PdfPreviewError, rememberHeavy, renderPdfPage } from "@/lib/receipts/pdf-render";
 import { MAX_PDF_PAGES } from "@/lib/receipts/pdf-pages";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
@@ -57,8 +58,12 @@ export async function GET(
     return NextResponse.json({ error: "no_pdf" }, { status: 404, headers: NO_STORE });
   }
 
-  const limited = await rateLimit("originalView", user.id);
+  const limited = await rateLimit("originalPage", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
+  const fileKey = `${file.bucket}/${file.path}`;
+  if (knownHeavy(fileKey)) {
+    return NextResponse.json({ error: "unreadable" }, { status: 422, headers: NO_STORE });
+  }
 
   const dl = await getSupabaseAdmin().storage.from(file.bucket).download(file.path);
   if (!dl.data) {
@@ -72,9 +77,10 @@ export async function GET(
       headers: {
         "Content-Type": "image/png",
         "Content-Disposition": `inline; filename="page-${page}.png"`,
-        // The picture never changes (an original is never replaced); kept
-        // briefly in this browser or phone only, never in a shared cache.
-        "Cache-Control": "private, max-age=600",
+        // Not kept by the browser: a picture of a receipt must not outlive
+        // a sign-out or the end of a firm link. (The iPhone app keeps its
+        // own copy, cleared at sign-out.)
+        "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
     });
@@ -83,6 +89,7 @@ export async function GET(
       return NextResponse.json({ error: "no_page" }, { status: 404, headers: NO_STORE });
     }
     const reason = err instanceof PdfPreviewError ? err.reason : "error";
+    if (reason === "timeout" || reason === "too_heavy") rememberHeavy(fileKey);
     console.error("[/api/receipts/[id]/original/page] render failed", reason);
     if (reason !== "unreadable") Sentry.captureException(err, { tags: { area: "original preview", reason } });
     return NextResponse.json({ error: "unreadable" }, { status: 422, headers: NO_STORE });

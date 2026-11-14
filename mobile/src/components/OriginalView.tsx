@@ -19,8 +19,7 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import type { MobileReceipt, OriginalPreview } from "@/lib/mobile/types";
-import { fill, locale, s } from "../i18n";
-import { dayTime } from "../lib/format";
+import { fill, s } from "../i18n";
 import { photoCacheKey, useOriginalPreview, useReceiptPhoto, type OriginalPage } from "../lib/original";
 import { Button } from "./Button";
 import { PressableScale } from "./PressableScale";
@@ -48,6 +47,16 @@ function Failed({ message, onRetry }: { message: string; onRetry?: () => void })
       </Text>
       {onRetry ? <Button label={s.common.retry} kind="outline" onPress={onRetry} /> : null}
     </View>
+  );
+}
+
+/** Under a PDF, email or text message: the view is a copy, the file is the original. */
+function CopyNote({ text }: { text: string }) {
+  const colors = useColors();
+  return (
+    <Text variant="caption" color={colors.inkMuted}>
+      {text}
+    </Text>
   );
 }
 
@@ -91,7 +100,6 @@ function PdfPages({
   photoRoute: string;
 }) {
   const styles = useStyles();
-  const colors = useColors();
   const { width: screen } = useWindowDimensions();
   // The content's width: the screen less the page padding (space.lg each side).
   const width = screen - space.lg * 2;
@@ -114,11 +122,9 @@ function PdfPages({
           </PressableScale>
         );
       })}
-      {total > pages.length ? (
-        <Text variant="caption" color={colors.inkMuted}>
-          {fill(s.detail.originalMorePages, { shown: pages.length, total })}
-        </Text>
-      ) : null}
+      <CopyNote
+        text={total > pages.length ? fill(s.detail.originalMorePages, { shown: pages.length, total }) : s.detail.originalPdfCopy}
+      />
     </View>
   );
 }
@@ -126,36 +132,36 @@ function PdfPages({
 function EmailOriginal({ preview }: { preview: Extract<OriginalPreview, { type: "eml" }> }) {
   const styles = useStyles();
   const colors = useColors();
-  const date = preview.date ? new Date(preview.date) : null;
+  // The Date header as written: shown in the viewer's time zone it could
+  // read as another day.
   const rows: [string, string | null][] = [
     [s.detail.originalFrom, preview.from],
+    [s.detail.originalTo, preview.to],
     [s.detail.originalSubject, preview.subject],
-    [s.detail.originalDate, date && !Number.isNaN(date.getTime()) ? dayTime(date, locale) : null],
+    [s.detail.originalDate, preview.date],
   ];
   return (
-    <View style={styles.emailCard}>
-      <View style={styles.headers}>
-        {rows.map(([label, value]) =>
-          value ? (
-            <View key={label} style={styles.headerRow}>
-              <Text variant="caption" style={styles.headerLabel} color={colors.inkMuted}>
-                {label}
-              </Text>
-              <Text variant="caption" style={styles.headerValue} selectable>
-                {value}
-              </Text>
-            </View>
-          ) : null,
-        )}
-      </View>
-      <Text variant="body" style={styles.emailText} selectable>
-        {preview.text || s.detail.originalNoText}
-      </Text>
-      {preview.truncated ? (
-        <Text variant="caption" color={colors.inkMuted} style={styles.emailNote}>
-          {s.detail.originalTruncated}
+    <View style={styles.stack}>
+      <View style={styles.emailCard}>
+        <View style={styles.headers}>
+          {rows.map(([label, value]) =>
+            value ? (
+              <View key={label} style={styles.headerRow}>
+                <Text variant="caption" style={styles.headerLabel} color={colors.inkMuted}>
+                  {label}
+                </Text>
+                <Text variant="caption" style={styles.headerValue} selectable>
+                  {value}
+                </Text>
+              </View>
+            ) : null,
+          )}
+        </View>
+        <Text variant="body" style={styles.emailText} selectable>
+          {preview.text || s.detail.originalNoText}
         </Text>
-      ) : null}
+      </View>
+      <CopyNote text={preview.truncated ? s.detail.originalTruncated : s.detail.originalEmailCopy} />
     </View>
   );
 }
@@ -178,10 +184,13 @@ export function OriginalView({ receipt, photoRoute }: { receipt: MobileReceipt; 
       return <EmailOriginal preview={preview} />;
     case "txt":
       return (
-        <View style={styles.emailCard}>
-          <Text variant="body" style={styles.emailText} selectable>
-            {preview.body || s.detail.originalNoText}
-          </Text>
+        <View style={styles.stack}>
+          <View style={styles.emailCard}>
+            <Text variant="body" style={styles.emailText} selectable>
+              {preview.body || s.detail.originalNoText}
+            </Text>
+          </View>
+          <CopyNote text={preview.truncated ? s.detail.originalTextTruncated : s.detail.originalTextCopy} />
         </View>
       );
     default:
@@ -210,12 +219,13 @@ const useStyles = makeStyles((colors) => ({
   // A page is a picture of a document: white like paper in dark mode too
   // (as the receipt PDF, DESIGN.md).
   page: {
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.hairline,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     overflow: "hidden",
   },
+  stack: { gap: space.sm },
   card: {
     gap: space.md,
     padding: space.lg,
@@ -240,8 +250,8 @@ const useStyles = makeStyles((colors) => ({
     borderBottomColor: colors.hairline,
   },
   headerRow: { flexDirection: "row", gap: space.md },
-  headerLabel: { width: 64, fontFamily: fonts.semibold },
+  // Sized to the word (it grows with Dynamic Type), at least a column wide.
+  headerLabel: { minWidth: 64, fontFamily: fonts.semibold },
   headerValue: { flex: 1 },
   emailText: { paddingHorizontal: space.lg, paddingVertical: space.md },
-  emailNote: { paddingHorizontal: space.lg, paddingBottom: space.md },
 }));

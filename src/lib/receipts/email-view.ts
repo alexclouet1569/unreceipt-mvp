@@ -2,7 +2,8 @@
 // the website and the iPhone app: plain text only. The email's HTML is never
 // sent to a client, so nothing in it can run a script, load a remote image
 // (a tracking pixel), a stylesheet or a font, or be clicked: the server
-// keeps the words and drops every tag. Pure, no I/O, no dependency.
+// keeps the words and drops every tag (and elements hidden with
+// display:none). Pure, no I/O, no dependency.
 //
 // Bounded for a hostile message: the parser reads at most 512 KB of each
 // body (src/lib/mailboxes/raw-message.ts), the HTML is walked with indexOf
@@ -10,14 +11,17 @@
 // MAX_VIEW_CHARS.
 
 import { splitHeadersAndBody } from "@/lib/email/attachments";
-import { decodeHeaderValue, parseRawMessage } from "@/lib/mailboxes/raw-message";
+import { decodeHeaderValue, MAX_BODY_CHARS, parseRawMessage } from "@/lib/mailboxes/raw-message";
 import type { OriginalPreview } from "@/lib/mobile/types";
 
 export const MAX_VIEW_CHARS = 20_000;
 const MAX_HEADER_CHARS = 300;
-// A text/plain part shorter than this is a stub ("view this email in your
-// browser"): the HTML part says more.
-const MIN_PLAIN_CHARS = 40;
+// The HTML part is what the recipient saw (a text part often leaves out the
+// VAT lines or the seller's details), so it is read first; the text part
+// only when there is no HTML, or the HTML has fewer words than this.
+const MIN_TEXT_CHARS = 40;
+// Hidden elements (display:none preheaders) removed per message, at most.
+const MAX_HIDDEN = 200;
 
 // Characters mail templates use to pad or hide text (Gmail preheaders are
 // full of U+034F and U+200C), and control characters.
@@ -118,9 +122,56 @@ function tidy(text: string): string {
   return shortenUrls(out.join("\n"));
 }
 
+const HIDDEN_OPEN = /<([a-z][a-z0-9]*)\b[^<>]*\bstyle\s*=\s*("[^"]*"|'[^']*')[^<>]*>/gi;
+
+/**
+ * Removes elements styled display:none (a preheader the reader never sees)
+ * with what they contain, matching nested tags of the same name. Bounded:
+ * at most MAX_HIDDEN elements, each found with indexOf.
+ */
+function stripHidden(html: string): string {
+  const lower = html.toLowerCase();
+  let out = "";
+  let i = 0;
+  let removed = 0;
+  HIDDEN_OPEN.lastIndex = 0;
+  for (let m = HIDDEN_OPEN.exec(html); m && removed < MAX_HIDDEN; m = HIDDEN_OPEN.exec(html)) {
+    if (m.index < i || !/display\s*:\s*none/i.test(m[2])) continue;
+    const tag = m[1].toLowerCase();
+    // A void element has nothing inside: only the tag goes.
+    let end = m.index + m[0].length;
+    if (!/^(?:img|br|hr|input|meta|link|wbr)$/.test(tag) && !m[0].endsWith("/>")) {
+      let depth = 1;
+      let at = end;
+      while (depth > 0) {
+        const open = lower.indexOf(`<${tag}`, at);
+        const close = lower.indexOf(`</${tag}`, at);
+        if (close === -1) {
+          at = html.length;
+          break;
+        }
+        if (open !== -1 && open < close) {
+          depth++;
+          at = open + tag.length + 1;
+        } else {
+          depth--;
+          const gt = lower.indexOf(">", close);
+          at = gt === -1 ? html.length : gt + 1;
+        }
+      }
+      end = at;
+    }
+    out += html.slice(i, m.index);
+    i = end;
+    HIDDEN_OPEN.lastIndex = end;
+    removed++;
+  }
+  return out + html.slice(i);
+}
+
 /** An email's HTML as plain text: the words, with line breaks where the layout had them. */
 export function htmlToText(html: string): string {
-  let s = stripComments(html);
+  let s = stripHidden(stripComments(html));
   for (const tag of ["head", "style", "script", "title", "noscript", "template", "svg", "xml", "object", "iframe"]) {
     s = stripBlocks(s, tag);
   }
@@ -149,18 +200,22 @@ function headerText(value: string | undefined): string | null {
 export function emailView(rawEml: Buffer): Extract<OriginalPreview, { type: "eml" }> {
   const { headers } = splitHeadersAndBody(rawEml);
   const message = parseRawMessage(rawEml);
-  const plain = message.text != null ? tidy(message.text) : "";
-  const body =
-    plain.replace(/\s/g, "").length >= MIN_PLAIN_CHARS || message.html == null
-      ? plain
-      : htmlToText(message.html);
-  const dateMs = headers["date"] ? Date.parse(headerText(headers["date"]) ?? "") : NaN;
+  const fromHtml = message.html != null ? htmlToText(message.html) : "";
+  const useHtml = fromHtml.replace(/\s/g, "").length >= MIN_TEXT_CHARS || message.text == null;
+  const body = useHtml ? fromHtml : tidy(message.text ?? "");
+  // The parser keeps at most MAX_BODY_CHARS of a part: a longer one was cut.
+  const source = useHtml ? message.html : message.text;
+  const viewed = cap(body);
   return {
     type: "eml",
     from: headerText(headers["from"]),
+    to: headerText(headers["to"]),
     subject: message.subject ? message.subject.replace(INVISIBLE, "").replace(CONTROL, "") : null,
-    date: Number.isFinite(dateMs) ? new Date(dateMs).toISOString() : null,
-    ...cap(body),
+    // As written in the message, offset included: converting it to the
+    // viewer's time zone could show another day.
+    date: headerText(headers["date"]),
+    text: viewed.text,
+    truncated: viewed.truncated || (source?.length ?? 0) >= MAX_BODY_CHARS,
   };
 }
 

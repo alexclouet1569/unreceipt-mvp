@@ -65,15 +65,22 @@ const PDFJS_FILES = [
   "./node_modules/pdfjs-dist/cmaps/**/*",
   "./node_modules/pdfjs-dist/wasm/**/*",
   "./node_modules/pdfjs-dist/iccs/**/*",
+  "./node_modules/pdfjs-dist/legacy/build/pdf.mjs",
   "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+  "./node_modules/pdfjs-dist/package.json",
+  // The worker thread is loaded by path, so nothing traces it or its imports.
+  "./src/lib/receipts/pdf-render-worker.mjs",
+  "./node_modules/@napi-rs/canvas/**/*",
+  "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
 ];
 
 const nextConfig: NextConfig = {
   // PDF originals are drawn as pictures on the server
-  // (src/lib/receipts/pdf-render.ts): pdf.js and its native canvas load
-  // from node_modules at run time instead of being bundled, and the page
-  // route's deployment carries the font, character-map and decoder files
-  // pdf.js reads from disk.
+  // (src/lib/receipts/pdf-render.ts) in a worker thread
+  // (pdf-render-worker.mjs, loaded by path): pdf.js and its native canvas
+  // load from node_modules at run time instead of being bundled, and the
+  // two routes' deployments carry the worker, pdf.js, the canvas and the
+  // font, character-map and decoder files pdf.js reads from disk.
   serverExternalPackages: ["pdfjs-dist", "@napi-rs/canvas"],
   outputFileTracingIncludes: {
     "/api/receipts/\\[id\\]/original": PDFJS_FILES,

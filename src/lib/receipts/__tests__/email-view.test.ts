@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { decodeEntities, emailView, htmlToText, MAX_VIEW_CHARS, textView } from "../email-view";
+import { MAX_BODY_CHARS } from "@/lib/mailboxes/raw-message";
 
 const eml = (headers: string[], body: string) => Buffer.from([...headers, "", body].join("\r\n"), "utf8");
 
@@ -9,7 +10,7 @@ describe("htmlToText", () => {
   it("keeps the words and the layout's line breaks, drops every tag", () => {
     const html =
       '<html><head><title>T</title><style>.x{}</style></head><body>' +
-      '<div style="display:none">Preview text</div>' +
+      '<div style="color:#fff; display: none">Preview <div>nested</div> text</div><img style="display:none" src="x">' +
       '<table><tr><td>Coffee</td><td>45,00 kr</td></tr><tr><td>Total</td><td><b>45,00&nbsp;kr</b></td></tr></table>' +
       '<p>Thanks&nbsp;&amp; welcome back</p><img src="https://pixel.example/o.gif" alt="x">' +
       '<script>fetch("https://evil.example")</script><a href="https://x.example/track?id=1">View in browser</a></body></html>';
@@ -18,7 +19,7 @@ describe("htmlToText", () => {
     expect(text).toContain("Total 45,00 kr");
     expect(text).toContain("Thanks & welcome back");
     expect(text).toContain("View in browser");
-    expect(text).not.toMatch(/[<>]|pixel\.example|evil\.example|x\.example|\.x\{\}/);
+    expect(text).not.toMatch(/[<>]|pixel\.example|evil\.example|x\.example|\.x\{\}|Preview|nested/);
   });
 
   it("removes padding characters mail templates hide text with", () => {
@@ -26,7 +27,13 @@ describe("htmlToText", () => {
   });
 
   it("stays fast on hostile HTML (unclosed tags, comments, script)", () => {
-    const hostile = "<".repeat(200_000) + "<!--".repeat(50_000) + "<script>".repeat(50_000) + "<style".repeat(50_000);
+    const hostile =
+      "<".repeat(200_000) +
+      "<!--".repeat(50_000) +
+      "<script>".repeat(50_000) +
+      "<style".repeat(50_000) +
+      '<div style="display:none">'.repeat(20_000) +
+      `<a ${"b".repeat(100_000)}`;
     const started = Date.now();
     htmlToText(hostile);
     expect(Date.now() - started).toBeLessThan(1500);
@@ -44,58 +51,66 @@ describe("decodeEntities", () => {
 });
 
 describe("emailView", () => {
-  it("prefers the text part, decodes quoted-printable and encoded headers", () => {
+  it("reads the HTML part first (what the recipient saw), decodes encodings and headers", () => {
     const view = emailView(
       eml(
         [
           "From: =?UTF-8?Q?Caf=C3=A9_Ol=C3=A9?= <hej@cafe.example>",
+          "To: receipts+abc@in.unreceipt.com",
           "Subject: =?UTF-8?B?S3ZpdHRvIGZyw6VuIENhZsOp?=",
-          "Date: Fri, 9 May 2026 09:18:00 +0200",
+          "Date: Fri, 9 May 2026 23:48:00 +0200",
           'Content-Type: multipart/alternative; boundary="b"',
         ],
         [
           "--b",
           "Content-Type: text/plain; charset=utf-8",
-          "Content-Transfer-Encoding: quoted-printable",
           "",
-          "Kaffe 45,00 kr=0D=0ATotalt att betala: 45,00 kr, tack f=C3=B6r bes=C3=B6ket!",
+          "Thanks for your visit, total 45,00 kr. (the text version leaves out the VAT)",
           "--b",
           "Content-Type: text/html; charset=utf-8",
+          "Content-Transfer-Encoding: quoted-printable",
           "",
-          "<p>HTML version</p>",
+          "<p>Kaffe 45,00 kr</p><p>Moms 12 % 4,82 kr, tack f=C3=B6r bes=C3=B6ket!</p>",
           "--b--",
         ].join("\r\n"),
       ),
     );
     expect(view.from).toBe("Café Olé <hej@cafe.example>");
+    expect(view.to).toBe("receipts+abc@in.unreceipt.com");
     expect(view.subject).toBe("Kvitto från Café");
-    expect(view.date).toBe("2026-05-09T07:18:00.000Z");
-    expect(view.text).toContain("tack för besöket");
-    expect(view.text).not.toContain("HTML version");
+    // As written: converting it could show another day.
+    expect(view.date).toBe("Fri, 9 May 2026 23:48:00 +0200");
+    expect(view.text).toBe("Kaffe 45,00 kr\n\nMoms 12 % 4,82 kr, tack för besöket!");
     expect(view.truncated).toBe(false);
   });
 
-  it("reads the HTML part when the text part is only a stub", () => {
+  it("reads the text part when the HTML has (almost) no words", () => {
     const view = emailView(
       eml(
         ['Content-Type: multipart/alternative; boundary="b"'],
         [
           "--b",
           "Content-Type: text/plain",
-          "",
-          "View online",
-          "--b",
-          "Content-Type: text/html; charset=utf-8",
           "Content-Transfer-Encoding: base64",
           "",
-          Buffer.from("<table><tr><td>Trip fare</td><td>194,00 kr</td></tr></table>").toString("base64"),
+          Buffer.from("Trip fare 194,00 kr\nThanks for riding").toString("base64"),
+          "--b",
+          "Content-Type: text/html",
+          "",
+          '<img src="https://cdn.example/receipt.png">',
           "--b--",
         ].join("\r\n"),
       ),
     );
-    expect(view.text).toBe("Trip fare 194,00 kr");
+    expect(view.text).toBe("Trip fare 194,00 kr\nThanks for riding");
     expect(view.from).toBeNull();
     expect(view.date).toBeNull();
+  });
+
+  it("says so when the parser had to cut a very large body", () => {
+    const view = emailView(eml(["Content-Type: text/html"], `<p>Start</p>${" ".repeat(MAX_BODY_CHARS)}<p>Total 10 kr</p>`));
+    expect(view.text).toBe("Start");
+    expect(view.truncated).toBe(true);
   });
 
   it("shortens long tracking links to their host", () => {

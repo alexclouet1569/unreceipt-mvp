@@ -141,6 +141,12 @@ export const RATE_LIMITS = {
     { limit: 600, windowSeconds: 60 * 60 },
     { limit: 3000, windowSeconds: 24 * 60 * 60 },
   ],
+  // Each PDF page drawn (./original/page/[n], next to originalView): a
+  // page is ~0.3 s of CPU, a hostile one up to 8 s before it's stopped.
+  originalPage: [
+    { limit: 200, windowSeconds: 60 * 60 },
+    { limit: 1000, windowSeconds: 24 * 60 * 60 },
+  ],
   // "Anything new?" (GET /api/receipts/updates): every ~20 s from each open
   // website tab and the iPhone app in the foreground. One rule, so a poll
   // costs one counter call; generous for several tabs plus the phone.

@@ -402,8 +402,9 @@ export type OriginalPreview =
   | {
       type: "eml";
       from: string | null;
+      to: string | null;
       subject: string | null;
-      /** ISO timestamp from the Date header, null when unreadable. */
+      /** The Date header as written (its own time zone), null when missing. */
       date: string | null;
       text: string;
       /** Longer than the view's cap: the full message is in the file. */

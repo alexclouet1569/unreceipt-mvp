@@ -1,8 +1,17 @@
 // @vitest-environment node
 
+import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { PDFDocument, PDFName, PDFString, StandardFonts } from "pdf-lib";
-import { PdfPreviewError, pdfPreviewInfo, renderPdfPage, renderScale, TARGET_WIDTH_PX } from "../pdf-render";
+import {
+  knownHeavy,
+  PdfPreviewError,
+  pdfPreviewInfo,
+  rememberHeavy,
+  renderPdfPage,
+  renderScale,
+  TARGET_WIDTH_PX,
+} from "../pdf-render";
 
 async function receiptPdf(pages: number, withJs = false): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -55,5 +64,53 @@ describe("pdfPreviewInfo / renderPdfPage", () => {
   it("answers unreadable for something that isn't a PDF", async () => {
     await expect(renderPdfPage(new TextEncoder().encode("hello"), 1)).rejects.toBeInstanceOf(PdfPreviewError);
     await expect(pdfPreviewInfo(new TextEncoder().encode("%PDF-1.7 garbage"))).rejects.toMatchObject({ reason: "unreadable" });
+  });
+});
+
+describe("a hostile PDF", () => {
+  // A tiny file whose one page asks for millions of path operations: it
+  // blocked the thread for 18 s before pdf.js moved into a worker
+  // (security review 2026-11-14).
+  function pdfBomb(): Uint8Array {
+    const unit = Buffer.from("0 0 m 1 1 l S\n");
+    const raw = Buffer.alloc(40 * 1024 * 1024);
+    for (let i = 0; i < raw.length; i += unit.length) unit.copy(raw, i, 0, Math.min(unit.length, raw.length - i));
+    const z = deflateSync(raw, { level: 9 });
+    const objs = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>",
+    ];
+    let out = Buffer.from("%PDF-1.4\n");
+    const offsets: number[] = [];
+    objs.forEach((o, i) => {
+      offsets.push(out.length);
+      out = Buffer.concat([out, Buffer.from(`${i + 1} 0 obj\n${o}\nendobj\n`)]);
+    });
+    offsets.push(out.length);
+    out = Buffer.concat([out, Buffer.from(`4 0 obj\n<< /Length ${z.length} /Filter /FlateDecode >>\nstream\n`), z, Buffer.from("\nendstream\nendobj\n")]);
+    const xref = out.length;
+    const table = `xref\n0 5\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}`;
+    return Buffer.concat([out, Buffer.from(`${table}trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`)]);
+  }
+
+  it("is stopped on time, and the thread stays free meanwhile", async () => {
+    const bomb = pdfBomb();
+    expect(bomb.length).toBeLessThan(100_000);
+    let ticks = 0;
+    const ticker = setInterval(() => ticks++, 50);
+    const started = Date.now();
+    const outcome = await renderPdfPage(bomb, 1, { timeoutMs: 1500 }).catch((err: PdfPreviewError) => err.reason);
+    clearInterval(ticker);
+    expect(["timeout", "too_heavy"]).toContain(outcome);
+    expect(Date.now() - started).toBeLessThan(4000);
+    // The event loop kept running while the worker was busy.
+    expect(ticks).toBeGreaterThan(10);
+  }, 15_000);
+
+  it("remembers a heavy file for a while", () => {
+    expect(knownHeavy("receipt-originals/u/x.pdf")).toBe(false);
+    rememberHeavy("receipt-originals/u/x.pdf");
+    expect(knownHeavy("receipt-originals/u/x.pdf")).toBe(true);
   });
 });

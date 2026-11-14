@@ -35,7 +35,7 @@ export type RawMessage = {
 
 // A receipt's text is short; this keeps a hostile message from feeding
 // megabytes to the parser.
-const MAX_BODY_CHARS = 512 * 1024;
+export const MAX_BODY_CHARS = 512 * 1024;
 const MAX_PARTS = 64;
 const MAX_DEPTH = 6;
 

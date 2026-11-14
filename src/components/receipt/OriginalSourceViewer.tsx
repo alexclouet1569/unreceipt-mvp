@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Loader2, RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoViewer } from "@/components/receipt/PhotoViewer";
 import type { OriginalPreview, ReceiptOriginal } from "@/lib/mobile/types";
@@ -12,8 +12,9 @@ import type { OriginalPreview, ReceiptOriginal } from "@/lib/mobile/types";
 // page drawn by the server (no PDF viewer: no PDF JavaScript, links or
 // forms), an email or text message is plain text the server cut from it
 // (no HTML: no scripts, tracking pixels or remote images). Tap a photo or a
-// page to see it full screen and zoom. "Download original" saves the file
-// as it was received.
+// page to see it full screen and zoom. A PDF, email or text message is a
+// readable copy and says so: the file itself is the evidence, and
+// "Download original" saves it as it was received (DESIGN.md "Original tab").
 
 type FetchState =
   | { kind: "loading" }
@@ -78,13 +79,12 @@ export function OriginalSourceViewer({
   }, [receiptId, reloadKey]);
 
   if (state.kind === "loading") {
+    // The shape of what's coming, never a spinner on an empty tab.
     return (
-      <div
-        className="flex items-center justify-center gap-2 py-12 text-[var(--ink-muted)]"
-        data-testid="original-loading"
-      >
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span className="text-sm">Loading original…</span>
+      <div className="px-4 py-4 space-y-3" data-testid="original-loading" aria-busy="true">
+        <span className="sr-only">Loading original…</span>
+        <div className="h-[50vh] rounded-md bg-[var(--skeleton)] animate-pulse" />
+        <div className="h-11 rounded-md bg-[var(--skeleton)] animate-pulse" />
       </div>
     );
   }
@@ -92,7 +92,7 @@ export function OriginalSourceViewer({
   if (state.kind === "missing") {
     return (
       <div
-        className="px-4 py-10 text-center text-sm text-[var(--ink-muted)]"
+        className="px-4 py-10 text-center type-body text-[var(--ink-muted)]"
         data-testid="original-missing"
       >
         We didn&rsquo;t store an original for this receipt.
@@ -103,18 +103,17 @@ export function OriginalSourceViewer({
   if (state.kind === "error") {
     return (
       <div className="px-4 py-10 text-center space-y-3">
-        <p className="text-sm text-destructive">{state.message}</p>
+        <p className="type-body font-semibold text-[var(--attention-deep)]">{state.message}</p>
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="gap-1.5"
+          className="h-11 gap-1.5"
           onClick={() => {
             setState({ kind: "loading" });
             setReloadKey((k) => k + 1);
           }}
         >
-          <RefreshCw className="w-3.5 h-3.5" />
+          <RefreshCw className="w-4 h-4" aria-hidden="true" />
           Retry
         </Button>
       </div>
@@ -135,13 +134,18 @@ export function OriginalSourceViewer({
       <a
         href={downloadUrl ?? url}
         download={filename}
-        className="flex w-full items-center justify-center gap-1.5 h-11 rounded-md border bg-background px-3 text-sm font-semibold hover:bg-accent hover:text-accent-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex w-full items-center justify-center gap-1.5 h-11 rounded-md border bg-background px-3 type-body font-semibold hover:bg-accent hover:text-accent-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <Download className="w-4 h-4" aria-hidden="true" />
         Download original
       </a>
     </div>
   );
+}
+
+/** Under a PDF, email or text message: the view is a copy, the file is the original. */
+function CopyNote({ children }: { children: React.ReactNode }) {
+  return <p className="type-caption text-[var(--ink-muted)]">{children}</p>;
 }
 
 // Tap the photo to open it full screen and zoom in. No delete here: the
@@ -190,21 +194,19 @@ function PdfPages({
             type="button"
             onClick={() => setViewing(n)}
             aria-label={`${label}: view full screen`}
-            className="block w-full overflow-hidden rounded-md border border-[var(--hairline)] bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="block w-full overflow-hidden rounded-md border border-[var(--hairline)] bg-[var(--paper)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             style={{ aspectRatio: `${page.width} / ${page.height}` }}
           >
-            {/* The page is a picture of a document: it stays on white in
-                dark mode, like the receipt PDF (DESIGN.md). */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={src(n)} alt={label} loading={i === 0 ? "eager" : "lazy"} className="block h-full w-full" />
           </button>
         );
       })}
-      {preview.total > count ? (
-        <p className="text-[13px] text-[var(--ink-muted)]">
-          The first {count} of {preview.total} pages are shown. Download the original to see them all.
-        </p>
-      ) : null}
+      <CopyNote>
+        {preview.total > count
+          ? `Pictures of the first ${count} of ${preview.total} pages. The PDF file itself is the original: download it to see every page.`
+          : "Pictures of the PDF's pages. The PDF file itself is the original."}
+      </CopyNote>
       {viewing != null ? (
         <PhotoViewer
           open
@@ -218,16 +220,9 @@ function PdfPages({
   );
 }
 
-function formatEmailDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
 function Unavailable({ what }: { what: string }) {
   return (
-    <p className="rounded-md border border-[var(--hairline)] bg-card px-3 py-6 text-center text-sm text-[var(--ink-muted)]">
+    <p className="rounded-md border border-[var(--hairline)] bg-card px-3 py-6 text-center type-body text-[var(--ink-muted)]">
       {what} can&rsquo;t be shown here. Download the original to see it.
     </p>
   );
@@ -257,49 +252,54 @@ function ArtifactBody({
 
   if (kind === "eml") {
     if (preview?.type !== "eml") return <Unavailable what="This email" />;
-    const date = formatEmailDate(preview.date);
     return (
-      <div className="rounded-md border border-[var(--hairline)] bg-card overflow-hidden" data-testid="original-email">
-        <dl className="px-3 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-[var(--hairline)] text-[13px]">
-          {(
-            [
-              ["From", preview.from],
-              ["Subject", preview.subject],
-              ["Date", date],
-            ] as const
-          ).map(([label, value]) =>
-            value ? (
-              <div key={label} className="contents">
-                <dt className="font-semibold text-[var(--ink-muted)]">{label}</dt>
-                <dd className="text-[var(--ink)] break-words">{value}</dd>
-              </div>
-            ) : null,
-          )}
-        </dl>
-        <div className="px-3 py-3 text-[14px] leading-relaxed whitespace-pre-wrap break-words text-[var(--ink)] max-h-[60vh] overflow-y-auto">
-          {preview.text || "This email has no text."}
+      <div className="space-y-2">
+        <div className="rounded-md border border-[var(--hairline)] bg-card" data-testid="original-email">
+          <dl className="px-3 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-[var(--hairline)] type-caption">
+            {(
+              [
+                ["From", preview.from],
+                ["To", preview.to],
+                ["Subject", preview.subject],
+                ["Date", preview.date],
+              ] as const
+            ).map(([label, value]) =>
+              value ? (
+                <div key={label} className="contents">
+                  <dt className="font-semibold text-[var(--ink-muted)]">{label}</dt>
+                  <dd className="text-[var(--ink)] break-words">{value}</dd>
+                </div>
+              ) : null,
+            )}
+          </dl>
+          <div className="px-3 py-3 type-body whitespace-pre-wrap break-words text-[var(--ink)]">
+            {preview.text || "This email has no text."}
+          </div>
         </div>
-        {preview.truncated ? (
-          <p className="px-3 pb-3 text-[13px] text-[var(--ink-muted)]">
-            The email is longer than shown here. Download the original to read all of it.
-          </p>
-        ) : null}
+        <CopyNote>
+          {preview.truncated
+            ? "A readable copy of the email, shortened: it is longer than shown here. The email file itself is the original: download it to read all of it."
+            : "A readable copy of the email (its text, without images or links). The email file itself is the original."}
+        </CopyNote>
       </div>
     );
   }
 
   if (kind === "txt") {
-    const txt = preview?.type === "txt" ? preview.body : "";
+    const txt = preview?.type === "txt" ? preview : null;
     return (
       <div className="space-y-2">
         {smsFromHint ? (
-          <p className="text-[11px] uppercase tracking-[0.06em] font-semibold text-[var(--ink-muted)]">
-            From {smsFromHint}
-          </p>
+          <p className="type-micro text-[var(--ink-muted)]">From {smsFromHint}</p>
         ) : null}
-        <div className="rounded-md border border-[var(--hairline)] bg-card px-3 py-3 text-[14px] leading-relaxed whitespace-pre-wrap break-words text-[var(--ink)]">
-          {txt || "This message has no text."}
+        <div className="rounded-md border border-[var(--hairline)] bg-card px-3 py-3 type-body whitespace-pre-wrap break-words text-[var(--ink)]">
+          {txt?.body || "This message has no text."}
         </div>
+        <CopyNote>
+          {txt?.truncated
+            ? "The message is longer than shown here. The file itself is the original: download it to read all of it."
+            : "A readable copy of the message. The file itself is the original."}
+        </CopyNote>
       </div>
     );
   }

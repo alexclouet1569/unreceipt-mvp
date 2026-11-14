@@ -93,8 +93,8 @@ describe("GET /api/receipts/[id]/original/page/[n]", () => {
     const res = await GET(req("2"), params("2"));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
-    expect(res.headers.get("cache-control")).toBe("private, max-age=600");
-    expect(mocks.rateLimit).toHaveBeenCalledWith("originalView", "user-1");
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.rateLimit).toHaveBeenCalledWith("originalPage", "user-1");
     expect(mocks.download).toHaveBeenCalledWith("user-1/abc.pdf");
   });
 

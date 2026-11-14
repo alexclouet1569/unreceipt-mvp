@@ -226,8 +226,8 @@ describe("GET /api/receipts/[id]/original", () => {
     expect(body.preview.from).toContain("Uber");
     expect(body.preview.subject).toBe("Your Friday morning trip with Uber");
     expect(body.preview.text).toContain("194.00 SEK");
-    expect(body.preview.date).toBe("2026-05-09T07:18:00.000Z");
-    expect(body.preview).not.toHaveProperty("to");
+    expect(body.preview.date).toBe("Fri, 9 May 2026 09:18:00 +0200");
+    expect(body.preview.to).toBe("alex@unreceipt.com");
     expect(mockRateLimit).toHaveBeenCalledWith("originalView", "user-1");
   });
 
