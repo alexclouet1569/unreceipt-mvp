@@ -161,4 +161,11 @@ describe("isLikelyReceipt", () => {
       expect(isReply(s), s).toBe(false);
     }
   });
+
+  it("stays fast on a subject made to backtrack", () => {
+    const started = Date.now();
+    expect(isReply("re" + " ".repeat(1_000_000) + "x")).toBe(false);
+    expect(isLikelyReceipt(meta("re" + " ".repeat(1_000_000) + "x"))).toBe(false);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
 });

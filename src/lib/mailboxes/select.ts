@@ -143,11 +143,14 @@ const IGNORED_SENDERS = ["@unreceipt.com", "forwarding-noreply@google.com", "not
 // "AW:"/"Antw:" (German, Dutch), "Réf :"/"Ref:" (French), "Rif:" (Italian),
 // "VS:" (Finnish), "Odp:" (Polish): a reply in a conversation. Forwards
 // ("Fwd:", "TR:", "VB:") are not replies: a forwarded receipt is a receipt.
-const REPLY_PREFIX = /^\s*(re|sv|svar|aw|antw|antwort|r[ée]f|rif|vs|odp)\s*(\[\d+\])?\s*:/i;
+// No two \s* next to each other: a subject of "re" and a million spaces
+// (anyone can send one) must not backtrack quadratically. Only the start
+// of the subject is ever tested.
+const REPLY_PREFIX = /^\s*(?:re|sv|svar|aw|antw|antwort|r[ée]f|rif|vs|odp)\s*(?:\[\d+\]\s*)?:/i;
 
 /** The subject starts with a reply prefix. */
 export function isReply(subject: string): boolean {
-  return REPLY_PREFIX.test(subject);
+  return REPLY_PREFIX.test(subject.slice(0, 200));
 }
 
 function matchesWord(subject: string): boolean {

@@ -65,8 +65,8 @@ export default function PrivacyPage() {
               sender, date, attachment names and whether it is a reply or a
               mailing-list message, to decide whether it looks like a
               receipt, an invoice or an order confirmation. Replies and
-              mailing-list messages count only when they carry a receipt or
-              invoice PDF. Only those
+              mailing-list messages count only when they carry a PDF named
+              as a receipt, an invoice or a ticket. Only those
               emails are downloaded and saved, as receipts like the ones you
               forward; anything that isn&apos;t a purchase can be deleted
               under Review needed. Every other email is never stored, not
