@@ -370,7 +370,7 @@ describe("sync from history", () => {
     expect(calls.filter((c) => c.url.pathname.endsWith("/history"))[1].url.searchParams.get("pageToken")).toBe("p2");
     // Metadata asks for Subject and From only.
     const meta = calls.find((c) => c.url.searchParams.get("format") === "metadata")!;
-    expect(meta.url.searchParams.getAll("metadataHeaders")).toEqual(["Subject", "From"]);
+    expect(meta.url.searchParams.getAll("metadataHeaders")).toEqual(["Subject", "From", "List-Id"]);
     // …as a partial response: labels, size, those headers and part names;
     // never the snippet.
     const fields = meta.url.searchParams.get("fields")!;

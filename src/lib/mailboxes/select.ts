@@ -16,10 +16,28 @@
 // by itself. Anything else that still gets in lands in Review needed, is
 // never shown to the accountant before the owner confirms it, and costs
 // nothing until then.
+//
+// Learned from the first real mailbox (2026-11-14: 23 of 27 imported
+// emails were conversations ABOUT receipts, not receipts):
+//   - a reply ("Re:", "Sv:", "AW:", "Réf :"…) is a conversation, never a
+//     receipt, and neither is a mailing-list or notification email
+//     (a List-Id header, GitHub notifications): both are read only with a
+//     receipt-named PDF;
+//   - plurals ("receipts", "invoices", "kvitton", "factures") talk about
+//     receipts rather than being one, so they select nothing alone;
+//   - French "reçu" is mostly the verb ("Vous avez reçu un courrier"):
+//     only phrases that name a receipt ("votre reçu", "reçu de paiement")
+//     count.
 
 export type MessageMeta = {
   subject: string;
   from: string;
+  /**
+   * The List-Id header (RFC 2919) when the provider gives it (Gmail's
+   * metadata read does; Outlook's list rows don't): a mailing list or
+   * notification feed, not a purchase.
+   */
+  listId?: string | null;
   // File names of the message's attachments, when the provider lists them.
   attachmentNames: string[];
   hasAttachments: boolean;
@@ -34,9 +52,7 @@ export type MessageMeta = {
 export const MAILBOX_RECEIPT_WORDS = [
   // English
   "receipt",
-  "receipts",
   "invoice",
-  "invoices",
   "order confirmation",
   "booking confirmation",
   "payment confirmation",
@@ -48,7 +64,6 @@ export const MAILBOX_RECEIPT_WORDS = [
   "trip with uber",
   // Swedish
   "kvitto",
-  "kvitton",
   "kvittot",
   "kvittokopia",
   "parkeringskvitto",
@@ -62,10 +77,17 @@ export const MAILBOX_RECEIPT_WORDS = [
   "köpbekräftelse",
   "ditt köp",
   // French
-  "reçu",
-  "recu",
+  "votre reçu",
+  "votre recu",
+  "reçu de paiement",
+  "recu de paiement",
+  "reçu n°",
+  "recu n°",
+  "reçu fiscal",
+  "recu fiscal",
+  "reçu d'achat",
+  "recu d'achat",
   "facture",
-  "factures",
   "justificatif",
   "confirmation de commande",
   "confirmation de réservation",
@@ -79,6 +101,14 @@ export const MAILBOX_RECEIPT_WORDS = [
  * other.
  */
 export const MAILBOX_GENERIC_WORDS = [
+  // Plurals talk about receipts rather than being one ("Question about how
+  // you collect receipts"), and bare "reçu" is mostly the verb.
+  "receipts",
+  "invoices",
+  "kvitton",
+  "factures",
+  "reçu",
+  "recu",
   "confirmed",
   "ordered",
   "bekräftelse",
@@ -107,7 +137,21 @@ const RECEIPT_FILE =
 
 // Never a receipt, whatever the subject says: our own mail (sign-in codes,
 // reminders) and Gmail's forwarding confirmation.
-const IGNORED_SENDERS = ["@unreceipt.com", "forwarding-noreply@google.com"];
+const IGNORED_SENDERS = ["@unreceipt.com", "forwarding-noreply@google.com", "notifications@github.com"];
+
+// "Re:", "RE[2]:", "Sv:", "SV:" (Swedish, Norwegian, Danish), "Svar:",
+// "AW:"/"Antw:" (German, Dutch), "Réf :"/"Ref:" (French), "Rif:" (Italian),
+// "VS:" (Finnish), "Odp:" (Polish): a reply in a conversation. Forwards
+// ("Fwd:", "TR:", "VB:") are not replies: a forwarded receipt is a receipt.
+// No two \s* next to each other: a subject of "re" and a million spaces
+// (anyone can send one) must not backtrack quadratically. Only the start
+// of the subject is ever tested.
+const REPLY_PREFIX = /^\s*(?:re|sv|svar|aw|antw|antwort|r[ée]f|rif|vs|odp)\s*(?:\[\d+\]\s*)?:/i;
+
+/** The subject starts with a reply prefix. */
+export function isReply(subject: string): boolean {
+  return REPLY_PREFIX.test(subject.slice(0, 200));
+}
 
 function matchesWord(subject: string): boolean {
   const s = subject.toLowerCase();
@@ -120,12 +164,18 @@ function matchesWord(subject: string): boolean {
   });
 }
 
+function hasReceiptPdf(meta: MessageMeta): boolean {
+  return meta.attachmentNames.some((name) => /\.pdf$/i.test(name) && RECEIPT_FILE.test(name));
+}
+
 export function isLikelyReceipt(meta: MessageMeta): boolean {
   const from = meta.from.toLowerCase();
   if (IGNORED_SENDERS.some((s) => from.includes(s))) return false;
+  // A conversation or a list/notification email: only a receipt PDF counts.
+  if (isReply(meta.subject) || (meta.listId ?? "").trim() !== "") return hasReceiptPdf(meta);
   if (matchesWord(meta.subject)) return true;
   // A generic subject ("Your booking is confirmed") counts only with a
   // receipt-named PDF, and such a PDF selects the message whatever its
   // subject says.
-  return meta.attachmentNames.some((name) => /\.pdf$/i.test(name) && RECEIPT_FILE.test(name));
+  return hasReceiptPdf(meta);
 }
