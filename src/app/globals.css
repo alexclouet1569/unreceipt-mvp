@@ -421,9 +421,9 @@
 }
 
 /* Where the capture button sits: 32 px above the home indicator, or 16 px
-   above the tab bar on a phone (the bar exists only in the signed-in
-   layout, not in the demo tour). The Undo bar and the list's bottom room
-   follow from it. */
+   above the tab bar on a phone (the bar is in the signed-in layout, the
+   firm portal and the accountant demo tour; not in the company tour). The
+   Undo bar and the list's bottom room follow from it. */
 :root {
   --tabbar-h: 0px;
   --fab-bottom: calc(env(safe-area-inset-bottom, 0px) + max(32px, var(--tabbar-h) + 16px));

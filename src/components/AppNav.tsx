@@ -8,7 +8,9 @@ import { Wordmark } from "@/components/brand/Wordmark";
 /**
  * The product's navigation (DESIGN.md "Layout", 2026-11-12): the wordmark
  * in a compact header on every page, the tabs as links in that header from
- * 640 px up, and as a bottom bar below 640 px, where the thumb is.
+ * 640 px up, and as a bottom bar below 640 px, where the thumb is. The
+ * accounting-firm portal (/firm and its demo tour) uses the same two parts,
+ * wider and with the firm's name next to the wordmark.
  */
 export type NavTab = { href: string; label: string; icon: LucideIcon };
 
@@ -18,10 +20,18 @@ export const APP_TABS: NavTab[] = [
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 
-/** aria-current: "page" on the tab's own page, "true" on a page inside it. */
-function current(href: string, active: string | null, pathname: string): "page" | "true" | undefined {
+/**
+ * aria-current: "page" on the tab's own page, "true" on a page inside it.
+ * `isPage` tells it when the path can't (the demo tour's query links).
+ */
+function current(
+  href: string,
+  active: string | null,
+  pathname: string,
+  isPage?: boolean,
+): "page" | "true" | undefined {
   if (href !== active) return undefined;
-  return pathname === href ? "page" : "true";
+  return (isPage ?? pathname === href) ? "page" : "true";
 }
 
 /** The tab a path belongs to: the longest tab href it starts with. */
@@ -40,24 +50,43 @@ export function activeTab(
 export function AppHeader({
   tabs = APP_TABS,
   homeHref = "/app",
+  homeLabel = "UnReceipt, your receipts",
+  wide = false,
+  subtitle,
+  activeHref,
+  activeIsPage,
 }: {
   tabs?: NavTab[];
   /** Where the wordmark leads: the demo tour keeps it inside the tour. */
   homeHref?: string;
+  homeLabel?: string;
+  /** The firm portal's 1040 px width instead of the app's 540 px. */
+  wide?: boolean;
+  /** Shown next to the wordmark from 640 px up (the firm's name). */
+  subtitle?: string;
+  /** The current tab when the path can't tell (the demo tour's query links). */
+  activeHref?: string | null;
+  /** With activeHref: whether this is the tab's own page or one inside it. */
+  activeIsPage?: boolean;
 }) {
   const pathname = usePathname() ?? "";
-  const active = activeTab(pathname, tabs);
+  const active = activeHref !== undefined ? activeHref : activeTab(pathname, tabs);
   return (
     // Named for the tab crossfade, so it stays put above the fading page.
     <header style={{ viewTransitionName: "app-header" }} className="sticky top-0 z-40 border-b border-[var(--hairline)] bg-background/90 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-[540px] items-center justify-between px-4">
-        <Link
-          href={homeHref}
-          aria-label="UnReceipt, your receipts"
-          className="inline-flex h-11 items-center rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-        >
-          <Wordmark />
-        </Link>
+      <div className={`mx-auto flex h-14 items-center justify-between gap-4 px-4 ${wide ? "max-w-[1040px]" : "max-w-[540px]"}`}>
+        <div className="flex min-w-0 items-center gap-4">
+          <Link
+            href={homeHref}
+            aria-label={homeLabel}
+            className="inline-flex h-11 shrink-0 items-center rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          >
+            <Wordmark />
+          </Link>
+          {subtitle ? (
+            <span className="hidden truncate type-caption text-[var(--ink-muted)] sm:inline">{subtitle}</span>
+          ) : null}
+        </div>
         {tabs.length > 0 ? (
           <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
             {tabs.map((t) => {
@@ -67,7 +96,7 @@ export function AppHeader({
                   key={t.href}
                   href={t.href}
                   transitionTypes={["tab"]}
-                  aria-current={current(t.href, active, pathname)}
+                  aria-current={current(t.href, active, pathname, activeIsPage)}
                   className={
                     // Current tab: ink with a 2 px ink rule on the header's
                     // hairline; colour alone was too close to the muted links.
@@ -93,9 +122,19 @@ export function AppHeader({
  * current tab and muted for the others, so the screen's one green stays the
  * capture button.
  */
-export function AppTabBar({ tabs = APP_TABS }: { tabs?: NavTab[] }) {
+export function AppTabBar({
+  tabs = APP_TABS,
+  wide = false,
+  activeHref,
+  activeIsPage,
+}: {
+  tabs?: NavTab[];
+  wide?: boolean;
+  activeHref?: string | null;
+  activeIsPage?: boolean;
+}) {
   const pathname = usePathname() ?? "";
-  const active = activeTab(pathname, tabs);
+  const active = activeHref !== undefined ? activeHref : activeTab(pathname, tabs);
   return (
     <nav
       aria-label="Main"
@@ -103,7 +142,7 @@ export function AppTabBar({ tabs = APP_TABS }: { tabs?: NavTab[] }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--hairline)] bg-background sm:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", viewTransitionName: "app-tabbar" }}
     >
-      <ul className="mx-auto flex h-14 max-w-[540px]">
+      <ul className={`mx-auto flex h-14 ${wide ? "max-w-[1040px]" : "max-w-[540px]"}`}>
         {tabs.map((t) => {
           const isActive = t.href === active;
           const Icon = t.icon;
@@ -112,7 +151,7 @@ export function AppTabBar({ tabs = APP_TABS }: { tabs?: NavTab[] }) {
               <Link
                 href={t.href}
                 transitionTypes={["tab"]}
-                aria-current={current(t.href, active, pathname)}
+                aria-current={current(t.href, active, pathname, activeIsPage)}
                 className={
                   "flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)] " +
                   (isActive ? "text-[var(--ink)]" : "text-[var(--ink-muted)]")

@@ -1,45 +1,64 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Receipt, Settings, Users } from "lucide-react";
+import { AppHeader, AppTabBar, type NavTab } from "@/components/AppNav";
 
-const LINKS = [
-  { href: "/firm/clients", label: "Clients" },
-  { href: "/firm/settings", label: "Settings" },
-];
+// The firm portal's header and bottom tab bar: the client app's own
+// (src/components/AppNav.tsx), with the firm's tabs. Built here, in the
+// browser, because a tab's icon is a component and can't be handed over
+// from the server layout. The demo tour passes its own links (query
+// strings) and says which tab is current.
 
-export function FirmNav({ alsoCustomer }: { alsoCustomer: boolean }) {
-  const pathname = usePathname();
+export type FirmLinks = { clients: string; settings: string; ownReceipts?: string | null };
+export type FirmTabKey = "clients" | "settings";
+
+function firmTabs(links: FirmLinks): NavTab[] {
+  return [
+    { href: links.clients, label: "Clients", icon: Users },
+    { href: links.settings, label: "Settings", icon: Settings },
+    // Staff with a company of their own reach their receipts in one tap.
+    ...(links.ownReceipts ? [{ href: links.ownReceipts, label: "My receipts", icon: Receipt }] : []),
+  ];
+}
+
+const activeHrefOf = (links: FirmLinks, active: FirmTabKey | null | undefined) =>
+  active === undefined ? undefined : active ? links[active] : null;
+
+export function FirmHeader({
+  firmName,
+  homeHref,
+  links,
+  active,
+  activeIsPage,
+}: {
+  firmName: string;
+  homeHref: string;
+  links: FirmLinks;
+  active?: FirmTabKey | null;
+  /** With `active`: the tab's own page (the client list), not a page inside it. */
+  activeIsPage?: boolean;
+}) {
   return (
-    <nav className="ml-auto flex items-center gap-1" aria-label="Firm">
-      {LINKS.map((l) => {
-        const active = pathname === l.href || pathname.startsWith(l.href + "/");
-        return (
-          <Link
-            key={l.href}
-            href={l.href}
-            aria-current={active ? "page" : undefined}
-            className={
-              "inline-flex items-center px-3 rounded-[10px] border-b-2 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 " +
-              (active
-                ? "border-[var(--ink)] text-[var(--ink)]"
-                : "border-transparent text-[var(--ink-muted)] hover:text-[var(--ink)]")
-            }
-            style={{ height: "44px", fontSize: "14px", fontWeight: 600 }}
-          >
-            {l.label}
-          </Link>
-        );
-      })}
-      {alsoCustomer ? (
-        <Link
-          href="/app"
-          className="inline-flex items-center px-3 rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          style={{ height: "44px", fontSize: "14px" }}
-        >
-          Your own receipts ↗
-        </Link>
-      ) : null}
-    </nav>
+    <AppHeader
+      tabs={firmTabs(links)}
+      homeHref={homeHref}
+      homeLabel="UnReceipt for firms, your clients"
+      wide
+      subtitle={firmName}
+      activeHref={activeHrefOf(links, active)}
+      activeIsPage={activeIsPage}
+    />
   );
+}
+
+export function FirmTabBar({
+  links,
+  active,
+  activeIsPage,
+}: {
+  links: FirmLinks;
+  active?: FirmTabKey | null;
+  activeIsPage?: boolean;
+}) {
+  return <AppTabBar tabs={firmTabs(links)} wide activeHref={activeHrefOf(links, active)} activeIsPage={activeIsPage} />;
 }

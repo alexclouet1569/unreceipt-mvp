@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { Wordmark } from "@/components/brand/Wordmark";
+import { FirmHeader, FirmTabBar, type FirmLinks, type FirmTabKey } from "./_nav";
 import { EMPTY_STATS, adjacentMonths, monthLabel, type ClientStats } from "@/lib/firm/client-stats";
 import { formatInstantDate } from "@/lib/receipt-format";
 import type { FirmClient, FirmMemberRole, Receipt } from "@/lib/types";
@@ -36,32 +36,28 @@ const iconLink =
 export function FirmShell({
   firmName,
   homeHref,
-  nav,
+  links,
+  active,
+  activeIsPage,
   children,
 }: {
   firmName: string;
   homeHref: string;
-  nav: React.ReactNode;
+  /** Clients, Settings, and "My receipts" for staff with a company of their own. */
+  links: FirmLinks;
+  /** The current tab when the path can't tell (the demo tour). */
+  active?: FirmTabKey | null;
+  /** With `active`: the tab's own page rather than a page inside it. */
+  activeIsPage?: boolean;
   children: React.ReactNode;
 }) {
+  // The client app's header and bottom tab bar (DESIGN.md "Layout"), at
+  // the firm portal's desktop width.
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-[1040px] mx-auto px-4 h-14 flex items-center gap-4">
-          <Link href={homeHref} aria-label="UnReceipt for firms">
-            <Wordmark />
-          </Link>
-          <span
-            className="hidden sm:inline truncate text-[var(--ink-muted)]"
-            style={{ fontSize: "14px" }}
-          >
-            {firmName}
-          </span>
-          {nav}
-        </div>
-      </header>
-
-      <main className="max-w-[1040px] mx-auto px-4 py-6">{children}</main>
+      <FirmHeader firmName={firmName} homeHref={homeHref} links={links} active={active} activeIsPage={activeIsPage} />
+      <main className="max-w-[1040px] mx-auto px-4 py-6 max-sm:pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">{children}</main>
+      <FirmTabBar links={links} active={active} activeIsPage={activeIsPage} />
     </div>
   );
 }

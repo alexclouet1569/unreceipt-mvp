@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { ClientsView, ClientView, FirmShell, SettingsView, type ActiveClient, type PendingInvite } from "@/app/firm/_views";
 import type { MemberView } from "@/app/firm/settings/MembersSection";
 import { computeClientStats, monthKey, receiptMonth, resolveMonth, type StatRow } from "@/lib/firm/client-stats";
@@ -465,7 +463,6 @@ export function FirmApp({
   // open dialogs) while the sample data keeps what was done before.
   screenKey?: string;
 }) {
-  const pathname = usePathname();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [members, setMembers] = useState<MemberView[]>(initialMembers);
@@ -793,23 +790,6 @@ export function FirmApp({
     </div>
   ) : null;
 
-  const navLink = (label: string, view: DemoParams["view"]) => {
-    const isActive = params.view === view || (view === "clients" && params.view === "client");
-    return (
-      <Link
-        key={view}
-        href={hrefFor({ view })}
-        aria-current={isActive ? "page" : undefined}
-        className={
-          "inline-flex items-center px-3 rounded-[10px] border-b-2 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 " +
-          (isActive ? "border-[var(--ink)] text-[var(--ink)]" : "border-transparent text-[var(--ink-muted)] hover:text-[var(--ink)]")
-        }
-        style={{ height: "44px", fontSize: "14px", fontWeight: 600 }}
-      >
-        {label}
-      </Link>
-    );
-  };
 
   let content: React.ReactNode;
   const openClient = params.view === "client" ? active.find((c) => c.organization_id === params.org) : undefined;
@@ -862,7 +842,9 @@ export function FirmApp({
       <FirmShell
         firmName={FIRM}
         homeHref={hrefFor({})}
-        nav={<nav className="ml-auto flex items-center gap-1" aria-label="Firm" data-path={pathname}>{navLink("Clients", "clients")}{navLink("Settings", "settings")}</nav>}
+        links={{ clients: hrefFor({ view: "clients" }), settings: hrefFor({ view: "settings" }) }}
+        active={params.view === "settings" ? "settings" : "clients"}
+        activeIsPage={params.view !== "client"}
       >
         {content}
       </FirmShell>
