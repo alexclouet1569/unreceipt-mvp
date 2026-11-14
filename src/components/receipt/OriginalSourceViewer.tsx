@@ -58,8 +58,8 @@ export function OriginalSourceViewer({
           setState({
             kind: "error",
             message:
-              res.status === 429
-                ? "Too many originals opened at once. Try again in a minute."
+              res.status === 429 || res.status === 503
+                ? "Too many originals opened at once. Try again in a moment."
                 : `Couldn't load the original (${res.status}).`,
           });
           return;
@@ -172,6 +172,24 @@ function ZoomableOriginal({ url, alt, title }: { url: string; alt: string; title
   );
 }
 
+// The server answers 503 when its PDF worker is taken: try again twice.
+function PageImage({ src, alt, eager }: { src: string; alt: string; eager: boolean }) {
+  const [attempt, setAttempt] = useState(0);
+  const url = attempt === 0 || src.startsWith("blob:") ? src : `${src}?try=${attempt}`;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={alt}
+      loading={eager ? "eager" : "lazy"}
+      className="block h-full w-full"
+      onError={() => {
+        if (attempt < 2) setTimeout(() => setAttempt((a) => a + 1), 3000);
+      }}
+    />
+  );
+}
+
 /** A PDF as pictures, one per page, each drawn by the server. */
 function PdfPages({
   receiptId,
@@ -197,8 +215,7 @@ function PdfPages({
             className="block w-full overflow-hidden rounded-md border border-[var(--hairline)] bg-[var(--paper)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             style={{ aspectRatio: `${page.width} / ${page.height}` }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src(n)} alt={label} loading={i === 0 ? "eager" : "lazy"} className="block h-full w-full" />
+            <PageImage src={src(n)} alt={label} eager={i === 0} />
           </button>
         );
       })}

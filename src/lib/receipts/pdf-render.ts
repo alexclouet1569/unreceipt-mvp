@@ -7,14 +7,19 @@
 // never a URL; its fonts and decoders come from node_modules by fixed
 // names). Both clients show only the PNG.
 //
-// pdf.js parses and draws synchronously, and a tiny file can describe hours
-// of drawing (security review 2026-11-14: a 25 KB PDF blocked the thread
-// for 18 s, a 120 KB one ran out of memory). So every PDF is opened in its
-// own worker thread (pdf-render-worker.mjs) with a capped heap, killed when
-// it runs past its time: a hostile file costs one worker, never the
-// function or the other requests on its instance. Also bounded: at most
-// MAX_PDF_PAGES pages, a page drawn at most MAX_EDGE_PX on its long side
-// and MAX_PIXELS in all, embedded images up to MAX_IMAGE_PIXELS.
+// pdf.js parses and draws synchronously, and a tiny file can describe
+// minutes of drawing or gigabytes of image data (security review
+// 2026-11-14: a 25 KB PDF blocked the thread for 18 s, a 120 KB one ran
+// out of memory, a 1.3 MB one with twelve huge images reached 2.8 GB). So
+// PDFs are opened in one worker thread (pdf-render-worker.mjs), one job at
+// a time, with a capped heap; the job is killed (and the thread replaced)
+// when it runs past WORKER_TIMEOUT_MS or the process's memory grows past
+// the budget (decoded images live outside the heap cap, so the parent
+// watches the whole process), and at most MAX_QUEUED jobs wait. A hostile
+// file costs one job, never the function or the other requests on its
+// instance. Also bounded: at most MAX_PDF_PAGES pages, a page drawn at most
+// MAX_EDGE_PX on its long side and MAX_PIXELS in all, embedded images up to
+// MAX_IMAGE_PIXELS each.
 
 import path from "node:path";
 import { Worker } from "node:worker_threads";
@@ -24,24 +29,28 @@ import { MAX_PDF_PAGES } from "./pdf-pages";
 export const TARGET_WIDTH_PX = 1600;
 const MAX_EDGE_PX = 6000;
 const MAX_PIXELS = 1600 * 6000;
-const MAX_IMAGE_PIXELS = 40_000_000;
-/** Wall-clock budget of one worker, opening included (a real receipt takes well under 1 s). */
+// An A4 scan at 300 dpi is ~8.7 Mpx.
+const MAX_IMAGE_PIXELS = 16_000_000;
+/** Wall-clock budget of one job, opening included (a real receipt takes well under 1 s). */
 export const WORKER_TIMEOUT_MS = 8_000;
-// pdf.js keeps part of its data in buffers outside the capped heap (a
-// hostile page reached ~1 GB before it was stopped), so at most this many
-// workers run at once on one instance; the others wait their turn.
-const MAX_WORKERS = 2;
-// A file that ran out of time or memory is refused at once for this long
-// (per instance), instead of costing a worker on every retry.
-const HEAVY_MEMO_MS = 30 * 60_000;
-// The worker's JavaScript heap; the canvas's pixels (at most MAX_PIXELS × 4
-// bytes) live outside it.
+// The worker's JavaScript heap.
 const WORKER_HEAP_MB = 256;
+// Memory the process may grow by during one job, and the most it may use
+// at all (Vercel's functions have 2 GB). Checked every WATCH_MS.
+const JOB_MEMORY_MB = 400;
+const PROCESS_MEMORY_MB = 1300;
+const WATCH_MS = 25;
+// Jobs waiting for the worker, and how long one may wait.
+const MAX_QUEUED = 4;
+const QUEUE_WAIT_MS = 5_000;
+// A file that ran out of time or memory is refused at once for this long
+// (per instance), instead of costing a job on every retry.
+const HEAVY_MEMO_MS = 30 * 60_000;
 
 export type PdfPageSize = { width: number; height: number };
 
 export class PdfPreviewError extends Error {
-  constructor(readonly reason: "unreadable" | "page_out_of_range" | "timeout" | "too_heavy") {
+  constructor(readonly reason: "unreadable" | "page_out_of_range" | "timeout" | "too_heavy" | "busy") {
     super(reason);
     this.name = "PdfPreviewError";
   }
@@ -62,17 +71,7 @@ type WorkerAnswer =
   | { ok: true; png: Uint8Array }
   | { ok: false; reason: "unreadable" | "page_out_of_range" };
 
-let running = 0;
-const waiting: (() => void)[] = [];
-
-async function slot(): Promise<() => void> {
-  if (running >= MAX_WORKERS) await new Promise<void>((resolve) => waiting.push(resolve));
-  running++;
-  return () => {
-    running--;
-    waiting.shift()?.();
-  };
-}
+type Job = { mode: "info" } | { mode: "render"; page: number };
 
 const heavy = new Map<string, number>();
 
@@ -90,65 +89,126 @@ export function rememberHeavy(key: string): void {
   heavy.set(key, Date.now() + HEAVY_MEMO_MS);
 }
 
-async function runWorker(
-  bytes: Uint8Array,
-  job: { mode: "info" } | { mode: "render"; page: number },
-  timeoutMs: number,
-): Promise<WorkerAnswer> {
-  const release = await slot();
-  try {
-    return await startWorker(bytes, job, timeoutMs);
-  } finally {
-    release();
-  }
+let worker: Worker | null = null;
+
+function freshWorker(): Worker {
+  const w = new Worker(projectPath("src", "lib", "receipts", "pdf-render-worker.mjs"), {
+    workerData: {
+      maxPages: MAX_PDF_PAGES,
+      targetWidth: TARGET_WIDTH_PX,
+      maxEdge: MAX_EDGE_PX,
+      maxPixels: MAX_PIXELS,
+      maxImagePixels: MAX_IMAGE_PIXELS,
+      assets: {
+        standardFonts: assetDir("standard_fonts"),
+        cmaps: assetDir("cmaps"),
+        wasm: assetDir("wasm"),
+        iccs: assetDir("iccs"),
+      },
+    },
+    resourceLimits: { maxOldGenerationSizeMb: WORKER_HEAP_MB, maxYoungGenerationSizeMb: 32 },
+    stdout: true,
+    stderr: true,
+  });
+  // An idle worker doesn't keep the function alive.
+  w.unref();
+  return w;
 }
 
-function startWorker(
-  bytes: Uint8Array,
-  job: { mode: "info" } | { mode: "render"; page: number },
-  timeoutMs: number,
-): Promise<WorkerAnswer> {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(projectPath("src", "lib", "receipts", "pdf-render-worker.mjs"), {
-      workerData: {
-        // A copy: the worker owns it.
-        bytes: new Uint8Array(bytes),
-        mode: job.mode,
-        page: job.mode === "render" ? job.page : null,
-        maxPages: MAX_PDF_PAGES,
-        targetWidth: TARGET_WIDTH_PX,
-        maxEdge: MAX_EDGE_PX,
-        maxPixels: MAX_PIXELS,
-        maxImagePixels: MAX_IMAGE_PIXELS,
-        assets: {
-          standardFonts: assetDir("standard_fonts"),
-          cmaps: assetDir("cmaps"),
-          wasm: assetDir("wasm"),
-          iccs: assetDir("iccs"),
-        },
-      },
-      resourceLimits: { maxOldGenerationSizeMb: WORKER_HEAP_MB, maxYoungGenerationSizeMb: 32 },
-      stdout: true,
-      stderr: true,
+function killWorker(): void {
+  const w = worker;
+  worker = null;
+  if (w) void w.terminate();
+}
+
+const rssMb = () => process.memoryUsage.rss() / (1024 * 1024);
+
+let busy = false;
+let nextId = 1;
+const queue: (() => void)[] = [];
+
+async function turn(): Promise<() => void> {
+  if (busy) {
+    if (queue.length >= MAX_QUEUED) throw new PdfPreviewError("busy");
+    await new Promise<void>((resolve, reject) => {
+      const go = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        const i = queue.indexOf(go);
+        if (i !== -1) queue.splice(i, 1);
+        reject(new PdfPreviewError("busy"));
+      }, QUEUE_WAIT_MS);
+      queue.push(go);
     });
+  }
+  busy = true;
+  return () => {
+    busy = false;
+    const next = queue.shift();
+    if (next) {
+      busy = true;
+      next();
+    }
+  };
+}
+
+function runJob(bytes: Uint8Array, job: Job, timeoutMs: number): Promise<WorkerAnswer> {
+  return new Promise((resolve, reject) => {
+    const startRss = rssMb();
+    if (startRss > PROCESS_MEMORY_MB) {
+      reject(new PdfPreviewError("busy"));
+      return;
+    }
+    const w = (worker ??= freshWorker());
+    const id = nextId++;
     let settled = false;
-    const finish = (fn: () => void) => {
+    const finish = (fn: () => void, kill: boolean) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      void worker.terminate();
+      clearInterval(watch);
+      w.off("message", onMessage);
+      w.off("error", onError);
+      w.off("exit", onExit);
+      if (kill && worker === w) killWorker();
       fn();
     };
+    const onMessage = (answer: WorkerAnswer & { id: number }) => {
+      if (answer.id !== id) return;
+      finish(() => resolve(answer), false);
+    };
+    const onError = (err: Error & { code?: string }) =>
+      finish(
+        () => reject(new PdfPreviewError(err.code === "ERR_WORKER_OUT_OF_MEMORY" ? "too_heavy" : "unreadable")),
+        true,
+      );
+    const onExit = () => finish(() => reject(new PdfPreviewError("unreadable")), true);
     // terminate() stops the worker even in the middle of a synchronous run.
-    const timer = setTimeout(() => finish(() => reject(new PdfPreviewError("timeout"))), timeoutMs);
-    worker.once("message", (answer: WorkerAnswer) => finish(() => resolve(answer)));
-    worker.once("error", (err: Error & { code?: string }) =>
-      finish(() =>
-        reject(new PdfPreviewError(err.code === "ERR_WORKER_OUT_OF_MEMORY" ? "too_heavy" : "unreadable")),
-      ),
-    );
-    worker.once("exit", () => finish(() => reject(new PdfPreviewError("unreadable"))));
+    const timer = setTimeout(() => finish(() => reject(new PdfPreviewError("timeout")), true), timeoutMs);
+    const watch = setInterval(() => {
+      const now = rssMb();
+      if (now > startRss + JOB_MEMORY_MB || now > PROCESS_MEMORY_MB) {
+        finish(() => reject(new PdfPreviewError("too_heavy")), true);
+      }
+    }, WATCH_MS);
+    w.on("message", onMessage);
+    w.once("error", onError);
+    w.once("exit", onExit);
+    // A copy: the worker owns it.
+    const data = new Uint8Array(bytes);
+    w.postMessage({ id, bytes: data, mode: job.mode, page: job.mode === "render" ? job.page : null }, [data.buffer]);
   });
+}
+
+async function runWorker(bytes: Uint8Array, job: Job, timeoutMs: number): Promise<WorkerAnswer> {
+  const done = await turn();
+  try {
+    return await runJob(bytes, job, timeoutMs);
+  } finally {
+    done();
+  }
 }
 
 /** Pages shown (at most MAX_PDF_PAGES) with their sizes in PDF points, and the document's page count. */

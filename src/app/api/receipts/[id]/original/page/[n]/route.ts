@@ -88,6 +88,9 @@ export async function GET(
     if (err instanceof PdfPreviewError && err.reason === "page_out_of_range") {
       return NextResponse.json({ error: "no_page" }, { status: 404, headers: NO_STORE });
     }
+    if (err instanceof PdfPreviewError && err.reason === "busy") {
+      return NextResponse.json({ error: "busy" }, { status: 503, headers: { ...NO_STORE, "Retry-After": "5" } });
+    }
     const reason = err instanceof PdfPreviewError ? err.reason : "error";
     if (reason === "timeout" || reason === "too_heavy") rememberHeavy(fileKey);
     console.error("[/api/receipts/[id]/original/page] render failed", reason);

@@ -19,7 +19,7 @@ import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { originalFileOf } from "@/lib/receipts/original-file";
 import { emailView, textView } from "@/lib/receipts/email-view";
-import { pdfPreviewInfo } from "@/lib/receipts/pdf-render";
+import { knownHeavy, PdfPreviewError, pdfPreviewInfo, rememberHeavy } from "@/lib/receipts/pdf-render";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import type { OriginalPreview, ReceiptOriginal } from "@/lib/mobile/types";
 import type { Receipt, ReceiptOriginalKind } from "@/lib/types";
@@ -60,13 +60,19 @@ function filenameFor(receipt: Receipt, kind: ReceiptOriginalKind): string {
   return `original-${slug}${date ? `-${date}` : ""}.${ext}`;
 }
 
-async function previewOf(kind: ReceiptOriginalKind, bytes: Buffer): Promise<OriginalPreview | undefined> {
+async function previewOf(kind: ReceiptOriginalKind, bytes: Buffer, fileKey: string): Promise<OriginalPreview | undefined> {
   if (kind === "eml") return emailView(bytes);
   if (kind === "txt") return textView(bytes);
   if (kind === "application/pdf") {
+    if (knownHeavy(fileKey)) return { type: "unavailable" };
     try {
       return { type: "pdf", ...(await pdfPreviewInfo(new Uint8Array(bytes))) };
-    } catch {
+    } catch (err) {
+      // The PDF worker is taken: the client asks again (503).
+      if (err instanceof PdfPreviewError && err.reason === "busy") throw err;
+      if (err instanceof PdfPreviewError && (err.reason === "timeout" || err.reason === "too_heavy")) {
+        rememberHeavy(fileKey);
+      }
       return { type: "unavailable" };
     }
   }
@@ -154,11 +160,17 @@ export async function GET(
     try {
       const dl = await admin.storage.from(bucket).download(path);
       if (dl.data) {
-        payload.preview = await previewOf(kind, Buffer.from(await dl.data.arrayBuffer()));
+        payload.preview = await previewOf(kind, Buffer.from(await dl.data.arrayBuffer()), `${bucket}/${path}`);
       } else {
         payload.preview = { type: "unavailable" };
       }
     } catch (err) {
+      if (err instanceof PdfPreviewError && err.reason === "busy") {
+        return NextResponse.json(
+          { error: "busy" },
+          { status: 503, headers: { "Cache-Control": "private, no-store", "Retry-After": "5" } },
+        );
+      }
       // Best effort: the signed URL still lets the user download the file.
       console.warn("[/api/receipts/[id]/original] preview failed", err instanceof Error ? err.name : "error");
       payload.preview = { type: "unavailable" };

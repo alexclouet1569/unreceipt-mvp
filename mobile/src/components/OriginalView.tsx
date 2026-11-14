@@ -13,7 +13,7 @@
 // Nothing here opens or interprets the file itself; "Original" in the
 // actions below still saves or sends the file as it was received.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
@@ -88,6 +88,24 @@ function PhotoOriginal({ id, photoRoute }: { id: string; photoRoute: string }) {
   );
 }
 
+// The server answers 503 when its PDF worker is taken: try again twice.
+function PageImage({ source }: { source: OriginalPage["source"] }) {
+  const styles = useStyles();
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <Image
+      key={attempt}
+      source={attempt === 0 ? source : { ...source, uri: `${source.uri}?try=${attempt}` }}
+      style={styles.fill}
+      contentFit="contain"
+      transition={durations.short}
+      onError={() => {
+        if (attempt < 2) setTimeout(() => setAttempt((a) => a + 1), 3000);
+      }}
+    />
+  );
+}
+
 function PdfPages({
   id,
   pages,
@@ -118,7 +136,7 @@ function PdfPages({
             accessibilityHint={s.detail.originalZoomHint}
             style={[styles.page, { height: Math.round((width * p.height) / Math.max(p.width, 1)) }]}
           >
-            <Image source={p.source} style={styles.fill} contentFit="contain" transition={durations.short} />
+            <PageImage source={p.source} />
           </PressableScale>
         );
       })}

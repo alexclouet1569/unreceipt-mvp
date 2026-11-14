@@ -114,3 +114,15 @@ describe("a hostile PDF", () => {
     expect(knownHeavy("receipt-originals/u/x.pdf")).toBe(true);
   });
 });
+
+describe("the PDF worker queue", () => {
+  it("lets a few jobs wait and refuses the rest as busy", async () => {
+    const pdf = await receiptPdf(1);
+    const outcomes = await Promise.all(
+      Array.from({ length: 7 }, () => renderPdfPage(pdf, 1).then(() => "png").catch((err: PdfPreviewError) => err.reason)),
+    );
+    // One runs, four wait their turn, the last two are told to come back.
+    expect(outcomes.filter((o) => o === "png")).toHaveLength(5);
+    expect(outcomes.filter((o) => o === "busy")).toHaveLength(2);
+  }, 30_000);
+});
