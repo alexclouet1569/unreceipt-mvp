@@ -2,6 +2,14 @@
 // once, then the server's. Refreshed on pull and when the app comes back to
 // the foreground; a 401 signs the user out.
 //
+// New receipts appear by themselves: while the app is in the foreground it
+// asks GET /api/receipts/updates every POLL_MS ("anything new?", a few
+// indexed counts) and right away on coming back, and fetches the list again
+// only when the answer's version changed. Email receipts that arrived since
+// the user last looked feed the "N new receipts from your email" notice
+// (`newReceipts`, src/lib/newReceipts.ts); their rows are kept in `extra`
+// so the notice opens one even when it sits beyond the newest 50.
+//
 // Changes made on the phone (a new scan, an edit, a delete) are applied at
 // once with mutateReceipts(). A refresh that started before such a change
 // may return the list without it; its answer is then dropped and the list
@@ -11,8 +19,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState, LayoutAnimation } from "react-native";
 import type { MobileHome, MobileReceipt } from "@/lib/mobile/types";
 import { useAuth } from "../auth/AuthProvider";
-import { ApiError, getHome, getOlderReceipts } from "./api";
-import { readHome, writeHome } from "./cache";
+import { ApiError, getHome, getOlderReceipts, getReceiptUpdates } from "./api";
+import { readHome, readNewReceiptsSeen, writeHome, writeNewReceiptsSeen } from "./cache";
+import { dismissAll, EMPTY_SEEN, markOpened, parseSeen, startSeen, unseen, type Fresh, type SeenState } from "./newReceipts";
 import { loadMoreCursor } from "./sections";
 import { shareHome, shareReceipts } from "./share";
 
@@ -46,7 +55,14 @@ type HomeState = {
    */
   older: { ids: string[]; hasMore: boolean; loading: boolean; failed: boolean };
   loadOlder: () => Promise<void>;
+  /** Email receipts that arrived since the user last looked (newest first). */
+  newReceipts: { items: Fresh[]; open: (id: string) => void; dismiss: () => void };
 };
+
+/** How often the foreground app asks whether anything changed. */
+export const POLL_MS = 20_000;
+// After a refusal (rate limit, server error) skip this many polls.
+const BACKOFF_POLLS = 3;
 
 export type ReadyHome = Extract<MobileHome, { state: "ready" }>;
 
@@ -211,6 +227,78 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [hasMoreOlder, home, extra, olderIds, rememberReceipts, signOut, refresh]);
 
+  // "Anything new?" (see the top of the file).
+  const [fresh, setFresh] = useState<Fresh[]>([]);
+  const [seen, setSeen] = useState<SeenState>(EMPTY_SEEN);
+  const seenRef = useRef<SeenState | null>(null);
+  const serverVersion = useRef<string | null>(null);
+  const polling = useRef(false);
+  const skipPolls = useRef(0);
+  const saveSeen = useCallback(
+    (next: SeenState) => {
+      seenRef.current = next;
+      setSeen(next);
+      if (userId) void writeNewReceiptsSeen(userId, JSON.stringify(next));
+    },
+    [userId],
+  );
+  const poll = useCallback(async () => {
+    if (!userId || polling.current || AppState.currentState !== "active") return;
+    if (skipPolls.current > 0) {
+      skipPolls.current -= 1;
+      return;
+    }
+    polling.current = true;
+    try {
+      if (seenRef.current == null) seenRef.current = parseSeen(await readNewReceiptsSeen(userId));
+      const current = seenRef.current;
+      const answer = await getReceiptUpdates(current.after);
+      const started = startSeen(current, answer.latestCreatedAt);
+      if (started !== current) saveSeen(started);
+      else setSeen(current);
+      if (answer.receipts?.length) rememberReceipts(answer.receipts);
+      setFresh(answer.fresh);
+      if (serverVersion.current != null && answer.version !== serverVersion.current) void refresh();
+      serverVersion.current = answer.version;
+    } catch {
+      // Offline, signed out (the home refresh handles that) or refused:
+      // ask again a little later.
+      skipPolls.current = BACKOFF_POLLS;
+    } finally {
+      polling.current = false;
+    }
+  }, [userId, refresh, rememberReceipts, saveSeen]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void poll();
+    const timer = setInterval(() => void poll(), POLL_MS);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        skipPolls.current = 0;
+        void poll();
+      }
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+      setFresh([]);
+      setSeen(EMPTY_SEEN);
+      seenRef.current = null;
+      serverVersion.current = null;
+    };
+  }, [userId, poll]);
+
+  const newItems = useMemo(() => unseen(fresh, seen), [fresh, seen]);
+  const newReceipts = useMemo(
+    () => ({
+      items: newItems,
+      open: (id: string) => saveSeen(markOpened(seenRef.current ?? seen, fresh, id)),
+      dismiss: () => saveSeen(dismissAll(seenRef.current ?? seen, fresh)),
+    }),
+    [newItems, fresh, seen, saveSeen],
+  );
+
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -247,8 +335,8 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
     [olderIds, hasMoreOlder, olderLoading, olderFailed],
   );
   const value = useMemo(
-    () => ({ home, error, refreshing, fromServer, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra, older, loadOlder }),
-    [home, error, refreshing, fromServer, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra, older, loadOlder],
+    () => ({ home, error, refreshing, fromServer, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra, older, loadOlder, newReceipts }),
+    [home, error, refreshing, fromServer, loading, refresh, mutateReceipts, mutateHome, extra, rememberReceipts, mutateExtra, older, loadOlder, newReceipts],
   );
   return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;
 }

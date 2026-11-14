@@ -1,64 +1,38 @@
 // Original-source viewer endpoint. Returns a short-lived signed URL to
 // the raw artifact (paper photo, email .eml, SMS .txt, PDF) backing a
-// digital receipt — plus an inline preview for the text-based kinds so
-// the client doesn't need a second fetch.
+// digital receipt, and with ?preview=1 what the website and the iPhone app
+// show of it (`preview`, src/lib/mobile/types.ts OriginalPreview): an email
+// or text message as plain text cut on the server (never its HTML), a PDF's
+// page sizes (each page is then a PNG from ./page/[n]). Without ?preview
+// (sharing, downloading) the file isn't read at all.
 //
-// Resolution rule:
-//   * original_source_url set  → `receipt-originals` bucket (new intake
-//                                paths from steps 5-7).
-//   * image_url set            → `receipts` bucket (legacy paper capture
-//                                via /api/capture).
-//   * neither                  → 404 ("no_original").
-//
-// The row is read through loadReceiptForActor(): the owner, or staff of
-// the accounting firm linked to the receipt's company. Storage paths are
-// checked against the OWNER's folder (never the actor's) before signing.
+// Where the file lives: src/lib/receipts/original-file.ts. The row is read
+// through loadReceiptForActor(): the owner, or staff of the accounting firm
+// linked to the receipt's company (a mailbox receipt only once confirmed,
+// src/lib/firm/visibility.ts). Storage paths are checked against the
+// OWNER's folder (never the actor's) before signing.
 
 import { printedDay } from "@/lib/receipts/printed-day";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
+import { originalFileOf } from "@/lib/receipts/original-file";
+import { emailView, textView } from "@/lib/receipts/email-view";
+import { knownHeavy, PdfPreviewError, pdfPreviewInfo, rememberHeavy } from "@/lib/receipts/pdf-render";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import type { OriginalPreview, ReceiptOriginal } from "@/lib/mobile/types";
 import type { Receipt, ReceiptOriginalKind } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes
 
-type OriginalPayload = {
-  url: string;
-  kind: ReceiptOriginalKind;
-  filename: string;
-  // Inline preview for text-based kinds. Saves the client a round-trip
-  // and avoids CORS gotchas when fetching the signed URL from JS.
-  preview?:
-    | {
-        type: "eml";
-        from: string | null;
-        to: string | null;
-        subject: string | null;
-        date: string | null;
-        text: string;
-      }
-    | {
-        type: "txt";
-        body: string;
-      };
-};
+type OriginalPayload = ReceiptOriginal;
 
 type NoOriginal = { error: "no_original" };
-
-function inferKindFromPath(path: string): ReceiptOriginalKind {
-  const ext = path.split(".").pop()?.toLowerCase() ?? "";
-  if (ext === "png") return "image/png";
-  if (ext === "webp") return "image/webp";
-  if (ext === "pdf") return "application/pdf";
-  if (ext === "eml") return "eml";
-  if (ext === "txt") return "txt";
-  return "image/jpeg";
-}
 
 function filenameFor(receipt: Receipt, kind: ReceiptOriginalKind): string {
   const slug = (receipt.merchant_name ?? "receipt")
@@ -86,63 +60,27 @@ function filenameFor(receipt: Receipt, kind: ReceiptOriginalKind): string {
   return `original-${slug}${date ? `-${date}` : ""}.${ext}`;
 }
 
-// Extract From / To / Subject / Date headers + text/plain body from a
-// raw .eml string. Defensive: real-world .eml varies wildly. If we
-// can't parse a field we surface null rather than throwing — the
-// viewer still shows the raw body.
-function parseEml(raw: string): {
-  from: string | null;
-  to: string | null;
-  subject: string | null;
-  date: string | null;
-  text: string;
-} {
-  // Split headers vs body at the first blank line.
-  const split = raw.indexOf("\r\n\r\n");
-  const splitIdx = split >= 0 ? split : raw.indexOf("\n\n");
-  const headerBlock = splitIdx >= 0 ? raw.slice(0, splitIdx) : raw;
-  const bodyBlock = splitIdx >= 0 ? raw.slice(splitIdx).replace(/^\s+/, "") : "";
-
-  const headerLine = (name: string): string | null => {
-    const re = new RegExp(`^${name}:\\s*(.+?)(?:\\r?\\n(?!\\s)|$)`, "im");
-    const m = headerBlock.match(re);
-    return m ? m[1].trim() : null;
-  };
-
-  // For multipart MIME, pull the first text/plain part. Fallback to the
-  // whole body when there's no boundary marker — covers plain emails.
-  const contentType = headerLine("Content-Type") ?? "";
-  let textBody = bodyBlock;
-  const boundaryMatch = contentType.match(/boundary="?([^";\r\n]+)"?/i);
-  if (boundaryMatch) {
-    const boundary = boundaryMatch[1];
-    const parts = bodyBlock.split(`--${boundary}`);
-    const plain = parts.find((p) => /content-type:\s*text\/plain/i.test(p));
-    if (plain) {
-      const partSplit = plain.indexOf("\r\n\r\n");
-      const partIdx = partSplit >= 0 ? partSplit : plain.indexOf("\n\n");
-      textBody = partIdx >= 0 ? plain.slice(partIdx).trim() : plain.trim();
+async function previewOf(kind: ReceiptOriginalKind, bytes: Buffer, fileKey: string): Promise<OriginalPreview | undefined> {
+  if (kind === "eml") return emailView(bytes);
+  if (kind === "txt") return textView(bytes);
+  if (kind === "application/pdf") {
+    if (knownHeavy(fileKey)) return { type: "unavailable" };
+    try {
+      return { type: "pdf", ...(await pdfPreviewInfo(new Uint8Array(bytes))) };
+    } catch (err) {
+      // The PDF worker is taken: the client asks again (503).
+      if (err instanceof PdfPreviewError && err.reason === "busy") throw err;
+      if (err instanceof PdfPreviewError && (err.reason === "timeout" || err.reason === "too_heavy")) {
+        rememberHeavy(fileKey);
+      }
+      return { type: "unavailable" };
     }
   }
-
-  // Cap to keep dialog responsive; user can still download the raw .eml
-  // via the signed URL if they need the full thing.
-  const MAX = 8000;
-  if (textBody.length > MAX) {
-    textBody = textBody.slice(0, MAX) + "\n\n[…truncated — download original for full message]";
-  }
-
-  return {
-    from: headerLine("From"),
-    to: headerLine("To"),
-    subject: headerLine("Subject"),
-    date: headerLine("Date"),
-    text: textBody,
-  };
+  return undefined;
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<OriginalPayload | NoOriginal | { error: string }>> {
   const user = await getServerUser();
@@ -173,31 +111,11 @@ export async function GET(
 
   // Manual rows never have an original — surface that explicitly so the
   // client can hide the tab.
-  if (receipt.source === "manual") {
+  const file = originalFileOf(receipt);
+  if (!file) {
     return NextResponse.json({ error: "no_original" }, { status: 404 });
   }
-
-  // Resolve which bucket + path holds the artifact.
-  let bucket: "receipt-originals" | "receipts";
-  let path: string;
-  let kind: ReceiptOriginalKind;
-
-  if (receipt.original_source_url) {
-    bucket = "receipt-originals";
-    path = receipt.original_source_url;
-    kind = receipt.original_source_kind ?? inferKindFromPath(path);
-  } else if (receipt.image_url) {
-    bucket = "receipts";
-    path = receipt.image_url;
-    kind = receipt.original_source_kind ?? inferKindFromPath(path);
-  } else {
-    return NextResponse.json({ error: "no_original" }, { status: 404 });
-  }
-
-  // The owner's folder, whoever is looking.
-  if (!isOwnedStoragePath(path, receipt.user_id)) {
-    return NextResponse.json({ error: "no_original" }, { status: 404 });
-  }
+  const { bucket, path, kind } = file;
 
   // Mint the signed URL. The storage call uses the service-role admin
   // client because storage RLS
@@ -223,35 +141,39 @@ export async function GET(
     filename: filenameFor(receipt, kind),
   };
 
-  // Inline preview for text-based kinds. We download the artifact
-  // server-side (small payloads — eml/txt are < 100 KB in practice) so
-  // the client doesn't need to fetch the signed URL and worry about
-  // CORS / MIME quirks.
-  if (kind === "eml" || kind === "txt") {
+  // What the viewers show. Read server-side so the client never fetches
+  // (or renders) the raw file itself. A photo needs nothing: its URL is
+  // the picture.
+  const wantsPreview = request.nextUrl.searchParams.get("preview") === "1";
+  if (wantsPreview) {
+    const limited = await rateLimit("originalView", user.id);
+    if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds) as NextResponse<{ error: string }>;
+    // The website's "Download original": the same file, sent as an
+    // attachment (a browser ignores <a download> on another site's link
+    // and would open a PDF in its own viewer instead).
+    const forDownload = await admin.storage
+      .from(bucket)
+      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS, { download: payload.filename });
+    if (forDownload.data?.signedUrl) payload.downloadUrl = forDownload.data.signedUrl;
+  }
+  if (wantsPreview && !kind.startsWith("image/")) {
     try {
       const dl = await admin.storage.from(bucket).download(path);
       if (dl.data) {
-        const raw = await dl.data.text();
-        if (kind === "eml") {
-          payload.preview = { type: "eml", ...parseEml(raw) };
-        } else {
-          const MAX = 4000;
-          payload.preview = {
-            type: "txt",
-            body:
-              raw.length > MAX
-                ? raw.slice(0, MAX) + "\n\n[…truncated]"
-                : raw,
-          };
-        }
+        payload.preview = await previewOf(kind, Buffer.from(await dl.data.arrayBuffer()), `${bucket}/${path}`);
+      } else {
+        payload.preview = { type: "unavailable" };
       }
     } catch (err) {
-      // Preview is best-effort; the signed URL still lets the user
-      // download the raw artifact.
-      console.warn(
-        "[/api/receipts/[id]/original] preview fetch failed",
-        err
-      );
+      if (err instanceof PdfPreviewError && err.reason === "busy") {
+        return NextResponse.json(
+          { error: "busy" },
+          { status: 503, headers: { "Cache-Control": "private, no-store", "Retry-After": "5" } },
+        );
+      }
+      // Best effort: the signed URL still lets the user download the file.
+      console.warn("[/api/receipts/[id]/original] preview failed", err instanceof Error ? err.name : "error");
+      payload.preview = { type: "unavailable" };
     }
   }
 

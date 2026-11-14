@@ -226,7 +226,7 @@ export function ReceiptDetailDialog({
               <Tabs defaultValue="digital" className="gap-0">
                 <div className="px-4 pt-3 pb-2 border-b border-[var(--hairline)]">
                   <TabsList className="w-full" variant="line">
-                    <TabsTrigger value="digital">Digital</TabsTrigger>
+                    <TabsTrigger value="digital">Digital receipt</TabsTrigger>
                     <TabsTrigger value="original">Original</TabsTrigger>
                   </TabsList>
                 </div>

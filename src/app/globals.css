@@ -90,6 +90,9 @@
   --on-ink: #FFFFFF;
   /* Behind a full-screen photo: always dark. */
   --photo-ground: #303568;
+  /* A picture of a document (a PDF page in the Original tab): white like
+     paper in both themes, as the receipt PDF. */
+  --paper: #FFFFFF;
   --negative: #C73E4E;
   --brand-tint: #ECF7E7;
   --ink: #303568;

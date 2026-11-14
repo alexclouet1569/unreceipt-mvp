@@ -15,6 +15,7 @@ import type {
   MobileMailboxes,
   MobileReceiptDetail,
   MobileReceiptsPage,
+  MobileReceiptUpdates,
 } from "@/lib/mobile/types";
 import { API_URL } from "../config";
 import { ApiError } from "./api-error";
@@ -173,6 +174,10 @@ export async function authorizedDownload(path: string): Promise<{ url: string; h
     headers: { Authorization: `Bearer ${data.session.access_token}`, "User-Agent": USER_AGENT },
   };
 }
+
+/** "Anything new?" (every ~20 s in the foreground): see MobileReceiptUpdates. */
+export const getReceiptUpdates = (after: string | null) =>
+  api<MobileReceiptUpdates>(`/api/receipts/updates?rows=mobile${after ? `&after=${encodeURIComponent(after)}` : ""}`);
 
 /** "Load more": the next page of older receipts after the last one shown (its listKey). */
 export const getOlderReceipts = (after: string) =>

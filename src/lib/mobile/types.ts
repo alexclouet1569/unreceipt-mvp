@@ -389,3 +389,63 @@ export type MobileMailboxClaim =
   | { ok: true; connection: MobileMailboxConnection }
   | { error: "invalid" | "expired" | "wrong_account" | "server_error" }
   | { error: "limit"; limit: number };
+
+/**
+ * A receipt's original made viewable (GET /api/receipts/[id]/original?preview=1,
+ * `preview`; website and iPhone app). Never the email's HTML: an email is
+ * plain text cut from it on the server (src/lib/receipts/email-view.ts), and
+ * a PDF is shown as one PNG per page from
+ * GET /api/receipts/[id]/original/page/<n> (src/lib/receipts/pdf-render.ts).
+ * A photo needs no preview: its `url` is the picture.
+ */
+export type OriginalPreview =
+  | {
+      type: "eml";
+      from: string | null;
+      to: string | null;
+      subject: string | null;
+      /** The Date header as written (its own time zone), null when missing. */
+      date: string | null;
+      text: string;
+      /** Longer than the view's cap: the full message is in the file. */
+      truncated: boolean;
+    }
+  | { type: "txt"; body: string; truncated: boolean }
+  | {
+      type: "pdf";
+      /** The pages shown (at most 10), sizes in PDF points: width / height is the picture's shape. */
+      pages: { width: number; height: number }[];
+      /** Pages in the document (more than `pages.length` when it was cut). */
+      total: number;
+      /**
+       * Only the /demo tour sets this (pictures drawn in the browser, blob:
+       * URLs); the server leaves it out and the viewers load ./page/<n>.
+       */
+      images?: string[];
+    }
+  /** The file couldn't be read for a preview (a damaged or password-protected PDF). */
+  | { type: "unavailable" };
+
+/** GET /api/receipts/[id]/original: a 5-minute link to the file, and with ?preview=1 what to show. */
+export type ReceiptOriginal = {
+  url: string;
+  kind: "image/jpeg" | "image/png" | "image/webp" | "application/pdf" | "eml" | "txt";
+  filename: string;
+  /** With ?preview=1: the same file sent as a download (Content-Disposition: attachment). */
+  downloadUrl?: string;
+  preview?: OriginalPreview;
+};
+
+/**
+ * GET /api/receipts/updates?after=<created_at>&rows=mobile — "anything
+ * new?", asked every ~20 s while the app is in the foreground. Reload the
+ * list when `version` differs from the last one; `fresh` are the email
+ * receipts that arrived after `after` (newest first, at most 20), with
+ * their rows in `receipts` (absent without access).
+ */
+export type MobileReceiptUpdates = {
+  version: string;
+  latestCreatedAt: string | null;
+  fresh: { id: string; createdAt: string }[];
+  receipts?: MobileReceipt[];
+};

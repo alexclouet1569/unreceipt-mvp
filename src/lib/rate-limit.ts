@@ -133,6 +133,24 @@ export const RATE_LIMITS = {
     { limit: 120, windowSeconds: 60 * 60 },
     { limit: 500, windowSeconds: 24 * 60 * 60 },
   ],
+  // Viewing originals (2026-11-14): GET /api/receipts/[id]/original?preview=1
+  // reads the file, and each PDF page shown is drawn on the server
+  // (./original/page/[n], up to 10 per PDF). An accountant going through a
+  // month of a client's receipts stays inside; a loop drawing pages doesn't.
+  originalView: [
+    { limit: 600, windowSeconds: 60 * 60 },
+    { limit: 3000, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Each PDF page drawn (./original/page/[n], next to originalView): a
+  // page is ~0.3 s of CPU, a hostile one up to 8 s before it's stopped.
+  originalPage: [
+    { limit: 200, windowSeconds: 60 * 60 },
+    { limit: 1000, windowSeconds: 24 * 60 * 60 },
+  ],
+  // "Anything new?" (GET /api/receipts/updates): every ~20 s from each open
+  // website tab and the iPhone app in the foreground. One rule, so a poll
+  // costs one counter call; generous for several tabs plus the phone.
+  receiptUpdates: [{ limit: 60, windowSeconds: 60 }],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

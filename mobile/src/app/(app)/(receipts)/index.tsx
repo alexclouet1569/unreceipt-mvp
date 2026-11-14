@@ -13,6 +13,7 @@ import { Button } from "../../../components/Button";
 import { ConnectButtons } from "../../../components/ConnectButtons";
 import { CategoryChips } from "../../../components/CategoryChips";
 import { InviteCard } from "../../../components/InviteCard";
+import { NewReceiptsCard } from "../../../components/NewReceiptsCard";
 import { Onboarding, type OnboardingMailbox, type OnboardingStep } from "../../../components/Onboarding";
 import { markOnboarded } from "../../../lib/api";
 import { readOnboarded, writeOnboarded } from "../../../lib/cache";
@@ -360,6 +361,7 @@ export default function Receipts() {
                 {home.email}
               </Text>
             </View>
+            {onboarding == null ? <NewReceiptsCard /> : null}
             {home.accountantInvites.map((invite) => (
               <InviteCard key={invite.id} invite={invite} />
             ))}

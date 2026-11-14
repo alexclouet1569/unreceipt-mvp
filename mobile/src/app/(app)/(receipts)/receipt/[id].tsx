@@ -1,5 +1,7 @@
 // One receipt: the digital receipt (DESIGN.md "Digital receipt"), or its
-// photo one tap away (a Digital / Photo switch, as on the website). What
+// original one tap away (a Digital receipt / Original switch, as on the
+// website, for every receipt with an original: photo, PDF, email or text
+// message; components/OriginalView.tsx). What
 // needs the user sits on top; then one button to add what's missing or
 // confirm; then the actions: PDF, Original, Edit, Delete. Merchant, total,
 // date and category on the receipt each open their own bottom sheet; Edit
@@ -8,28 +10,27 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Image } from "expo-image";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import * as Haptics from "expo-haptics";
-import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import type { MobileReceipt } from "@/lib/mobile/types";
 import { Button } from "../../../../components/Button";
 import { DigitalReceipt, type EditableField } from "../../../../components/DigitalReceipt";
 import { Segmented } from "../../../../components/insights/Segmented";
+import { OriginalView } from "../../../../components/OriginalView";
 import { PressableScale } from "../../../../components/PressableScale";
 import { missingFields } from "../../../../components/ReceiptRow";
 import { Text } from "../../../../components/Text";
 import { fill, s } from "../../../../i18n";
 import { ApiError } from "../../../../lib/api";
-import { useReceipt } from "../../../../lib/HomeProvider";
+import { useHome, useReceipt } from "../../../../lib/HomeProvider";
 import { useReceiptRoutes } from "../../../../lib/routes";
-import { photoCacheKey, useReceiptPhoto } from "../../../../lib/original";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
 import { shareReceiptOriginal, shareReceiptPdf, type FileOutcome } from "../../../../lib/receiptFiles";
 import { useReceiptDetail } from "../../../../lib/useReceiptDetail";
 import { durations, fonts, radius, space, makeStyles, useColors } from "../../../../theme";
 
-type View_ = "digital" | "photo";
+type View_ = "digital" | "original";
 
 const ADD_LABEL: Record<"merchant" | "amount" | "date", () => string> = {
   merchant: () => s.edit.addMerchant,
@@ -39,17 +40,6 @@ const ADD_LABEL: Record<"merchant" | "amount" | "date", () => string> = {
 
 function edit(path: string, id: string, field: EditableField | "all") {
   router.push({ pathname: path as "/receipt/edit", params: { id, field } });
-}
-
-/** The photo's frame breathes while the picture loads (as the list's placeholders). */
-function PhotoPlaceholder() {
-  const styles = useStyles();
-  const opacity = useSharedValue(0.55);
-  useEffect(() => {
-    opacity.value = withRepeat(withTiming(1, { duration: durations.long, easing: Easing.inOut(Easing.quad) }), -1, true);
-  }, [opacity]);
-  const pulse = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View style={[styles.fillAbs, styles.photoLoading, pulse]} />;
 }
 
 /** One action under the receipt: an SF Symbol over its name. */
@@ -109,8 +99,12 @@ export default function ReceiptDetail() {
   if (live) last.current = live;
   const r = live ?? last.current;
   const detail = useReceiptDetail(id, live);
-  const hasPhoto = r?.original === "image";
-  const photo = useReceiptPhoto(id, hasPhoto);
+  // Opened from anywhere (the list, Insights, the notice): no longer new.
+  const { newReceipts } = useHome();
+  const isNew = newReceipts.items.some((n) => n.id === id);
+  useEffect(() => {
+    if (isNew) newReceipts.open(id);
+  }, [isNew, id, newReceipts]);
   const [view, setView] = useState<View_>("digital");
   const [busy, setBusy] = useState<"pdf" | "original" | null>(null);
 
@@ -135,7 +129,7 @@ export default function ReceiptDetail() {
         : null;
   // The server refuses the PDF while the receipt waits for review (409).
   const pdfReady = detail ? detail.pdfReady : !review;
-  const showSwitch = hasPhoto && !photo.failed;
+  const showSwitch = r.original != null;
   const shown: View_ = showSwitch ? view : "digital";
 
   const run = async (which: "pdf" | "original") => {
@@ -199,8 +193,8 @@ export default function ReceiptDetail() {
         <Segmented
           label={s.detail.viewLabel}
           options={[
-            { value: "digital", label: s.detail.digital },
-            { value: "photo", label: s.detail.photo },
+            { value: "digital", label: s.detail.digitalReceipt },
+            { value: "original", label: s.detail.original },
           ]}
           value={view}
           onChange={setView}
@@ -213,26 +207,8 @@ export default function ReceiptDetail() {
           <DigitalReceipt receipt={r} detail={detail} onEdit={(field) => edit(routes.edit, r.id, field)} />
         </Animated.View>
       ) : (
-        <Animated.View key="photo" entering={FadeIn.duration(durations.short)}>
-          <PressableScale
-            scaleTo={0.985}
-            disabled={!photo.url}
-            onPress={() => router.push({ pathname: routes.photo as "/receipt/photo", params: { id: r.id } })}
-            accessibilityRole="imagebutton"
-            accessibilityLabel={s.edit.photo}
-            style={styles.photoFrame}
-          >
-            {photo.url ? (
-              <Image
-                source={{ uri: photo.url, cacheKey: photoCacheKey(r.id) }}
-                style={styles.photo}
-                contentFit="contain"
-                transition={durations.short}
-              />
-            ) : (
-              <PhotoPlaceholder />
-            )}
-          </PressableScale>
+        <Animated.View key="original" entering={FadeIn.duration(durations.short)}>
+          <OriginalView receipt={r} photoRoute={routes.photo} />
         </Animated.View>
       )}
 
@@ -277,18 +253,7 @@ export default function ReceiptDetail() {
 
 const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.lg },
-  fillAbs: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   switch: { marginHorizontal: 0, marginTop: 0 },
-  photoFrame: {
-    height: 460,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.photoGround,
-    overflow: "hidden",
-  },
-  photo: { flex: 1 },
-  photoLoading: { backgroundColor: colors.skeleton },
   band: {
     borderRadius: radius.md,
     paddingVertical: space.sm,
