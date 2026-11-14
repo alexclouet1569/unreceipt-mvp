@@ -12,6 +12,7 @@ const PREFIX = "home:v1:";
 const ACCOUNT_PREFIX = "account:v1:";
 const INSIGHTS_PREFIX = "insights:v1:";
 const MAILBOXES_PREFIX = "mailboxes:v1:";
+const NEW_RECEIPTS_PREFIX = "newreceipts:v1:";
 
 /** The last Insights answer for a period ("month:2026-11"), for an instant screen. */
 export async function readInsights(userId: string, key: string): Promise<MobileAnalytics | null> {
@@ -104,6 +105,23 @@ export async function writeMailboxes(userId: string, data: MobileMailboxes): Pro
   }
 }
 
+/** What the "new receipts" notice already showed (src/lib/newReceipts.ts), raw. */
+export async function readNewReceiptsSeen(userId: string): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(NEW_RECEIPTS_PREFIX + userId);
+  } catch {
+    return null;
+  }
+}
+
+export async function writeNewReceiptsSeen(userId: string, raw: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(NEW_RECEIPTS_PREFIX + userId, raw);
+  } catch {
+    // The notice may show the same receipts again next time.
+  }
+}
+
 /**
  * On sign-out: the saved list and the receipt photos kept by the image
  * cache. A sign-out the user asked for also deletes the scans still waiting
@@ -132,6 +150,7 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
           k.startsWith(ACCOUNT_PREFIX) ||
           k.startsWith(INSIGHTS_PREFIX) ||
           k.startsWith(MAILBOXES_PREFIX) ||
+          k.startsWith(NEW_RECEIPTS_PREFIX) ||
           (!keepScans && k.startsWith("scans:v1:")),
       ),
     );

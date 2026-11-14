@@ -1,42 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { Download, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoViewer } from "@/components/receipt/PhotoViewer";
-import type { ReceiptOriginalKind } from "@/lib/types";
+import type { OriginalPreview, ReceiptOriginal } from "@/lib/mobile/types";
 
-// Tailwind utility helper kept inline — the project's Button primitive
-// doesn't support `asChild`, so download/open-in-new-tab actions are
-// rendered as plain styled anchors. Button is still used for the retry
-// affordance which is a real button.
-
-type EmlPreview = {
-  type: "eml";
-  from: string | null;
-  to: string | null;
-  subject: string | null;
-  date: string | null;
-  text: string;
-};
-
-type TxtPreview = {
-  type: "txt";
-  body: string;
-};
-
-type OriginalPayload = {
-  url: string;
-  kind: ReceiptOriginalKind;
-  filename: string;
-  preview?: EmlPreview | TxtPreview;
-};
+// The receipt's original, shown in the "Original" tab of the receipt sheet
+// (owner and firm alike; the server applies who may see it). Nothing here
+// renders the file itself: a photo is the picture, a PDF is one picture per
+// page drawn by the server (no PDF viewer: no PDF JavaScript, links or
+// forms), an email or text message is plain text the server cut from it
+// (no HTML: no scripts, tracking pixels or remote images). Tap a photo or a
+// page to see it full screen and zoom. "Download original" saves the file
+// as it was received.
 
 type FetchState =
   | { kind: "loading" }
   | { kind: "missing" }
   | { kind: "error"; message: string }
-  | { kind: "ok"; payload: OriginalPayload };
+  | { kind: "ok"; payload: ReceiptOriginal };
 
 type OriginalSourceViewerProps = {
   receiptId: string;
@@ -55,7 +38,7 @@ export function OriginalSourceViewer({
 
     (async () => {
       try {
-        const res = await fetch(`/api/receipts/${receiptId}/original`, {
+        const res = await fetch(`/api/receipts/${receiptId}/original?preview=1`, {
           cache: "no-store",
         });
         if (cancelled) return;
@@ -73,22 +56,19 @@ export function OriginalSourceViewer({
         if (!res.ok) {
           setState({
             kind: "error",
-            message: `Couldn't load the original (${res.status}).`,
+            message:
+              res.status === 429
+                ? "Too many originals opened at once. Try again in a minute."
+                : `Couldn't load the original (${res.status}).`,
           });
           return;
         }
 
-        const payload = (await res.json()) as OriginalPayload;
+        const payload = (await res.json()) as ReceiptOriginal;
         setState({ kind: "ok", payload });
-      } catch (err) {
+      } catch {
         if (cancelled) return;
-        setState({
-          kind: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Couldn't load the original.",
-        });
+        setState({ kind: "error", message: "Couldn't load the original. Check your connection." });
       }
     })();
 
@@ -141,103 +121,169 @@ export function OriginalSourceViewer({
     );
   }
 
-  const { url, kind, filename, preview } = state.payload;
+  const { url, downloadUrl, kind, filename, preview } = state.payload;
 
   return (
     <div className="px-4 py-4 space-y-3" data-testid="original-viewer">
       <ArtifactBody
+        receiptId={receiptId}
         kind={kind}
         url={url}
         preview={preview}
         smsFromHint={smsFromHint}
       />
-      <DownloadRow url={url} filename={filename} />
+      <a
+        href={downloadUrl ?? url}
+        download={filename}
+        className="flex w-full items-center justify-center gap-1.5 h-11 rounded-md border bg-background px-3 text-sm font-semibold hover:bg-accent hover:text-accent-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Download className="w-4 h-4" aria-hidden="true" />
+        Download original
+      </a>
     </div>
   );
 }
 
 // Tap the photo to open it full screen and zoom in. No delete here: the
 // original is the receipt's evidence.
-function ZoomableOriginal({ url }: { url: string }) {
+function ZoomableOriginal({ url, alt, title }: { url: string; alt: string; title: string }) {
   const [viewing, setViewing] = useState(false);
   return (
     <>
       <button
         type="button"
         onClick={() => setViewing(true)}
-        aria-label="View original full screen"
+        aria-label={`${alt}: view full screen`}
         className="block w-full rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
-          alt="Original receipt"
+          alt={alt}
           className="w-full max-h-[60vh] object-contain rounded-md bg-[var(--background)]"
         />
       </button>
-      <PhotoViewer open={viewing} onOpenChange={setViewing} src={url} alt="Original receipt" title="Original" />
+      <PhotoViewer open={viewing} onOpenChange={setViewing} src={url} alt={alt} title={title} />
     </>
   );
 }
 
+/** A PDF as pictures, one per page, each drawn by the server. */
+function PdfPages({
+  receiptId,
+  preview,
+}: {
+  receiptId: string;
+  preview: Extract<OriginalPreview, { type: "pdf" }>;
+}) {
+  const [viewing, setViewing] = useState<number | null>(null);
+  const count = preview.pages.length;
+  const src = (n: number) => preview.images?.[n - 1] ?? `/api/receipts/${receiptId}/original/page/${n}`;
+  return (
+    <div className="space-y-3" data-testid="original-pdf">
+      {preview.pages.map((page, i) => {
+        const n = i + 1;
+        const label = count > 1 ? `Page ${n} of ${preview.total}` : "Original PDF";
+        return (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setViewing(n)}
+            aria-label={`${label}: view full screen`}
+            className="block w-full overflow-hidden rounded-md border border-[var(--hairline)] bg-white outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            style={{ aspectRatio: `${page.width} / ${page.height}` }}
+          >
+            {/* The page is a picture of a document: it stays on white in
+                dark mode, like the receipt PDF (DESIGN.md). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src(n)} alt={label} loading={i === 0 ? "eager" : "lazy"} className="block h-full w-full" />
+          </button>
+        );
+      })}
+      {preview.total > count ? (
+        <p className="text-[13px] text-[var(--ink-muted)]">
+          The first {count} of {preview.total} pages are shown. Download the original to see them all.
+        </p>
+      ) : null}
+      {viewing != null ? (
+        <PhotoViewer
+          open
+          onOpenChange={(open) => !open && setViewing(null)}
+          src={src(viewing)}
+          alt={`Page ${viewing} of the original`}
+          title={count > 1 ? `Page ${viewing} of ${preview.total}` : "Original"}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function formatEmailDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function Unavailable({ what }: { what: string }) {
+  return (
+    <p className="rounded-md border border-[var(--hairline)] bg-card px-3 py-6 text-center text-sm text-[var(--ink-muted)]">
+      {what} can&rsquo;t be shown here. Download the original to see it.
+    </p>
+  );
+}
+
 function ArtifactBody({
+  receiptId,
   kind,
   url,
   preview,
   smsFromHint,
 }: {
-  kind: ReceiptOriginalKind;
+  receiptId: string;
+  kind: ReceiptOriginal["kind"];
   url: string;
-  preview: EmlPreview | TxtPreview | undefined;
+  preview: OriginalPreview | undefined;
   smsFromHint?: string | null;
 }) {
   if (kind === "image/jpeg" || kind === "image/png" || kind === "image/webp") {
-    return <ZoomableOriginal url={url} />;
+    return <ZoomableOriginal url={url} alt="Original receipt" title="Original" />;
   }
 
   if (kind === "application/pdf") {
-    return (
-      <div className="rounded-md overflow-hidden border border-[var(--hairline)] bg-[var(--background)]">
-        <iframe
-          src={url}
-          title="Original receipt PDF"
-          className="w-full h-[60vh] bg-white"
-        />
-      </div>
-    );
+    if (preview?.type !== "pdf" || preview.pages.length === 0) return <Unavailable what="This PDF" />;
+    return <PdfPages receiptId={receiptId} preview={preview} />;
   }
 
   if (kind === "eml") {
-    const eml = preview?.type === "eml" ? preview : null;
+    if (preview?.type !== "eml") return <Unavailable what="This email" />;
+    const date = formatEmailDate(preview.date);
     return (
-      <div className="rounded-md border border-[var(--hairline)] bg-card overflow-hidden">
-        <dl className="px-3 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-[var(--hairline)] text-[12px]">
-          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
-            From
-          </dt>
-          <dd className="text-[var(--ink)] break-words">
-            {eml?.from ?? "—"}
-          </dd>
-          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
-            To
-          </dt>
-          <dd className="text-[var(--ink)] break-words">{eml?.to ?? "—"}</dd>
-          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
-            Subject
-          </dt>
-          <dd className="text-[var(--ink)] break-words">
-            {eml?.subject ?? "—"}
-          </dd>
-          <dt className="font-semibold text-[var(--ink-muted)] uppercase tracking-[0.06em]">
-            Date
-          </dt>
-          <dd className="text-[var(--ink)] break-words">
-            {eml?.date ?? "—"}
-          </dd>
+      <div className="rounded-md border border-[var(--hairline)] bg-card overflow-hidden" data-testid="original-email">
+        <dl className="px-3 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-b border-[var(--hairline)] text-[13px]">
+          {(
+            [
+              ["From", preview.from],
+              ["Subject", preview.subject],
+              ["Date", date],
+            ] as const
+          ).map(([label, value]) =>
+            value ? (
+              <div key={label} className="contents">
+                <dt className="font-semibold text-[var(--ink-muted)]">{label}</dt>
+                <dd className="text-[var(--ink)] break-words">{value}</dd>
+              </div>
+            ) : null,
+          )}
         </dl>
-        <pre className="px-3 py-3 text-[12px] leading-relaxed whitespace-pre-wrap break-words text-[var(--ink)] max-h-[50vh] overflow-y-auto">
-          {eml?.text ?? "(no preview available — download to view)"}
-        </pre>
+        <div className="px-3 py-3 text-[14px] leading-relaxed whitespace-pre-wrap break-words text-[var(--ink)] max-h-[60vh] overflow-y-auto">
+          {preview.text || "This email has no text."}
+        </div>
+        {preview.truncated ? (
+          <p className="px-3 pb-3 text-[13px] text-[var(--ink-muted)]">
+            The email is longer than shown here. Download the original to read all of it.
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -251,43 +297,12 @@ function ArtifactBody({
             From {smsFromHint}
           </p>
         ) : null}
-        <div
-          className="rounded-[14px] px-3 py-3 font-accent italic text-[var(--ink)]"
-          style={{
-            background: "var(--color-brand-light, #ECF7E7)",
-            fontSize: "14px",
-            lineHeight: 1.5,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}
-        >
-          {txt || "(no preview available — download to view)"}
+        <div className="rounded-md border border-[var(--hairline)] bg-card px-3 py-3 text-[14px] leading-relaxed whitespace-pre-wrap break-words text-[var(--ink)]">
+          {txt || "This message has no text."}
         </div>
       </div>
     );
   }
 
-  // Defensive fallback — unknown kind.
-  return (
-    <div className="text-sm text-[var(--ink-muted)] text-center py-8">
-      This original is in a format we can&rsquo;t preview here. Download it to view.
-    </div>
-  );
-}
-
-function DownloadRow({ url, filename }: { url: string; filename: string }) {
-  const linkClass =
-    "flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors";
-  return (
-    <div className="flex gap-2">
-      <a href={url} download={filename} className={linkClass}>
-        <Download className="w-3.5 h-3.5" />
-        Download original
-      </a>
-      <a href={url} target="_blank" rel="noreferrer" className={linkClass}>
-        <ExternalLink className="w-3.5 h-3.5" />
-        Open in new tab
-      </a>
-    </div>
-  );
+  return <Unavailable what="This original" />;
 }

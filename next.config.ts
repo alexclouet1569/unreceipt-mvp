@@ -60,7 +60,25 @@ const SECURITY_HEADERS = [
   },
 ];
 
+const PDFJS_FILES = [
+  "./node_modules/pdfjs-dist/standard_fonts/**/*",
+  "./node_modules/pdfjs-dist/cmaps/**/*",
+  "./node_modules/pdfjs-dist/wasm/**/*",
+  "./node_modules/pdfjs-dist/iccs/**/*",
+  "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+];
+
 const nextConfig: NextConfig = {
+  // PDF originals are drawn as pictures on the server
+  // (src/lib/receipts/pdf-render.ts): pdf.js and its native canvas load
+  // from node_modules at run time instead of being bundled, and the page
+  // route's deployment carries the font, character-map and decoder files
+  // pdf.js reads from disk.
+  serverExternalPackages: ["pdfjs-dist", "@napi-rs/canvas"],
+  outputFileTracingIncludes: {
+    "/api/receipts/\\[id\\]/original": PDFJS_FILES,
+    "/api/receipts/\\[id\\]/original/page/\\[n\\]": PDFJS_FILES,
+  },
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

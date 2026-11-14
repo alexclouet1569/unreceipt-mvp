@@ -23,6 +23,8 @@ import { applyReceiptChange, type ReceiptChange } from "@/lib/receipts/optimisti
 import type { MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
+import { NewReceiptsNotice } from "./_new-receipts-notice";
+import { useReceiptUpdates } from "./use-receipt-updates";
 import { ForwardingUnavailable } from "./_forwarding-unavailable";
 import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
 import { ConnectButtons } from "./settings/mailboxes/ConnectButtons";
@@ -53,6 +55,10 @@ type DashboardProps = {
   mailboxProviders?: MailboxProviders;
   // Addresses already connected (read only for first run and empty inbox).
   connectedMailboxes?: string[];
+  // The signed-in user's id: the list then picks up new receipts by itself
+  // (use-receipt-updates.ts). Left out by the demo tour and the tests,
+  // which make no requests.
+  liveUpdatesUserId?: string | null;
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -74,8 +80,10 @@ export function Dashboard({
   older = null,
   mailboxProviders = NO_PROVIDERS,
   connectedMailboxes = [],
+  liveUpdatesUserId = null,
 }: DashboardProps) {
   const router = useRouter();
+  const newReceipts = useReceiptUpdates(liveUpdatesUserId);
   // Saved edits and deletes from the receipt dialog show at once; the
   // refresh that follows brings the server's rows, which replace them
   // (src/lib/receipts/optimistic.ts).
@@ -198,6 +206,17 @@ export function Dashboard({
     void fetch("/api/profile/onboarded", { method: "POST" }).catch(() => {});
   };
   const [openReceipt, setOpenReceipt] = useState<Receipt | null>(null);
+  // A receipt opened from anywhere no longer counts as new.
+  const openReceiptRow = (r: Receipt) => {
+    setOpenReceipt(r);
+    if (newReceipts.items.some((n) => n.id === r.id)) newReceipts.open(r.id);
+  };
+  // Review in the notice: the row from the list, else the one the server sent.
+  const reviewNew = (id: string) => {
+    const row = serverReceipts.find((r) => r.id === id) ?? newReceipts.items.find((n) => n.id === id)?.receipt ?? null;
+    newReceipts.open(id);
+    if (row) setOpenReceipt(row);
+  };
   const [chosenFilter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("date");
 
@@ -330,6 +349,8 @@ export function Dashboard({
           <p className="mt-0.5 type-caption text-[var(--ink-muted)]">{userEmail}</p>
         </div>
 
+        {onboardingStep == null ? <NewReceiptsNotice notice={newReceipts} onOpen={reviewNew} /> : null}
+
         <AccountantInviteNotice invites={accountantInvites} />
 
         {onboardingStep != null ? (
@@ -451,7 +472,7 @@ export function Dashboard({
                       onDelete={() => void deleteReceipt(r)}
                       label={`${r.merchant_name ?? "Unknown merchant"}, ${formatAmount(r.total, r.currency)}`}
                     >
-                      <ReceiptListItem receipt={r} onClick={() => setOpenReceipt(r)} />
+                      <ReceiptListItem receipt={r} onClick={() => openReceiptRow(r)} />
                     </SwipeToDelete>
                   ))}
                 </div>

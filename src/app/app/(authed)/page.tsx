@@ -103,6 +103,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       older={older}
       mailboxProviders={mailboxProviders}
       connectedMailboxes={connectedMailboxes}
+      liveUpdatesUserId={user.id}
     />
   );
 

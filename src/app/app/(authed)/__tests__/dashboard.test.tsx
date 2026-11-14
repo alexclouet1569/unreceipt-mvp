@@ -273,3 +273,53 @@ describe("Dashboard swipe to delete", () => {
     expect(screen.getByText("Tåg Tre")).toBeInTheDocument();
   });
 });
+
+describe("new receipts by themselves", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("makes no request without a user id (tests, demo tour)", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} intakeSmsNumber={null} homeCurrency="SEK" />);
+    await act(async () => {});
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/api/receipts/updates"), expect.anything());
+  });
+
+  it("reloads on a new version and offers the email receipt that arrived, even outside the list", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    window.localStorage.setItem("unreceipt:new-receipts:u1", JSON.stringify({ after: "2026-11-14T09:00:00.000Z", opened: [] }));
+    const arrived = receipt({ id: "new1", source: "email", merchant_name: "Anthropic, PBC", receipt_date: "2026-08-02", created_at: "2026-11-14T10:00:00.000Z" });
+    const answers = [
+      { version: "4|x|y", latestCreatedAt: "2026-11-14T09:00:00.000Z", fresh: [] },
+      { version: "5|z|z", latestCreatedAt: "2026-11-14T10:00:00.000Z", fresh: [{ id: "new1", createdAt: arrived.created_at }], receipts: [arrived] },
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).startsWith("/api/receipts/updates")) return Response.json(answers.shift() ?? answers[0]);
+      return Response.json({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} intakeSmsNumber={null} homeCurrency="SEK" liveUpdatesUserId="u1" />,
+    );
+    await act(async () => {});
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/receipts/updates?rows=web&after=2026-11-14T09%3A00%3A00.000Z");
+    expect(screen.queryByTestId("new-receipts-notice")).toBeNull();
+    mocks.router.refresh.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("new-receipts-notice")).toHaveTextContent("1 new receipt from your email");
+
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    expect(await screen.findByText("Anthropic, PBC")).toBeInTheDocument();
+    expect(screen.queryByTestId("new-receipts-notice")).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem("unreceipt:new-receipts:u1")!)).toEqual({ after: "2026-11-14T10:00:00.000Z", opened: [] });
+  });
+});

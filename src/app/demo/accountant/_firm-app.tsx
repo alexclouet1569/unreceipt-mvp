@@ -10,7 +10,6 @@ import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
 import { buildReceiptsCsv } from "@/lib/export/csv";
 import { editMarker } from "@/lib/receipts/edits";
 import { computeReceiptStatus } from "@/lib/receipts/status";
-import { formatDate } from "@/lib/receipt-format";
 import type { BankTransaction, Receipt } from "@/lib/types";
 import { buildBankMonth } from "@/lib/bank/month";
 import { parseBankStatement } from "@/lib/bank/parse-statement";
@@ -359,6 +358,31 @@ const initialMembers = (): MemberView[] => [
 
 // ---- tiny PDF for the Original tab ----------------------------------------
 
+// The same page as makePdf() draws, as a picture (the Original tab shows a
+// PDF as pictures of its pages). Null when the browser can't draw it.
+async function makePagePng(lines: string[]): Promise<string | null> {
+  try {
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = 595 * scale;
+    canvas.height = 842 * scale;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 595, 842);
+    ctx.fillStyle = "#000000";
+    lines.forEach((l, i) => {
+      ctx.font = `${i === 0 ? 16 : 11}px Helvetica, Arial, sans-serif`;
+      ctx.fillText(l, 56, 842 - (780 - i * 22));
+    });
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    return blob ? URL.createObjectURL(blob) : null;
+  } catch {
+    return null;
+  }
+}
+
 function makePdf(lines: string[]): string {
   const esc = (s: string) => s.replace(/[\\()]/g, (c) => `\\${c}`).replace(/[^\x20-\x7E]/g, (c) => ({ "å": "a", "ä": "a", "ö": "o", "Å": "A", "Ä": "A", "Ö": "O" })[c] ?? "?");
   const text = lines.map((l, i) => `BT /F1 ${i === 0 ? 16 : 11} Tf 56 ${780 - i * 22} Td (${esc(l)}) Tj ET`).join("\n");
@@ -459,6 +483,7 @@ export function FirmApp({
   useEffect(() => {
     const realFetch = window.fetch;
     const pdfUrls = new Map<string, string>();
+    const pageUrls = new Map<string, string | null>();
 
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -682,12 +707,22 @@ export function FirmApp({
             url: "about:blank",
             kind: "eml",
             filename: `original-${id}.eml`,
-            preview: { type: "eml", from: EML[id].from, to: "receipts+hb7q2k@in.unreceipt.com", subject: EML[id].subject, date: formatDate(r?.created_at ?? null), text: EML[id].text },
+            preview: { type: "eml", from: EML[id].from, subject: EML[id].subject, date: r?.created_at ?? null, text: EML[id].text, truncated: false },
           });
         }
         if (PDF[id]) {
           if (!pdfUrls.has(id)) pdfUrls.set(id, makePdf(PDF[id]));
-          return json({ url: pdfUrls.get(id), kind: "application/pdf", filename: `original-${id}.pdf` });
+          // The real server draws each page as a picture; here the browser does.
+          if (!pageUrls.has(id)) pageUrls.set(id, await makePagePng(PDF[id]));
+          const image = pageUrls.get(id);
+          return json({
+            url: pdfUrls.get(id),
+            kind: "application/pdf",
+            filename: `original-${id}.pdf`,
+            preview: image
+              ? { type: "pdf", pages: [{ width: 595, height: 842 }], total: 1, images: [image] }
+              : { type: "unavailable" },
+          });
         }
         return json({ error: "no_original" }, 404);
       }
@@ -725,6 +760,7 @@ export function FirmApp({
       window.fetch = realFetch;
       document.removeEventListener("click", onClick, true);
       for (const u of pdfUrls.values()) URL.revokeObjectURL(u);
+      for (const u of pageUrls.values()) if (u) URL.revokeObjectURL(u);
     };
   }, []);
 
