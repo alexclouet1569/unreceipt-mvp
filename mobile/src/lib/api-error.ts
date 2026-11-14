@@ -4,7 +4,12 @@
 export type ApiErrorKind = "unauthorized" | "offline" | "server";
 
 export class ApiError extends Error {
-  constructor(readonly kind: ApiErrorKind, message?: string) {
+  constructor(
+    readonly kind: ApiErrorKind,
+    message?: string,
+    /** For "offline": no answer in time, rather than a failed request. */
+    readonly timedOut = false,
+  ) {
     super(message ?? kind);
     this.name = "ApiError";
   }

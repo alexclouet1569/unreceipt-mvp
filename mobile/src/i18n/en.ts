@@ -89,7 +89,13 @@ export const en = {
     button: "Scan a receipt",
     fromPhotos: "Choose photos",
     reading: "Reading your receipt…",
+    // Only when the server can't be reached at all (the upload and a small call both failed).
     waiting: "Waiting for a connection. It's saved on your iPhone.",
+    unsent: "Couldn't send it yet. Trying again shortly. It's saved on your iPhone.",
+    timeout: "Sending is taking too long. Trying again shortly. It's saved on your iPhone.",
+    serverBusy: "Couldn't be read right now. Trying again shortly. It's saved on your iPhone.",
+    tooMany: "Many receipts in a short time. It will be sent a little later.",
+    missing: "This picture is no longer on your iPhone. Remove it and scan the receipt again.",
     notReceipt: "This doesn't look like a receipt.",
     failed: "This picture couldn't be sent.",
     remove: "Remove",

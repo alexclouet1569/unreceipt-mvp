@@ -1,29 +1,21 @@
 // A scan on its way: its own picture, "Reading your receipt…", then it turns
-// into the receipt. Waiting offline says so calmly (a clock, no spinner); a
-// picture the server refused, or that couldn't be sent after several tries,
-// can be tried again or removed.
+// into the receipt. Waiting for another try says why, calmly (a clock, no
+// spinner): offline only when the server can't be reached at all. A picture
+// the server refused, or that couldn't be sent after several tries, can be
+// tried again or removed; one no longer on the phone can only be removed.
 
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { s } from "../i18n";
-import type { PendingScan } from "../lib/scans/queue";
+import { scanMessage, type PendingScan } from "../lib/scans/queue";
 import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
 
 function message(scan: PendingScan): string {
-  switch (scan.state) {
-    case "notReceipt":
-      return s.scan.notReceipt;
-    case "failed":
-      return s.scan.failed;
-    case "waiting":
-      return scan.attempts > 0 ? s.scan.waiting : s.scan.reading;
-    case "uploading":
-      return s.scan.reading;
-  }
+  return s.scan[scanMessage(scan)];
 }
 
 function SmallButton({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
@@ -55,7 +47,7 @@ export function PendingRow({
 }) {
   const styles = useStyles();
   const colors = useColors();
-  const stuck = scan.state === "notReceipt" || scan.state === "failed";
+  const stuck = scan.state === "notReceipt" || scan.state === "missing" || scan.state === "failed";
   const offline = scan.state === "waiting" && scan.attempts > 0;
   return (
     <Animated.View

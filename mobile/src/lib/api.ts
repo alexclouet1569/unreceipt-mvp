@@ -62,7 +62,7 @@ async function send(path: string, token: string, init: RequestInit, timeoutMs?: 
       },
     });
   } catch {
-    throw new ApiError("offline");
+    throw new ApiError("offline", undefined, controller.signal.aborted);
   } finally {
     clearTimeout(timer);
   }
@@ -92,6 +92,29 @@ export async function apiResponse(path: string, init: RequestInit = {}, opts: Ca
     },
     resend: (accessToken) => send(path, accessToken, init, opts.timeoutMs),
   });
+}
+
+/** What the app tells the server about a scan that didn't go through. */
+export type ScanProblemReport = {
+  problem: "unsent" | "timeout" | "server" | "busy" | "missing" | "refused";
+  /** The HTTP status of the upload, 0 when there was none. */
+  status: number;
+  attempts: number;
+};
+
+/**
+ * Reports a failed scan upload (POST /api/mobile/scan-problem, counts only,
+ * never the picture). It doubles as the check whether the server can be
+ * reached at all: true when it answered, false when this small call failed
+ * too (then the phone is most likely offline). Never throws.
+ */
+export async function reportScanProblem(report: ScanProblemReport): Promise<boolean> {
+  try {
+    await apiResponse("/api/mobile/scan-problem", { method: "POST", body: JSON.stringify(report) }, { timeoutMs: 8_000 });
+    return true;
+  } catch (err) {
+    return !(err instanceof ApiError && err.kind === "offline");
+  }
 }
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; code: string | null };

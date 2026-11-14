@@ -97,9 +97,11 @@ describe("BatchCapture", () => {
     expect(screen.getByText("Missing amount")).toBeInTheDocument();
     expect(screen.getByText("This doesn't look like a receipt.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
-    // The sheet was told when reading started and when it ended.
+    // The sheet was told when reading started and when it ended. The "not
+    // busy" call comes from an effect that runs after the screen above has
+    // updated, so it is awaited (a slow CI runner read it too early).
     expect(onBusy).toHaveBeenCalledWith(true);
-    expect(onBusy).toHaveBeenLastCalledWith(false);
+    await waitFor(() => expect(onBusy).toHaveBeenLastCalledWith(false));
   });
 
   it("stores a split scan whole first, then sends each page pointing at it", async () => {
