@@ -170,6 +170,19 @@ export const RATE_LIMITS = {
     { limit: 4, windowSeconds: 60 * 60 },
     { limit: 6, windowSeconds: 24 * 60 * 60 },
   ],
+  // An owner inviting a colleague (POST /api/team), per user: each invite
+  // emails a typed address, so a loop can't spam from our domain.
+  teamInvite: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Team actions per user: send for approval, approve / send back / reject,
+  // role changes, paid back, joining. Generous for a manager clearing a
+  // month's pile; each one can send an email.
+  teamAction: [
+    { limit: 300, windowSeconds: 60 * 60 },
+    { limit: 1000, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

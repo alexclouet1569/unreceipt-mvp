@@ -14,6 +14,7 @@ import { ConnectButtons } from "../../../components/ConnectButtons";
 import { CategoryChips } from "../../../components/CategoryChips";
 import { InviteCard } from "../../../components/InviteCard";
 import { NewReceiptsCard } from "../../../components/NewReceiptsCard";
+import { ToApproveCard } from "../../../components/ToApproveCard";
 import { Onboarding, type OnboardingMailbox, type OnboardingStep } from "../../../components/Onboarding";
 import { markOnboarded } from "../../../lib/api";
 import { readOnboarded, writeOnboarded } from "../../../lib/cache";
@@ -35,6 +36,7 @@ import { connectState, orderProviders } from "../../../lib/mailboxes";
 import { useMailboxes } from "../../../lib/MailboxesProvider";
 import { UndoToast, useReceiptActions } from "../../../lib/ReceiptActions";
 import { useScans } from "../../../lib/scans/ScanProvider";
+import { approvalView } from "../../../lib/approval";
 import { buildSections } from "../../../lib/sections";
 import { applyFilter, categoryCounts, categorySections, type ListFilter, type PeriodKey, type TotalLine } from "../../../lib/summary";
 import { formatMoney } from "../../../lib/format";
@@ -173,10 +175,13 @@ const Row = memo(function Row({
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const row = (
+  // Waiting for approval, or approved: the company's record, no swipe to delete.
+  const row = approvalView(receipt).mayDelete ? (
     <SwipeToDelete onDelete={() => onDelete(receipt.id)}>
       <ReceiptRow receipt={receipt} onPress={() => onOpen(receipt.id)} onDelete={() => onDelete(receipt.id)} />
     </SwipeToDelete>
+  ) : (
+    <ReceiptRow receipt={receipt} onPress={() => onOpen(receipt.id)} />
   );
   return fresh ? <Animated.View entering={FadeIn.duration(durations.medium)}>{row}</Animated.View> : row;
 });
@@ -362,6 +367,8 @@ export default function Receipts() {
               </Text>
             </View>
             {onboarding == null ? <NewReceiptsCard /> : null}
+            {/* Owners and approvers: what colleagues sent for approval. */}
+            {home.team && home.team.role !== "member" ? <ToApproveCard count={home.team.toApprove} /> : null}
             {home.accountantInvites.map((invite) => (
               <InviteCard key={invite.id} invite={invite} />
             ))}

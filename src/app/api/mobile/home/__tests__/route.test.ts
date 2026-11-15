@@ -137,6 +137,7 @@ describe("GET /api/mobile/home", () => {
       possibleDuplicate: false,
       exportedAt: null,
       bookedAt: null,
+      approval: null,
     });
     expect(body.receipts[1]).toMatchObject({ original: null, missing: ["merchant", "total"] });
     // No storage paths, codes or history leave the server.

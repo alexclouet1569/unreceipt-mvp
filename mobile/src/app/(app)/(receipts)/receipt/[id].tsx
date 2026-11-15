@@ -8,7 +8,7 @@
 // opens every field in one.
 
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Alert, ScrollView, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { SymbolView, type SFSymbol } from "expo-symbols";
 import * as Haptics from "expo-haptics";
@@ -22,7 +22,8 @@ import { PressableScale } from "../../../../components/PressableScale";
 import { missingFields } from "../../../../components/ReceiptRow";
 import { Text } from "../../../../components/Text";
 import { fill, s } from "../../../../i18n";
-import { ApiError } from "../../../../lib/api";
+import { ApiError, submitForApproval } from "../../../../lib/api";
+import { approvalView } from "../../../../lib/approval";
 import { useHome, useReceipt } from "../../../../lib/HomeProvider";
 import { useReceiptRoutes } from "../../../../lib/routes";
 import { useReceiptActions } from "../../../../lib/ReceiptActions";
@@ -100,7 +101,8 @@ export default function ReceiptDetail() {
   const r = live ?? last.current;
   const detail = useReceiptDetail(id, live);
   // Opened from anywhere (the list, Insights, the notice): no longer new.
-  const { newReceipts } = useHome();
+  const { newReceipts, mutateReceipts, refresh } = useHome();
+  const [sending, setSending] = useState(false);
   const isNew = newReceipts.items.some((n) => n.id === id);
   useEffect(() => {
     if (isNew) newReceipts.open(id);
@@ -120,6 +122,8 @@ export default function ReceiptDetail() {
 
   const missing = missingFields(r);
   const review = r.status === "pending_review";
+  // An employee's receipt (2026-11-15): sent for approval instead of confirmed.
+  const approval = approvalView(r);
   const firstMissing: "merchant" | "amount" | "date" | null = r.missing.includes("merchant")
     ? "merchant"
     : r.missing.includes("total")
@@ -147,6 +151,50 @@ export default function ReceiptDetail() {
     if (outcome === "none") return Alert.alert(s.detail.noOriginal);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     Alert.alert(outcome === "offline" ? s.common.unreachable : s.detail.downloadFailed);
+  };
+
+  // "Who paid?", then send: the server checks the fields and the team again.
+  const send = async (paidBy: "employee" | "company") => {
+    setSending(true);
+    try {
+      const res = await submitForApproval(r.id, paidBy);
+      if (res.ok) {
+        mutateReceipts((rs) =>
+          rs.map((x) =>
+            x.id === r.id
+              ? {
+                  ...x,
+                  status: "verified",
+                  approval: { status: "submitted", comment: null, paidBy, reimbursed: false },
+                }
+              : x,
+          ),
+        );
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        AccessibilityInfo.announceForAccessibility(
+          res.data.approvedBy ? fill(s.approval.sentTo, { name: res.data.approvedBy }) : s.approval.sent,
+        );
+        void refresh();
+        router.back();
+        return;
+      }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        res.code === "incomplete" ? s.approval.incomplete : res.status === 409 ? s.approval.changed : s.approval.sendFailed,
+      );
+    } catch (err) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(err instanceof ApiError && err.kind === "offline" ? s.common.unreachable : s.approval.sendFailed);
+    } finally {
+      setSending(false);
+    }
+  };
+  const askWhoPaid = () => {
+    Alert.alert(s.approval.whoPaid, s.approval.whoPaidBody, [
+      { text: s.approval.paidMe, onPress: () => void send("employee") },
+      { text: s.approval.paidCompany, onPress: () => void send("company") },
+      { text: s.common.cancel, style: "cancel" },
+    ]);
   };
 
   const askDelete = () => {
@@ -181,6 +229,22 @@ export default function ReceiptDetail() {
           </Text>
         </View>
       ) : null}
+      {approval.band ? (
+        <View style={[styles.band, !approval.attention && styles.bandMissing]}>
+          <Text
+            variant="caption"
+            style={styles.statusText}
+            color={approval.band === "rejected" ? colors.negative : approval.attention ? colors.attentionDeep : colors.ink}
+          >
+            {s.approval[approval.band]}
+          </Text>
+          {approval.comment ? (
+            <Text variant="caption" color={colors.ink}>
+              {fill(s.approval.quote, { text: approval.comment })}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
       {r.possibleDuplicate ? (
         <View style={styles.band}>
           <Text variant="caption" style={styles.statusText} color={colors.attentionDeep}>
@@ -212,7 +276,13 @@ export default function ReceiptDetail() {
         </Animated.View>
       )}
 
-      {review ? (
+      {r.approval && !routes.firm ? (
+        firstMissing && approval.mayEdit && (r.approval.status === "draft" || r.approval.status === "sent_back") ? (
+          <Button label={ADD_LABEL[firstMissing]()} onPress={() => edit(routes.edit, r.id, firstMissing)} />
+        ) : approval.canSend ? (
+          <Button label={s.approval.send} busy={sending} onPress={askWhoPaid} />
+        ) : null
+      ) : review ? (
         firstMissing ? (
           <Button label={ADD_LABEL[firstMissing]()} onPress={() => edit(routes.edit, r.id, firstMissing)} />
         ) : (
@@ -244,9 +314,15 @@ export default function ReceiptDetail() {
           hint={s.detail.noOriginal}
           onPress={() => (r.original ? void run("original") : Alert.alert(s.detail.noOriginal))}
         />
-        <Action icon="pencil" label={s.detail.editShort} onPress={() => edit(routes.edit, r.id, "all")} />
-        {/* A client's receipt opened by its accountant: only the owner deletes. */}
-        {routes.firm ? null : <Action icon="trash" label={s.edit.deleteShort} destructive onPress={askDelete} />}
+        {/* A rejected receipt stays as decided. */}
+        {approval.mayEdit ? (
+          <Action icon="pencil" label={s.detail.editShort} onPress={() => edit(routes.edit, r.id, "all")} />
+        ) : null}
+        {/* A client's receipt opened by its accountant: only the owner deletes.
+            One waiting for approval, or approved, is the company's record. */}
+        {routes.firm || !approval.mayDelete ? null : (
+          <Action icon="trash" label={s.edit.deleteShort} destructive onPress={askDelete} />
+        )}
       </View>
     </ScrollView>
   );

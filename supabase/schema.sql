@@ -1939,3 +1939,283 @@ END $$;
 
 ALTER TABLE public.firm_clients
   ADD COLUMN IF NOT EXISTS via_join_link BOOLEAN NOT NULL DEFAULT false;
+
+-- =============================================================================
+-- 2026-11-15 — What the AI costs (src/lib/ai-usage.ts)
+-- =============================================================================
+-- One row per Claude call made by a route: where it came from, the model and
+-- the token counts the API reported, so /admin/pilot can show the real cost
+-- per receipt instead of an estimate. Counts only: no image, email text,
+-- answer or user. Written and read only by server code (service role): RLS
+-- on, no policies.
+
+CREATE TABLE IF NOT EXISTS public.ai_usage (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  area TEXT NOT NULL CHECK (char_length(area) <= 40),
+  model TEXT NOT NULL CHECK (char_length(model) <= 80),
+  input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
+  output_tokens INTEGER NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
+  cache_read_tokens INTEGER NOT NULL DEFAULT 0 CHECK (cache_read_tokens >= 0),
+  cache_write_tokens INTEGER NOT NULL DEFAULT 0 CHECK (cache_write_tokens >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ai_usage_created_idx ON public.ai_usage(created_at);
+
+ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_usage FROM anon, authenticated;
+
+-- The month's sums per (area, model) for /admin/pilot: a plain row read is
+-- capped at 1,000 rows and would undercount. Service role only.
+CREATE OR REPLACE FUNCTION public.ai_usage_month(since TIMESTAMPTZ)
+RETURNS TABLE (
+  area TEXT,
+  model TEXT,
+  calls BIGINT,
+  input_tokens BIGINT,
+  output_tokens BIGINT,
+  cache_read_tokens BIGINT,
+  cache_write_tokens BIGINT
+)
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT u.area, u.model, count(*)::BIGINT,
+         sum(u.input_tokens)::BIGINT, sum(u.output_tokens)::BIGINT,
+         sum(u.cache_read_tokens)::BIGINT, sum(u.cache_write_tokens)::BIGINT
+    FROM public.ai_usage u
+   WHERE u.created_at >= since
+   GROUP BY u.area, u.model;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.ai_usage_month(TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;
+
+-- =============================================================================
+-- 2026-11-15 — Company team and receipt approval (src/lib/team/)
+-- =============================================================================
+-- A company can have employees. The owner invites them by email; they join
+-- by pressing Join on /app/team-join, signed in with that confirmed address
+-- (like a firm seat: nothing joins by itself). Roles in memberships.role:
+--   owner     approves anyone's receipts; their own need no approval (the
+--             accountant is the check, founder decision 2026-11-15)
+--   approver  scans their own receipts (approved by their approver) and
+--             approves the members assigned to them
+--   member    an employee: scans, checks, sends for approval
+-- memberships.approver_id: who approves this person's receipts (NULL: the
+-- owners). A person is an employee (approver/member) of one company at
+-- most; their receipts belong to it (receipts_default_organization below).
+--
+-- receipts.approval_status (NULL = no approval needed, e.g. an owner's):
+--   draft → submitted → approved | sent_back | rejected; sent_back →
+--   submitted again; an approved receipt whose amount, currency, date,
+--   merchant or "paid by" changes goes back to submitted. The accounting
+--   firm sees an employee's receipt only once approved
+--   (src/lib/firm/visibility.ts). receipts.paid_by: 'employee' (to pay
+--   back) or 'company'; reimbursed_at marks an employee's outlay as paid.
+-- receipt_approvals: who did what and when (submitted, approved, sent back,
+-- rejected, reopened, reimbursed), with the comment. Kept with the receipt.
+--
+-- Every write goes through server routes (service role). team_invites and
+-- receipt_approvals: RLS on, no policies.
+
+ALTER TABLE public.memberships
+  ADD COLUMN IF NOT EXISTS approver_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+ALTER TABLE public.memberships DROP CONSTRAINT IF EXISTS memberships_role_check;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'memberships_role_team' AND conrelid = 'public.memberships'::regclass
+  ) THEN
+    ALTER TABLE public.memberships
+      ADD CONSTRAINT memberships_role_team CHECK (role IN ('owner', 'approver', 'member'));
+  END IF;
+END $$;
+
+-- An employee of one company at most.
+CREATE UNIQUE INDEX IF NOT EXISTS memberships_one_employer
+  ON public.memberships(user_id) WHERE role IN ('approver', 'member');
+
+CREATE TABLE IF NOT EXISTS public.team_invites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  -- normalizeAddress() form (src/lib/email-address.ts).
+  email TEXT NOT NULL CHECK (char_length(email) BETWEEN 3 AND 320),
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('approver', 'member')),
+  approver_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  invited_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  accepted_at TIMESTAMPTZ,
+  accepted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+-- One waiting invite per company and address.
+CREATE UNIQUE INDEX IF NOT EXISTS team_invites_waiting_unique
+  ON public.team_invites(organization_id, email) WHERE accepted_at IS NULL;
+CREATE INDEX IF NOT EXISTS team_invites_email_idx
+  ON public.team_invites(email) WHERE accepted_at IS NULL;
+
+ALTER TABLE public.team_invites ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.team_invites FROM anon, authenticated;
+
+ALTER TABLE public.receipts
+  ADD COLUMN IF NOT EXISTS approval_status TEXT,
+  ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ,
+  -- No FK, like exported_by: the audit value survives the account.
+  ADD COLUMN IF NOT EXISTS decided_by UUID,
+  ADD COLUMN IF NOT EXISTS approval_comment TEXT,
+  ADD COLUMN IF NOT EXISTS paid_by TEXT,
+  ADD COLUMN IF NOT EXISTS reimbursed_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS reimbursed_by UUID;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_approval_status_check' AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_approval_status_check
+      CHECK (approval_status IS NULL OR approval_status IN ('draft', 'submitted', 'approved', 'sent_back', 'rejected'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_paid_by_check' AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_paid_by_check CHECK (paid_by IS NULL OR paid_by IN ('employee', 'company'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'receipts_approval_comment_length' AND conrelid = 'public.receipts'::regclass
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_approval_comment_length
+      CHECK (approval_comment IS NULL OR char_length(approval_comment) <= 1000);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS receipts_org_approval_idx
+  ON public.receipts(organization_id, approval_status) WHERE approval_status IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.receipt_approvals (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  receipt_id UUID NOT NULL REFERENCES public.receipts(id) ON DELETE CASCADE,
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  -- No FK: the record survives the account.
+  actor_id UUID,
+  action TEXT NOT NULL CHECK (action IN ('submitted', 'approved', 'sent_back', 'rejected', 'reopened', 'reimbursed')),
+  comment TEXT CHECK (comment IS NULL OR char_length(comment) <= 1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS receipt_approvals_receipt_idx ON public.receipt_approvals(receipt_id, created_at);
+
+ALTER TABLE public.receipt_approvals ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.receipt_approvals FROM anon, authenticated;
+
+-- A receipt goes to the company its owner works for: their employer when
+-- they are an employee there, else their own default company. An
+-- employee's receipt starts as a draft to send for approval. Replaces the
+-- 2026-11-04 function of the same name; the trigger stays.
+CREATE OR REPLACE FUNCTION public.receipts_default_organization()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.organization_id IS NULL THEN
+    SELECT m.organization_id INTO NEW.organization_id
+      FROM public.memberships m
+     WHERE m.user_id = NEW.user_id AND m.role IN ('approver', 'member')
+     LIMIT 1;
+  END IF;
+  IF NEW.organization_id IS NULL THEN
+    SELECT o.id INTO NEW.organization_id
+      FROM public.organizations o
+     WHERE o.default_for_user_id = NEW.user_id;
+  END IF;
+  IF NEW.approval_status IS NULL AND EXISTS (
+    SELECT 1 FROM public.memberships m
+     WHERE m.user_id = NEW.user_id
+       AND m.organization_id = NEW.organization_id
+       AND m.role IN ('approver', 'member')
+  ) THEN
+    NEW.approval_status := 'draft';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.receipts_default_organization() FROM PUBLIC, anon, authenticated;
+
+-- Employees have a membership in their employer's company now, so the
+-- policies that let any member read the company's firm link, bank lines
+-- and reminder log are narrowed to owners (an employee sees only their own
+-- receipts; security review 2026-11-15). Same names, so they replace the
+-- 2026-11-04 / 2026-11-08 / 2026-11-09 versions.
+DROP POLICY IF EXISTS "Parties can view firm links" ON public.firm_clients;
+CREATE POLICY "Parties can view firm links"
+  ON public.firm_clients FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.firm_members fm
+       WHERE fm.firm_id = firm_clients.firm_id
+         AND fm.user_id = (select auth.uid())
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = firm_clients.organization_id
+         AND m.user_id = (select auth.uid())
+         AND m.role = 'owner'
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can view own bank transactions" ON public.bank_transactions;
+CREATE POLICY "Users can view own bank transactions"
+  ON public.bank_transactions FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = bank_transactions.organization_id
+         AND m.user_id = (select auth.uid())
+         AND m.role = 'owner'
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can view own client reminders" ON public.client_reminders;
+CREATE POLICY "Users can view own client reminders"
+  ON public.client_reminders FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.memberships m
+       WHERE m.organization_id = client_reminders.organization_id
+         AND m.user_id = (select auth.uid())
+         AND m.role = 'owner'
+    )
+  );
+
+-- A receipt waiting for a decision, or approved, is the company's record:
+-- its employee can't delete it, through the website's route (409) or
+-- straight through the API with their own token. Server code (service role:
+-- account deletion, retention) is not refused here.
+CREATE OR REPLACE FUNCTION public.receipts_keep_in_approval()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon')
+     AND OLD.approval_status IN ('submitted', 'approved') THEN
+    RAISE EXCEPTION 'receipt is in approval' USING ERRCODE = '42501';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.receipts_keep_in_approval() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS receipts_keep_in_approval ON public.receipts;
+CREATE TRIGGER receipts_keep_in_approval
+  BEFORE DELETE ON public.receipts
+  FOR EACH ROW EXECUTE FUNCTION public.receipts_keep_in_approval();

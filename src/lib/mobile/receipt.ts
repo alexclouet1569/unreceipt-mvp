@@ -53,6 +53,14 @@ export function toMobileReceipt(r: Receipt): MobileReceipt {
     possibleDuplicate: isPossibleDuplicate(r.notes),
     exportedAt: r.exported_at,
     bookedAt: r.booked_at,
+    approval: r.approval_status
+      ? {
+          status: r.approval_status,
+          comment: r.approval_comment ?? null,
+          paidBy: r.paid_by ?? null,
+          reimbursed: Boolean(r.reimbursed_at),
+        }
+      : null,
   };
 }
 

@@ -1,10 +1,13 @@
 // Scanning: Apple's document scanner (or photos from the library), then a
-// queue that survives no network and restarts. Each scan shows in the list
-// at once with its picture, turns into the real receipt when the server has
-// read it, and stays on the phone until then.
+// queue that survives no network and restarts. A camera scan is shown big
+// first (Retake or Use, flow.ts), then read on a full screen with a scan
+// line over it, and its digital receipt opens when the server has saved it.
+// Each scan also shows in the list with its picture until then, and stays on
+// the phone until the server has it.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, AppState } from "react-native";
+import { AccessibilityInfo, Alert, AppState, View } from "react-native";
+import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
@@ -14,7 +17,18 @@ import { useAuth } from "../../auth/AuthProvider";
 import { s } from "../../i18n";
 import { ApiError, apiResponse, reportScanProblem } from "../api";
 import { useHome } from "../HomeProvider";
-import { currentScanUri, deleteFile, deleteScansOlderThan, prepareScan, scanFileSize, scanUploadFile } from "./files";
+import { ScanFlowView } from "../../components/ScanFlowView";
+import {
+  adoptDraft,
+  currentScanUri,
+  deleteAllDrafts,
+  deleteFile,
+  deleteScansOlderThan,
+  prepareScan,
+  scanFileSize,
+  scanUploadFile,
+} from "./files";
+import { readingView, withoutDraft, type DraftScan, type ScanFlow } from "./flow";
 import {
   MAX_ATTEMPTS,
   classifyUpload,
@@ -52,6 +66,16 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   const loaded = useRef(false);
   const wake = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The review or reading screen, when one is open.
+  const [flow, setFlowState] = useState<ScanFlow | null>(null);
+  const flowRef = useRef<ScanFlow | null>(null);
+  const setFlow = useCallback((next: ScanFlow | null) => {
+    flowRef.current = next;
+    setFlowState(next);
+  }, []);
+  const opened = useRef<string | null>(null);
+  // Scan id → the receipt the server saved for it (this run only).
+  const [saved, setSaved] = useState<Record<string, string>>({});
 
   // One source of truth (the ref, for the upload loop), mirrored into state
   // for the screens and onto disk for restarts.
@@ -134,6 +158,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         case "saved": {
           deleteFile(item.fileUri);
           update(item.id, null);
+          setSaved((m) => ({ ...m, [item.id]: outcome.saved.id }));
           mutateReceipts((rs) => [receiptFromScan(outcome.saved), ...rs.filter((r) => r.id !== outcome.saved.id)]);
           // One tick for a batch: only when the last scan of it is in.
           if (!queue.current.some((x) => x.state === "waiting" || x.state === "uploading")) {
@@ -184,6 +209,8 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         if (!alive) return;
         loaded.current = true;
         // Very old scans go, with their files (and any other user's left behind).
+        // A review left open when the app was closed was never sent: it goes.
+        if (!flowRef.current) deleteAllDrafts();
         const now = Date.now();
         for (const old of saved.filter((x) => isExpired(x, now))) deleteFile(old.fileUri);
         deleteScansOlderThan(SCAN_MAX_AGE_MS, now);
@@ -219,8 +246,8 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   }, [userId, commit, pump]);
 
   const enqueue = useCallback(
-    async (uris: string[], removeSources: boolean) => {
-      if (uris.length === 0) return;
+    async (uris: string[], removeSources: boolean): Promise<PendingScan[]> => {
+      if (uris.length === 0) return [];
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const added: PendingScan[] = [];
       for (const uri of uris) {
@@ -234,10 +261,11 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       }
       if (added.length === 0) {
         Alert.alert(s.scan.failed);
-        return;
+        return [];
       }
-      commit([...added.reverse(), ...queue.current]);
+      commit([...[...added].reverse(), ...queue.current]);
       pump();
+      return added;
     },
     [commit, pump],
   );
@@ -250,13 +278,18 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       quality: 1,
     });
     if (result.canceled) return;
-    // The picker's copies are in the app's caches: ours to remove.
-    await enqueue(
+    // The picker's copies are in the app's caches: ours to remove. Photos
+    // chosen in the library were already looked at: no review. One photo is
+    // read on the full screen like a scan; several show in the list.
+    const added = await enqueue(
       result.assets.map((a) => a.uri),
       true,
     );
-  }, [enqueue]);
+    if (added.length === 1) setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri] });
+  }, [enqueue, setFlow]);
 
+  // The camera scan goes to the review first; nothing is sent before Use.
+  // Cancelled (also from Retake): whatever was shown stays.
   const scan = useCallback(async () => {
     try {
       const result = await DocumentScanner.scanDocument({
@@ -264,7 +297,23 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         croppedImageQuality: 90,
       });
       if (result.status === ScanDocumentResponseStatus.Cancel) return;
-      await enqueue(result.scannedImages ?? [], true);
+      const drafts: DraftScan[] = [];
+      for (const uri of result.scannedImages ?? []) {
+        const id = Crypto.randomUUID();
+        try {
+          drafts.push({ id, fileUri: await prepareScan(uri, id, true, "draft") });
+        } catch {
+          // An unreadable image: skip it rather than block the rest.
+        }
+      }
+      if (drafts.length === 0) {
+        if ((result.scannedImages ?? []).length > 0) Alert.alert(s.scan.failed);
+        return;
+      }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const before = flowRef.current;
+      if (before?.phase === "review") for (const d of before.drafts) deleteFile(d.fileUri);
+      setFlow({ phase: "review", drafts });
     } catch {
       // No camera scanner here (the Simulator, or a refused camera): the
       // photo library still works.
@@ -273,7 +322,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
         { text: s.scan.fromPhotos, onPress: () => void pickPhotos() },
       ]);
     }
-  }, [enqueue, pickPhotos]);
+  }, [pickPhotos, setFlow]);
 
   const remove = useCallback(
     (id: string) => {
@@ -292,10 +341,112 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     [update, pump],
   );
 
+  // The review's answers.
+  const accepting = useRef(false);
+  const acceptDrafts = useCallback(async () => {
+    const f = flowRef.current;
+    // A second tap while the files move would find them gone.
+    if (f?.phase !== "review" || accepting.current) return;
+    accepting.current = true;
+    try {
+      const added: PendingScan[] = [];
+      for (const d of f.drafts) {
+        try {
+          const fileUri = await adoptDraft(d.fileUri, d.id);
+          added.push({ id: d.id, fileUri, createdAt: new Date().toISOString(), state: "waiting", attempts: 0, retryAt: 0 });
+        } catch {
+          deleteFile(d.fileUri);
+        }
+      }
+      if (added.length === 0) {
+        setFlow(null);
+        Alert.alert(s.scan.failed);
+        return;
+      }
+      commit([...[...added].reverse(), ...queue.current]);
+      pump();
+      setFlow({ phase: "reading", ids: added.map((a) => a.id), images: added.map((a) => a.fileUri) });
+    } finally {
+      accepting.current = false;
+    }
+  }, [commit, pump, setFlow]);
+
+  const removeDraft = useCallback(
+    (id: string) => {
+      const f = flowRef.current;
+      if (f?.phase !== "review") return;
+      const d = f.drafts.find((x) => x.id === id);
+      if (d) deleteFile(d.fileUri);
+      const left = withoutDraft(f.drafts, id);
+      setFlow(left ? { phase: "review", drafts: left } : null);
+    },
+    [setFlow],
+  );
+
+  const closeFlow = useCallback(() => {
+    const f = flowRef.current;
+    // A review closed: those scans were never sent. Reading closed: the
+    // scans go on in the list.
+    if (f?.phase === "review") for (const d of f.drafts) deleteFile(d.fileUri);
+    setFlow(null);
+  }, [setFlow]);
+
+  // What the reading screen shows; it moves on by itself.
+  const view = useMemo(
+    () => (flow?.phase === "reading" ? readingView(flow.ids, pending, saved) : null),
+    [flow, pending, saved],
+  );
+  useEffect(() => {
+    if (!view) return;
+    if (view.kind === "open") {
+      // Once per receipt, however often the queue changes meanwhile.
+      if (opened.current === view.receiptId) return;
+      opened.current = view.receiptId;
+      // The digital receipt slides in under the reading screen, which then fades away.
+      router.push({ pathname: "/receipt/[id]", params: { id: view.receiptId } });
+      setTimeout(() => {
+        if (flowRef.current?.phase === "reading") setFlow(null);
+      }, 350);
+      return;
+    }
+    if (view.kind === "done") setFlow(null);
+  }, [view, setFlow]);
+
+  // Signed out or another account: no screen of the last one stays open.
+  useEffect(() => {
+    setFlow(null);
+    setSaved({});
+  }, [userId, setFlow]);
+
   // One value per change of the queue: a new object every render made every
   // screen reading useScans() render again with each home refresh.
   const value = useMemo(() => ({ pending, scan, pickPhotos, remove, retry }), [pending, scan, pickPhotos, remove, retry]);
-  return <ScanContext.Provider value={value}>{children}</ScanContext.Provider>;
+  return (
+    <ScanContext.Provider value={value}>
+      <View style={{ flex: 1 }}>
+        {children}
+        {flow ? (
+          <ScanFlowView
+            flow={flow}
+            view={view}
+            onUse={() => void acceptDrafts()}
+            onRetake={() => void scan()}
+            onRemoveDraft={removeDraft}
+            onClose={closeFlow}
+            onRetakeStuck={(id) => {
+              remove(id);
+              void scan();
+            }}
+            onRemoveStuck={(id) => {
+              remove(id);
+              setFlow(null);
+            }}
+            onRetryStuck={retry}
+          />
+        ) : null}
+      </View>
+    </ScanContext.Provider>
+  );
 }
 
 export function useScans(): ScanState {

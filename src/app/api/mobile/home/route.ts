@@ -54,6 +54,7 @@ export async function GET() {
         showOnboarding: d.showOnboarding,
         accountantInvites: d.accountantInvites,
         firm,
+        team: d.team,
         receipts: d.receipts.map(toMobileReceipt),
         ...(d.older ? { older: d.older } : {}),
       };

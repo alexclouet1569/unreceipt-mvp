@@ -13,7 +13,11 @@ const mocks = vi.hoisted(() => ({
   createSession: vi.fn(),
   // The user's subscriptions rows, newest first, or a database error.
   subscriptions: { data: [] as unknown[] | null, error: null as { code: string } | null },
+  // The company the user is an employee of (src/lib/team/membership.ts), or null.
+  employment: null as null | { organizationId: string; role: "member" },
 }));
+
+vi.mock("@/lib/team/membership", () => ({ getEmployment: async () => mocks.employment }));
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
@@ -101,6 +105,15 @@ describe("POST /api/checkout", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe("unauthorized");
+    expect(mocks.createSession).not.toHaveBeenCalled();
+  });
+
+  it("refuses an employee: their company's owner manages the plan", async () => {
+    mocks.getServerUser.mockResolvedValue(adminUser);
+    mocks.employment = { organizationId: "org-1", role: "member" };
+    const res = await POST(buildRequest({ plan: "light" }));
+    mocks.employment = null;
+    expect(res.status).toBe(409);
     expect(mocks.createSession).not.toHaveBeenCalled();
   });
 

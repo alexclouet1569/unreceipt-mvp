@@ -34,8 +34,14 @@ vi.mock("@/lib/supabase-admin", () => ({
       },
       update: (payload: Record<string, unknown>) => ({
         eq: (col: string, val: string) => ({
-          eq: (col2: string, val2: string) =>
-            mocks.updateEq(payload, col, val, col2, val2),
+          eq: (col2: string, val2: string) => {
+            // Then the compare-and-set on the approval state, and select("id").
+            const result = async () => {
+              const r = (await mocks.updateEq(payload, col, val, col2, val2)) as { error: unknown };
+              return { data: r?.error ? null : [{ id: val }], error: r?.error ?? null };
+            };
+            return { is: () => ({ select: result }), eq: () => ({ select: result }) };
+          },
         }),
       }),
     }),

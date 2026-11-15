@@ -30,6 +30,8 @@ import {
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt, ReceiptItem, ReceiptStatus } from "@/lib/types";
 import type { ReceiptChange } from "@/lib/receipts/optimistic";
+import { ApprovalPanel, canSendForApproval } from "./_approval-panel";
+import { ownerMayDelete, ownerMayEdit } from "@/lib/team/rules";
 import {
   missingFieldsText,
   missingRequiredFields,
@@ -251,6 +253,8 @@ export function ReceiptDetailDialog({
 
             {editing ? null : (
             <div className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]">
+              {/* An employee's receipt: where it is in the approval, and Send. */}
+              {!isFirm && receipt.approval_status ? <ApprovalPanel receipt={receipt} /> : null}
               {couldReprocess ? (
                 <>
                   <Button
@@ -295,11 +299,16 @@ export function ReceiptDetailDialog({
                     href={`/api/receipts/${receipt.id}/pdf`}
                     download
                     data-testid="receipt-download-link"
-                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-action-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className={
+                      !isFirm && canSendForApproval(receipt)
+                        ? "w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink)] text-[14px] font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                        : "w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-action-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    }
                   >
                     <Download className="w-4 h-4" />
                     Download PDF
                   </a>
+                  {isFirm || ownerMayEdit(receipt.approval_status) ? (
                   <Button
                     ref={editButtonRef}
                     type="button"
@@ -310,6 +319,7 @@ export function ReceiptDetailDialog({
                     <Pencil className="w-4 h-4" />
                     Edit receipt
                   </Button>
+                  ) : null}
                   {isFirm ? <BookReceiptControl receipt={receipt} /> : null}
                 </>
               )}
@@ -323,7 +333,7 @@ export function ReceiptDetailDialog({
                 </p>
               ) : null}
 
-              {isFirm ? null : confirming ? (
+              {isFirm || !ownerMayDelete(receipt.approval_status) ? null : confirming ? (
                 <div className="flex gap-2">
                   <Button
                     type="button"

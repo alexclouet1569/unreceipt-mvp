@@ -124,7 +124,7 @@ export async function POST(
   try {
     const buf = Buffer.from(await blob.arrayBuffer());
     const base64 = buf.toString("base64");
-    extracted = await extractReceipt(base64, mediaType);
+    extracted = await extractReceipt(base64, mediaType, "reprocess");
   } catch (err) {
     console.error("[/api/receipts/reprocess] extract failed:", err);
     Sentry.captureException(err, { tags: { area: "reprocess" } });

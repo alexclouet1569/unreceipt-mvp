@@ -28,6 +28,7 @@ export default function ReceiptsStack() {
           and the email open the list below it. */}
       <Stack.Screen name="index" options={{ title: s.receipts.title, headerTitle: () => <HeaderBrand /> }} />
       <Stack.Screen name="receipt/[id]" options={{ title: s.detail.title }} />
+      <Stack.Screen name="approvals" options={{ title: s.approval.title }} />
       {/* A field is edited in iOS's own bottom sheet, dragged away to cancel. */}
       <Stack.Screen
         name="receipt/edit"

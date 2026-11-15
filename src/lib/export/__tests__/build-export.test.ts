@@ -87,7 +87,7 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 
-import { FIRM_VISIBLE_FILTER } from "@/lib/firm/visibility";
+import { FIRM_APPROVED_FILTER, FIRM_VISIBLE_FILTER } from "@/lib/firm/visibility";
 import { FX_CONVERTED_CURRENCIES, INPUT_VAT_CURRENCY } from "@/lib/bookkeeping/rules";
 import {
   MAX_EXPORT_RECEIPTS,
@@ -309,6 +309,7 @@ describe("buildExport", () => {
     });
     expect(state.ors).toEqual([
       FIRM_VISIBLE_FILTER,
+      FIRM_APPROVED_FILTER,
       "and(receipt_date.gte.2026-10-01,receipt_date.lt.2026-11-01)," +
         "and(receipt_date.is.null,purchased_at.gte.2026-10-01T00:00:00Z,purchased_at.lt.2026-11-01T00:00:00Z)",
     ]);

@@ -158,7 +158,23 @@ export interface Receipt {
    * trail: use edited_at / edit_history for what changed and when.
    */
   updated_at: string;
+
+  // Approval inside a company (2026-11-15 "Company team" block,
+  // src/lib/team/). Optional: rows read before the block was applied lack
+  // them. NULL approval_status: no approval needed (an owner's receipt).
+  approval_status?: ApprovalStatus | null;
+  submitted_at?: string | null;
+  decided_at?: string | null;
+  decided_by?: string | null;
+  approval_comment?: string | null;
+  paid_by?: PaidBy | null;
+  reimbursed_at?: string | null;
+  reimbursed_by?: string | null;
 }
+
+export type ApprovalStatus = "draft" | "submitted" | "approved" | "sent_back" | "rejected";
+export type PaidBy = "employee" | "company";
+export type ApprovalAction = "submitted" | "approved" | "sent_back" | "rejected" | "reopened" | "reimbursed";
 
 export interface EditChange {
   from: unknown;
@@ -282,13 +298,29 @@ export interface Organization {
   updated_at: string;
 }
 
-export type MembershipRole = "owner" | "member";
+// owner: runs the company, approves anyone; approver: approves the members
+// assigned to them; member: an employee (2026-11-15 "Company team" block).
+export type MembershipRole = "owner" | "approver" | "member";
 
 export interface Membership {
   organization_id: string;
   user_id: string;
   role: MembershipRole;
+  // Who approves this person's receipts; null: the owners.
+  approver_id?: string | null;
   created_at: string;
+}
+
+export interface TeamInvite {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: "approver" | "member";
+  approver_id: string | null;
+  invited_by: string | null;
+  created_at: string;
+  accepted_at: string | null;
+  accepted_by: string | null;
 }
 
 // An accounting firm (redovisningsbyrå) using /firm.

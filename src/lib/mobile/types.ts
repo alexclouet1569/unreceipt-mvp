@@ -4,7 +4,9 @@
 // share one definition without the app ever bundling server code.
 
 import type {
+  ApprovalStatus,
   MailboxConnectionStatus,
+  PaidBy,
   MailboxProviderId,
   ReceiptCategory,
   ReceiptSource,
@@ -49,6 +51,52 @@ export type MobileReceipt = {
   possibleDuplicate: boolean;
   exportedAt: string | null;
   bookedAt: string | null;
+  /**
+   * Approval inside a company (2026-11-15): set on an employee's receipt,
+   * absent or null when no approval applies (an owner's). Missing on older
+   * servers.
+   */
+  approval?: MobileApproval | null;
+};
+
+export type MobileApproval = {
+  status: ApprovalStatus;
+  /** Why it was sent back or rejected, as the approver wrote it. */
+  comment: string | null;
+  paidBy: PaidBy | null;
+  /** An outlay the company has paid back. */
+  reimbursed: boolean;
+};
+
+/**
+ * The signed-in person's place in their company's team (2026-11-15), null
+ * for someone working alone. `approvedBy`: who approves their receipts (an
+ * employee's), shown as "Sent to …". `toApprove`: receipts waiting for
+ * this person's decision (owners and approvers).
+ */
+export type MobileTeam = {
+  role: "owner" | "approver" | "member";
+  companyName: string;
+  approvedBy: string | null;
+  toApprove: number;
+};
+
+/** GET /api/team/approvals: one receipt waiting for the caller's decision. */
+export type ApprovalQueueItem = {
+  receipt: MobileReceipt;
+  /** The employee's name or address. */
+  employee: string;
+  submittedAt: string | null;
+};
+
+/** GET /api/team/reimbursements: approved outlays not yet paid back, per employee. */
+export type ReimbursementGroup = {
+  userId: string;
+  employee: string;
+  currency: string;
+  total: number;
+  count: number;
+  receiptIds: string[];
 };
 
 /**
@@ -107,6 +155,8 @@ export type MobileHome =
       accountantInvites: { id: string; firmName: string }[];
       /** Set when this user also works at an accounting firm: the Clients tab. */
       firm?: MobileFirmRef | null;
+      /** Set when the user is part of a company team (approvals). */
+      team?: MobileTeam | null;
       receipts: MobileReceipt[];
       /**
        * Everything beyond `receipts` (the newest 50), summed on the server,

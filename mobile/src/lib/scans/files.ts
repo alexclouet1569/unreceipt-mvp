@@ -16,11 +16,26 @@ function pendingDir(): Directory {
   return dir;
 }
 
+// Scans shown in the review and not yet sent (flow.ts): their own folder,
+// emptied at every start and sign-out, so a scan never used can't linger.
+const DRAFT_DIR = "draft-scans";
+
+function draftDir(): Directory {
+  const dir = new Directory(Paths.document, DRAFT_DIR);
+  if (!dir.exists) dir.create({ intermediates: true });
+  return dir;
+}
+
 /**
  * Turn a scanned or picked image into the JPEG to send, stored under the
  * scan's id. Removes the scanner's own file when it was ours to remove.
  */
-export async function prepareScan(sourceUri: string, id: string, removeSource: boolean): Promise<string> {
+export async function prepareScan(
+  sourceUri: string,
+  id: string,
+  removeSource: boolean,
+  folder: "pending" | "draft" = "pending",
+): Promise<string> {
   const image = await ImageManipulator.manipulate(sourceUri).renderAsync();
   const longest = Math.max(image.width, image.height);
   const sized =
@@ -36,10 +51,27 @@ export async function prepareScan(sourceUri: string, id: string, removeSource: b
     saved = await sized.saveAsync({ compress: 0.45, format: SaveFormat.JPEG });
   }
 
-  const target = new File(pendingDir(), `${id}.jpg`);
+  const target = new File(folder === "draft" ? draftDir() : pendingDir(), `${id}.jpg`);
   await new File(saved.uri).move(target, { overwrite: true });
   if (removeSource) deleteFile(sourceUri);
   return target.uri;
+}
+
+/** Use pressed in the review: the draft's file joins the queue's folder. */
+export async function adoptDraft(draftUri: string, id: string): Promise<string> {
+  const target = new File(pendingDir(), `${id}.jpg`);
+  await new File(draftUri).move(target, { overwrite: true });
+  return target.uri;
+}
+
+/** At start and sign-out: no unsent draft stays on the phone. */
+export function deleteAllDrafts(): void {
+  try {
+    const dir = new Directory(Paths.document, DRAFT_DIR);
+    if (dir.exists) dir.delete();
+  } catch {
+    // Best effort.
+  }
 }
 
 /**
@@ -80,6 +112,7 @@ export function deleteFile(uri: string): void {
 
 /** On sign-out: no scan stays on the phone. */
 export function deleteAllScans(): void {
+  deleteAllDrafts();
   try {
     const dir = new Directory(Paths.document, "pending-scans");
     if (dir.exists) dir.delete();

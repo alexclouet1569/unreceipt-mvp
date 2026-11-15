@@ -882,3 +882,82 @@ export function signupDigestEmail(opts: {
     text,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Company team (2026-11-15, src/lib/team/)
+// ---------------------------------------------------------------------------
+
+/** An owner adds this address to the company's team. */
+export function teamInviteEmail(opts: {
+  companyName: string;
+  inviterName: string;
+  url: string;
+  appUrl?: string | null;
+}): EmailContent {
+  const company = opts.companyName.trim() || "Your company";
+  const inviter = opts.inviterName.trim() || "Your company";
+  const title = `Join ${company} on UnReceipt`;
+  const intro = `${inviter} added you to ${company}'s team. Scan your receipts with your phone, check them and send them for approval: no paper to hand in.`;
+  const newHere = "New to UnReceipt? You'll create a free account with this address first.";
+  const footer = `Sent because ${inviter} entered this address. If you weren't expecting it, ignore this email and nothing happens.`;
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    button("Join the team", opts.url),
+    paragraph(esc(newHere)),
+    ...(opts.appUrl
+      ? [paragraph(`On iPhone? <a href="${esc(opts.appUrl)}" style="color:${C.ink};">Get the UnReceipt app</a> and sign in with this address after joining.`)]
+      : []),
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout({ preheader: intro, bodyHtml, footerHtml: esc(footer) }),
+    text: [title, "", intro, "", `Join the team: ${opts.url}`, "", newHere, ...(opts.appUrl ? ["", `iPhone app: ${opts.appUrl}`] : []), "", footer].join("\n"),
+  };
+}
+
+/** Receipts wait for the approver (sent only when the first one arrives). */
+export function approvalRequestEmail(opts: { employee: string; url: string }): EmailContent {
+  const who = opts.employee.trim() || "A colleague";
+  const title = `${who} sent receipts for approval`;
+  const intro = "Check them and approve, send back with a comment, or reject. Your accountant sees them once you approve.";
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    paragraph(esc(intro)),
+    button("Review receipts", opts.url),
+  ].join("\n");
+  const footer = "You get this email when receipts start waiting for you, not for every receipt.";
+  return {
+    subject: title,
+    html: layout({ preheader: intro, bodyHtml, footerHtml: esc(footer) }),
+    text: [title, "", intro, "", `Review receipts: ${opts.url}`, "", footer].join("\n"),
+  };
+}
+
+/** The approver sent the employee's receipt back, or rejected it, with why. */
+export function approvalDecisionEmail(opts: {
+  decision: "sent_back" | "rejected";
+  merchant: string | null;
+  comment: string | null;
+  url: string;
+}): EmailContent {
+  const what = opts.merchant?.trim() ? `Your ${opts.merchant.trim()} receipt` : "Your receipt";
+  const title = opts.decision === "sent_back" ? `${what} was sent back` : `${what} was rejected`;
+  const next =
+    opts.decision === "sent_back"
+      ? "Fix what's asked and send it again."
+      : "It won't be paid back or booked. Ask your manager if you think it's a mistake.";
+  const said = opts.comment ? `“${opts.comment}”` : null;
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
+    ...(said ? [paragraph(esc(said))] : []),
+    paragraph(esc(next)),
+    button("Open receipt", opts.url),
+  ].join("\n");
+  const footer = "You get this email when a receipt you sent needs you.";
+  return {
+    subject: title,
+    html: layout({ preheader: said ?? next, bodyHtml, footerHtml: esc(footer) }),
+    text: [title, "", ...(said ? [said, ""] : []), next, "", `Open receipt: ${opts.url}`, "", footer].join("\n"),
+  };
+}

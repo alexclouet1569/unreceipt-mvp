@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { requireAdminPage } from "@/lib/require-admin";
 import { loadPilotOverview, WINDOW_DAYS, type PilotOverview } from "@/lib/admin/pilot";
+import { loadAiUsageThisMonth, type AiUsageSummary } from "@/lib/ai-usage";
 import { AutoRefresh } from "./_auto-refresh";
 import { CreateFirmForm } from "./_create-firm";
 
@@ -18,11 +19,12 @@ const when = (iso: string | null) =>
  */
 export default async function AdminPilotPage() {
   await requireAdminPage();
-  let overview: PilotOverview | null = null;
-  try {
-    overview = await loadPilotOverview();
-  } catch (err) {
-    console.error("[/admin/pilot] load failed", err instanceof Error ? err.message : "unknown");
+  // Each panel on its own: one failed read doesn't blank the other.
+  const [pilot, aiRead] = await Promise.allSettled([loadPilotOverview(), loadAiUsageThisMonth()]);
+  const overview: PilotOverview | null = pilot.status === "fulfilled" ? pilot.value : null;
+  const ai: AiUsageSummary | null = aiRead.status === "fulfilled" ? aiRead.value : null;
+  if (pilot.status === "rejected") {
+    console.error("[/admin/pilot] load failed", pilot.reason instanceof Error ? pilot.reason.message : "unknown");
   }
   const renderedAt = new Date().toISOString();
 
@@ -43,6 +45,27 @@ export default async function AdminPilotPage() {
             The accountant gets an email and lands in her firm portal on her first sign-in with this address. From there she invites her clients.
           </p>
           <CreateFirmForm />
+        </CardContent>
+      </Card>
+
+      <Card data-testid="pilot-ai-cost">
+        <CardContent className="py-4 space-y-1">
+          <h2 className="text-sm font-semibold">AI this month</h2>
+          {ai === null ? (
+            <p className="text-xs text-muted-foreground">No usage data yet. Has the 2026-11-15 &quot;What the AI costs&quot; schema block been applied?</p>
+          ) : (
+            <>
+              <p className="text-sm tabular-nums">
+                {ai.calls} calls · about ${ai.costUsd.toFixed(2)}
+                {ai.calls > 0 ? ` · $${(ai.costUsd / ai.calls).toFixed(4)} per call` : ""}
+              </p>
+              {ai.byArea.length > 0 ? (
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {ai.byArea.map((a) => `${a.area}: ${a.calls} ($${a.costUsd.toFixed(2)})`).join(" · ")}
+                </p>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
 

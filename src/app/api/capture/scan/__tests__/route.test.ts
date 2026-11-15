@@ -32,6 +32,10 @@ vi.mock("@/lib/rate-limit", () => ({
   rateLimitedResponse: (s: number) => new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { "Retry-After": String(s) } }),
 }));
 vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: async () => "org-1" }));
+vi.mock("@/lib/team/membership", () => ({
+  receiptOrganizationFor: async () => "org-1",
+  billingUserFor: async (userId: string) => userId,
+}));
 vi.mock("@/lib/fx", () => ({ homeCurrencyOf: async () => "SEK" }));
 vi.mock("@/lib/ocr", () => ({ extractReceipt: mocks.ocr }));
 vi.mock("@sentry/nextjs", () => ({ captureException: () => {} }));

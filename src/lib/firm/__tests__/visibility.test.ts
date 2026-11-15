@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIRM_VISIBLE_FILTER, firmVisible, isFirmVisible } from "../visibility";
+import { FIRM_APPROVED_FILTER, FIRM_VISIBLE_FILTER, firmVisible, isFirmVisible } from "../visibility";
 
 describe("firm visibility", () => {
   it("hides only mailbox receipts the owner hasn't confirmed", () => {
@@ -16,6 +16,18 @@ describe("firm visibility", () => {
     const calls: string[] = [];
     const query = { or: (f: string) => (calls.push(f), query) };
     expect(firmVisible(query)).toBe(query);
-    expect(calls).toEqual([FIRM_VISIBLE_FILTER]);
+    expect(FIRM_APPROVED_FILTER).toBe("approval_status.is.null,approval_status.eq.approved");
+    expect(calls).toEqual([FIRM_VISIBLE_FILTER, FIRM_APPROVED_FILTER]);
+  });
+
+  it("shows an employee's receipt only once approved (2026-11-15)", () => {
+    for (const s of ["draft", "submitted", "sent_back", "rejected"] as const) {
+      expect(isFirmVisible({ intake_channel: null, status: "verified", approval_status: s })).toBe(false);
+    }
+    expect(isFirmVisible({ intake_channel: null, status: "verified", approval_status: "approved" })).toBe(true);
+    // An approved mailbox receipt was confirmed by its owner on the way.
+    expect(isFirmVisible({ intake_channel: "mailbox", status: "verified", approval_status: "approved" })).toBe(true);
+    // An owner's receipt has no approval.
+    expect(isFirmVisible({ intake_channel: null, status: "pending_review", approval_status: null })).toBe(true);
   });
 });

@@ -31,6 +31,7 @@ import { MailboxesSection } from "./mailboxes/MailboxesSection";
 import { MailboxResultBanner } from "./mailboxes/MailboxResultBanner";
 import { loadMailboxes } from "./mailboxes/load";
 import { NO_PROVIDERS, anyProvider, parseMailboxResult } from "./mailboxes/copy";
+import { getEmployment } from "@/lib/team/membership";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -123,6 +124,9 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     loadBillingCustomer(user.id),
     loadMailboxes(user.id),
   ]);
+  // Owners run their team from /app/team; an approver decides there; an
+  // employee sees whose team they are in.
+  const employment = await getEmployment(user.id).catch(() => null);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
   // The Capacitor shell can't finish an OAuth flow (Google's screen opens
@@ -217,12 +221,39 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
                   Every email sent to this address becomes a receipt. Set a
                   rule once in Gmail or Outlook and receipts arrive by themselves.
+                  We only see the emails you forward, never your inbox.
                 </span>
               </span>
               <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
             </Link>
           </div>
         </section>
+          <section aria-labelledby="team-heading">
+            <SectionLabel id="team-heading">Team</SectionLabel>
+            {employment?.role === "member" ? (
+              <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+                You send your work receipts for approval to your company. Ask its owner to change your role or to remove you.
+              </p>
+            ) : (
+              <Link
+                href="/app/team"
+                className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+                style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
+              >
+                <span>
+                  <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
+                    {employment ? "Receipts to approve" : "Employees and approvals"}
+                  </span>
+                  <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+                    {employment
+                      ? "Approve, send back or reject what your colleagues sent."
+                      : "Invite employees, choose who approves their receipts and see what to pay back."}
+                  </span>
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
+              </Link>
+            )}
+          </section>
 
         {usage ? (
           <section aria-labelledby="usage-heading">

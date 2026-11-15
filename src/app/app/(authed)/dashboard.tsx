@@ -23,6 +23,7 @@ import { applyReceiptChange, type ReceiptChange } from "@/lib/receipts/optimisti
 import type { MoneyLine, OlderSummary } from "@/lib/mobile/types";
 import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
+import { ownerMayDelete } from "@/lib/team/rules";
 import { NewReceiptsNotice } from "./_new-receipts-notice";
 import { useReceiptUpdates } from "./use-receipt-updates";
 import { ForwardingUnavailable } from "./_forwarding-unavailable";
@@ -472,7 +473,9 @@ export function Dashboard({
                   ) : null}
                 </h2>
                 <div className="space-y-2">
-                  {items.map((r) => (
+                  {items.map((r) => !ownerMayDelete(r.approval_status) ? (
+                    <ReceiptListItem key={r.id} receipt={r} onClick={() => openReceiptRow(r)} />
+                  ) : (
                     <SwipeToDelete
                       key={r.id}
                       open={swipedId === r.id}
@@ -527,7 +530,10 @@ export function Dashboard({
         }}
       />
       <ReceiptDetailDialog
-        receipt={openReceipt}
+        // The live row (after a refresh or an optimistic change), so Send for
+        // approval or an edit shows in the open sheet; the copy saved on open
+        // only until the list has it.
+        receipt={openReceipt ? (allReceipts.find((r) => r.id === openReceipt.id) ?? openReceipt) : null}
         onChangeAction={changeReceipt}
         onOpenChange={(open) => {
           if (!open) setOpenReceipt(null);
