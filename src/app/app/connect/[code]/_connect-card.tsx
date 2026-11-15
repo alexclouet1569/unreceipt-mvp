@@ -5,10 +5,11 @@
 // itself away), and Yes / Not now. Everything else is one sentence and the
 // way back to the receipts.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { ConnectState } from "@/lib/firm/connect";
 import type { AdminDomain } from "@/lib/firm/join-link";
 
@@ -16,8 +17,12 @@ export type ConnectView =
   | { state: { kind: "missing" } | { kind: "error" } }
   | { firmName: string; adminDomain: AdminDomain; state: ConnectState };
 
-function Title({ children }: { children: React.ReactNode }) {
-  return <h1 className="type-display-lg text-[var(--ink)]">{children}</h1>;
+function Title({ children, focusRef }: { children: React.ReactNode; focusRef?: React.Ref<HTMLHeadingElement> }) {
+  return (
+    <h1 ref={focusRef} tabIndex={focusRef ? -1 : undefined} className="type-display-lg text-[var(--ink)] outline-none">
+      {children}
+    </h1>
+  );
 }
 
 function Notice({ title, children }: { title: string; children: React.ReactNode }) {
@@ -35,7 +40,9 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
 function WhoRunsIt({ domain }: { domain: AdminDomain }) {
   if (!domain) return null;
   return (
-    <p className="type-caption text-[var(--ink-muted)]">
+    // A personal mailbox is worth a second look: honey, the colour that asks
+    // the user to check something (red is for missing data and deleting).
+    <p className={domain.personal ? "type-caption font-semibold text-[var(--attention-deep)]" : "type-caption text-[var(--ink-muted)]"}>
       {domain.personal
         ? `Its administrator uses a personal ${domain.domain} address. Make sure this is your accountant before you share.`
         : `Its administrator's email is at ${domain.domain}.`}
@@ -57,6 +64,11 @@ export function ConnectCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // "Yes, share" is gone once it worked: focus moves to what happened.
+  const doneTitle = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (done) doneTitle.current?.focus();
+  }, [done]);
 
   if (!("firmName" in view)) {
     return view.state.kind === "error" ? (
@@ -70,7 +82,9 @@ export function ConnectCard({
   if (done || state.kind === "already") {
     return (
       <div className="space-y-3" role="status">
-        <Title>{done ? `${firmName} now sees your receipts` : `You already share with ${firmName}`}</Title>
+        <Title focusRef={done ? doneTitle : undefined}>
+          {done ? `${firmName} now sees your receipts` : `You already share with ${firmName}`}
+        </Title>
         <p className="type-body text-[var(--ink-muted)]">
           You can stop sharing any time in Settings → Your accountant.
         </p>
@@ -150,10 +164,7 @@ export function ConnectCard({
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
           Yes, share
         </Button>
-        <Link
-          href="/app"
-          className="inline-flex h-11 items-center rounded-[10px] border border-[var(--hairline)] px-4 type-body font-semibold text-[var(--ink)]"
-        >
+        <Link href="/app" className={cn(buttonVariants({ variant: "outline" }), "h-11")}>
           Not now
         </Link>
       </div>

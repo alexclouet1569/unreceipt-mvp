@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Download, Link2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 // "Your firm's link" on /firm/clients (src/lib/firm/join-link.ts): the link
 // and its QR code to put on the firm's website, email signature or
@@ -86,11 +87,14 @@ export function JoinLinkPanel({ link }: { link: JoinLinkView }) {
                   {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                   {copied ? "Copied" : "Copy link"}
                 </Button>
+                <span className="sr-only" role="status">
+                  {copied ? "Link copied" : ""}
+                </span>
                 {link.qr ? (
                   <a
                     href={link.qr}
                     download="unreceipt-firm-link-qr.png"
-                    className="inline-flex h-11 items-center gap-1.5 rounded-[10px] border border-[var(--hairline)] px-3 type-body font-semibold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className={cn(buttonVariants({ variant: "outline" }), "h-11")}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
                     Download QR code

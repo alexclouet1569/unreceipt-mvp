@@ -116,9 +116,11 @@ export function ClientsView({
         <MonthSwitch month={month} hrefFor={hrefs.month} />
       </div>
 
+      {/* Before the first client, the link is how to get one; after, the
+          client table is the page's main data and stays at the top. */}
       <div className="space-y-4">
         <AddClientDialog />
-        <JoinLinkPanel link={joinLink} />
+        {active.length === 0 ? <JoinLinkPanel link={joinLink} /> : null}
       </div>
 
       {active.length === 0 ? (
@@ -158,6 +160,8 @@ export function ClientsView({
           </ul>
         </section>
       ) : null}
+
+      {active.length > 0 ? <JoinLinkPanel link={joinLink} /> : null}
     </div>
   );
 }

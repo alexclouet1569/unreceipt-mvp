@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,15 @@ export function AddClientDialog() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [several, setSeveral] = useState(false);
+  // Focus goes back where the form was opened from when it closes.
+  const severalButton = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (!open && refocus.current) {
+      refocus.current = false;
+      severalButton.current?.focus();
+    }
+  }, [open]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +85,7 @@ export function AddClientDialog() {
             Add client
           </Button>
           <Button
+            ref={severalButton}
             type="button"
             variant="outline"
             className="h-11"
@@ -103,6 +113,7 @@ export function AddClientDialog() {
         onClose={(message) => {
           setOpen(false);
           setSeveral(false);
+          refocus.current = true;
           if (message) {
             setNotice(message);
             router.refresh();
@@ -188,6 +199,15 @@ function InviteSeveral({ onClose }: { onClose: (message: string | null) => void 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkLine[] | null>(null);
   const { invites, unreadable } = parseInviteLines(text);
+  const listRef = useRef<HTMLTextAreaElement>(null);
+  const resultTitle = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    listRef.current?.focus();
+  }, []);
+  // The form is replaced by the results: focus moves to their title.
+  useEffect(() => {
+    if (result) resultTitle.current?.focus();
+  }, [result]);
   const tooMany = invites.length > MAX_BULK;
 
   const submit = async (e: React.FormEvent) => {
@@ -220,8 +240,14 @@ function InviteSeveral({ onClose }: { onClose: (message: string | null) => void 
   if (result) {
     const sent = result.filter((l) => l.status === "sent" || l.status === "saved").length;
     return (
-      <div className="bg-card space-y-3 rounded-[12px] border border-[var(--hairline)] p-4" role="status">
-        <p className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "16px" }}>
+      <div className="bg-card space-y-3 rounded-[12px] border border-[var(--hairline)] p-4">
+        <p
+          ref={resultTitle}
+          tabIndex={-1}
+          role="status"
+          className="font-display font-bold text-[var(--ink)] outline-none"
+          style={{ fontSize: "16px" }}
+        >
           {sent === 1 ? "1 invite sent" : `${sent} invites sent`}
         </p>
         <ul className="divide-y divide-[var(--hairline)] rounded-[10px] border border-[var(--hairline)]">
@@ -251,6 +277,7 @@ function InviteSeveral({ onClose }: { onClose: (message: string | null) => void 
         Up to {MAX_BULK} at once.
       </label>
       <textarea
+        ref={listRef}
         id={`${id}-list`}
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -258,7 +285,7 @@ function InviteSeveral({ onClose }: { onClose: (message: string | null) => void 
         className="w-full rounded-[10px] border border-[var(--hairline)] bg-background px-3 py-2 text-[16px] text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         placeholder={"Hallonbergen Bygg AB, anna@hallonbygg.se\nmaja@nordljusdesign.se"}
       />
-      <p className="type-caption text-[var(--ink-muted)]" aria-live="polite">
+      <p className="type-caption text-[var(--ink-muted)]">
         {invites.length === 0
           ? "No addresses yet."
           : tooMany
@@ -276,7 +303,7 @@ function InviteSeveral({ onClose }: { onClose: (message: string | null) => void 
         </Button>
       </div>
       {error ? (
-        <p role="alert" className="rounded-[10px] px-3 py-2 text-sm text-[var(--attention-deep)]" style={{ background: "var(--attention-tint)" }}>
+        <p role="alert" className="rounded-[10px] bg-[var(--attention-tint)] px-3 py-2 type-body font-semibold text-[var(--attention-deep)]">
           {error}
         </p>
       ) : null}
