@@ -5,6 +5,7 @@
 // firm seat still waits to be joined on the website, and accounts without a
 // plan, get a calm full screen instead (see StatusScreen).
 
+import { View } from "react-native";
 import { NativeTabs } from "expo-router/native-tabs";
 import { StatusScreen } from "../../components/StatusScreen";
 import { AccountProvider } from "../../lib/AccountProvider";
@@ -19,7 +20,11 @@ import { useColors } from "../../theme";
 
 function Tabs() {
   const colors = useColors();
-  const { home } = useHome();
+  const { home, loading } = useHome();
+  // Which tabs to show depends on the first answer (the saved copy or the
+  // server): wait for it, so firm-only staff don't see Receipts for a moment
+  // before the tab bar rebuilds with Clients.
+  if (loading && !home) return <View style={{ flex: 1, backgroundColor: colors.surface }} />;
   // A seat still to join on the website (or a membership that couldn't be read).
   if (home?.state === "firm_only" && !home.firm) {
     return <StatusScreen title={s.states.firmOnlyTitle} body={s.states.firmOnlyBody} />;

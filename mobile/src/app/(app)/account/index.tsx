@@ -116,9 +116,9 @@ export default function Account() {
       ) : null}
 
       {firm ? (
-        <Section note={s.firm.accountBody}>
+        <Section title={s.firm.accountSection} note={s.firm.accountBody}>
           <Group>
-            <Row first label={fill(s.firm.accountTitle, { firm: firm.name })} onPress={() => router.push("/clients")} />
+            <Row first label={firm.name} onPress={() => router.push("/clients")} />
           </Group>
         </Section>
       ) : null}

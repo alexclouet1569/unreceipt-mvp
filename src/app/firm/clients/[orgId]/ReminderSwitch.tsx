@@ -42,7 +42,7 @@ export function ReminderSwitch({
       return;
     }
     if (res.status === 429) {
-      setProblem(`${clientName} was already reminded twice today.`);
+      setProblem(`${clientName} was already reminded twice in the last 24 hours.`);
       return;
     }
     if (!res.ok) {
@@ -97,7 +97,7 @@ export function ReminderSwitch({
             type="button"
             onClick={() => void sendNow()}
             disabled={sending}
-            className="min-h-11 type-caption font-semibold text-[var(--ink)] underline disabled:opacity-60"
+            className="min-h-11 rounded-[10px] type-caption font-semibold text-[var(--ink)] underline outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60"
           >
             {sending ? "Sending…" : "Send a reminder now"}
           </button>
@@ -108,9 +108,7 @@ export function ReminderSwitch({
               {problem}
             </p>
           ) : sentNote ? (
-            <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
-              {sentNote}
-            </p>
+            <p className="type-caption text-[var(--ink-muted)]">{sentNote}</p>
           ) : null}
         </div>
       </div>

@@ -1,26 +1,28 @@
 // Clients (accounting firm staff): every client company with this month's
-// counts (receipts, to check, ready, new this week), the invites still
+// counts (receipts, review needed, ready, new this week), the invites still
 // waiting, and two actions: Invite a client, and the firm's link with its
 // QR code. A client opens its month. The website's /firm/clients, from the
 // same loaders (GET /api/mobile/firm). Exports, bank statements and
 // settings stay on the website.
 
-import { useCallback } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { useCallback, useEffect } from "react";
+import { AccessibilityInfo, RefreshControl, ScrollView, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Button } from "../../../components/Button";
 import { Group, Row, Section, SectionNote } from "../../../components/Grouped";
-import { ReceiptSkeleton } from "../../../components/Skeleton";
+import { GroupedSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { fill, locale, s } from "../../../i18n";
 import { dayMonthYear } from "../../../lib/format";
 import { useFirm } from "../../../lib/FirmProvider";
+import { monthTitle } from "../../../lib/firmMonth";
 import { space, makeStyles, useColors } from "../../../theme";
 
 export default function Clients() {
   const styles = useStyles();
   const colors = useColors();
   const { firm, error, refreshing, refresh } = useFirm();
+  const errorText = error ? (error === "offline" ? s.common.unreachable : s.firm.loadFailed) : null;
 
   // Counts change while a receipt is completed in this tab: ask again on return.
   useFocusEffect(
@@ -28,6 +30,9 @@ export default function Clients() {
       void refresh();
     }, [refresh]),
   );
+  useEffect(() => {
+    if (errorText) AccessibilityInfo.announceForAccessibility(errorText);
+  }, [errorText]);
 
   return (
     <ScrollView
@@ -35,14 +40,12 @@ export default function Clients() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing && firm != null} onRefresh={() => void refresh()} tintColor={colors.inkMuted} />}
     >
-      <View style={styles.heading}>
-        <Text variant="displayLg" accessibilityRole="header">
-          {firm?.firmName ?? s.firm.title}
-        </Text>
-      </View>
-      {error ? (
-        <Text variant="caption" color={colors.attentionDeep} style={styles.note}>
-          {error === "offline" ? s.common.unreachable : s.firm.loadFailed}
+      <Text variant="displayLg" accessibilityRole="header">
+        {firm?.firmName ?? s.firm.title}
+      </Text>
+      {errorText ? (
+        <Text variant="caption" color={colors.attentionDeep}>
+          {errorText}
         </Text>
       ) : null}
 
@@ -51,20 +54,21 @@ export default function Clients() {
           <Button label={s.firm.invite} kind="ink" onPress={() => router.push("/clients/invite")} />
         </View>
         <View style={styles.action}>
-          <Button label={s.firm.link} kind="outline" onPress={() => router.push("/clients/link")} />
+          <Button label={s.firm.linkButton} kind="outline" onPress={() => router.push("/clients/link")} />
         </View>
       </View>
 
-      {!firm && !error ? <ReceiptSkeleton rows={4} /> : null}
+      {!firm && !error ? <GroupedSkeleton groups={[4, 2]} bare /> : null}
 
       {firm && firm.clients.length === 0 ? (
-        <Text variant="body" color={colors.inkMuted} style={styles.note}>
+        <Text variant="body" color={colors.inkMuted}>
           {s.firm.empty}
         </Text>
       ) : null}
 
       {firm && firm.clients.length > 0 ? (
-        <Section title={s.firm.title}>
+        // The counts are this month's: the section says which month.
+        <Section title={monthTitle(firm.month, locale)}>
           <Group>
             {firm.clients.map((c, i) => (
               <Row
@@ -107,10 +111,9 @@ export default function Clients() {
   );
 }
 
+// The Account tab's padding: grouped cards and titles line up with the heading.
 const useStyles = makeStyles(() => ({
-  content: { paddingBottom: space.xxxl, gap: space.lg },
-  heading: { marginHorizontal: space.lg, marginTop: space.lg },
-  note: { marginHorizontal: space.lg },
-  actions: { flexDirection: "row", gap: space.sm, marginHorizontal: space.lg },
+  content: { padding: space.lg, paddingBottom: space.xxxl, gap: space.lg },
+  actions: { flexDirection: "row", gap: space.sm },
   action: { flex: 1 },
 }));

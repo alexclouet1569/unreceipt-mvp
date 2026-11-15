@@ -5,11 +5,13 @@
 // the server (no QR library on the phone); white like paper in dark mode
 // too. Making a new link or turning it off stays on the website (admins).
 
+import { useEffect, useState } from "react";
 import { AccessibilityInfo, Platform, ScrollView, Share, View } from "react-native";
 import { Image } from "expo-image";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { Button } from "../../../components/Button";
+import { GroupedSkeleton } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { s } from "../../../i18n";
 import { useFirm } from "../../../lib/FirmProvider";
@@ -18,12 +20,20 @@ import { radius, space, makeStyles, useColors } from "../../../theme";
 export default function FirmLink() {
   const styles = useStyles();
   const colors = useColors();
-  const { firm } = useFirm();
+  const { firm, error } = useFirm();
   const link = firm?.joinLink ?? null;
+  // "Link copied" on the button for a moment, as the forwarding address.
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(t);
+  }, [copied]);
 
   const copy = async () => {
     if (!link) return;
     await Clipboard.setStringAsync(link.url);
+    setCopied(true);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     AccessibilityInfo.announceForAccessibility(s.firm.copied);
   };
@@ -40,7 +50,14 @@ export default function FirmLink() {
         <>
           {link.qr ? (
             <View style={styles.qrFrame}>
-              <Image source={{ uri: link.qr }} style={styles.qr} contentFit="contain" accessibilityLabel={s.firm.linkQr} />
+              <Image
+                source={{ uri: link.qr }}
+                style={styles.qr}
+                contentFit="contain"
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={s.firm.linkQr}
+              />
             </View>
           ) : null}
           <Text variant="caption" color={colors.ink} selectable style={styles.url}>
@@ -52,12 +69,18 @@ export default function FirmLink() {
             // iOS shares the link itself (AirDrop, Messages…); a message would send it twice.
             onPress={() => void Share.share(Platform.OS === "ios" ? { url: link.url } : { message: link.url }).catch(() => {})}
           />
-          <Button label={s.firm.copy} kind="outline" onPress={() => void copy()} />
+          <Button label={copied ? s.firm.copied : s.firm.copy} kind="outline" onPress={() => void copy()} />
         </>
-      ) : (
+      ) : firm ? (
         <Text variant="body" color={colors.ink}>
           {s.firm.linkOff}
         </Text>
+      ) : error ? (
+        <Text variant="body" color={colors.attentionDeep}>
+          {error === "offline" ? s.common.unreachable : s.firm.loadFailed}
+        </Text>
+      ) : (
+        <GroupedSkeleton groups={[1]} bare />
       )}
     </ScrollView>
   );

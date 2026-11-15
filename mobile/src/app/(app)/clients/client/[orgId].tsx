@@ -6,15 +6,14 @@
 // the owner deletes). GET /api/mobile/firm/clients/<orgId>, the same loaders
 // as the website's client page.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AccessibilityInfo, Alert, RefreshControl, ScrollView, View } from "react-native";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
 import type { MobileFirmClientMonth, MobileReceipt } from "@/lib/mobile/types";
 import { Button } from "../../../../components/Button";
 import { Group, Row, Section, SectionNote } from "../../../../components/Grouped";
-import { PressableScale } from "../../../../components/PressableScale";
+import { PeriodHeader } from "../../../../components/insights/PeriodHeader";
 import { ReceiptRow } from "../../../../components/ReceiptRow";
 import { ReceiptSkeleton } from "../../../../components/Skeleton";
 import { Text } from "../../../../components/Text";
@@ -23,7 +22,7 @@ import { ApiError, getFirmClientMonth, sendClientReminder } from "../../../../li
 import { dayMonthYear } from "../../../../lib/format";
 import { currentMonth, monthTitle, shiftMonth } from "../../../../lib/firmMonth";
 import { useHome } from "../../../../lib/HomeProvider";
-import { fonts, space, makeStyles, useColors } from "../../../../theme";
+import { space, makeStyles, useColors } from "../../../../theme";
 
 const labelOf = (month: string) => monthTitle(month, locale);
 
@@ -61,7 +60,13 @@ export default function ClientMonth() {
     }, [load]),
   );
 
+  useEffect(() => {
+    if (error) AccessibilityInfo.announceForAccessibility(error);
+  }, [error]);
+
   const clientName = data?.clientName ?? name ?? s.firm.title;
+  // No future months: nothing can be printed in them yet (as Insights).
+  const atCurrent = month >= currentMonth();
   // The phone's copy when a receipt was just edited here, else the server's.
   const receipts: MobileReceipt[] =
     data?.month === month ? data.receipts.map((r) => extra.find((e) => e.id === r.id) ?? r) : [];
@@ -76,9 +81,7 @@ export default function ClientMonth() {
       const res = await sendClientReminder(orgId);
       if (res.status === 200) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const text = fill(s.firm.remindSent, { client: clientName });
-        AccessibilityInfo.announceForAccessibility(text);
-        Alert.alert(text);
+        Alert.alert(fill(s.firm.remindSent, { client: clientName }));
         void load();
         return;
       }
@@ -120,64 +123,63 @@ export default function ClientMonth() {
     >
       <Stack.Screen options={{ title: clientName }} />
 
-      <View style={styles.monthRow} accessibilityLabel={s.firm.month}>
-        <PressableScale
-          scaleTo={0.9}
-          onPress={() => setMonth((m) => shiftMonth(m, -1))}
-          accessibilityRole="button"
-          accessibilityLabel={s.firm.prevMonth}
-          style={styles.chevron}
-        >
-          <SymbolView name="chevron.left" size={17} weight="semibold" tintColor={colors.ink} />
-        </PressableScale>
-        <Text variant="bodyLg" style={styles.monthLabel} accessibilityRole="header">
-          {labelOf(month)}
-        </Text>
-        <PressableScale
-          scaleTo={0.9}
-          onPress={() => setMonth((m) => shiftMonth(m, 1))}
-          accessibilityRole="button"
-          accessibilityLabel={s.firm.nextMonth}
-          style={styles.chevron}
-        >
-          <SymbolView name="chevron.right" size={17} weight="semibold" tintColor={colors.ink} />
-        </PressableScale>
-      </View>
+      <PeriodHeader
+        title={labelOf(month)}
+        onPrevious={() => {
+          const next = shiftMonth(month, -1);
+          setMonth(next);
+          AccessibilityInfo.announceForAccessibility(labelOf(next));
+        }}
+        onNext={
+          atCurrent
+            ? null
+            : () => {
+                const next = shiftMonth(month, 1);
+                setMonth(next);
+                AccessibilityInfo.announceForAccessibility(labelOf(next));
+              }
+        }
+      />
 
       {error ? (
-        <Text variant="caption" color={colors.attentionDeep} style={styles.note}>
+        <Text variant="caption" color={colors.attentionDeep} style={styles.pad}>
           {error}
         </Text>
       ) : null}
 
       {data?.month === month ? (
-        <Group>
-          <Row first label={s.firm.toCheck} value={String(toCheck)} />
-          <Row label={s.firm.ready} value={String(ready)} />
-          <Row label={s.firm.exported} value={String(exported)} />
-        </Group>
+        <View style={styles.pad}>
+          <Group>
+            <Row first label={s.firm.toCheck} value={String(toCheck)} />
+            <Row label={s.firm.ready} value={String(ready)} />
+            <Row label={s.firm.exported} value={String(exported)} />
+          </Group>
+        </View>
       ) : null}
 
-      <Section title={fill(s.firm.receiptsIn, { month: labelOf(month) })}>
-        {data?.month !== month && !error ? <ReceiptSkeleton rows={4} /> : null}
-        {data?.month === month && receipts.length === 0 ? (
-          <Text variant="body" color={colors.inkMuted} style={styles.note}>
-            {s.firm.emptyMonth}
-          </Text>
-        ) : null}
-        <View style={styles.list}>
-          {receipts.map((r) => (
-            <ReceiptRow
-              key={r.id}
-              receipt={r}
-              onPress={() => router.push({ pathname: "/clients/receipt/[id]", params: { id: r.id } })}
-            />
-          ))}
+      {/* The receipt rows carry the list's own side margin (ReceiptRow). */}
+      <View>
+        <View style={styles.pad}>
+          <Section title={fill(s.firm.receiptsIn, { month: labelOf(month) })}>
+            {data?.month === month && receipts.length === 0 ? (
+              <Text variant="body" color={colors.inkMuted}>
+                {s.firm.emptyMonth}
+              </Text>
+            ) : null}
+          </Section>
         </View>
-      </Section>
+        {data?.month !== month && !error ? <ReceiptSkeleton rows={4} /> : null}
+        {receipts.map((r) => (
+          <ReceiptRow
+            key={r.id}
+            receipt={r}
+            onPress={() => router.push({ pathname: "/clients/receipt/[id]", params: { id: r.id } })}
+          />
+        ))}
+      </View>
 
       {reminderText ? (
-        <View style={styles.reminder}>
+        <View style={[styles.pad, styles.reminder]}>
           <Text variant="caption" color={colors.inkMuted}>
             {reminderText}
           </Text>
@@ -187,23 +189,16 @@ export default function ClientMonth() {
         </View>
       ) : null}
 
-      <SectionNote text={s.firm.onTheWeb} />
+      <View style={styles.pad}>
+        <SectionNote text={s.firm.onTheWeb} />
+      </View>
     </ScrollView>
   );
 }
 
 const useStyles = makeStyles(() => ({
   content: { paddingBottom: space.xxxl, gap: space.lg },
-  monthRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: space.lg,
-    marginTop: space.md,
-  },
-  chevron: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  monthLabel: { fontFamily: fonts.bold, textAlign: "center", flex: 1 },
-  note: { marginHorizontal: space.lg },
-  list: { gap: 0 },
-  reminder: { marginHorizontal: space.lg, gap: space.sm },
+  // The same side margin as the receipt rows and the Account tab's groups.
+  pad: { marginHorizontal: space.lg },
+  reminder: { gap: space.sm },
 }));
