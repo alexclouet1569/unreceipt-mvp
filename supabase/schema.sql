@@ -1899,3 +1899,43 @@ BEGIN
       CHECK (intake_channel IS NULL OR intake_channel IN ('forwarding', 'mailbox'));
   END IF;
 END $$;
+
+-- =============================================================================
+-- 2026-11-15 — A firm's join link
+-- =============================================================================
+-- firms.join_code: the random part of the firm's own link
+-- (app.unreceipt.com/app/connect/<code>), which the firm puts on its
+-- website, email signature or onboarding letter, or shows as a QR code. A
+-- client who opens it, signed in, is asked "Share your receipts with
+-- <firm>?" and connects only by saying yes: the owner of the data consents,
+-- so the code needs no email match (unlike an invite). The code is meant to
+-- be shared, so it is stored as is (firm members see it on /firm/clients);
+-- an admin can replace it (the old link stops working) or turn it off
+-- (NULL). Written only by server routes (service role; firms is read-only to
+-- users, see the RLS block above).
+--
+-- firm_clients.via_join_link: the link was made from the join link (no
+-- invite row before it), for the firm's and the founder's own records.
+
+ALTER TABLE public.firms
+  ADD COLUMN IF NOT EXISTS join_code TEXT,
+  ADD COLUMN IF NOT EXISTS join_code_created_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS firms_join_code_unique
+  ON public.firms(join_code) WHERE join_code IS NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'firms_join_code_shape'
+      AND conrelid = 'public.firms'::regclass
+  ) THEN
+    ALTER TABLE public.firms
+      ADD CONSTRAINT firms_join_code_shape
+      CHECK (join_code IS NULL OR join_code ~ '^[A-Za-z0-9_-]{22}$');
+  END IF;
+END $$;
+
+ALTER TABLE public.firm_clients
+  ADD COLUMN IF NOT EXISTS via_join_link BOOLEAN NOT NULL DEFAULT false;

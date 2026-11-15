@@ -297,6 +297,10 @@ export interface Firm {
   name: string;
   org_number: string | null;
   country: string;
+  // The firm's join link (2026-11-15): app/connect/<join_code>. Null when
+  // turned off or not made yet.
+  join_code: string | null;
+  join_code_created_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -349,6 +353,8 @@ export interface FirmClient {
   // and the client's own opt-out (only the client sets it).
   weekly_reminder: boolean;
   reminders_opted_out_at: string | null;
+  // Made from the firm's join link (2026-11-15), not an invite.
+  via_join_link: boolean;
 }
 
 // One reminder email run to a client company (2026-11-09).

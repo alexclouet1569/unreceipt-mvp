@@ -35,3 +35,22 @@ export function absoluteAppUrl(path: string): string {
   const origin = base && /^https?:\/\//i.test(base) ? base : PRODUCT_ORIGIN_FALLBACK;
   return origin + (path.startsWith("/") ? path : `/${path}`);
 }
+
+/**
+ * The iPhone app's public link (App Store, or a public TestFlight invite
+ * while in beta), from NEXT_PUBLIC_IOS_APP_URL; null until it is set, and
+ * then the invite emails and the join page simply don't mention the app.
+ * Only Apple's own hosts are accepted, so a typo can't send people elsewhere.
+ */
+export function iosAppUrl(): string | null {
+  const raw = process.env.NEXT_PUBLIC_IOS_APP_URL?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return null;
+    if (url.hostname !== "apps.apple.com" && url.hostname !== "testflight.apple.com") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}

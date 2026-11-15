@@ -47,6 +47,7 @@ vi.mock("@/lib/rate-limit", async (orig) => ({
 vi.mock("@/lib/app-url", () => ({
   appUrl: (p: string) => `https://app.unreceipt.com${p}`,
   absoluteAppUrl: (p: string) => `https://app.unreceipt.com${p}`,
+  iosAppUrl: () => null,
 }));
 
 import { FirmAuthError } from "@/lib/require-firm";
@@ -108,6 +109,13 @@ describe("POST /api/firm/clients", () => {
     expect((await post({ client_name: "", email: "a@b.se" })).status).toBe(400);
     expect((await post({ client_name: "Acme", email: "nope" })).status).toBe(400);
     expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses a company name that would put a web address in our email", async () => {
+    const res = await post({ client_name: "Claim at www.evil.example", email: "anna@acme.se" });
+    expect(res.status).toBe(400);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
   });
 
   it("creates the invite for the session firm and emails the link", async () => {

@@ -151,6 +151,22 @@ export const RATE_LIMITS = {
   // website tab and the iPhone app in the foreground. One rule, so a poll
   // costs one counter call; generous for several tabs plus the phone.
   receiptUpdates: [{ limit: 60, windowSeconds: 60 }],
+  // A client saying "Yes, share" on a firm's join link (POST
+  // /api/firm-connect): one company has one firm, so a few tries is plenty;
+  // the code itself is 128 random bits, so this only stops a loop.
+  firmConnect: [
+    { limit: 20, windowSeconds: 60 * 60 },
+    { limit: 60, windowSeconds: 24 * 60 * 60 },
+  ],
+  // A firm admin making a new join link or turning it off.
+  firmJoinLink: [{ limit: 20, windowSeconds: 60 * 60 }],
+  // "Invite several" (POST /api/firm/clients/bulk), per firm: each call
+  // emails up to 25 typed addresses, so the day's cap keeps a firm's
+  // onboarding possible and a loop from spamming from our domain.
+  firmInviteBulk: [
+    { limit: 4, windowSeconds: 60 * 60 },
+    { limit: 6, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [

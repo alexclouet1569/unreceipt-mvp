@@ -2,13 +2,15 @@
 
 import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
 import { FirmApp, ORG_HB, type DemoParams } from "./_firm-app";
+import type { JoinLinkView } from "@/app/firm/clients/JoinLinkPanel";
 
 const STEPS: TourStep[] = [
   {
     title: "Your clients",
     text: (
       <>
-        Every client company, and how many receipts need a check. Click <b>Add client</b> to invite one by email.
+        Every client company, and how many receipts need a check. Click <b>Add client</b> to invite one by email,
+        or share <b>your firm&apos;s link</b>: clients open it and say yes.
       </>
     ),
   },
@@ -57,11 +59,13 @@ export function AccountantTour({
   view,
   org,
   month,
+  joinLink,
 }: {
   step: number;
   view: DemoParams["view"] | null;
   org: string | null;
   month: string | null;
+  joinLink: JoinLinkView;
 }) {
   const [notice, closeNotice] = useDemoLinkGuard();
   // Each step opens on its own screen; links inside the portal keep the step.
@@ -77,7 +81,7 @@ export function AccountantTour({
       <TourBar steps={STEPS} step={step} hrefFor={(n) => hrefFor(n)} />
       <DemoNotice notice={notice} onClose={closeNotice} />
       {step < STEPS.length ? (
-        <FirmApp params={params} hrefFor={(p) => hrefFor(step, p)} screenKey={String(step)} />
+        <FirmApp params={params} hrefFor={(p) => hrefFor(step, p)} screenKey={String(step)} joinLink={joinLink} />
       ) : (
         <TourEnd
           title="That's the accountant side"

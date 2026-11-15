@@ -8,13 +8,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { isSameHost } from "@/lib/same-origin";
 import { FirmAuthError, firmAuthResponse, requireFirmMember } from "@/lib/require-firm";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
-import { sendEmail, founderReplyTo } from "@/lib/email/send";
-import { firmInviteEmail } from "@/lib/email/templates";
-import { absoluteAppUrl } from "@/lib/app-url";
-import { inviteAcceptPath, inviteExpiry, mintInviteToken } from "@/lib/firm/invites";
+import { createFirmInvite } from "@/lib/firm/create-invite";
+import { isAcceptableDisplayName } from "@/lib/firm/names";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +48,14 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  // The name goes into an email we send: no web or email addresses, no
+  // authority names (src/lib/firm/names.ts), as for a firm's own name.
+  if (!isAcceptableDisplayName(parsed.data.client_name)) {
+    return NextResponse.json(
+      { error: "Use the company's name only, without web or email addresses." },
+      { status: 400 }
+    );
+  }
   const email = normalizeAddress(parsed.data.email);
   if (!email) {
     return NextResponse.json({ error: "That doesn't look like an email address." }, { status: 400 });
@@ -59,46 +64,16 @@ export async function POST(request: NextRequest) {
   const limited = await rateLimit("firmInvite", ctx.user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
-  const { token, hash } = mintInviteToken();
-  const db = getSupabaseAdmin();
-  const { data: inserted, error } = await db
-    .from("firm_clients")
-    .insert({
-      firm_id: ctx.firmId,
-      status: "invited",
-      client_name: parsed.data.client_name,
-      client_org_number: parsed.data.client_org_number,
-      invited_email: email,
-      invite_token_hash: hash,
-      invite_expires_at: inviteExpiry(),
-      invited_by: ctx.user.id,
-    })
-    .select("id")
-    .single();
-  if (error || !inserted) {
-    console.error("[/api/firm/clients] insert failed", error?.code);
+  const outcome = await createFirmInvite({
+    firmId: ctx.firmId,
+    firmName: ctx.firmName,
+    invitedBy: ctx.user.id,
+    clientName: parsed.data.client_name,
+    clientOrgNumber: parsed.data.client_org_number,
+    email,
+  });
+  if (!outcome.ok) {
     return NextResponse.json({ error: "Couldn't save the invite. Try again." }, { status: 500 });
   }
-
-  const content = firmInviteEmail({
-    firmName: ctx.firmName,
-    clientName: parsed.data.client_name,
-    url: absoluteAppUrl(inviteAcceptPath(token)),
-  });
-  const sent = await sendEmail({
-    to: email,
-    ...content,
-    replyTo: founderReplyTo(),
-    tag: "firm_invite",
-  });
-  if (!sent.ok) {
-    // The invite stays: the client can still accept from Settings by
-    // email match, and the firm can resend later.
-    console.error("[/api/firm/clients] invite email failed", sent.reason);
-    return NextResponse.json(
-      { ok: true, id: inserted.id, emailed: false },
-      { status: 201 }
-    );
-  }
-  return NextResponse.json({ ok: true, id: inserted.id, emailed: true }, { status: 201 });
+  return NextResponse.json({ ok: true, id: outcome.id, emailed: outcome.emailed }, { status: 201 });
 }
