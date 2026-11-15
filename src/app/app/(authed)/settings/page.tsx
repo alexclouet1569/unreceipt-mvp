@@ -217,6 +217,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
                   Every email sent to this address becomes a receipt. Set a
                   rule once in Gmail or Outlook and receipts arrive by themselves.
+                  We only see the emails you forward, never your inbox.
                 </span>
               </span>
               <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />

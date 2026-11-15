@@ -143,6 +143,7 @@ export function FirstRun({
             Every email sent to this address becomes a receipt in UnReceipt:
             we read the shop, date, total and VAT. Forward receipts by hand,
             or set a rule once in your email so they arrive by themselves.
+            UnReceipt only sees the emails you forward, never your inbox.
           </Subtitle>
           <div className="w-full max-w-[340px]" style={{ marginBottom: "24px" }}>
             {forwardingEmail ? (

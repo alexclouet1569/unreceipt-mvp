@@ -128,7 +128,7 @@ export default function ForwardingScreen() {
     >
       {data.address ? <ForwardingCard address={data.address} /> : null}
       <View style={styles.facts}>
-        {[s.forwarding.factBecomes, s.forwarding.factWaits, s.forwarding.factPrivate].map((fact) => (
+        {[s.forwarding.factBecomes, s.forwarding.factOnlyForwarded, s.forwarding.factWaits, s.forwarding.factPrivate].map((fact) => (
           <Text key={fact} variant="body" color={colors.inkMuted}>
             {fact}
           </Text>
