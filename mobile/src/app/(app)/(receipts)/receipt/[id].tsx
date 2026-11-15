@@ -245,7 +245,8 @@ export default function ReceiptDetail() {
           onPress={() => (r.original ? void run("original") : Alert.alert(s.detail.noOriginal))}
         />
         <Action icon="pencil" label={s.detail.editShort} onPress={() => edit(routes.edit, r.id, "all")} />
-        <Action icon="trash" label={s.edit.deleteShort} destructive onPress={askDelete} />
+        {/* A client's receipt opened by its accountant: only the owner deletes. */}
+        {routes.firm ? null : <Action icon="trash" label={s.edit.deleteShort} destructive onPress={askDelete} />}
       </View>
     </ScrollView>
   );

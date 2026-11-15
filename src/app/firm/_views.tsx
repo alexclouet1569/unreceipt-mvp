@@ -9,7 +9,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { FirmHeader, FirmTabBar, type FirmLinks, type FirmTabKey } from "./_nav";
 import { EMPTY_STATS, adjacentMonths, monthLabel, type ClientStats } from "@/lib/firm/client-stats";
 import { formatInstantDate } from "@/lib/receipt-format";
-import type { FirmClient, FirmMemberRole, Receipt } from "@/lib/types";
+import type { FirmMemberRole, Receipt } from "@/lib/types";
 import { AddClientDialog } from "./clients/AddClientDialog";
 import { JoinLinkPanel, type JoinLinkView } from "./clients/JoinLinkPanel";
 import { RevokeInviteButton } from "./clients/RevokeInviteButton";
