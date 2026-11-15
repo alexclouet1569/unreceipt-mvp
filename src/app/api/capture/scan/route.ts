@@ -31,7 +31,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { hasProductAccess, subscriptionRequiredResponse } from "@/lib/subscription-gate";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { receiptOrganizationFor } from "@/lib/team/membership";
 import { homeCurrencyOf } from "@/lib/fx";
 import { extractReceipt, type OcrMediaType } from "@/lib/ocr";
 import { computeReceiptStatus, missingFieldsText, missingRequiredFields } from "@/lib/receipts/status";
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getSupabaseAdmin();
-  const organizationPromise = getOrCreateDefaultOrganization(user.id);
+  const organizationPromise = receiptOrganizationFor(user.id);
   organizationPromise.catch(() => {});
 
   let ocr;

@@ -32,7 +32,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage } from "@/lib/usage";
-import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { receiptOrganizationFor } from "@/lib/team/membership";
 import { parseReceipt } from "@/lib/receipts/parser";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import type { ReceiptIntakeChannel, ReceiptStatus } from "@/lib/types";
@@ -249,7 +249,7 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
   };
   let parseResult: Awaited<ReturnType<typeof parseReceipt>> = await parseText(attachment !== null);
 
-  const organizationId = input.organizationId ?? (await getOrCreateDefaultOrganization(userId));
+  const organizationId = input.organizationId ?? (await receiptOrganizationFor(userId));
   // The company's own currency for a receipt whose currency wasn't read
   // (the column's default would make it EUR), as /api/capture/scan does.
   let homeCurrency: string | null = null;

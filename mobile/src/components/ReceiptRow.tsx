@@ -7,6 +7,15 @@ import type { MobileReceipt } from "@/lib/mobile/types";
 import { fill, joinList, locale, s } from "../i18n";
 import { formatMoney, parseReceiptDate, shortDate } from "../lib/format";
 import { getMerchantColor, getMerchantInitials } from "../lib/merchant";
+import { approvalRowLabel, type ApprovalRowLabel } from "../lib/approval";
+
+const ROW_LABEL: Record<ApprovalRowLabel, () => string> = {
+  toSend: () => s.approval.rowToSend,
+  sent: () => s.approval.rowSent,
+  approved: () => s.approval.rowApproved,
+  sentBack: () => s.approval.rowSentBack,
+  rejected: () => s.approval.rowRejected,
+};
 import { fonts, radius, space, makeStyles, useColors } from "../theme";
 import { Money } from "./Money";
 import { PressableScale } from "./PressableScale";
@@ -51,6 +60,9 @@ export function ReceiptRow({
   const missing = missingText(r);
   const review = r.status === "pending_review";
   const converted = convertedAmount(r);
+  const approvalKey = review ? null : approvalRowLabel(r);
+  const approvalText = approvalKey ? ROW_LABEL[approvalKey]() : null;
+  const approvalNeedsMe = approvalKey === "toSend" || approvalKey === "sentBack";
   const meta = [s.categories[r.category], date ? shortDate(date, locale) : null].filter(Boolean).join(" · ");
 
   // Everything a sighted person reads on the card, in reading order.
@@ -59,6 +71,7 @@ export function ReceiptRow({
     r.total != null ? formatMoney(r.total, r.currency, locale) : null,
     converted,
     review ? (missing ?? s.receipts.toConfirm) : null,
+    approvalText,
     meta,
   ]
     .filter(Boolean)
@@ -76,7 +89,7 @@ export function ReceiptRow({
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === "delete") onDelete?.();
       }}
-      style={[styles.card, review && styles.review]}
+      style={[styles.card, (review || approvalNeedsMe) && styles.review]}
     >
       <View style={[styles.block, { backgroundColor: getMerchantColor(r.merchant) }]}>
         <Text style={styles.initials} color={colors.white}>
@@ -95,6 +108,15 @@ export function ReceiptRow({
               color={missing ? colors.negative : colors.attentionDeep}
             >
               {missing ?? s.receipts.toConfirm}
+              {" · "}
+            </Text>
+          ) : approvalText ? (
+            <Text
+              variant="caption"
+              style={styles.flag}
+              color={approvalKey === "rejected" ? colors.negative : approvalNeedsMe ? colors.attentionDeep : colors.inkMuted}
+            >
+              {approvalText}
               {" · "}
             </Text>
           ) : null}

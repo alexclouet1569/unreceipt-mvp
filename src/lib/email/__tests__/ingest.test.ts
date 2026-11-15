@@ -21,6 +21,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/usage", () => ({ recordReceiptUsage: mocks.usage }));
 vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: mocks.org }));
+// Not an employee anywhere: the user's own company (src/lib/team/membership.ts).
+vi.mock("@/lib/team/membership", () => ({
+  receiptOrganizationFor: (userId: string) => (mocks.org as unknown as (id: string) => unknown)(userId),
+  billingUserFor: async (userId: string) => userId,
+}));
 vi.mock("@/lib/owner-addresses", () => ({ loadOwnerAddresses: mocks.owner }));
 vi.mock("@/lib/receipts/parser", () => ({ parseReceipt: mocks.parseReceipt }));
 vi.mock("@/lib/ocr", () => ({ extractReceipt: mocks.ocr, CLAUDE_CALL_BUDGET_MS: 25_000 }));

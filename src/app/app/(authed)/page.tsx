@@ -13,6 +13,8 @@ import { getUsage } from "@/lib/usage";
 import { usageNotice, type UsageNotice } from "@/lib/usage-copy";
 import { loadConnectedEmails, loadMailboxProviders } from "./settings/mailboxes/load";
 import { NO_PROVIDERS, anyProvider } from "./settings/mailboxes/copy";
+import { findWaitingTeamInvites } from "@/lib/team/invites";
+import { TeamNotice } from "./_team-notice";
 
 // The gate reads cookies + DB on every request — never cache.
 export const dynamic = "force-dynamic";
@@ -70,8 +72,10 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     return <SelfHealSpinner />;
   }
 
-  const { receipts, forwardingEmail, showOnboarding, accountantInvites, homeCurrency, older } =
+  const { receipts, forwardingEmail, showOnboarding, accountantInvites, homeCurrency, older, team } =
     home.data;
+  // A company added this address to its team: offered on /app, joined on /app/team-join.
+  const teamInvites = team === null || team.role === "owner" ? await findWaitingTeamInvites(user) : [];
 
   // Shared concierge SMS/WhatsApp line (step 7). When unset, the empty
   // state degrades to email-only — production should set this once the
@@ -92,6 +96,8 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       : [];
 
   const dashboard = (
+    <>
+    <TeamNotice team={team} invites={teamInvites} />
     <Dashboard
       userEmail={user.email ?? ""}
       receipts={receipts}
@@ -105,6 +111,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       connectedMailboxes={connectedMailboxes}
       liveUpdatesUserId={user.id}
     />
+    </>
   );
 
   if (home.access !== "active") {

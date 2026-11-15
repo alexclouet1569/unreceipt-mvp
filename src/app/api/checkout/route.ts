@@ -1,3 +1,4 @@
+import { getEmployment } from "@/lib/team/membership";
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
@@ -27,6 +28,20 @@ export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // An employee works under their company's plan (the owner's,
+  // src/lib/team/membership.ts): a plan of their own would be charged and
+  // never used. Fail closed when we can't tell.
+  try {
+    if (await getEmployment(user.id)) {
+      return NextResponse.json(
+        { error: "You're part of a company team: its owner manages the plan." },
+        { status: 409 }
+      );
+    }
+  } catch {
+    return NextResponse.json({ error: "Couldn't check your account. Try again." }, { status: 503 });
   }
 
   const parsed = CheckoutBody.safeParse(await request.json().catch(() => null));

@@ -31,7 +31,9 @@ export async function loadAccountantLinks(user: User): Promise<AccountantLink[]>
   const { data: memberships } = await db
     .from("memberships")
     .select("organization_id")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    // The companies the user owns: an employee doesn't manage their employer's accountant.
+    .eq("role", "owner");
   const organizationIds = (memberships ?? []).map((m) => m.organization_id as string);
 
   // Invites are stored normalised (normalizeAddress): compare the same way.

@@ -13,6 +13,7 @@
 // recordReceiptUsage() never throws — a usage or Stripe hiccup must not
 // lose the customer's receipt. Failures are logged and sent to Sentry.
 
+import { billingUserFor } from "./team/membership";
 import * as Sentry from "@sentry/nextjs";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
@@ -150,6 +151,9 @@ export async function recordReceiptUsage(input: {
   source: UsageSource;
 }): Promise<void> {
   try {
+    // An employee's receipts count toward their company's plan (its first
+    // owner's subscription, src/lib/team/membership.ts).
+    input = { ...input, userId: await billingUserFor(input.userId) };
     const db = getSupabaseAdmin();
     const { data: row, error } = await db
       .from("receipt_usage")

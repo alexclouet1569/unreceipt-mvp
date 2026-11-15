@@ -32,7 +32,10 @@ export type OutgoingEmail = {
     | "missing_receipts"
     | "weekly_reminder"
     | "manual_reminder"
-    | "firm_welcome";
+    | "firm_welcome"
+    | "team_invite"
+    | "approval_request"
+    | "approval_decision";
 };
 
 export type SendResult =

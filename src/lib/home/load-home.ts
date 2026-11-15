@@ -18,7 +18,9 @@ import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { olderSummary } from "@/lib/analytics/aggregate";
 import { loadSummaryRows } from "@/lib/analytics/load";
-import type { OlderSummary } from "@/lib/mobile/types";
+import type { MobileTeam, OlderSummary } from "@/lib/mobile/types";
+import { getEmployment } from "@/lib/team/membership";
+import { loadHomeTeam } from "@/lib/team/decisions";
 import type { Receipt } from "@/lib/types";
 
 export const RECENT_RECEIPTS_LIMIT = 50;
@@ -42,6 +44,8 @@ export type HomeData = {
    * Null when it couldn't be read: the screens then count their list only.
    */
   older: OlderSummary | null;
+  /** The person's company team (approvals), null when they work alone. */
+  team: MobileTeam | null;
 };
 
 export type HomeLoad =
@@ -218,7 +222,7 @@ export async function loadHome(
   // profile (alias) and company (currency) are read here too, so a normal
   // load needs only one more round: converting amounts and summing older
   // receipts, side by side.
-  const [firmMembership, gate, loadedReceipts, profile, accountantInvites, existingOrg] =
+  const [firmMembership, gate, loadedReceipts, profile, accountantInvites, existingOrg, employment, team] =
     await Promise.all([
       getFirmMembership(user.id),
       checkSubscriptionGate(user.id, sessionId),
@@ -226,6 +230,9 @@ export async function loadHome(
       loadProfileBits(user.id),
       loadPendingInvites(user),
       readDefaultOrganization(user.id),
+      // An employee's receipts are in their employer's currency.
+      getEmployment(user.id).catch(() => null),
+      loadHomeTeam(user.id),
     ]);
 
   // Checked before the gate's answer and before any lazy mint below.
@@ -265,9 +272,11 @@ export async function loadHome(
   // trigger, and SEK.
   const [aliasHash, homeCurrency] = await Promise.all([
     profile.aliasHash ?? getOrCreateAliasForUser(user.id),
-    existingOrg
-      ? existingOrg.currency
-      : getOrCreateDefaultOrganization(user.id).then((id) => homeCurrencyOf(id)),
+    employment
+      ? homeCurrencyOf(employment.organizationId)
+      : existingOrg
+        ? existingOrg.currency
+        : getOrCreateDefaultOrganization(user.id).then((id) => homeCurrencyOf(id)),
   ]);
 
   // Amounts in the company's currency next to foreign ones (src/lib/fx.ts).
@@ -297,6 +306,7 @@ export async function loadHome(
       accountantInvites,
       homeCurrency,
       older,
+      team,
     },
   };
 }

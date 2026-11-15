@@ -8,6 +8,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { getSupabaseAdmin } from "./supabase-admin";
 import { isPilotMode } from "./pilot";
+import { billingUserFor } from "./team/membership";
 
 export type GateResult =
   | { kind: "allow" }
@@ -28,10 +29,12 @@ export async function checkSubscriptionGate(
   }
 
   try {
+    // An employee works under their company's plan (its first owner's).
+    const billingUser = await billingUserFor(userId);
     const { data, error } = await getSupabaseAdmin()
       .from("subscriptions")
       .select("status, current_period_end, trial_end")
-      .eq("user_id", userId)
+      .eq("user_id", billingUser)
       // Most recent row wins. Customers can churn-and-resubscribe; the
       // latest sub is the one that matters for gating.
       .order("created_at", { ascending: false })

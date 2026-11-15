@@ -9,6 +9,8 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "../supabase-admin";
 import type { Receipt } from "../types";
 import { isFirmVisible } from "../firm/visibility";
+import { loadTeam, TeamReadError } from "../team/membership";
+import { canDecide } from "../team/rules";
 
 export class ReceiptAccessError extends Error {
   constructor(message = "receipt lookup failed") {
@@ -19,7 +21,10 @@ export class ReceiptAccessError extends Error {
 
 export type ReceiptAccess =
   | { receipt: Receipt; via: "owner" }
-  | { receipt: Receipt; via: "firm"; firmId: string };
+  | { receipt: Receipt; via: "firm"; firmId: string }
+  // An owner or approver of the employee's company, once the employee sent
+  // it (src/lib/team/rules.ts): may look, never edit or delete.
+  | { receipt: Receipt; via: "approver" };
 
 /**
  * Reads the receipt with the service role and decides whether `user` may
@@ -43,6 +48,18 @@ export async function loadReceiptForActor(
 
   if (receipt.user_id === user.id) return { receipt, via: "owner" };
   if (!receipt.organization_id) return null;
+
+  // A colleague who decides on this employee's receipts, once it was sent
+  // (a draft is still the employee's alone).
+  if (receipt.approval_status && receipt.approval_status !== "draft") {
+    try {
+      const team = await loadTeam(receipt.organization_id);
+      if (canDecide(user.id, receipt.user_id, team)) return { receipt, via: "approver" };
+    } catch (err) {
+      if (err instanceof TeamReadError) throw new ReceiptAccessError();
+      throw err;
+    }
+  }
   // A mailbox receipt the owner hasn't confirmed is the owner's alone
   // (src/lib/firm/visibility.ts): to the firm it doesn't exist.
   if (!isFirmVisible(receipt)) return null;

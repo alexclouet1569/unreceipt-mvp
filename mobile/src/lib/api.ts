@@ -4,6 +4,7 @@
 import Constants from "expo-constants";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import type {
+  ApprovalQueueItem,
   MobileAccount,
   MobileAnalytics,
   MobileAnalyticsReceipts,
@@ -288,3 +289,10 @@ export const disconnectMailbox = (id: string) =>
   apiResult<{ ok: true; revoked?: boolean }>(`/api/mailboxes/${encodeURIComponent(id)}`, { method: "DELETE" }, {
     timeoutMs: 35_000,
   });
+
+// Company team (2026-11-15): the same routes as the website.
+export const getApprovalQueue = () => api<{ items: ApprovalQueueItem[] }>("/api/team/approvals");
+export const submitForApproval = (receiptId: string, paidBy: "employee" | "company") =>
+  postJson<{ ok: true; approvedBy: string | null }>(`/api/receipts/${receiptId}/submit`, { paidBy });
+export const decideOnReceipt = (receiptId: string, decision: "approve" | "send_back" | "reject", comment: string | null) =>
+  postJson<{ ok: true }>(`/api/receipts/${receiptId}/decision`, { decision, comment });

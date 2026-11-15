@@ -41,7 +41,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 }));
 
 import { FirmAuthError } from "@/lib/require-firm";
-import { FIRM_VISIBLE_FILTER } from "@/lib/firm/visibility";
+import { FIRM_APPROVED_FILTER, FIRM_VISIBLE_FILTER } from "@/lib/firm/visibility";
 import { POST } from "@/app/api/firm/clients/[orgId]/receipts/book/route";
 
 const ORG = "33333333-3333-4333-8333-333333333333";
@@ -70,7 +70,7 @@ describe("POST /api/firm/clients/[orgId]/receipts/book", () => {
     expect(await res.json()).toEqual({ ok: true, updated: 1 });
     expect(mocks.update.mock.calls[0][0]).toMatchObject({ booked_by: "u-staff", booked_ref: "A 12" });
     // A mailbox receipt the owner hasn't confirmed is skipped like a foreign id.
-    expect(mocks.filters).toEqual([["id", [R1]], ["organization_id", ORG], ["or", FIRM_VISIBLE_FILTER]]);
+    expect(mocks.filters).toEqual([["id", [R1]], ["organization_id", ORG], ["or", FIRM_VISIBLE_FILTER], ["or", FIRM_APPROVED_FILTER]]);
   });
 
   it("clears the mark", async () => {

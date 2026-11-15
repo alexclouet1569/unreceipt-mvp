@@ -10,7 +10,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { recordReceiptUsage } from "@/lib/usage";
-import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { receiptOrganizationFor } from "@/lib/team/membership";
 import { isOwnStagedPath, STAGING_BUCKET, stagedType } from "@/lib/receipts/staging";
 import {
   MAX_AMOUNT,
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
 
   // Which company the receipt belongs to (the firm portal filters on it).
   // Doesn't depend on the photo, so it runs while the photo is stored.
-  const organizationPromise = getOrCreateDefaultOrganization(user.id);
+  const organizationPromise = receiptOrganizationFor(user.id);
   // An early return below must not leave its failure unhandled.
   organizationPromise.catch(() => {});
 

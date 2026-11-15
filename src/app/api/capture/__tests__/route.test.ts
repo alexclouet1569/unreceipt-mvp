@@ -22,6 +22,11 @@ const usageMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/usage", () => ({ recordReceiptUsage: usageMock }));
 const orgMock = vi.hoisted(() => vi.fn(async () => "org-1"));
 vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: orgMock }));
+// Not an employee anywhere: the user's own company (src/lib/team/membership.ts).
+vi.mock("@/lib/team/membership", () => ({
+  receiptOrganizationFor: (userId: string) => (orgMock as unknown as (id: string) => unknown)(userId),
+  billingUserFor: async (userId: string) => userId,
+}));
 
 const rateLimitMock = vi.hoisted(() =>
   vi.fn(async (): Promise<{ ok: true } | { ok: false; retryAfterSeconds: number }> => ({ ok: true }))

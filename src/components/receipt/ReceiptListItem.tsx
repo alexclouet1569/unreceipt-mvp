@@ -15,6 +15,15 @@ type ReceiptListItemProps = {
   onClick?: () => void;
 };
 
+
+const APPROVAL_LABEL: Record<string, string> = {
+  draft: "To send",
+  submitted: "Sent for approval",
+  approved: "Approved",
+  sent_back: "Sent back",
+  rejected: "Rejected",
+};
+
 export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
   const config = CATEGORY_CONFIG[receipt.category];
   const interactive = Boolean(onClick);
@@ -121,6 +130,25 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
                     To confirm
                   </span>
                 )}
+                <span style={{ margin: "0 6px" }} aria-hidden="true">
+                  ·
+                </span>
+              </>
+            ) : receipt.approval_status && APPROVAL_LABEL[receipt.approval_status] ? (
+              <>
+                {/* An employee's receipt (2026-11-15): where it is in the approval. */}
+                <span
+                  className={
+                    receipt.approval_status === "sent_back" || receipt.approval_status === "draft"
+                      ? "text-[var(--attention-deep)]"
+                      : receipt.approval_status === "rejected"
+                        ? "text-[var(--negative)]"
+                        : undefined
+                  }
+                  style={{ fontWeight: 600 }}
+                >
+                  {APPROVAL_LABEL[receipt.approval_status]}
+                </span>
                 <span style={{ margin: "0 6px" }} aria-hidden="true">
                   ·
                 </span>
