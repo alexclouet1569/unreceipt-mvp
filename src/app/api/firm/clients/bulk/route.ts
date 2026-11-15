@@ -4,8 +4,9 @@
 // email). Firm-only (requireFirmMember first; the firm comes from the
 // session), same-origin, rate limited per firm (firmInviteBulk) because it
 // emails typed addresses. Addresses this firm already invited (still
-// waiting) or already works with are skipped, not emailed again. Without a
-// company name, the address stands in for it until the client connects.
+// waiting) or already works with are skipped, not emailed again. A typed
+// company name is checked like a firm's (isAcceptableDisplayName); without
+// one, the address stands in for it until the client connects.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -16,6 +17,7 @@ import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
 import { createFirmInvite } from "@/lib/firm/create-invite";
 import { MAX_BULK } from "@/lib/firm/bulk-lines";
+import { isAcceptableDisplayName } from "@/lib/firm/names";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +35,7 @@ const BodySchema = z.object({
     .max(MAX_BULK),
 });
 
-type Line = { email: string; status: "sent" | "saved" | "skipped" | "invalid" | "failed" };
+type Line = { email: string; status: "sent" | "saved" | "skipped" | "invalid" | "bad_name" | "failed" };
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
@@ -67,7 +69,14 @@ export async function POST(request: NextRequest) {
     }
     if (seen.has(email)) continue;
     seen.add(email);
-    todo.push({ email, name: row.client_name && row.client_name.length > 0 ? row.client_name : email });
+    // A typed name goes into the email: checked like a firm's own name. An
+    // address standing in for a missing name is the client's own.
+    const typed = row.client_name && row.client_name.length > 0 ? row.client_name : null;
+    if (typed && !isAcceptableDisplayName(typed)) {
+      lines.push({ email, status: "bad_name" });
+      continue;
+    }
+    todo.push({ email, name: typed ?? email });
   }
 
   // Already waiting for this firm, or already its client.

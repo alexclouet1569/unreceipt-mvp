@@ -74,6 +74,14 @@ describe("POST /api/firm/clients/bulk", () => {
     expect(m.limit).toHaveBeenCalledWith("firmInviteBulk", "firm-1");
   });
 
+  it("refuses a typed company name with a web address, but never the address standing in for a name", async () => {
+    const res = await POST(req([{ client_name: "Visit www.evil.example now", email: "a@b.se" }, { email: "c@d.se" }]));
+    const { lines } = await res.json();
+    expect(lines).toContainEqual({ email: "a@b.se", status: "bad_name" });
+    expect(m.create).toHaveBeenCalledTimes(1);
+    expect(m.create).toHaveBeenCalledWith(expect.objectContaining({ email: "c@d.se", clientName: "c@d.se" }));
+  });
+
   it("uses the address as the name when none is given", async () => {
     await POST(req([{ email: "anna@hallonbygg.se" }]));
     expect(m.create).toHaveBeenCalledWith(expect.objectContaining({ clientName: "anna@hallonbygg.se" }));

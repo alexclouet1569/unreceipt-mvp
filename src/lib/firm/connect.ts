@@ -5,19 +5,24 @@
 // (/api/accountant/respond): the caller's own default company, one active
 // firm per company (firm_clients_active_org_unique), a confirmation email to
 // the client, and any request the company sent to another accountant
-// withdrawn. Also: the firm's own staff can't connect to their own firm,
-// and this firm's waiting invites to the caller's address are closed (the
-// link now exists).
+// withdrawn. Also: the caller's address must be confirmed (it is stored on
+// the link and closes this firm's waiting invites to it); the firm's own
+// staff can't connect to their own firm; and someone a firm has added as
+// staff (a waiting seat) joins that firm first on /app/firm-join, as on
+// the firm-request page, because any firm admin can add any address.
 
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { getDefaultOrganizationId, getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
 import { sendLinkConfirmation } from "./link-emails";
 import type { JoinTarget } from "./join-link";
 
 export type ConnectState =
   | { kind: "open"; companyName: string | null }
+  | { kind: "unconfirmed" }
+  | { kind: "join_firm_first"; firmName: string }
   | { kind: "own_firm" }
   | { kind: "already" }
   | { kind: "other_firm"; firmName: string };
@@ -61,9 +66,21 @@ async function companyNameOf(organizationId: string): Promise<string | null> {
   return (data?.name as string | undefined) ?? null;
 }
 
+/** Refusals that come before the company is looked at. */
+async function blockedFor(user: User, target: JoinTarget): Promise<ConnectState | null> {
+  if (!normalizedSessionEmail(user)) return { kind: "unconfirmed" };
+  if (await isMemberOfFirm(user.id, target.firmId)) return { kind: "own_firm" };
+  if (!(await getFirmMembership(user.id))) {
+    const seat = await findPendingFirmSeat(user);
+    if (seat) return { kind: "join_firm_first", firmName: seat.firmName };
+  }
+  return null;
+}
+
 /** What the join page offers the signed-in user. Reads only; creates nothing. */
 export async function connectState(user: User, target: JoinTarget): Promise<ConnectState> {
-  if (await isMemberOfFirm(user.id, target.firmId)) return { kind: "own_firm" };
+  const blocked = await blockedFor(user, target);
+  if (blocked) return blocked;
   const organizationId = await getDefaultOrganizationId(user.id);
   if (!organizationId) return { kind: "open", companyName: null };
   const active = await activeLinkOf(organizationId);
@@ -74,17 +91,19 @@ export async function connectState(user: User, target: JoinTarget): Promise<Conn
 
 export type ConnectResult =
   | { ok: true }
-  | { ok: false; reason: "own_firm" | "already" | "other_firm" | "failed" };
+  | { ok: false; reason: "unconfirmed" | "join_firm_first" | "own_firm" | "already" | "other_firm" | "failed" };
 
 /** "Yes, share": links the caller's company to the firm. */
 export async function connectToFirm(user: User, target: JoinTarget): Promise<ConnectResult> {
-  if (await isMemberOfFirm(user.id, target.firmId)) return { ok: false, reason: "own_firm" };
+  const blocked = await blockedFor(user, target);
+  if (blocked) return { ok: false, reason: blocked.kind as "unconfirmed" | "join_firm_first" | "own_firm" };
   const organizationId = await getOrCreateDefaultOrganization(user.id);
   if (!organizationId) return { ok: false, reason: "failed" };
   const active = await activeLinkOf(organizationId);
   if (active) return { ok: false, reason: active.firmId === target.firmId ? "already" : "other_firm" };
 
-  const email = normalizedSessionEmail(user) ?? (user.email ?? "").toLowerCase();
+  // Confirmed (blockedFor), so never the raw, unconfirmed address.
+  const email = normalizedSessionEmail(user) as string;
   const companyName = (await companyNameOf(organizationId)) ?? email;
   const now = new Date().toISOString();
   const db = getSupabaseAdmin();
@@ -121,15 +140,13 @@ export async function connectToFirm(user: User, target: JoinTarget): Promise<Con
       .eq("direction", "client")
       .eq("status", "invited"),
     // This firm's own waiting invites to the same address.
-    email
-      ? db
-          .from("firm_clients")
-          .update(closed)
-          .eq("firm_id", target.firmId)
-          .eq("direction", "firm")
-          .eq("status", "invited")
-          .eq("invited_email", email)
-      : Promise.resolve({ error: null }),
+    db
+      .from("firm_clients")
+      .update(closed)
+      .eq("firm_id", target.firmId)
+      .eq("direction", "firm")
+      .eq("status", "invited")
+      .eq("invited_email", email),
   ]);
   if (withdrawn.error) console.error("[firm-connect] withdraw requests failed", withdrawn.error.code);
   if (superseded.error) console.error("[firm-connect] close invites failed", superseded.error.code);

@@ -22,6 +22,11 @@ const BodySchema = z.object({ code: z.string().max(64) });
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 const REFUSALS = {
+  unconfirmed: { status: 403, message: "Confirm your email address first, then open the link again." },
+  join_firm_first: {
+    status: 409,
+    message: "Your address was added to an accounting firm's staff. Join that firm or say it isn't you first.",
+  },
   own_firm: { status: 409, message: "This is your own firm's link. Share it with your clients." },
   already: { status: 409, message: "Your company already shares its receipts with this firm." },
   other_firm: {

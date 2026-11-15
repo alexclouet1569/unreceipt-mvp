@@ -103,6 +103,27 @@ export function ConnectCard({
       </div>
     );
   }
+  if (state.kind === "unconfirmed") {
+    return (
+      <Notice title="Confirm your email first">
+        Open the confirmation email we sent when you signed up, then open {firmName}&apos;s link again.
+      </Notice>
+    );
+  }
+  if (state.kind === "join_firm_first") {
+    return (
+      <div className="space-y-2">
+        <Title>Join {state.firmName} first</Title>
+        <p className="type-body text-[var(--ink-muted)]">
+          {state.firmName} has added your address to its staff. Join it, or tell us it isn&apos;t you, before you share
+          your own company&apos;s receipts.
+        </p>
+        <Link href="/app/firm-join" className={cn(buttonVariants({ variant: "outline" }), "h-11")}>
+          Go to the invitation
+        </Link>
+      </div>
+    );
+  }
   if (state.kind === "own_firm") {
     return (
       <Notice title="This is your firm's own link">

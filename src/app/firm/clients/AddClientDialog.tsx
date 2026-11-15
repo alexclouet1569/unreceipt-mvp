@@ -181,13 +181,14 @@ export function AddClientDialog() {
   );
 }
 
-type BulkLine = { email: string; status: "sent" | "saved" | "skipped" | "invalid" | "failed" };
+type BulkLine = { email: string; status: "sent" | "saved" | "skipped" | "invalid" | "bad_name" | "failed" };
 
 const LINE_LABEL: Record<BulkLine["status"], string> = {
   sent: "invite sent",
   saved: "saved, email not sent",
   skipped: "already invited or connected",
   invalid: "not an email address",
+  bad_name: "company name not accepted (no web or email addresses)",
   failed: "not saved, try again",
 };
 
@@ -254,7 +255,7 @@ function InviteSeveral({ onClose }: { onClose: (message: string | null) => void 
           {result.map((l) => (
             <li key={`${l.email}-${l.status}`} className="flex flex-wrap justify-between gap-x-3 px-3 py-2 type-caption">
               <span className="break-all text-[var(--ink)]">{l.email}</span>
-              <span className={l.status === "failed" || l.status === "invalid" ? "text-[var(--attention-deep)]" : "text-[var(--ink-muted)]"}>
+              <span className={l.status === "failed" || l.status === "invalid" || l.status === "bad_name" ? "text-[var(--attention-deep)]" : "text-[var(--ink-muted)]"}>
                 {LINE_LABEL[l.status]}
               </span>
             </li>

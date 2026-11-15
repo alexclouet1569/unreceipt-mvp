@@ -41,6 +41,11 @@ vi.mock("@/lib/organizations", () => ({
 }));
 const confirm = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("../link-emails", () => ({ sendLinkConfirmation: confirm }));
+const seats = vi.hoisted(() => ({ membership: null as unknown, pending: null as { firmName: string } | null }));
+vi.mock("@/lib/require-firm", () => ({
+  getFirmMembership: async () => seats.membership,
+  findPendingFirmSeat: async () => seats.pending,
+}));
 
 import { connectState, connectToFirm } from "../connect";
 
@@ -65,6 +70,8 @@ function world(opts: { member?: boolean; activeFirm?: string | null; insertError
 beforeEach(() => {
   db.calls = [];
   orgs.existing = "org-1";
+  seats.membership = null;
+  seats.pending = null;
   confirm.mockClear();
 });
 
@@ -132,5 +139,25 @@ describe("connectToFirm (Yes, share)", () => {
     expect(result.ok).toBe(false);
     expect(db.calls.some((c) => c.op === "update")).toBe(false);
     expect(confirm).not.toHaveBeenCalled();
+  });
+});
+
+describe("refusals before anything is written (security review 2026-11-15)", () => {
+  it("needs a confirmed address: an unconfirmed one could close the real person's invite", async () => {
+    world();
+    const unconfirmed = { ...USER, email_confirmed_at: null, confirmed_at: null } as unknown as User;
+    expect(await connectState(unconfirmed, TARGET)).toEqual({ kind: "unconfirmed" });
+    expect(await connectToFirm(unconfirmed, TARGET)).toEqual({ ok: false, reason: "unconfirmed" });
+    expect(db.calls.some((c) => c.op !== "select")).toBe(false);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("sends someone with a waiting staff seat to join that firm first, without creating a company", async () => {
+    world();
+    seats.pending = { firmName: "Annan Byrå" };
+    orgs.existing = null;
+    expect(await connectState(USER, TARGET)).toEqual({ kind: "join_firm_first", firmName: "Annan Byrå" });
+    expect(await connectToFirm(USER, TARGET)).toEqual({ ok: false, reason: "join_firm_first" });
+    expect(db.calls.some((c) => c.op !== "select")).toBe(false);
   });
 });

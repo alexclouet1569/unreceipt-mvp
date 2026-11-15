@@ -11,6 +11,7 @@ import { FirmAuthError, firmAuthResponse, requireFirmMember } from "@/lib/requir
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
 import { createFirmInvite } from "@/lib/firm/create-invite";
+import { isAcceptableDisplayName } from "@/lib/firm/names";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +45,14 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Check the form." },
+      { status: 400 }
+    );
+  }
+  // The name goes into an email we send: no web or email addresses, no
+  // authority names (src/lib/firm/names.ts), as for a firm's own name.
+  if (!isAcceptableDisplayName(parsed.data.client_name)) {
+    return NextResponse.json(
+      { error: "Use the company's name only, without web or email addresses." },
       { status: 400 }
     );
   }

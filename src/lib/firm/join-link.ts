@@ -82,12 +82,16 @@ export async function loadJoinTarget(code: string): Promise<JoinTarget | null> {
   const { data, error } = await db.from("firms").select("id, name").eq("join_code", code).maybeSingle();
   if (error) throw new JoinLinkError(error.message);
   if (!data) return null;
-  // The firm's first admin (the one who set it up), as on its emails' Reply-To.
+  // The firm's first admin who has signed in (as the weekly reminder's
+  // Reply-To): a claimed seat's address matched a confirmed session email.
+  // A waiting seat is only an address someone typed, so it never vouches for
+  // the firm (security review 2026-11-15).
   const { data: admin, error: adminError } = await db
     .from("firm_members")
     .select("email")
     .eq("firm_id", data.id)
     .eq("role", "admin")
+    .not("user_id", "is", null)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
