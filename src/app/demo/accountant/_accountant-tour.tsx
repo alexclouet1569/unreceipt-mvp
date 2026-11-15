@@ -41,6 +41,9 @@ const STEPS: TourStep[] = [
   { title: "That's it", text: "Your clients' receipts arrive checked and ready, every month." },
 ];
 
+/** The tour's steps, for the test that keeps steps.ts in step with them. */
+export const ACCOUNTANT_STEPS = STEPS;
+
 const hrefFor = (step: number, p: Partial<DemoParams> = {}) => {
   const q = new URLSearchParams({ step: String(step) });
   if (p.view) q.set("view", p.view);

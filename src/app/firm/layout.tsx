@@ -1,6 +1,5 @@
 import { requireFirmMemberPage } from "@/lib/require-firm";
 import { hasAnyMembership } from "@/lib/organizations";
-import { FirmNav } from "./_nav";
 import { FirmShell } from "./_views";
 
 // The gate reads cookies + DB on every request — never cache.
@@ -27,7 +26,7 @@ export default async function FirmLayout({
     <FirmShell
       firmName={ctx.firmName}
       homeHref="/firm/clients"
-      nav={<FirmNav alsoCustomer={alsoCustomer} />}
+      links={{ clients: "/firm/clients", settings: "/firm/settings", ownReceipts: alsoCustomer ? "/app" : null }}
     >
       {children}
     </FirmShell>
