@@ -4,10 +4,12 @@ import type { Receipt } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   loadHome: vi.fn(),
+  membership: vi.fn(async () => null as unknown),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: mocks.getServerUser }));
 vi.mock("@/lib/home/load-home", () => ({ loadHome: mocks.loadHome }));
+vi.mock("@/lib/require-firm", () => ({ getFirmMembership: () => mocks.membership() }));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { GET } from "@/app/api/mobile/home/route";
@@ -65,7 +67,16 @@ describe("GET /api/mobile/home", () => {
 
   it("tells firm-only staff apart, and gives a neutral state without a plan", async () => {
     mocks.loadHome.mockResolvedValueOnce({ kind: "firm_only" });
-    expect(await (await GET()).json()).toEqual({ state: "firm_only", email: USER.email });
+    expect(await (await GET()).json()).toEqual({ state: "firm_only", email: USER.email, firm: null });
+
+    // A member of a firm gets the Clients tab (a claimed seat only).
+    mocks.loadHome.mockResolvedValueOnce({ kind: "firm_only" });
+    mocks.membership.mockResolvedValueOnce({ firmId: "f1", firmName: "Byrån AB", role: "admin", memberId: "m1" });
+    expect(await (await GET()).json()).toEqual({
+      state: "firm_only",
+      email: USER.email,
+      firm: { name: "Byrån AB", role: "admin" },
+    });
 
     mocks.loadHome.mockResolvedValueOnce({ kind: "subscribe" });
     expect(await (await GET()).json()).toEqual({ state: "inactive", email: USER.email });

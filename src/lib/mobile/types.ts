@@ -87,9 +87,13 @@ export type MobileReceiptDetail = {
   pdfReady: boolean;
 };
 
+/** The accounting firm the signed-in user works at (Clients tab), if any. */
+export type MobileFirmRef = { name: string; role: "admin" | "staff" };
+
 export type MobileHome =
-  // Firm staff without a company: the app tells them to use the web portal.
-  | { state: "firm_only"; email: string }
+  // Firm staff without a company: the app shows the Clients tab when `firm`
+  // is set (a member), else a calm screen (a seat still to join on the web).
+  | { state: "firm_only"; email: string; firm?: MobileFirmRef | null }
   // No active plan. The app shows a neutral screen: no price, no link
   // (App Store 3.1.3(f), AGENTS.md → Store apps).
   | { state: "inactive"; email: string }
@@ -101,6 +105,8 @@ export type MobileHome =
       forwardingEmail: string;
       showOnboarding: boolean;
       accountantInvites: { id: string; firmName: string }[];
+      /** Set when this user also works at an accounting firm: the Clients tab. */
+      firm?: MobileFirmRef | null;
       receipts: MobileReceipt[];
       /**
        * Everything beyond `receipts` (the newest 50), summed on the server,
@@ -448,4 +454,46 @@ export type MobileReceiptUpdates = {
   latestCreatedAt: string | null;
   fresh: { id: string; createdAt: string }[];
   receipts?: MobileReceipt[];
+};
+
+/** One client company on the Clients tab, with this month's counts. */
+export type MobileFirmClient = {
+  organizationId: string;
+  name: string;
+  orgNumber: string | null;
+  /** Receipts the firm may see, printed in the month (mailbox ones only once confirmed). */
+  total: number;
+  reviewNeeded: number;
+  ready: number;
+  exported: number;
+  /** Arrived in the last 7 days. */
+  newThisWeek: number;
+  lastReceiptAt: string | null;
+};
+
+/**
+ * GET /api/mobile/firm?month=YYYY-MM — the Clients tab: the firm, its
+ * clients with the month's counts, invites still waiting, and the firm's
+ * join link with its QR code (a PNG data URL; null when off or unreadable).
+ */
+export type MobileFirmHome = {
+  firmName: string;
+  role: "admin" | "staff";
+  month: string;
+  clients: MobileFirmClient[];
+  pending: { id: string; name: string; email: string; invitedAt: string; expired: boolean }[];
+  joinLink: { url: string; qr: string | null } | null;
+};
+
+/**
+ * GET /api/mobile/firm/clients/<orgId>?month=YYYY-MM — one client's month
+ * on the Clients tab: its receipts the firm may see (newest first, at most
+ * 500), and its reminder state. 404 when the client isn't this firm's.
+ */
+export type MobileFirmClientMonth = {
+  organizationId: string;
+  clientName: string;
+  month: string;
+  receipts: MobileReceipt[];
+  reminders: { weekly: boolean; clientOptedOut: boolean; lastSentAt: string | null };
 };

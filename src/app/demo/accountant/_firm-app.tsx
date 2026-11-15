@@ -666,6 +666,9 @@ export function FirmApp({
       }
 
       // Weekly reminder switch.
+      // "Send a reminder now": pretend it went to the client's owner.
+      m = /^\/api\/firm\/clients\/([^/]+)\/remind$/.exec(path);
+      if (m && method === "POST") return json({ ok: true, recipients: 1 });
       m = /^\/api\/firm\/clients\/([^/]+)\/reminders$/.exec(path);
       if (m && method === "PATCH") {
         const org = m[1];

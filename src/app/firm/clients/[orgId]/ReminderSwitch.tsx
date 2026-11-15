@@ -5,18 +5,13 @@ import { useRouter } from "next/navigation";
 import { dayLabel } from "@/lib/bank/month";
 import { Switch } from "@/components/Switch";
 
-export type ReminderState = {
-  weekly: boolean;
-  // The client turned weekly reminders off in its own settings: nothing
-  // is sent whatever this switch says.
-  clientOptedOut: boolean;
-  // The latest reminder email of either kind, if any.
-  lastSentAt: string | null;
-};
+export type { ReminderState } from "@/lib/firm/portal-load";
+import type { ReminderState } from "@/lib/firm/portal-load";
 
 /**
  * The Monday reminder email for one client (src/lib/reminders/weekly.ts):
- * on or off, and when the client was last reminded.
+ * on or off, when the client was last reminded, and "Send a reminder now"
+ * (the same email at once, src/lib/reminders/now.ts).
  */
 export function ReminderSwitch({
   organizationId,
@@ -31,6 +26,32 @@ export function ReminderSwitch({
   const [weekly, setWeekly] = useState(state.weekly);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sentNote, setSentNote] = useState<string | null>(null);
+
+  const sendNow = async () => {
+    if (sending) return;
+    setSending(true);
+    setProblem(null);
+    setSentNote(null);
+    const res = await fetch(`/api/firm/clients/${organizationId}/remind`, { method: "POST" }).catch(() => null);
+    setSending(false);
+    const body = (await res?.json().catch(() => ({}))) as { message?: string } | undefined;
+    if (!res) {
+      setProblem("Couldn't send. Check your connection and try again.");
+      return;
+    }
+    if (res.status === 429) {
+      setProblem(`${clientName} was already reminded twice today.`);
+      return;
+    }
+    if (!res.ok) {
+      setProblem(body?.message ?? "Couldn't send the reminder. Try again.");
+      return;
+    }
+    setSentNote(`Reminder sent to ${clientName}.`);
+    router.refresh();
+  };
   const id = `weekly-reminder-${organizationId}`;
 
   const toggle = async () => {
@@ -71,10 +92,24 @@ export function ReminderSwitch({
               : `${clientName} gets no automatic email. You can still email the missing list by hand.`}
           {state.lastSentAt ? ` Last reminded ${dayLabel(state.lastSentAt.slice(0, 10))}.` : ""}
         </p>
+        {state.clientOptedOut ? null : (
+          <button
+            type="button"
+            onClick={() => void sendNow()}
+            disabled={sending}
+            className="min-h-11 type-caption font-semibold text-[var(--ink)] underline disabled:opacity-60"
+          >
+            {sending ? "Sending…" : "Send a reminder now"}
+          </button>
+        )}
         <div role="status">
           {problem ? (
             <p className="text-[var(--attention-deep)]" style={{ fontSize: "13px" }}>
               {problem}
+            </p>
+          ) : sentNote ? (
+            <p className="text-[var(--ink-muted)]" style={{ fontSize: "13px" }}>
+              {sentNote}
             </p>
           ) : null}
         </div>

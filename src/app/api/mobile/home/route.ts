@@ -10,7 +10,8 @@ import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import { loadHome } from "@/lib/home/load-home";
 import { toMobileReceipt } from "@/lib/mobile/receipt";
-import type { MobileHome } from "@/lib/mobile/types";
+import { getFirmMembership } from "@/lib/require-firm";
+import type { MobileFirmRef, MobileHome } from "@/lib/mobile/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,9 +28,11 @@ export async function GET() {
   let body: MobileHome;
   try {
     // No Stripe session id: Checkout never runs inside the app.
-    const home = await loadHome(user, null);
+    const [home, membership] = await Promise.all([loadHome(user, null), getFirmMembership(user.id)]);
+    // The Clients tab: a claimed seat only (a waiting one is joined on the web).
+    const firm: MobileFirmRef | null = membership ? { name: membership.firmName, role: membership.role } : null;
     if (home.kind === "firm_only") {
-      body = { state: "firm_only", email };
+      body = { state: "firm_only", email, firm };
     } else if (home.kind !== "ready") {
       body = { state: "inactive", email };
     } else {
@@ -50,6 +53,7 @@ export async function GET() {
         forwardingEmail: d.forwardingEmail,
         showOnboarding: d.showOnboarding,
         accountantInvites: d.accountantInvites,
+        firm,
         receipts: d.receipts.map(toMobileReceipt),
         ...(d.older ? { older: d.older } : {}),
       };

@@ -8,11 +8,28 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
   maybeSingle: vi.fn(),
   eq: vi.fn(),
+  homeCurrencyOf: vi.fn(async () => "EUR"),
+  // Who the real loadReceiptForActor() would say may see the row.
+  firmMayRead: true,
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: mocks.getServerUser }));
 vi.mock("@/lib/analytics/load", () => ({ analyticsAccess: mocks.analyticsAccess }));
-vi.mock("@/lib/fx", () => ({ ensureHomeAmounts: mocks.ensureHomeAmounts }));
+vi.mock("@/lib/fx", () => ({ ensureHomeAmounts: mocks.ensureHomeAmounts, homeCurrencyOf: mocks.homeCurrencyOf }));
+// The owner / firm / mailbox-visibility rules are loadReceiptForActor()'s
+// own (tested in src/lib/receipts/__tests__/access.test.ts): here, a row of
+// another user is the firm's when firmMayRead says so.
+vi.mock("@/lib/receipts/access", () => ({
+  loadReceiptForActor: async (user: { id: string }, id: string) => {
+    mocks.eq("id", id);
+    const r = (await mocks.maybeSingle()) as { data: Record<string, unknown> | null; error?: unknown };
+    // The real loader throws ReceiptAccessError on a failed read.
+    if (r?.error) throw new Error("read failed");
+    if (!r?.data) return null;
+    if (r.data.user_id === user.id) return { receipt: r.data, via: "owner" };
+    return mocks.firmMayRead ? { receipt: r.data, via: "firm", firmId: "firm-1" } : null;
+  },
+}));
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: mocks.rateLimit,
   rateLimitedResponse: () => new Response(null, { status: 429 }),
@@ -85,10 +102,25 @@ describe("GET /api/mobile/receipts/[id]", () => {
     expect(mocks.maybeSingle).not.toHaveBeenCalled();
   });
 
-  it("reads only the signed-in user's own receipt", async () => {
+  it("reads the receipt through the owner / firm rules", async () => {
     await call(ID);
     expect(mocks.eq).toHaveBeenCalledWith("id", ID);
-    expect(mocks.eq).toHaveBeenCalledWith("user_id", USER.id);
+  });
+
+  it("shows a client's receipt to its accounting firm, in the client's currency, without a plan check", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: { ...row, user_id: "someone-else", organization_id: "org-9" }, error: null });
+    mocks.firmMayRead = true;
+    const res = await call(ID);
+    expect(res.status).toBe(200);
+    expect(mocks.homeCurrencyOf).toHaveBeenCalledWith("org-9");
+    expect(mocks.analyticsAccess).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 for another user's receipt the firm may not see", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: { ...row, user_id: "someone-else", organization_id: "org-9" }, error: null });
+    mocks.firmMayRead = false;
+    expect((await call(ID)).status).toBe(404);
+    mocks.firmMayRead = true;
   });
 
   it("answers 404 when the receipt isn't the user's (or doesn't exist)", async () => {

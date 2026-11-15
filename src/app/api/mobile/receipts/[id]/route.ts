@@ -1,18 +1,20 @@
 // GET /api/mobile/receipts/[id] — the iPhone app's digital receipt: every
-// field the paper copy shows (items, VAT, payment, stamp), for one receipt
-// of the signed-in user. Same access rules and rate limit as the home list
-// and Insights; owner only (firm staff use /firm on the web); converted to
-// the company's currency like the list.
+// field the paper copy shows (items, VAT, payment, stamp). The owner, under
+// the home list's and Insights' access rules, or (since 2026-11-15, the
+// app's Clients tab) staff of the accounting firm linked to the receipt's
+// company, through loadReceiptForActor() exactly as the website's receipt
+// sheet: a mailbox receipt only once confirmed, a 404 for anything the
+// caller may not see, no plan gate for the firm (firm portal rule 3).
+// Converted to the company's currency like the list.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { analyticsAccess } from "@/lib/analytics/load";
-import { ensureHomeAmounts } from "@/lib/fx";
+import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
+import { loadReceiptForActor } from "@/lib/receipts/access";
 import { toMobileReceiptDetail } from "@/lib/mobile/receipt";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
-import type { Receipt } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,18 +37,22 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   try {
-    const [access, read] = await Promise.all([
-      analyticsAccess(user),
-      getSupabaseAdmin().from("receipts").select("*").eq("id", id).eq("user_id", user.id).maybeSingle(),
-    ]);
-    if (access.kind !== "ready") {
-      return NextResponse.json({ error: access.kind }, { status: 403, headers: NO_STORE });
-    }
-    if (read.error) throw read.error;
-    if (!read.data) {
+    const found = await loadReceiptForActor(user, id);
+    if (!found) {
       return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE });
     }
-    const [row] = await ensureHomeAmounts([read.data as Receipt], access.home).catch(() => [read.data as Receipt]);
+    let home: string;
+    if (found.via === "owner") {
+      const access = await analyticsAccess(user);
+      if (access.kind !== "ready") {
+        return NextResponse.json({ error: access.kind }, { status: 403, headers: NO_STORE });
+      }
+      home = access.home;
+    } else {
+      // The client company's own currency, as on the firm's client page.
+      home = await homeCurrencyOf(found.receipt.organization_id as string);
+    }
+    const [row] = await ensureHomeAmounts([found.receipt], home).catch(() => [found.receipt]);
     return NextResponse.json(toMobileReceiptDetail(row), { headers: NO_STORE });
   } catch (err) {
     console.error("[/api/mobile/receipts/:id] failed", err);
