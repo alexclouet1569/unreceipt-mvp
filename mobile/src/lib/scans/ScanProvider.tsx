@@ -6,7 +6,7 @@
 // the phone until the server has it.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, AppState, View } from "react-native";
+import { AccessibilityInfo, Alert, AppState, Linking, View } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
@@ -49,8 +49,13 @@ const PICK_LIMIT = 20;
 
 type ScanState = {
   pending: PendingScan[];
-  /** Opens the camera scanner (or the photo library where there is none). */
+  /**
+   * One receipt: the iPhone's camera. The photo stays on screen with
+   * Retake / Use Photo (iOS's own), then it is read on the full screen.
+   */
   scan: () => Promise<void>;
+  /** Several receipts at once: Apple's document scanner, then the review. */
+  scanSeveral: () => Promise<void>;
   pickPhotos: () => Promise<void>;
   remove: (id: string) => void;
   retry: (id: string) => void;
@@ -288,9 +293,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
     if (added.length === 1) setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri] });
   }, [enqueue, setFlow]);
 
-  // The camera scan goes to the review first; nothing is sent before Use.
-  // Cancelled (also from Retake): whatever was shown stays.
-  const scan = useCallback(async () => {
+  // Several receipts: Apple's document scanner (it stays open for the next
+  // shot), then the review; nothing is sent before Use. Cancelled (also
+  // from Retake): whatever was shown stays.
+  const scanSeveral = useCallback(async () => {
     try {
       const result = await DocumentScanner.scanDocument({
         responseType: ResponseType.ImageFilePath,
@@ -323,6 +329,37 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       ]);
     }
   }, [pickPhotos, setFlow]);
+
+  // One receipt (the scan button, 2026-11-16): the iPhone's own camera. After
+  // the shot iOS shows the photo full screen with Retake and Use Photo, so it
+  // stays on screen until the person says it's good; then it is read on the
+  // full screen with the scan line and its digital receipt opens. Apple's
+  // document scanner instead shrinks each shot into a corner and waits for
+  // the next page, which made people scan the same receipt twice.
+  const scan = useCallback(async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(s.scan.cameraDenied, undefined, [
+          { text: s.common.cancel, style: "cancel" },
+          ...(permission.canAskAgain ? [] : [{ text: s.scan.openSettings, onPress: () => void Linking.openSettings() }]),
+          { text: s.scan.fromPhotos, onPress: () => void pickPhotos() },
+        ]);
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1, exif: false });
+      if (result.canceled || result.assets.length === 0) return;
+      // The camera's file is in the app's caches: ours to remove.
+      const added = await enqueue([result.assets[0].uri], true);
+      if (added.length === 1) setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri] });
+    } catch {
+      // No camera here (the Simulator): the photo library still works.
+      Alert.alert(s.scan.unavailable, undefined, [
+        { text: s.common.cancel, style: "cancel" },
+        { text: s.scan.fromPhotos, onPress: () => void pickPhotos() },
+      ]);
+    }
+  }, [enqueue, pickPhotos, setFlow]);
 
   const remove = useCallback(
     (id: string) => {
@@ -420,7 +457,10 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
   // One value per change of the queue: a new object every render made every
   // screen reading useScans() render again with each home refresh.
-  const value = useMemo(() => ({ pending, scan, pickPhotos, remove, retry }), [pending, scan, pickPhotos, remove, retry]);
+  const value = useMemo(
+    () => ({ pending, scan, scanSeveral, pickPhotos, remove, retry }),
+    [pending, scan, scanSeveral, pickPhotos, remove, retry],
+  );
   return (
     <ScanContext.Provider value={value}>
       <View style={{ flex: 1 }}>
@@ -430,7 +470,7 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
             flow={flow}
             view={view}
             onUse={() => void acceptDrafts()}
-            onRetake={() => void scan()}
+            onRetake={() => void scanSeveral()}
             onRemoveDraft={removeDraft}
             onClose={closeFlow}
             onRetakeStuck={(id) => {

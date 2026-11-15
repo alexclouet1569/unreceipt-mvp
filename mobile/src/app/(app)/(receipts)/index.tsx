@@ -216,7 +216,7 @@ export default function Receipts() {
   const colors = useColors();
   const { home, error, refreshing, loading, refresh, mutateHome, extra, older, loadOlder, fromServer } = useHome();
   const { userId } = useAuth();
-  const { pending, scan, pickPhotos } = useScans();
+  const { pending, scan, scanSeveral, pickPhotos } = useScans();
   const actions = useReceiptActions();
   // The list: the server's newest 50, then any older pages loaded with
   // "Load more" (kept in `extra`; the totals never count them twice).
@@ -467,7 +467,7 @@ export default function Receipts() {
       <Stack.Screen options={{ headerRight: () => <PhotosButton onPress={() => void pickPhotos()} /> }} />
       {body}
       {/* Hidden during the first run: each of its steps has its own action. */}
-      {onboarding == null ? <ScanButton onScan={() => void scan()} onPickPhotos={() => void pickPhotos()} /> : null}
+      {onboarding == null ? <ScanButton onScan={() => void scan()} onScanSeveral={() => void scanSeveral()} onPickPhotos={() => void pickPhotos()} /> : null}
       <UndoToast />
     </View>
   );

@@ -1,9 +1,9 @@
 // The capture button (DESIGN.md "FAB"): bottom centre, 64×64, brand action
-// green, the only shadow in the app. Tap: the camera scanner. Touch and
-// hold: photos from the library. It sits above the tab bar: the screens
+// green, the only shadow in the app. Tap: the camera, one receipt. Touch and
+// hold: several receipts with Apple's scanner, or photos from the library. It sits above the tab bar: the screens
 // library's SafeAreaView knows the bar's height, React Native's doesn't.
 
-import { StyleSheet, View } from "react-native";
+import { ActionSheetIOS, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-screens/experimental";
 import { SymbolView } from "expo-symbols";
 import * as Haptics from "expo-haptics";
@@ -13,9 +13,25 @@ import { PressableScale } from "./PressableScale";
 
 export const SCAN_BUTTON_SPACE = 64 + space.lg * 2;
 
-export function ScanButton({ onScan, onPickPhotos }: { onScan: () => void; onPickPhotos: () => void }) {
+export function ScanButton({
+  onScan,
+  onScanSeveral,
+  onPickPhotos,
+}: {
+  onScan: () => void;
+  onScanSeveral: () => void;
+  onPickPhotos: () => void;
+}) {
   const styles = useStyles();
   const colors = useColors();
+  const more = () =>
+    ActionSheetIOS.showActionSheetWithOptions(
+      { options: [s.scan.several, s.scan.fromPhotos, s.common.cancel], cancelButtonIndex: 2 },
+      (i) => {
+        if (i === 0) onScanSeveral();
+        if (i === 1) onPickPhotos();
+      },
+    );
   return (
     <SafeAreaView edges={{ bottom: true }} style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <View style={styles.place} pointerEvents="box-none">
@@ -24,9 +40,13 @@ export function ScanButton({ onScan, onPickPhotos }: { onScan: () => void; onPic
           accessibilityRole="button"
           accessibilityLabel={s.scan.button}
           accessibilityHint={s.scan.longPressHint}
-          accessibilityActions={[{ name: "longpress", label: s.scan.fromPhotos }]}
+          accessibilityActions={[
+            { name: "several", label: s.scan.several },
+            { name: "photos", label: s.scan.fromPhotos },
+          ]}
           onAccessibilityAction={(e) => {
-            if (e.nativeEvent.actionName === "longpress") onPickPhotos();
+            if (e.nativeEvent.actionName === "several") onScanSeveral();
+            if (e.nativeEvent.actionName === "photos") onPickPhotos();
           }}
           onPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -34,7 +54,7 @@ export function ScanButton({ onScan, onPickPhotos }: { onScan: () => void; onPic
           }}
           onLongPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            onPickPhotos();
+            more();
           }}
           style={styles.fab}
         >
