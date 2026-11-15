@@ -10,7 +10,14 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
-import { routeRequestOptions } from "@/lib/ocr";
+import { recordAiUsage } from "@/lib/ai-usage";
+import { OCR_EFFORT, OCR_MODEL, parseOcrJson, routeRequestOptions } from "@/lib/ocr";
+
+// The photo reader's model (src/lib/ocr.ts) since 2026-11-15: Sonnet 4.6
+// cost 1.5× as much per token. Sonnet 5.5 thinks briefly before answering,
+// so the answer needs more room than the 1,024 tokens Sonnet 4.6 had;
+// 4,000 caps a runaway answer at about $0.04.
+export const TEXT_EXTRACT_MAX_TOKENS = 4000;
 
 export type LlmExtractKind = "email" | "sms" | "paper";
 
@@ -131,8 +138,9 @@ export async function llmExtract(
   // Same deadline as the OCR call: the email intake chains this after an
   // attachment read inside its 60 s (src/lib/ocr.ts routeRequestOptions).
   const res = await c.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
+    model: OCR_MODEL,
+    max_tokens: TEXT_EXTRACT_MAX_TOKENS,
+    output_config: { effort: OCR_EFFORT },
     system: [
       {
         type: "text",
@@ -147,6 +155,7 @@ export async function llmExtract(
       },
     ],
   }, routeRequestOptions());
+  recordAiUsage(kind === "email" ? "email_text" : "other", res.model ?? OCR_MODEL, res.usage);
 
   const textBlock = res.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -156,9 +165,17 @@ export async function llmExtract(
     .trim()
     .replace(/^```(?:json)?\n?|\n?```$/g, "")
     .trim();
+  // A cut-off answer is never used (as in ocr.ts).
+  if (res.stop_reason === "max_tokens") {
+    throw new Error(`LLM answer cut off at max_tokens (${cleaned.length} chars)`);
+  }
   try {
     return JSON.parse(cleaned) as LlmExtractResult;
   } catch {
+    // A model that thinks first sometimes writes a sentence before the
+    // JSON: read the object after it, as the photo reader does.
+    const found = parseOcrJson(cleaned);
+    if (found) return found as unknown as LlmExtractResult;
     // Don't echo the model's output: it's receipt content (merchant,
     // address, card digits, email text) and this message reaches logs and
     // Sentry.

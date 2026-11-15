@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
   let ocr;
   try {
-    ocr = await extractReceipt(bytes.toString("base64"), file.type as OcrMediaType);
+    ocr = await extractReceipt(bytes.toString("base64"), file.type as OcrMediaType, "capture_scan");
   } catch (err) {
     // Not read: kept anyway, waiting for the person to fill it in.
     console.error("[/api/capture/scan] read failed", err instanceof Error ? err.message : "unknown");

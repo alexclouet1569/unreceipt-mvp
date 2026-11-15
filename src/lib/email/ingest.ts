@@ -268,7 +268,7 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
   if (attachment && !templateTrusted) {
     let ocr: OcrResult | null = null;
     try {
-      ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType);
+      ocr = await extractReceipt(attachment.bytes.toString("base64"), attachment.mediaType, "email_attachment");
     } catch (err) {
       console.error(`${tag} attachment OCR failed`, err instanceof Error ? err.message : "unknown");
       Sentry.captureException(err, { tags: { area: "intake-attachment-ocr" } });

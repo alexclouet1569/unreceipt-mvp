@@ -1939,3 +1939,54 @@ END $$;
 
 ALTER TABLE public.firm_clients
   ADD COLUMN IF NOT EXISTS via_join_link BOOLEAN NOT NULL DEFAULT false;
+
+-- =============================================================================
+-- 2026-11-15 — What the AI costs (src/lib/ai-usage.ts)
+-- =============================================================================
+-- One row per Claude call made by a route: where it came from, the model and
+-- the token counts the API reported, so /admin/pilot can show the real cost
+-- per receipt instead of an estimate. Counts only: no image, email text,
+-- answer or user. Written and read only by server code (service role): RLS
+-- on, no policies.
+
+CREATE TABLE IF NOT EXISTS public.ai_usage (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  area TEXT NOT NULL CHECK (char_length(area) <= 40),
+  model TEXT NOT NULL CHECK (char_length(model) <= 80),
+  input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
+  output_tokens INTEGER NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
+  cache_read_tokens INTEGER NOT NULL DEFAULT 0 CHECK (cache_read_tokens >= 0),
+  cache_write_tokens INTEGER NOT NULL DEFAULT 0 CHECK (cache_write_tokens >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ai_usage_created_idx ON public.ai_usage(created_at);
+
+ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.ai_usage FROM anon, authenticated;
+
+-- The month's sums per (area, model) for /admin/pilot: a plain row read is
+-- capped at 1,000 rows and would undercount. Service role only.
+CREATE OR REPLACE FUNCTION public.ai_usage_month(since TIMESTAMPTZ)
+RETURNS TABLE (
+  area TEXT,
+  model TEXT,
+  calls BIGINT,
+  input_tokens BIGINT,
+  output_tokens BIGINT,
+  cache_read_tokens BIGINT,
+  cache_write_tokens BIGINT
+)
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT u.area, u.model, count(*)::BIGINT,
+         sum(u.input_tokens)::BIGINT, sum(u.output_tokens)::BIGINT,
+         sum(u.cache_read_tokens)::BIGINT, sum(u.cache_write_tokens)::BIGINT
+    FROM public.ai_usage u
+   WHERE u.created_at >= since
+   GROUP BY u.area, u.model;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.ai_usage_month(TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;

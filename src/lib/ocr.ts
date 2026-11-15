@@ -4,6 +4,7 @@
 // and getClient() throws fast rather than silently leaking the key.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { recordAiUsage, type AiArea } from "./ai-usage";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
 // Image MIME types Claude vision accepts directly + application/pdf, which
@@ -167,11 +168,28 @@ export function routeRequestOptions(signal?: AbortSignal | null): Anthropic.Requ
   };
 }
 
+/** Records the call's tokens (src/lib/ai-usage.ts), also when its answer couldn't be used. */
+async function recorded(area: AiArea, run: () => Promise<OcrCall>): Promise<OcrCall> {
+  try {
+    const call = await run();
+    recordAiUsage(area, call.model, call.usage);
+    return call;
+  } catch (err) {
+    if (err instanceof OcrOutputError) recordAiUsage(area, err.call.model, err.call.usage);
+    throw err;
+  }
+}
+
+/**
+ * The routes' call. `area` says where it came from in the usage log; the
+ * eval calls extractReceiptCall() directly and records nothing.
+ */
 export async function extractReceipt(
   imageBase64: string,
-  mediaType: OcrMediaType
+  mediaType: OcrMediaType,
+  area: AiArea = "ocr"
 ): Promise<OcrResult> {
-  return (await extractReceiptCall(imageBase64, mediaType, {}, routeRequestOptions())).result;
+  return (await recorded(area, () => extractReceiptCall(imageBase64, mediaType, {}, routeRequestOptions()))).result;
 }
 
 /**
@@ -198,6 +216,15 @@ export async function extractReceiptCall(
  * (partialOcrFields). Resolves with the same result as extractReceiptCall.
  */
 export async function extractReceiptStreaming(
+  imageBase64: string,
+  mediaType: OcrMediaType,
+  onText: (textSoFar: string) => void,
+  signal?: AbortSignal
+): Promise<OcrCall> {
+  return recorded("ocr_stream", () => streamCall(imageBase64, mediaType, onText, signal));
+}
+
+async function streamCall(
   imageBase64: string,
   mediaType: OcrMediaType,
   onText: (textSoFar: string) => void,
