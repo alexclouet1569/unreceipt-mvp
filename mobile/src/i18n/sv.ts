@@ -106,7 +106,7 @@ export const sv: Strings = {
     sentTo: "Skickat till {name}",
     sendFailed: "Kunde inte skicka. Försök igen.",
     incomplete: "Lägg först till butik, belopp och datum.",
-    changed: "Kvittot har ändrats under tiden. Dra nedåt för att uppdatera och försök igen.",
+    changed: "Kvittot har ändrats under tiden. Gå tillbaka till kvittona, öppna det igen och försök en gång till.",
     rowToSend: "Att skicka",
     rowSent: "Skickat för godkännande",
     rowApproved: "Godkänt",
@@ -130,6 +130,7 @@ export const sv: Strings = {
     toPayBack: "Ska återbetalas",
     original: "Original",
     noDate: "Inget datum",
+    quote: "”{text}”",
   },
   scan: {
     button: "Skanna ett kvitto",

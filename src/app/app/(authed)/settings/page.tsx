@@ -145,34 +145,6 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           Settings
         </h1>
         {mailboxResult ? <MailboxResultBanner result={mailboxResult} limit={mailboxes.limit} /> : null}
-        {(
-          <section aria-labelledby="team-heading">
-            <SectionLabel id="team-heading">Team</SectionLabel>
-            {employment?.role === "member" ? (
-              <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
-                You send your work receipts for approval to your company. Ask its owner to change your role or to remove you.
-              </p>
-            ) : (
-              <Link
-                href="/app/team"
-                className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
-                style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
-              >
-                <span>
-                  <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
-                    {employment ? "Receipts to approve" : "Employees and approvals"}
-                  </span>
-                  <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
-                    {employment
-                      ? "Approve, send back or reject what your colleagues sent."
-                      : "Invite employees, choose who approves their receipts and see what to pay back."}
-                  </span>
-                </span>
-                <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
-              </Link>
-            )}
-          </section>
-        )}
         {firm ? (
           <section aria-labelledby="firm-portal-heading">
             <SectionLabel id="firm-portal-heading">Firm portal</SectionLabel>
@@ -256,6 +228,32 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </Link>
           </div>
         </section>
+          <section aria-labelledby="team-heading">
+            <SectionLabel id="team-heading">Team</SectionLabel>
+            {employment?.role === "member" ? (
+              <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px", lineHeight: 1.5 }}>
+                You send your work receipts for approval to your company. Ask its owner to change your role or to remove you.
+              </p>
+            ) : (
+              <Link
+                href="/app/team"
+                className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+                style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}
+              >
+                <span>
+                  <span className="block text-[var(--ink)]" style={{ fontSize: "15px", fontWeight: 600 }}>
+                    {employment ? "Receipts to approve" : "Employees and approvals"}
+                  </span>
+                  <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
+                    {employment
+                      ? "Approve, send back or reject what your colleagues sent."
+                      : "Invite employees, choose who approves their receipts and see what to pay back."}
+                  </span>
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
+              </Link>
+            )}
+          </section>
 
         {usage ? (
           <section aria-labelledby="usage-heading">

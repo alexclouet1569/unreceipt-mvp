@@ -240,7 +240,7 @@ export default function ReceiptDetail() {
           </Text>
           {approval.comment ? (
             <Text variant="caption" color={colors.ink}>
-              “{approval.comment}”
+              {fill(s.approval.quote, { text: approval.comment })}
             </Text>
           ) : null}
         </View>

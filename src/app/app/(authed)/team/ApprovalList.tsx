@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, FileText, Loader2, Undo2, X } from "lucide-react";
+import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import { Button } from "@/components/ui/button";
 import { formatAmount } from "@/lib/receipt-format";
 import type { ApprovalQueueItem } from "@/lib/mobile/types";
@@ -29,6 +30,9 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [asking, setAsking] = useState<Asking>(null);
   const [comment, setComment] = useState("");
+  const [viewing, setViewing] = useState<string | null>(null);
+  // Said to screen readers when a card leaves the list.
+  const [announce, setAnnounce] = useState("");
   const [error, setError] = useState<{ id: string; text: string } | null>(null);
   const shown = items.filter((i) => !done.has(i.receipt.id));
 
@@ -47,6 +51,17 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
         setDone((s) => new Set(s).add(id));
         setAsking(null);
         setComment("");
+        setAnnounce(
+          res.status === 409
+            ? "Someone else already decided on this receipt."
+            : decision === "approve"
+              ? "Approved."
+              : decision === "send_back"
+                ? "Sent back."
+                : "Rejected."
+        );
+        // Focus moves to the list's heading, not the body.
+        document.getElementById("approve-heading")?.focus();
         router.refresh();
       } else {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -61,15 +76,26 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
     setBusy(null);
   };
 
+  const status = (
+    <p role="status" className="sr-only">
+      {announce}
+    </p>
+  );
+
   if (shown.length === 0) {
     return (
-      <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
-        Nothing waits for you. Receipts your colleagues send for approval show up here.
-      </p>
+      <>
+        {status}
+        <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
+          Nothing waits for you. Receipts your colleagues send for approval show up here.
+        </p>
+      </>
     );
   }
 
   return (
+    <>
+    {status}
     <ul role="list" className="space-y-2">
       {shown.map(({ receipt: r, employee }) => (
         <li
@@ -106,7 +132,7 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
                 onChange={(e) => setComment(e.target.value)}
                 maxLength={1000}
                 rows={2}
-                className="w-full rounded-[10px] border border-[var(--hairline)] bg-card px-3 py-2 text-[15px] text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full rounded-[10px] border border-[var(--hairline)] bg-card px-3 py-2 text-[16px] text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 autoFocus
               />
               <div className="flex flex-wrap gap-2">
@@ -123,8 +149,9 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
                 </Button>
                 <Button
                   type="button"
-                  className="h-11 gap-1.5"
-                  disabled={busy !== null}
+                  variant={asking.decision === "reject" ? "outline" : "default"}
+                  className={asking.decision === "reject" ? "h-11 gap-1.5 text-destructive hover:text-destructive" : "h-11 gap-1.5"}
+                  disabled={busy !== null || comment.trim().length === 0}
                   onClick={() => decide(r.id, asking.decision, comment)}
                 >
                   {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
@@ -138,7 +165,15 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
                 {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check className="w-4 h-4" aria-hidden="true" />}
                 Approve
               </Button>
-              <Button type="button" variant="outline" className="h-11 gap-1.5" onClick={() => setAsking({ id: r.id, decision: "send_back" })}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 gap-1.5"
+                onClick={() => {
+                  setAsking({ id: r.id, decision: "send_back" });
+                  setComment("");
+                }}
+              >
                 <Undo2 className="w-4 h-4" aria-hidden="true" />
                 Send back
               </Button>
@@ -146,24 +181,33 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
                 type="button"
                 variant="outline"
                 className="h-11 gap-1.5 text-destructive hover:text-destructive"
-                onClick={() => setAsking({ id: r.id, decision: "reject" })}
+                onClick={() => {
+                  setAsking({ id: r.id, decision: "reject" });
+                  setComment("");
+                }}
               >
                 <X className="w-4 h-4" aria-hidden="true" />
                 Reject
               </Button>
               {r.original ? (
-                <a
-                  href={`/api/receipts/${r.id}/original`}
-                  target="_blank"
-                  rel="noopener"
-                  className="h-11 inline-flex items-center gap-1.5 px-3 text-[14px] font-semibold text-[var(--ink)] underline-offset-4 hover:underline outline-none focus-visible:ring-3 focus-visible:ring-ring/50 rounded-[10px]"
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 gap-1.5"
+                  aria-expanded={viewing === r.id}
+                  onClick={() => setViewing((v) => (v === r.id ? null : r.id))}
                 >
                   <FileText className="w-4 h-4" aria-hidden="true" />
-                  Original
-                </a>
+                  {viewing === r.id ? "Hide original" : "Original"}
+                </Button>
               ) : null}
             </div>
           )}
+          {viewing === r.id ? (
+            <div className="overflow-hidden rounded-[10px] border border-[var(--hairline)]">
+              <OriginalSourceViewer receiptId={r.id} />
+            </div>
+          ) : null}
           {error?.id === r.id ? (
             <p role="alert" className="text-sm font-semibold text-[var(--attention-deep)] bg-[var(--attention-tint)] rounded-md px-3 py-2">
               {error.text}
@@ -172,5 +216,6 @@ export function ApprovalList({ items }: { items: ApprovalQueueItem[] }) {
         </li>
       ))}
     </ul>
+    </>
   );
 }

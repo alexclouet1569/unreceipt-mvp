@@ -107,7 +107,7 @@ export const en = {
     sentTo: "Sent to {name}",
     sendFailed: "Couldn't send. Try again.",
     incomplete: "Add the merchant, amount and date first.",
-    changed: "This receipt changed meanwhile. Pull down to refresh, then try again.",
+    changed: "This receipt changed meanwhile. Go back to your receipts, open it again and try once more.",
     rowToSend: "To send",
     rowSent: "Sent for approval",
     rowApproved: "Approved",
@@ -131,6 +131,7 @@ export const en = {
     toPayBack: "To pay back",
     original: "Original",
     noDate: "No date",
+    quote: "“{text}”",
   },
   scan: {
     button: "Scan a receipt",

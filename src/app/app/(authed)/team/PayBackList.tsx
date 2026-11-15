@@ -27,6 +27,7 @@ export function PayBackList({ groups }: { groups: ReimbursementGroup[] }) {
   const markPaid = async (g: ReimbursementGroup) => {
     const key = `${g.userId}|${g.currency}`;
     if (busy) return;
+    if (!window.confirm(`Mark ${formatAmount(g.total, g.currency)} as paid back to ${g.employee}? This can't be undone.`)) return;
     setBusy(key);
     setError(null);
     try {

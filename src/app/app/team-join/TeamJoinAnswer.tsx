@@ -47,7 +47,7 @@ export function TeamJoinAnswer({ inviteId, companyName }: { inviteId: string; co
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" className="h-11" onClick={() => answer("join")} disabled={busy !== null}>
+        <Button type="button" className="h-auto min-h-11 whitespace-normal text-left" onClick={() => answer("join")} disabled={busy !== null}>
           {busy === "join" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
           Join {companyName}
         </Button>

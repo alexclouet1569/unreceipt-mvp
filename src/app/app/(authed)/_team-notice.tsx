@@ -11,20 +11,31 @@ export function TeamNotice({ team, invites }: { team: MobileTeam | null; invites
   const invite = team === null || team.role === "owner" ? invites[0] : undefined;
   const toApprove = team && team.role !== "member" ? team.toApprove : 0;
   if (!invite && toApprove === 0) return null;
-  const row = invite
-    ? {
-        href: "/app/team-join",
-        title: `${invite.companyName} added you to its team`,
-        body: "Join to send your work receipts for approval. Only if you work there.",
-      }
-    : {
-        href: "/app/team",
-        title: toApprove === 1 ? "1 receipt to approve" : `${toApprove} receipts to approve`,
-        body: "Approve, send back or reject what your colleagues sent.",
-      };
+  const rows = [
+    ...(invite
+      ? [
+          {
+            href: "/app/team-join",
+            title: `${invite.companyName} added you to its team`,
+            body: "Join to send your work receipts for approval. Only if you work there.",
+          },
+        ]
+      : []),
+    ...(toApprove > 0
+      ? [
+          {
+            href: "/app/team",
+            title: toApprove === 1 ? "1 receipt to approve" : `${toApprove} receipts to approve`,
+            body: "Approve, send back or reject what your colleagues sent.",
+          },
+        ]
+      : []),
+  ];
   return (
-    <div className="mx-auto max-w-[640px] px-4 pt-4">
+    <div className="mx-auto max-w-[640px] space-y-2 px-4 pt-4">
+      {rows.map((row) => (
       <Link
+        key={row.href}
         href={row.href}
         className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
         style={{ border: "1px solid var(--hairline)", borderLeft: "3px solid var(--attention)", borderRadius: "12px", padding: "12px 14px" }}
@@ -40,6 +51,7 @@ export function TeamNotice({ team, invites }: { team: MobileTeam | null; invites
         </span>
         <ChevronRight className="w-4 h-4 shrink-0 text-[var(--ink-muted)]" aria-hidden="true" />
       </Link>
+      ))}
     </div>
   );
 }

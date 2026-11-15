@@ -62,7 +62,7 @@ export function ReceiptListItem({ receipt, onClick }: ReceiptListItemProps) {
           : undefined
       }
       style={
-        pending
+        pending || receipt.approval_status === "draft" || receipt.approval_status === "sent_back"
           ? {
               borderLeft: "3px solid var(--attention)",
               paddingLeft: "12px",

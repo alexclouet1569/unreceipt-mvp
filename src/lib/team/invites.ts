@@ -244,7 +244,9 @@ export async function findWaitingTeamInvites(user: User): Promise<WaitingTeamInv
   }
   return (data ?? []).map((r) => {
     const org = (Array.isArray(r.organizations) ? r.organizations[0] : r.organizations) as { name?: string } | null;
-    return { id: r.id as string, companyName: org?.name ?? "A company", role: r.role as "approver" | "member" };
+    // Shown on /app and /app/team-join: any owner chooses it, so the same check as the email's.
+    const name = org?.name && isAcceptableDisplayName(org.name) ? org.name : "A company";
+    return { id: r.id as string, companyName: name, role: r.role as "approver" | "member" };
   });
 }
 

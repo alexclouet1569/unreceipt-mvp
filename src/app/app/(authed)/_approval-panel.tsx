@@ -10,11 +10,13 @@ import { useRouter } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PaidBy, Receipt } from "@/lib/types";
+import { missingRequiredFields } from "@/lib/receipts/status";
 
 export function canSendForApproval(receipt: Receipt): boolean {
+  // As the iPhone app: filled in is enough; sending confirms it.
   return (
     (receipt.approval_status === "draft" || receipt.approval_status === "sent_back") &&
-    receipt.status !== "pending_review"
+    missingRequiredFields(receipt).length === 0
   );
 }
 
@@ -34,7 +36,8 @@ export function ApprovalPanel({ receipt }: { receipt: Receipt }) {
   const status = receipt.approval_status;
   if (!status) return null;
   const sendable = canSendForApproval(receipt);
-  const attention = status === "sent_back" || status === "rejected";
+  const attention = status === "draft" || status === "sent_back";
+  const rejected = status === "rejected";
 
   const send = async () => {
     if (busy) return;
@@ -77,9 +80,15 @@ export function ApprovalPanel({ receipt }: { receipt: Receipt }) {
       data-testid="approval-panel"
     >
       <div className="space-y-1">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-muted)]">Approval</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-muted)]">Approval</p>
         <p
-          className={attention ? "text-[var(--attention-deep)] font-semibold" : "text-[var(--ink)] font-semibold"}
+          className={
+            rejected
+              ? "text-[var(--negative)] font-semibold"
+              : attention
+                ? "text-[var(--attention-deep)] font-semibold"
+                : "text-[var(--ink)] font-semibold"
+          }
           style={{ fontSize: "15px" }}
         >
           {STATUS_LINE[status]}
@@ -89,7 +98,7 @@ export function ApprovalPanel({ receipt }: { receipt: Receipt }) {
               : " To be paid back to you."
             : ""}
         </p>
-        {attention && receipt.approval_comment ? (
+        {(status === "sent_back" || rejected) && receipt.approval_comment ? (
           <p className="text-[var(--ink)]" style={{ fontSize: "14px" }}>
             “{receipt.approval_comment}”
           </p>
