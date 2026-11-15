@@ -2,12 +2,14 @@
 // GET /api/receipts/[id]/pdf, refused while the receipt waits for review)
 // and its original (a 5-minute link from GET /api/receipts/[id]/original).
 // Each is downloaded into the cache, handed to iOS's share sheet (Save to
-// Files, Mail, AirDrop…), and the folder is emptied before the next one:
-// they are copies of the user's receipts and shouldn't pile up.
+// Files, Mail, AirDrop…), and the folder is emptied once the sheet closes
+// (and at sign-out): they are copies of receipts (a client's, for firm
+// staff) and shouldn't stay on the phone.
 
 import { Directory, File, Paths } from "expo-file-system";
 import { apiResponse, authorizedDownload } from "./api";
 import { shareFile } from "./exports";
+import { deleteSharedReceiptFiles } from "./cache";
 
 export type FileOutcome = "shared" | "none" | "failed";
 
@@ -35,6 +37,8 @@ export async function shareReceiptPdf(id: string, merchant: string | null): Prom
     return "shared";
   } catch {
     return "failed";
+  } finally {
+    deleteSharedReceiptFiles();
   }
 }
 
@@ -51,5 +55,7 @@ export async function shareReceiptOriginal(id: string): Promise<FileOutcome> {
     return "shared";
   } catch {
     return "failed";
+  } finally {
+    deleteSharedReceiptFiles();
   }
 }

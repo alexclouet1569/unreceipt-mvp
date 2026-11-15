@@ -139,6 +139,7 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
   for (const clear of memoryClears) clear();
   if (!keepScans) deleteAllScans();
   deleteExports();
+  deleteSharedReceiptFiles();
   await Promise.all([Image.clearDiskCache(), Image.clearMemoryCache()]).catch(() => {});
   try {
     const keys = await AsyncStorage.getAllKeys();
@@ -160,6 +161,16 @@ export async function clearAll({ keepScans = false }: { keepScans?: boolean } = 
 }
 
 /** Exported ZIPs (src/lib/exports.ts) are copies of every receipt: they leave with the session. */
+/** Receipt PDFs and originals handed to the share sheet (src/lib/receiptFiles.ts), a client's too for firm staff. */
+export function deleteSharedReceiptFiles(): void {
+  try {
+    const dir = new Directory(Paths.cache, "receipt-files");
+    if (dir.exists) dir.delete();
+  } catch {
+    // Best effort: iOS may also clear the cache folder by itself.
+  }
+}
+
 function deleteExports(): void {
   try {
     const dir = new Directory(Paths.cache, "exports");

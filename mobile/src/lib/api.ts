@@ -8,6 +8,8 @@ import type {
   MobileAnalytics,
   MobileAnalyticsReceipts,
   MobileExport,
+  MobileFirmClientMonth,
+  MobileFirmHome,
   MobileForwarding,
   MobileForwardingStatus,
   MobileHome,
@@ -173,6 +175,37 @@ export async function authorizedDownload(path: string): Promise<{ url: string; h
     url: `${API_URL}${path}`,
     headers: { Authorization: `Bearer ${data.session.access_token}`, "User-Agent": USER_AGENT },
   };
+}
+
+/** The Clients tab (firm staff): clients with the month's counts, waiting invites, the join link. */
+export const getFirmHome = (month: string | null) =>
+  api<MobileFirmHome>(`/api/mobile/firm${month ? `?month=${encodeURIComponent(month)}` : ""}`);
+
+/** One client's month on the Clients tab. */
+export const getFirmClientMonth = (organizationId: string, month: string | null) =>
+  api<MobileFirmClientMonth>(
+    `/api/mobile/firm/clients/${encodeURIComponent(organizationId)}${month ? `?month=${encodeURIComponent(month)}` : ""}`,
+  );
+
+/** "Send a reminder now" (the website's route): status and the error code. */
+export async function sendClientReminder(organizationId: string): Promise<{ status: number; error: string | null }> {
+  const res = await apiResponse(`/api/firm/clients/${encodeURIComponent(organizationId)}/remind`, { method: "POST" });
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  return { status: res.status, error: res.ok ? null : (body.error ?? null) };
+}
+
+/** "Invite a client" (the website's route): status, whether the email went, and the message. */
+export async function inviteClient(input: {
+  client_name: string;
+  email: string;
+}): Promise<{ status: number; emailed: boolean; error: string | null }> {
+  const res = await apiResponse("/api/firm/clients", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => ({}))) as { error?: string; emailed?: boolean };
+  return { status: res.status, emailed: body.emailed !== false, error: res.ok ? null : (body.error ?? null) };
 }
 
 /** "Anything new?" (every ~20 s in the foreground): see MobileReceiptUpdates. */

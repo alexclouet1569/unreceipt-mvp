@@ -158,6 +158,9 @@ export const RATE_LIMITS = {
     { limit: 20, windowSeconds: 60 * 60 },
     { limit: 60, windowSeconds: 24 * 60 * 60 },
   ],
+  // "Send a reminder now" to one client company (per company, whichever
+  // firm member sends it): the Monday email on demand, so a couple a day.
+  clientRemindNow: [{ limit: 2, windowSeconds: 24 * 60 * 60 }],
   // A firm admin making a new join link or turning it off.
   firmJoinLink: [{ limit: 20, windowSeconds: 60 * 60 }],
   // "Invite several" (POST /api/firm/clients/bulk), per firm: each call

@@ -54,6 +54,8 @@ export default function Account() {
     ]);
 
   const ready = home?.state === "ready" ? home : null;
+  // The accounting firm this user works at (the Clients tab).
+  const firm = home && home.state !== "inactive" ? (home.firm ?? null) : null;
   const currency = account?.currency?.value ?? ready?.homeCurrency ?? null;
 
   return (
@@ -109,6 +111,14 @@ export default function Account() {
               disabled={!account}
               onPress={() => router.push("/account/accountant")}
             />
+          </Group>
+        </Section>
+      ) : null}
+
+      {firm ? (
+        <Section title={s.firm.accountSection} note={s.firm.accountBody}>
+          <Group>
+            <Row first label={firm.name} onPress={() => router.push("/clients")} />
           </Group>
         </Section>
       ) : null}

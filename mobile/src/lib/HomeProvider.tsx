@@ -244,6 +244,9 @@ export function HomeProvider({ children }: { children: React.ReactNode }) {
   );
   const poll = useCallback(async () => {
     if (!userId || polling.current || AppState.currentState !== "active") return;
+    // Only a company has receipts of its own to watch (not firm-only staff,
+    // nor an account without access).
+    if (homeRef.current != null && homeRef.current.state !== "ready") return;
     if (skipPolls.current > 0) {
       skipPolls.current -= 1;
       return;

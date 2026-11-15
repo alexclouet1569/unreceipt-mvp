@@ -9,7 +9,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { FirmHeader, FirmTabBar, type FirmLinks, type FirmTabKey } from "./_nav";
 import { EMPTY_STATS, adjacentMonths, monthLabel, type ClientStats } from "@/lib/firm/client-stats";
 import { formatInstantDate } from "@/lib/receipt-format";
-import type { FirmClient, FirmMemberRole, Receipt } from "@/lib/types";
+import type { FirmMemberRole, Receipt } from "@/lib/types";
 import { AddClientDialog } from "./clients/AddClientDialog";
 import { JoinLinkPanel, type JoinLinkView } from "./clients/JoinLinkPanel";
 import { RevokeInviteButton } from "./clients/RevokeInviteButton";
@@ -20,15 +20,8 @@ import type { BankMonthView } from "@/lib/bank/month";
 import { FirmReceiptList } from "./clients/[orgId]/FirmReceiptList";
 import { MembersSection, type MemberView } from "./settings/MembersSection";
 
-export type ActiveClient = Pick<
-  FirmClient,
-  "id" | "client_name" | "client_org_number"
-> & { organization_id: string };
-
-export type PendingInvite = Pick<
-  FirmClient,
-  "id" | "client_name" | "invited_email" | "invite_expires_at" | "created_at"
-> & { expired: boolean };
+export type { ActiveClient, PendingInvite } from "@/lib/firm/portal-load";
+import type { ActiveClient, PendingInvite } from "@/lib/firm/portal-load";
 
 const iconLink =
   "inline-flex items-center justify-center rounded-[10px] text-[var(--ink-muted)] hover:text-[var(--ink)] hover:bg-card transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50";

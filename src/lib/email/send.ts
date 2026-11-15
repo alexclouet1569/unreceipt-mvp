@@ -31,6 +31,7 @@ export type OutgoingEmail = {
     | "firm_closed"
     | "missing_receipts"
     | "weekly_reminder"
+    | "manual_reminder"
     | "firm_welcome";
 };
 
