@@ -336,17 +336,24 @@ export function firmInviteEmail(opts: {
   firmName: string;
   clientName: string;
   url: string;
+  /** The iPhone app's public link (iosAppUrl()); the line is left out without it. */
+  appUrl?: string | null;
 }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const company = opts.clientName.trim() || "your company";
   const title = `${firm} wants to see your receipts`;
   const intro = `Share the receipts of ${company} with ${firm}. They'll see all your receipts and do your bookkeeping.`;
   const newHere = "New to UnReceipt? You'll create a free account first.";
+  // The invite is tied to this address, so it waits in the app too.
+  const onIphone = "On iPhone? Get the UnReceipt app and sign in with this address: the invite will be waiting.";
   const bodyHtml = [
     `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(title)}</h1>`,
     paragraph(esc(intro)),
     button("Yes, share", opts.url),
     paragraph(esc(newHere)),
+    ...(opts.appUrl
+      ? [paragraph(`On iPhone? <a href="${esc(opts.appUrl)}" style="color:${C.ink};">Get the UnReceipt app</a> and sign in with this address: the invite will be waiting.`)]
+      : []),
   ].join("\n");
   return {
     subject: title,
@@ -363,6 +370,7 @@ export function firmInviteEmail(opts: {
       `Yes, share: ${opts.url}`,
       "",
       newHere,
+      ...(opts.appUrl ? ["", `${onIphone} ${opts.appUrl}`] : []),
       "",
       `Sent because ${firm} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
     ].join("\n"),

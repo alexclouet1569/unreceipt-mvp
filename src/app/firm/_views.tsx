@@ -11,6 +11,7 @@ import { EMPTY_STATS, adjacentMonths, monthLabel, type ClientStats } from "@/lib
 import { formatInstantDate } from "@/lib/receipt-format";
 import type { FirmClient, FirmMemberRole, Receipt } from "@/lib/types";
 import { AddClientDialog } from "./clients/AddClientDialog";
+import { JoinLinkPanel, type JoinLinkView } from "./clients/JoinLinkPanel";
 import { RevokeInviteButton } from "./clients/RevokeInviteButton";
 import { ExportMonthPanel } from "./clients/[orgId]/ExportMonthPanel";
 import { BankPanel } from "./clients/[orgId]/BankPanel";
@@ -86,11 +87,14 @@ export function ClientsView({
   stats,
   month,
   hrefs,
+  joinLink,
 }: {
   active: ActiveClient[];
   pending: PendingInvite[];
   stats: Map<string, ClientStats>;
   month: string;
+  /** The firm's join link and QR code (src/lib/firm/join-link.ts). */
+  joinLink: JoinLinkView;
   hrefs: { month: (month: string) => string; client: (organizationId: string, month: string) => string };
 }) {
   return (
@@ -112,7 +116,10 @@ export function ClientsView({
         <MonthSwitch month={month} hrefFor={hrefs.month} />
       </div>
 
-      <AddClientDialog />
+      <div className="space-y-4">
+        <AddClientDialog />
+        <JoinLinkPanel link={joinLink} />
+      </div>
 
       {active.length === 0 ? (
         <div className="rounded-[12px] border border-[var(--hairline)] bg-[var(--brand-tint)] px-5 py-8 text-center">
@@ -120,8 +127,8 @@ export function ClientsView({
             Connect your first client
           </p>
           <p className="mt-1 text-[var(--ink-muted)]" style={{ fontSize: "14px" }}>
-            Invite a client company by email. Once they accept, their receipts
-            appear here, month by month.
+            Invite a client company by email, or share your firm&apos;s link. Once
+            they say yes, their receipts appear here, month by month.
           </p>
         </div>
       ) : (

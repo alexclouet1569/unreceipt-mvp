@@ -13,6 +13,9 @@ import {
 import type { FirmClient } from "@/lib/types";
 import { ClientsView, type ActiveClient, type PendingInvite } from "../_views";
 import { FirmRequests, type FirmRequest } from "./FirmRequests";
+import { absoluteAppUrl } from "@/lib/app-url";
+import { ensureJoinCode, joinPath } from "@/lib/firm/join-link";
+import { joinQrDataUrl } from "@/lib/firm/join-qr";
 
 export const dynamic = "force-dynamic";
 
@@ -145,10 +148,12 @@ export default async function FirmClientsPage({
 
   // Normalised like the stored invite address (Gmail dots, googlemail.com).
   const confirmedEmail = normalizedSessionEmail(ctx.user);
-  const [{ active, pending }, requests] = await Promise.all([
+  const [{ active, pending }, requests, join] = await Promise.all([
     loadClients(ctx.firmId),
     loadRequests(confirmedEmail),
+    ensureJoinCode(ctx.firmId),
   ]);
+  const joinUrl = join.code ? absoluteAppUrl(joinPath(join.code)) : null;
   const stats = await loadStats(
     active.map((c) => c.organization_id),
     month,
@@ -165,6 +170,12 @@ export default async function FirmClientsPage({
         hrefs={{
           month: (m) => `/firm/clients?month=${m}`,
           client: (orgId, m) => `/firm/clients/${orgId}?month=${m}`,
+        }}
+        joinLink={{
+          url: joinUrl,
+          qr: joinUrl ? await joinQrDataUrl(joinUrl) : null,
+          off: join.off,
+          isAdmin: ctx.role === "admin",
         }}
       />
     </>

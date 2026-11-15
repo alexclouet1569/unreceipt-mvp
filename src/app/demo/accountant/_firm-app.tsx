@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClientsView, ClientView, FirmShell, SettingsView, type ActiveClient, type PendingInvite } from "@/app/firm/_views";
 import type { MemberView } from "@/app/firm/settings/MembersSection";
+import type { JoinLinkView } from "@/app/firm/clients/JoinLinkPanel";
 import { computeClientStats, monthKey, receiptMonth, resolveMonth, type StatRow } from "@/lib/firm/client-stats";
 import { buildBookkeepingCsv } from "@/lib/bookkeeping/bookkeeping-csv";
 import { buildReceiptsCsv } from "@/lib/export/csv";
@@ -456,9 +457,12 @@ export function FirmApp({
   params,
   hrefFor,
   screenKey = "",
+  joinLink,
 }: {
   params: DemoParams;
   hrefFor: HrefFor;
+  /** A sample firm link and its QR code (drawn by the server page). */
+  joinLink: JoinLinkView;
   // Changes per tour step, so each step opens the screen fresh (filters,
   // open dialogs) while the sample data keeps what was done before.
   screenKey?: string;
@@ -506,6 +510,36 @@ export function FirmApp({
           },
         ]);
         return json({ ok: true, id, emailed: true }, 201);
+      }
+      // "Invite several": every address becomes a waiting invite, as on the server.
+      if (path === "/api/firm/clients/bulk" && method === "POST") {
+        const invites = (Array.isArray(body.invites) ? body.invites : []) as { client_name?: string; email?: string }[];
+        const known = new Set(state.current.clients.filter((c) => c.status !== "revoked").map((c) => c.invited_email));
+        const lines: { email: string; status: "sent" | "skipped" }[] = [];
+        const added: ClientRow[] = [];
+        invites.forEach((inv, i) => {
+          const email = String(inv.email ?? "").trim().toLowerCase();
+          if (!email) return;
+          if (known.has(email)) {
+            lines.push({ email, status: "skipped" });
+            return;
+          }
+          known.add(email);
+          const id = `fc-${Date.now()}-${i}`;
+          added.push({
+            id,
+            organization_id: `pending-${id}`,
+            client_name: String(inv.client_name ?? "").trim() || email,
+            client_org_number: null,
+            status: "invited",
+            invited_email: email,
+            created_at: new Date().toISOString(),
+            invite_expires_at: new Date(Date.now() + 14 * 86400_000).toISOString(),
+          });
+          lines.push({ email, status: "sent" });
+        });
+        setClients((prev) => [...prev, ...added]);
+        return json({ ok: true, lines }, 201);
       }
       let m = /^\/api\/firm\/links\/([^/]+)$/.exec(path);
       if (m && method === "DELETE") {
@@ -832,6 +866,7 @@ export function FirmApp({
           month: (mm) => hrefFor({ month: mm }),
           client: (orgId, mm) => hrefFor({ view: "client", org: orgId, month: mm }),
         }}
+        joinLink={joinLink}
       />
     );
   }
