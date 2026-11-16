@@ -217,6 +217,10 @@ PWA assets (manifest, apple-touch-icon, mobile-web-app meta) only render in `app
 
 Stripe Checkout `success_url` / `cancel_url` use `NEXT_PUBLIC_APP_URL` so the customer always returns to the product host regardless of which host received the POST.
 
+# Messaging (2026-11-16)
+
+Every marketing surface (landing, FAQ, audience pages, About, llms.txt, SEO descriptions) follows one frame. Mission, shown on the landing and About: no business owner, and no accountant, should ever have to chase a receipt. Positioning: the receipt app your accountant is already in. Three proof points: every way in (photo, forward, connected Gmail/Outlook, several at once), read in seconds (VAT included; uncertain receipts wait for the owner or accountant to confirm; no person at UnReceipt checks receipts, never promise a "concierge" or a turnaround time), and the accountant in the loop (bank check, Monday reminder, export). The long-term vision (every expense, then every invoice and document) is on the About page only, labelled as direction, never as a feature. Markets: built for Sweden and France, open to companies elsewhere with that caveat stated. When a feature ships or changes, update these surfaces in the same PR.
+
 # Languages
 
 The marketing site has three languages: English at `/`, Swedish at `/sv` and French at `/fr`. The product (`app.unreceipt.com`) is English only.

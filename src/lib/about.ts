@@ -39,11 +39,14 @@ export type About = {
   notFit: string[];
   limitsTitle: string;
   limits: string[];
+  /** Mission today and where UnReceipt is heading; clearly not a list of current features. */
+  visionTitle: string;
+  vision: string;
   contactTitle: string;
   contact: string;
 };
 
-export const ABOUT_AS_OF = "2026-11-13";
+export const ABOUT_AS_OF = "2026-11-16";
 
 function pricingEn(pilot: boolean): string {
   if (!SHOW_PRICES)
@@ -71,22 +74,22 @@ function en(pilot: boolean): About {
     meta: {
       title: "What is UnReceipt? Facts, pricing and limits | UnReceipt",
       description:
-        "UnReceipt in plain facts: a receipt service for small businesses, freelancers and accounting firms in Sweden and France — how it works, what it costs, where data is stored and what it doesn't do.",
+        "UnReceipt in plain facts: the receipt app small businesses share with their accountant, built for Sweden and France — how it works, what it costs, where data is stored and what it doesn't do.",
     },
     breadcrumb: "About UnReceipt",
     eyebrow: "Fact sheet",
     title: "What is UnReceipt?",
     summary:
-      "UnReceipt is a receipt management service for small businesses, freelancers and sole traders, and the accounting firms that keep their books, in Sweden and France. Companies forward email receipts to a private UnReceipt address or photograph paper receipts on their phone; each receipt is read automatically into a record with its VAT amount and rate (where the receipt shows them), category and file, ready for the accountant. It collects and checks receipts — it is not a bookkeeping program.",
+      "UnReceipt is the receipt app a small business shares with its accountant. It is built for small businesses, freelancers and sole traders, and the accounting firms that keep their books, in Sweden and France. Receipts arrive as photos, as forwarded emails or straight from a connected Gmail or Outlook inbox; each one is read automatically in seconds into a record with its VAT amount and rate (where the receipt shows them), category and file, and the accountant sees it right away. It collects and checks receipts — it is not a bookkeeping program.",
     asOfLabel: "Facts as of",
     factsTitle: "Key facts",
     facts: [
-      { label: "What it is", value: "A receipt collection and reading service, used in the browser on a phone or computer." },
+      { label: "What it is", value: "A receipt collection and reading service, used in the browser on a phone or computer, or in the iPhone app (public beta on TestFlight)." },
       { label: "Who it's for", value: "Small businesses, freelancers and sole traders, and accounting firms collecting receipts from their clients." },
-      { label: "Where", value: "Sweden and France. The website is in English, Swedish and French; the app is in English." },
+      { label: "Where", value: "Built for Sweden and France. Companies in other countries can sign up (home currency EUR, USD or GBP), but the VAT checks, guides and bookkeeping export are made for Sweden and France. The website and the iPhone app are in English, Swedish and French; the web app and emails are in English." },
       {
         label: "How receipts arrive",
-        value: "Forwarded to the account's private UnReceipt email address (a Gmail or Outlook filter, set up once in a web browser, can forward them automatically), read from a connected Gmail or Outlook mailbox (only emails that look like a receipt, invoice or order confirmation are opened and saved), or photographed in the app — the fields fill themselves.",
+        value: "Forwarded to the account's private UnReceipt email address (a Gmail or Outlook filter, set up once in a web browser, can forward them automatically), read from a connected Gmail or Outlook mailbox (only emails that look like a receipt, invoice or order confirmation are opened and saved), or photographed in the iPhone app or the browser — the fields fill themselves — including up to 50 photos or PDFs at once.",
       },
       {
         label: "What is recorded",
@@ -99,7 +102,11 @@ function en(pilot: boolean): About {
       },
       {
         label: "For accounting firms",
-        value: "A firm portal listing every linked client and the receipts that need review, with a ZIP export per client and period: a Swedish bookkeeping CSV (BAS account suggestions, SEK, one line per receipt and VAT rate), a receipts CSV, PDFs and the receipt files. Clients invite their accountant, or the firm invites the client.",
+        value: "A firm portal (on the web, and as a Clients tab in the iPhone app) listing every linked client with what's new, what needs review and what's ready. The firm imports a client's bank statement (CSV) to see payments without a receipt, sends a Monday reminder in its own name (or one at once), and exports a ZIP per client and period: a Swedish bookkeeping CSV (BAS account suggestions, SEK, one line per receipt and VAT rate), a receipts CSV, PDFs and the receipt files. Clients invite their accountant, or the firm invites clients by email (up to 25 at once) or with its own link and QR code.",
+      },
+      {
+        label: "Teams",
+        value: "A company owner can invite employees. Each sends their receipts for approval, saying whether they or the company paid; an owner or the employee's approver approves, sends back or rejects; approved receipts an employee paid are listed for paying back. The accountant sees an employee's receipt once it's approved.",
       },
       { label: "Pricing", value: pricingEn(pilot) },
       {
@@ -111,7 +118,7 @@ function en(pilot: boolean): About {
     ],
     fitTitle: "A good fit for",
     fit: [
-      "Small companies in Sweden or France, run by one person or with one person handling the receipts, whose receipts arrive by email and on paper, and who want them in one place for their accountant.",
+      "Small companies in Sweden or France — one person or a small team — whose receipts arrive by email and on paper, and who want them in one place, shared with their accountant.",
       "Freelancers and sole traders who want every receipt sorted with its VAT before the tax return.",
       "Accounting firms that collect receipts from many small clients and want them checked and exported per client and month.",
     ],
@@ -119,18 +126,21 @@ function en(pilot: boolean): About {
     notFit: [
       "you need receipts booked automatically into your bookkeeping program today: there are no direct integrations yet;",
       "you need a bookkeeping program itself: UnReceipt hands receipts to the one you or your accountant already use;",
-      "your company is outside Sweden and France.",
+      "you need VAT checks or a bookkeeping export made for a country other than Sweden or France.",
     ],
     limitsTitle: "What UnReceipt doesn't do (yet)",
     limits: [
       "No direct integration with bookkeeping programs such as Fortnox, Visma or Pennylane; the export is CSV, PDFs and receipt files.",
-      "One sign-in per company account for now: colleagues can't be added to a company yet (accounting firms can add colleagues to their portal).",
+      "Team approvals are simple: one approver per person, no amount thresholds, no out-of-office delegate, and no payout or payroll file for paying employees back.",
       "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, CHF, PLN and SEK.",
       "No bank or card connection, and no company cards.",
       "It doesn't decide whether VAT is deductible: the VAT is recorded as read from the receipt (worth checking), the bookkeeping CSV only suggests accounts, and the accountant decides.",
       "In France it doesn't produce the compliant copy (LPF art. A102 B-2) needed to destroy a paper invoice, so French users keep their paper originals.",
-      "The app is in English only.",
+      "The web app and emails are in English only (the iPhone app is in English, Swedish and French), and there is no Android app yet.",
     ],
+    visionTitle: "Why UnReceipt exists",
+    vision:
+      "Our mission: no business owner, and no accountant, should ever have to chase a receipt. We're starting with receipts and expenses. Where we're going: every expense, and in time every invoice and business document, handled automatically from the moment it arrives. Today UnReceipt does what this page lists, and nothing more.",
     contactTitle: "Contact",
     contact: "Questions, partnerships or a demo for your accounting firm: support@unreceipt.com.",
   };
@@ -141,22 +151,22 @@ function sv(pilot: boolean): About {
     meta: {
       title: "Vad är UnReceipt? Fakta, priser och begränsningar | UnReceipt",
       description:
-        "UnReceipt i klartext: en kvittotjänst för småföretag, enskilda firmor och redovisningsbyråer i Sverige och Frankrike — hur den fungerar, vad den kostar, var data lagras och vad den inte gör.",
+        "UnReceipt i klartext: kvittoappen som småföretag delar med sin redovisningsbyrå, byggd för Sverige och Frankrike — hur den fungerar, vad den kostar, var data lagras och vad den inte gör.",
     },
     breadcrumb: "Om UnReceipt",
     eyebrow: "Faktablad",
     title: "Vad är UnReceipt?",
     summary:
-      "UnReceipt är en kvittotjänst för småföretag, enskilda firmor och frilansare, och för redovisningsbyråerna som sköter deras bokföring, i Sverige och Frankrike. Företaget vidarebefordrar e-postkvitton till en privat UnReceipt-adress eller fotar papperskvitton med mobilen; varje kvitto läses av automatiskt till ett underlag med momsbelopp och momssats (när kvittot visar dem), kategori och fil, redo för redovisningskonsulten. Tjänsten samlar in och kontrollerar kvitton — den är inget bokföringsprogram.",
+      "UnReceipt är kvittoappen som ett småföretag delar med sin redovisningskonsult. Den är byggd för småföretag, enskilda firmor och frilansare, och för redovisningsbyråerna som sköter deras bokföring, i Sverige och Frankrike. Kvittona kommer in som foton, som vidarebefordrade mejl eller direkt från en kopplad Gmail- eller Outlook-inkorg; varje kvitto läses av automatiskt på några sekunder till ett underlag med momsbelopp och momssats (när kvittot visar dem), kategori och fil, och redovisningskonsulten ser det direkt. Tjänsten samlar in och kontrollerar kvitton — den är inget bokföringsprogram.",
     asOfLabel: "Uppgifterna gäller per",
     factsTitle: "Fakta i korthet",
     facts: [
-      { label: "Vad det är", value: "En tjänst som samlar in och läser av kvitton, i webbläsaren på mobil eller dator." },
+      { label: "Vad det är", value: "En tjänst som samlar in och läser av kvitton, i webbläsaren på mobil eller dator, eller i iPhone-appen (öppen beta via TestFlight)." },
       { label: "För vem", value: "Småföretag, enskilda firmor och frilansare, och redovisningsbyråer som samlar in kvitton från sina klienter." },
-      { label: "Var", value: "Sverige och Frankrike. Webbplatsen finns på svenska, engelska och franska; appen är på engelska." },
+      { label: "Var", value: "Byggd för Sverige och Frankrike. Företag i andra länder kan registrera sig (hemvaluta EUR, USD eller GBP), men momskontrollerna, guiderna och bokföringsexporten är gjorda för Sverige och Frankrike. Webbplatsen och iPhone-appen finns på svenska, engelska och franska; webbappen och mejlen är på engelska." },
       {
         label: "Så kommer kvittona in",
-        value: "Vidarebefordrade till kontots privata UnReceipt-adress (ett filter i Gmail eller Outlook, som ställs in en gång i webbläsaren, kan göra det automatiskt), hämtade från en ansluten Gmail- eller Outlook-inkorg (bara mejl som ser ut som ett kvitto, en faktura eller en orderbekräftelse öppnas och sparas), eller fotade i appen — fälten fylls i automatiskt.",
+        value: "Vidarebefordrade till kontots privata UnReceipt-adress (ett filter i Gmail eller Outlook, som ställs in en gång i webbläsaren, kan göra det automatiskt), hämtade från en ansluten Gmail- eller Outlook-inkorg (bara mejl som ser ut som ett kvitto, en faktura eller en orderbekräftelse öppnas och sparas), eller fotade i iPhone-appen eller webbläsaren — fälten fylls i automatiskt — även upp till 50 foton eller PDF:er åt gången.",
       },
       {
         label: "Vad som sparas",
@@ -169,7 +179,11 @@ function sv(pilot: boolean): About {
       },
       {
         label: "För redovisningsbyråer",
-        value: "En byråportal med alla kopplade klienter och kvittona som behöver granskas, och en ZIP-export per klient och period: en bokföringsfil (CSV med förslag på BAS-konto, i kronor, en rad per kvitto och momssats), en kvittolista, PDF:er och kvittofilerna. Klienten bjuder in byrån, eller byrån bjuder in klienten.",
+        value: "En byråportal (på webben, och som fliken Clients i iPhone-appen) med alla kopplade klienter och vad som är nytt, behöver granskas eller är klart. Byrån importerar klientens kontoutdrag (CSV) för att se betalningar utan kvitto, skickar en påminnelse varje måndag i byråns namn (eller en direkt) och exporterar en ZIP per klient och period: en bokföringsfil (CSV med förslag på BAS-konto, i kronor, en rad per kvitto och momssats), en kvittolista, PDF:er och kvittofilerna. Klienten bjuder in byrån, eller byrån bjuder in klienter via mejl (upp till 25 åt gången) eller med sin egen länk och QR-kod.",
+      },
+      {
+        label: "Team",
+        value: "Företagets ägare kan bjuda in anställda. Var och en skickar sina kvitton för godkännande och anger om de själva eller företaget betalade; en ägare eller den anställdes attestant godkänner, skickar tillbaka eller avslår; godkända kvitton som den anställde betalat listas för återbetalning. Redovisningskonsulten ser en anställds kvitto först när det är godkänt.",
       },
       { label: "Priser", value: pricingSv(pilot) },
       {
@@ -181,7 +195,7 @@ function sv(pilot: boolean): About {
     ],
     fitTitle: "Passar bra för",
     fit: [
-      "Småföretag i Sverige där en person sköter kvittona, vars kvitton kommer både som mejl och på papper, och som vill ha dem på ett ställe för redovisningskonsulten.",
+      "Småföretag i Sverige — en person eller ett litet team — vars kvitton kommer både som mejl och på papper, och som vill ha dem på ett ställe, delade med redovisningskonsulten.",
       "Enskilda firmor och frilansare som vill ha varje kvitto sorterat med momsen före deklarationen.",
       "Redovisningsbyråer som samlar in kvitton från många små klienter och vill ha dem kontrollerade och exporterade per klient och månad.",
     ],
@@ -189,17 +203,20 @@ function sv(pilot: boolean): About {
     notFit: [
       "du behöver att kvittona bokförs automatiskt i ditt bokföringsprogram i dag: det finns inga direktintegrationer än;",
       "du behöver själva bokföringsprogrammet: UnReceipt lämnar kvittona till det program du eller din byrå redan använder;",
-      "ditt företag finns utanför Sverige och Frankrike.",
+      "du behöver momskontroller eller en bokföringsexport för ett annat land än Sverige eller Frankrike.",
     ],
     limitsTitle: "Det här gör UnReceipt inte (än)",
     limits: [
       "Ingen direktintegration med bokföringsprogram som Fortnox eller Visma; exporten är CSV, PDF:er och kvittofiler.",
-      "En inloggning per företagskonto än så länge: kollegor kan inte läggas till i ett företag ännu (redovisningsbyråer kan lägga till kollegor i sin portal).",
+      "Attesten är enkel: en attestant per person, inga beloppsgränser, ingen ersättare vid frånvaro och ingen utbetalnings- eller lönefil för att betala tillbaka till anställda.",
       "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, CHF och PLN.",
       "Ingen bank- eller kortkoppling, och inga företagskort.",
       "Tjänsten avgör inte om momsen är avdragsgill: momsen sparas som den lästs av från kvittot (värt att kontrollera), bokföringsfilen föreslår bara konton, och redovisningskonsulten avgör.",
-      "Appen är bara på engelska.",
+      "Webbappen och mejlen finns bara på engelska (iPhone-appen finns på svenska, engelska och franska), och det finns ingen Android-app än.",
     ],
+    visionTitle: "Varför UnReceipt finns",
+    vision:
+      "Vårt uppdrag: ingen företagare, och ingen redovisningskonsult, ska behöva jaga ett kvitto igen. Vi börjar med kvitton och utlägg. Dit vi är på väg: varje utgift, och med tiden varje faktura och affärsdokument, hanterat automatiskt från det ögonblick det kommer in. I dag gör UnReceipt det som står på den här sidan, och inget mer.",
     contactTitle: "Kontakt",
     contact: "Frågor, samarbeten eller en demo för din redovisningsbyrå: support@unreceipt.com.",
   };
@@ -210,22 +227,22 @@ function fr(pilot: boolean): About {
     meta: {
       title: "Qu’est-ce qu’UnReceipt ? Faits, tarifs et limites | UnReceipt",
       description:
-        "UnReceipt en faits : un service de gestion des justificatifs pour TPE, indépendants et cabinets d’expertise comptable en France et en Suède — fonctionnement, tarifs, hébergement des données et limites.",
+        "UnReceipt en faits : l’application de reçus que les TPE partagent avec leur expert-comptable, conçue pour la France et la Suède — fonctionnement, tarifs, hébergement des données et limites.",
     },
     breadcrumb: "À propos d’UnReceipt",
     eyebrow: "Fiche d’information",
     title: "Qu’est-ce qu’UnReceipt ?",
     summary:
-      "UnReceipt est un service de gestion des reçus et justificatifs pour les TPE, les indépendants et micro-entrepreneurs, et les cabinets d’expertise comptable qui tiennent leur comptabilité, en France et en Suède. L’entreprise transfère ses reçus reçus par e-mail à une adresse UnReceipt privée ou photographie ses tickets papier avec son téléphone ; chaque reçu est lu automatiquement et devient une fiche avec le montant et le taux de TVA (quand le justificatif les indique), la catégorie et le fichier, prête pour l’expert-comptable. Le service collecte et vérifie les justificatifs — ce n’est pas un logiciel de comptabilité.",
+      "UnReceipt est l’application de reçus qu’une petite entreprise partage avec son expert-comptable. Elle est conçue pour les TPE, les indépendants et micro-entrepreneurs, et les cabinets d’expertise comptable qui tiennent leur comptabilité, en France et en Suède. Les reçus arrivent en photo, par e-mail transféré ou directement depuis une boîte Gmail ou Outlook connectée ; chacun est lu automatiquement en quelques secondes et devient une fiche avec le montant et le taux de TVA (quand le justificatif les indique), la catégorie et le fichier, que l’expert-comptable voit aussitôt. Le service collecte et vérifie les justificatifs — ce n’est pas un logiciel de comptabilité.",
     asOfLabel: "Informations à jour au",
     factsTitle: "L’essentiel",
     facts: [
-      { label: "Ce que c’est", value: "Un service de collecte et de lecture des reçus, dans le navigateur, sur téléphone ou ordinateur." },
+      { label: "Ce que c’est", value: "Un service de collecte et de lecture des reçus, dans le navigateur, sur téléphone ou ordinateur, ou dans l’app iPhone (bêta publique via TestFlight)." },
       { label: "Pour qui", value: "TPE, indépendants et micro-entrepreneurs, et cabinets d’expertise comptable qui collectent les justificatifs de leurs clients." },
-      { label: "Où", value: "France et Suède. Le site est en français, en anglais et en suédois ; l’application est en anglais." },
+      { label: "Où", value: "Conçu pour la France et la Suède. Les entreprises d’autres pays peuvent s’inscrire (devise EUR, USD ou GBP), mais les contrôles de TVA, les guides et l’export comptable sont pensés pour la France et la Suède. Le site et l’app iPhone sont en français, en anglais et en suédois ; l’application web et les e-mails sont en anglais." },
       {
         label: "Comment arrivent les reçus",
-        value: "Transférés à l’adresse e-mail UnReceipt privée du compte (un filtre Gmail ou Outlook, réglé une fois dans le navigateur, peut le faire automatiquement), lus dans une boîte Gmail ou Outlook connectée (seuls les e-mails qui ressemblent à un reçu, une facture ou une confirmation de commande sont ouverts et enregistrés), ou photographiés dans l’application — les champs se remplissent tout seuls.",
+        value: "Transférés à l’adresse e-mail UnReceipt privée du compte (un filtre Gmail ou Outlook, réglé une fois dans le navigateur, peut le faire automatiquement), lus dans une boîte Gmail ou Outlook connectée (seuls les e-mails qui ressemblent à un reçu, une facture ou une confirmation de commande sont ouverts et enregistrés), ou photographiés dans l’app iPhone ou le navigateur — les champs se remplissent tout seuls — y compris jusqu’à 50 photos ou PDF d’un coup.",
       },
       {
         label: "Ce qui est enregistré",
@@ -238,7 +255,11 @@ function fr(pilot: boolean): About {
       },
       {
         label: "Pour les cabinets",
-        value: "Un portail cabinet avec tous les clients reliés et les reçus à revoir, et un export ZIP par client et par mois : un CSV des reçus, les PDF et les fichiers d’origine. Le client invite son expert-comptable, ou le cabinet invite le client.",
+        value: "Un portail cabinet (sur le web, et dans l’onglet Clients de l’app iPhone) avec tous les clients reliés et ce qui est nouveau, à revoir ou prêt. Le cabinet importe le relevé bancaire d’un client (CSV) pour voir les paiements sans reçu, envoie un rappel chaque lundi à son nom (ou un rappel immédiat), et exporte un ZIP par client et par mois : un CSV des reçus, les PDF et les fichiers d’origine. Le client invite son expert-comptable, ou le cabinet invite ses clients par e-mail (jusqu’à 25 d’un coup) ou avec son propre lien et QR code.",
+      },
+      {
+        label: "Équipe",
+        value: "Le dirigeant peut inviter ses salariés. Chacun envoie ses reçus pour validation en indiquant s’il a payé lui-même ou si l’entreprise a payé ; le dirigeant ou le valideur du salarié valide, renvoie ou refuse ; les reçus validés payés par un salarié sont listés pour remboursement. L’expert-comptable ne voit le reçu d’un salarié qu’une fois validé.",
       },
       { label: "Tarifs", value: pricingFr(pilot) },
       {
@@ -250,7 +271,7 @@ function fr(pilot: boolean): About {
     ],
     fitTitle: "Adapté pour",
     fit: [
-      "Les TPE en France où une personne gère les reçus, dont les reçus arrivent par e-mail et sur papier, et qui veulent les centraliser pour leur expert-comptable.",
+      "Les TPE en France — une personne ou une petite équipe — dont les reçus arrivent par e-mail et sur papier, et qui veulent les centraliser avec leur expert-comptable.",
       "Les indépendants et micro-entrepreneurs qui veulent chaque justificatif classé avec sa TVA.",
       "Les cabinets qui collectent les justificatifs de nombreux petits clients et veulent les recevoir vérifiés, par client et par mois.",
     ],
@@ -263,13 +284,16 @@ function fr(pilot: boolean): About {
     limitsTitle: "Ce qu’UnReceipt ne fait pas (encore)",
     limits: [
       "Pas d’intégration directe avec un logiciel comptable comme Pennylane ; l’export est un CSV, des PDF et les fichiers des reçus.",
-      "Un seul accès par compte d’entreprise pour l’instant : on ne peut pas encore ajouter de collègues à une entreprise (les cabinets peuvent ajouter leurs collaborateurs à leur portail).",
+      "La validation reste simple : un valideur par personne, pas de seuils de montant, pas de suppléant en cas d’absence, et pas de fichier de virement ou de paie pour rembourser les salariés.",
       "La conversion couvre SEK, USD, GBP, NOK, DKK, CHF et PLN.",
       "Pas de connexion bancaire ni de carte, et pas de cartes d’entreprise.",
       "Le service ne décide pas si la TVA est récupérable : elle est relevée telle que lue sur le justificatif (à vérifier), et l’expert-comptable décide.",
       "Pas de copie conforme au sens de l’article A102 B-2 du LPF : conservez vos originaux papier.",
-      "L’application est en anglais uniquement.",
+      "L’application web et les e-mails sont en anglais uniquement (l’app iPhone est en français, en anglais et en suédois), et il n’y a pas encore d’app Android.",
     ],
+    visionTitle: "Pourquoi UnReceipt existe",
+    vision:
+      "Notre mission : qu’aucun dirigeant, ni aucun expert-comptable, n’ait plus jamais à courir après un reçu. Nous commençons par les reçus et les notes de frais. Là où nous allons : chaque dépense, et à terme chaque facture et document de l’entreprise, traités automatiquement dès leur arrivée. Aujourd’hui, UnReceipt fait ce que décrit cette page, rien de plus.",
     contactTitle: "Contact",
     contact: "Questions, partenariats ou démo pour votre cabinet : support@unreceipt.com.",
   };

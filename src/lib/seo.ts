@@ -20,26 +20,26 @@ export const SITE_URL = "https://unreceipt.com";
 export const TITLE = "Receipt App for Small Businesses & Accountants | UnReceipt";
 
 export const DESCRIPTION =
-  "Snap or forward any receipt. UnReceipt turns it into a VAT-ready record within 24 hours, shared with your accountant. For small businesses, freelancers and accounting firms.";
+  "The receipt app your accountant is already in. Snap, forward or auto-collect receipts; each is read in seconds, VAT included, and shared with your accountant. For small businesses, freelancers and accounting firms.";
 
 export const SHARE_DESCRIPTION =
-  "Snap or forward any receipt and get a VAT-ready record within 24 hours — for small businesses, freelancers and their accountants.";
+  "Every receipt, already with your accountant: snap, forward or connect your inbox, and each one is read in seconds, VAT included.";
 
 export const SV_TITLE = "Kvittohantering för småföretag och redovisningsbyråer | UnReceipt";
 
 export const SV_DESCRIPTION =
-  "Fota eller vidarebefordra kvitton. UnReceipt gör varje kvitto till ett kontrollerat underlag med momsen uppdelad inom 24 timmar, redo för din redovisningsbyrå. För småföretag, enskild firma och byråer.";
+  "Kvittoappen som din redovisningsbyrå redan finns i. Fota, vidarebefordra eller hämta in kvitton automatiskt; varje kvitto läses av på sekunder, med momsen, och delas med byrån. För småföretag, enskild firma och byråer.";
 
 export const SV_SHARE_DESCRIPTION =
-  "Skicka vilket kvitto som helst — mejl eller foto — och få ett kontrollerat underlag inom 24 timmar, redo för din redovisningsbyrå.";
+  "Varje kvitto, direkt hos din redovisare: fota, vidarebefordra eller koppla inkorgen, så läses det av på sekunder, med momsen.";
 
 export const FR_TITLE = "Gestion des justificatifs pour TPE et experts-comptables | UnReceipt";
 
 export const FR_DESCRIPTION =
-  "Photographiez vos tickets ou transférez vos reçus par e-mail. UnReceipt en fait des justificatifs vérifiés sous 24 h, TVA relevée, prêts pour votre expert-comptable. Pour TPE, indépendants et cabinets.";
+  "L’application de reçus où votre expert-comptable est déjà. Photographiez, transférez ou laissez arriver vos reçus\u00a0: chacun est lu en quelques secondes, TVA comprise, et partagé avec votre cabinet. Pour TPE, indépendants et cabinets.";
 
 export const FR_SHARE_DESCRIPTION =
-  "Envoyez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié sous 24 heures, prêt pour votre expert-comptable.";
+  "Chaque reçu, déjà chez votre comptable\u00a0: photographiez, transférez ou connectez votre boîte mail, et il est lu en quelques secondes, TVA comprise.";
 
 /** Open Graph locale per site language. */
 const OG_LOCALE: Record<Locale, string> = { en: "en_US", sv: "sv_SE", fr: "fr_FR" };
@@ -243,30 +243,33 @@ export function landingJsonLd(pilotMode: boolean, locale: Locale = "en", showPri
 /** Feature list for the SoftwareApplication node; true of the product today. */
 const FEATURES: Record<Locale, string[]> = {
   en: [
-    "Private email address per company for forwarded receipts",
-    "Photo capture with automatic field extraction",
-    "VAT amount and rate recorded for every receipt",
-    "Every receipt checked within 24 hours",
+    "Personal email address for forwarded receipts, and Gmail or Outlook connection",
+    "Photo capture with automatic field extraction, in the iPhone app or the browser",
+    "VAT amount and rate recorded when the receipt shows them",
+    "Receipts read in seconds; uncertain ones confirmed by the user or accountant",
     "Foreign-currency receipts converted at the ECB reference rate",
-    "Accounting-firm portal with per-client review and monthly export",
+    "Employee receipts sent for approval",
+    "Accounting-firm portal with per-client review, bank-statement check, weekly reminders and monthly export",
     "ZIP export with CSV, PDFs and original files",
   ],
   sv: [
-    "Privat e-postadress per företag för vidarebefordrade kvitton",
-    "Fota kvitton, fälten fylls i automatiskt",
-    "Momsbelopp och momssats för varje kvitto",
-    "Varje kvitto kontrolleras inom 24 timmar",
+    "Egen e-postadress för vidarebefordrade kvitton, och koppling till Gmail eller Outlook",
+    "Fota kvitton i iPhone-appen eller webbläsaren, fälten fylls i automatiskt",
+    "Momsbelopp och momssats när kvittot visar dem",
+    "Kvitton avlästa på sekunder; osäkra bekräftas av användaren eller byrån",
     "Utländska kvitton räknas om med ECB:s referenskurs",
-    "Byråportal med granskning per klient och månadsexport med BAS-kontoförslag",
+    "Anställdas kvitton skickas för godkännande",
+    "Byråportal med granskning per klient, avstämning mot kontoutdrag, påminnelser varje vecka och månadsexport med BAS-kontoförslag",
     "ZIP-export med CSV, PDF:er och originalfiler",
   ],
   fr: [
-    "Adresse e-mail privée par entreprise pour les reçus transférés",
-    "Photo des tickets avec remplissage automatique",
-    "Montant et taux de TVA relevés pour chaque reçu",
-    "Chaque reçu vérifié sous 24 heures",
+    "Adresse e-mail personnelle pour les reçus transférés, et connexion Gmail ou Outlook",
+    "Photo des tickets dans l’app iPhone ou le navigateur, avec remplissage automatique",
+    "Montant et taux de TVA relevés quand le justificatif les indique",
+    "Reçus lus en quelques secondes ; les incertains confirmés par l’utilisateur ou le cabinet",
     "Reçus en devises convertis au taux de référence de la BCE",
-    "Portail cabinet avec revue par client et export mensuel",
+    "Reçus des salariés envoyés pour validation",
+    "Portail cabinet avec revue par client, rapprochement du relevé bancaire, rappels hebdomadaires et export mensuel",
     "Export ZIP avec CSV, PDF et fichiers d’origine",
   ],
 };

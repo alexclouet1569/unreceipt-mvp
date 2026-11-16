@@ -77,11 +77,11 @@ function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is a receipt service for small businesses, freelancers and their accounting firms. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
+      a: "UnReceipt is the receipt app a small business shares with its accountant. Snap a paper receipt, forward an email receipt or connect your Gmail or Outlook inbox, and each receipt is read in seconds into a record with merchant, date, line items, VAT and category, kept with its original file. Your accountant sees it right away, checks it against your bank statement and exports it for the books. It is made for small businesses, freelancers and their accounting firms.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
-      a: "Forward email receipts to your private UnReceipt address, or take a photo of a paper receipt in the app — the fields fill themselves. No bank connection or new card is needed.",
+      a: "Three ways: take a photo of a paper receipt in the iPhone app or the browser (the fields fill themselves; up to 50 files at once), forward email receipts to your own UnReceipt address, or connect Gmail or Outlook so receipt emails arrive by themselves. No bank login or new card is needed.",
     },
     {
       q: "How much does UnReceipt cost?",
@@ -93,11 +93,15 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Who checks my receipts?",
-      a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
+      a: "Each receipt is read automatically in seconds. You check a photo's fields before you save it. Most receipts read from email, from a connected inbox or several at once wait in Review needed until you (or your accountant) confirm them against the original, and your accountant sees receipts from a connected inbox only once you have confirmed them.",
     },
     {
       q: "Can my accountant see my receipts?",
-      a: "Yes. Invite your accountant from Settings in the app; once they accept with their work email, they see your company's receipts in UnReceipt's accounting-firm portal, can complete and check them, and export each month for the bookkeeping. You can also download a ZIP for any month and send it yourself.",
+      a: "Yes. Invite your accountant from Settings in the app, or open the link or QR code your accounting firm gives you and press Yes, share. Once linked, they see your company's receipts in UnReceipt's accounting-firm portal as they arrive, can complete and check them, see which bank payments still miss a receipt, send you a reminder, and export each month for the bookkeeping. You can also download a ZIP for any month and send it yourself.",
+    },
+    {
+      q: "Can employees send their receipts?",
+      a: "Yes. The company owner invites colleagues from Team; each one snaps or forwards their own receipts and sends them for approval, saying whether they paid themselves or the company did. The owner (or an approver) approves, sends back or rejects, sees who needs paying back, and the accountant sees an employee's receipt once it's approved.",
     },
     {
       q: "How long do companies have to keep receipts?",
@@ -118,11 +122,11 @@ function faqSv(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Vad är UnReceipt?",
-      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett kontrollerat underlag i din översikt: säljare, datum, kvittorader, moms och kategori. Appen är på engelska än så länge.",
+      a: "UnReceipt är kvittoappen som ett småföretag delar med sin redovisningskonsult. Fota ett papperskvitto, vidarebefordra ett e-postkvitto eller koppla din Gmail- eller Outlook-inkorg, så läses varje kvitto av på några sekunder till ett underlag med säljare, datum, kvittorader, moms och kategori, sparat med originalfilen. Din redovisningskonsult ser det direkt, stämmer av det mot kontoutdraget och exporterar det till bokföringen. iPhone-appen finns på svenska; webbappen är på engelska än så länge.",
     },
     {
       q: "Hur skickar jag kvitton till UnReceipt?",
-      a: "Vidarebefordra e-postkvitton till din privata UnReceipt-adress, eller ta ett foto av ett papperskvitto i appen — fälten fylls i automatiskt. Ingen bankkoppling eller nytt kort behövs.",
+      a: "På tre sätt: fota ett papperskvitto i iPhone-appen eller i webbläsaren (fälten fylls i automatiskt; upp till 50 filer åt gången), vidarebefordra e-postkvitton till din egen UnReceipt-adress, eller koppla Gmail eller Outlook så kommer kvittomejlen in av sig själva. Ingen bankinloggning eller nytt kort behövs.",
     },
     {
       q: "Vad kostar UnReceipt?",
@@ -134,11 +138,15 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Vem kontrollerar mina kvitton?",
-      a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som kontrollerat.",
+      a: "Varje kvitto läses av automatiskt på några sekunder. Ett fotat kvitto kontrollerar du innan du sparar det. De flesta kvitton från mejl, från en kopplad inkorg eller som laddats upp flera åt gången väntar i Review needed tills du (eller din redovisningskonsult) bekräftar dem mot originalet, och kvitton från en kopplad inkorg ser byrån först när du har bekräftat dem.",
     },
     {
       q: "Kan min redovisningsbyrå se mina kvitton?",
-      a: "Ja. Bjud in din redovisningskonsult under Settings i appen; när hen accepterar med sin jobbmejl ser byrån ditt företags kvitton i UnReceipts byråportal, kan komplettera och kontrollera dem och exportera varje månad till bokföringen, med förslag på BAS-konto. Du kan också ladda ner en ZIP för valfri månad och skicka den själv.",
+      a: "Ja. Bjud in din redovisningskonsult under Settings i appen, eller öppna länken eller QR-koden från din byrå och tryck på Yes, share. När ni är kopplade ser byrån ditt företags kvitton i UnReceipts byråportal när de kommer in, kan komplettera och kontrollera dem, se vilka betalningar på kontoutdraget som saknar kvitto, skicka en påminnelse och exportera varje månad till bokföringen, med förslag på BAS-konto. Du kan också ladda ner en ZIP för valfri månad och skicka den själv.",
+    },
+    {
+      q: "Kan anställda skicka in sina kvitton?",
+      a: "Ja. Företagets ägare bjuder in kollegor under Team; var och en fotar eller vidarebefordrar sina egna kvitton och skickar dem för godkännande, och anger om de betalade själva eller om företaget betalade. Ägaren (eller en attestant) godkänner, skickar tillbaka eller avslår, ser vem som ska få pengar tillbaka, och redovisningskonsulten ser en anställds kvitto först när det är godkänt.",
     },
     {
       q: "Hur länge måste företag spara kvitton?",
@@ -163,11 +171,11 @@ function faqFr(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Qu’est-ce qu’UnReceipt\u00a0?",
-      a: "UnReceipt est un service de gestion des reçus pour les petites entreprises. Transférez vos factures et reçus envoyés par e-mail à l’adresse UnReceipt privée de votre entreprise ou photographiez un ticket papier\u00a0: sous 24 heures, chacun devient une fiche vérifiée dans votre tableau de bord — fournisseur, date, lignes, TVA et catégorie. L’application est pour l’instant en anglais.",
+      a: "UnReceipt est l’application de reçus qu’une petite entreprise partage avec son expert-comptable. Photographiez un ticket, transférez un reçu reçu par e-mail ou connectez votre boîte Gmail ou Outlook\u00a0: chaque reçu est lu en quelques secondes et devient une fiche — fournisseur, date, lignes, TVA et catégorie — conservée avec son fichier d’origine. Votre expert-comptable la voit tout de suite, la rapproche de votre relevé bancaire et l’exporte pour la saisie. L’app iPhone est en français\u00a0; l’application web est pour l’instant en anglais.",
     },
     {
       q: "Comment envoyer mes reçus à UnReceipt\u00a0?",
-      a: "Transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt privée, ou prenez en photo un ticket papier dans l’application — les champs se remplissent tout seuls. Aucune connexion bancaire ni nouvelle carte n’est nécessaire.",
+      a: "De trois façons\u00a0: prenez en photo un ticket papier dans l’app iPhone ou le navigateur (les champs se remplissent tout seuls\u00a0; jusqu’à 50 fichiers d’un coup), transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt, ou connectez Gmail ou Outlook pour que les e-mails de reçus arrivent tout seuls. Aucun accès bancaire ni nouvelle carte n’est nécessaire.",
     },
     {
       q: "Combien coûte UnReceipt\u00a0?",
@@ -179,11 +187,15 @@ function faqFr(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Qui vérifie mes reçus\u00a0?",
-      a: "Chaque reçu est lu automatiquement, puis vérifié par notre équipe sous 24 heures avant d’être marqué comme vérifié.",
+      a: "Chaque reçu est lu automatiquement en quelques secondes. Vous vérifiez les champs d’une photo avant de l’enregistrer. La plupart des reçus lus depuis un e-mail, une boîte connectée ou envoyés par lot attendent dans « Review needed » que vous (ou votre expert-comptable) les confirmiez face à l’original, et votre expert-comptable ne voit les reçus d’une boîte connectée qu’une fois que vous les avez confirmés.",
     },
     {
       q: "Mon expert-comptable peut-il voir mes reçus\u00a0?",
-      a: "Oui. Invitez votre expert-comptable depuis les réglages de l’application (Settings)\u00a0; une fois qu’il accepte avec son e-mail professionnel, il voit les reçus de votre entreprise dans le portail cabinet d’UnReceipt, peut les compléter et les vérifier, et exporter chaque mois pour la saisie. Vous pouvez aussi télécharger un ZIP pour n’importe quel mois et l’envoyer vous-même.",
+      a: "Oui. Invitez votre expert-comptable depuis les réglages de l’application (Settings), ou ouvrez le lien ou le QR code que vous donne votre cabinet et appuyez sur Yes, share. Une fois reliés, il voit les reçus de votre entreprise dans le portail cabinet d’UnReceipt dès leur arrivée, peut les compléter et les vérifier, voir quels paiements du relevé bancaire n’ont pas encore de reçu, vous envoyer un rappel et exporter chaque mois pour la saisie. Vous pouvez aussi télécharger un ZIP pour n’importe quel mois et l’envoyer vous-même.",
+    },
+    {
+      q: "Mes salariés peuvent-ils envoyer leurs reçus\u00a0?",
+      a: "Oui. Le dirigeant invite ses collègues depuis Team\u00a0; chacun photographie ou transfère ses propres reçus et les envoie pour validation, en indiquant s’il a payé lui-même ou si l’entreprise a payé. Le dirigeant (ou un valideur) valide, renvoie ou refuse, voit qui rembourser, et l’expert-comptable ne voit le reçu d’un salarié qu’une fois validé.",
     },
     {
       q: "Combien de temps faut-il conserver les justificatifs\u00a0?",

@@ -52,14 +52,13 @@ export function PilotBanner({ inStoreApp = false }: { inStoreApp?: boolean }) {
               src/lib/native-app.ts). */}
           {inStoreApp ? (
             <>
-              You&apos;re using the UnReceipt free pilot. Every receipt you
-              forward gets concierge processing within 24 hours.
+              You&apos;re using the UnReceipt free pilot. Thanks for helping
+              us shape it: tell us what&apos;s missing at support@unreceipt.com.
             </>
           ) : (
             <>
-              You&apos;re using the UnReceipt free pilot. When we open paid access
-              in the coming weeks, we&apos;ll send you a heads-up. Until then,
-              every receipt you forward gets concierge processing within 24 hours.
+              You&apos;re using the UnReceipt free pilot. When we open paid access,
+              we&apos;ll send you a heads-up first. Until then, everything is free.
             </>
           )}
         </p>

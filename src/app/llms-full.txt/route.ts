@@ -32,6 +32,8 @@ function aboutMd(a: About, locale: Locale): string {
     a.notFit.map((f) => `- ${f}`).join("\n"),
     `### ${a.limitsTitle}`,
     a.limits.map((f) => `- ${f}`).join("\n"),
+    `### ${a.visionTitle}`,
+    a.vision,
   ].join("\n\n");
 }
 

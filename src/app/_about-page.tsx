@@ -113,6 +113,11 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
             </ul>
           </section>
 
+          <section className="mb-10">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#303568] mb-3">{a.visionTitle}</h2>
+            <p className="text-base leading-relaxed text-[#303568]/85">{a.vision}</p>
+          </section>
+
           <section className="rounded-3xl bg-[#303568] p-6 sm:p-8">
             <h2 className="text-xl font-extrabold text-white mb-2">{a.contactTitle}</h2>
             <p className="text-white/75 mb-6">{a.contact}</p>

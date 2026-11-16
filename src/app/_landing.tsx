@@ -102,7 +102,7 @@ function ReceiptEdge({ color = "#27BE7B", flip = false }: { color?: string; flip
 /* ── Scrolling receipt ticker ── */
 function ReceiptTicker({ t, samples }: { t: LandingCopy["ticker"]; samples: LandingCopy["samples"] }) {
   // Example receipts. Source is how it reached UnReceipt (forwarded email
-  // or a photo); every receipt ends up verified by the concierge.
+  // or a photo), each shown as verified.
   const receipts = samples.ticker.map((r) => ({ ...r, category: t.categories[r.category] }));
 
   const doubled = [...receipts, ...receipts];
@@ -413,7 +413,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                       <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
                     </div>
                     <div className="p-4 space-y-3">
-                      {/* Latest receipt, verified by the concierge */}
+                      {/* Latest receipt, read and confirmed */}
                       <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
@@ -645,6 +645,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
               {t.about.title}
             </h2>
+            <p className="text-lg text-[#303568]/80 mt-4 max-w-2xl mx-auto leading-relaxed">{t.about.lead}</p>
           </div>
           <div className="grid md:grid-cols-3 gap-10 md:gap-8">
             {t.about.items.map((item, i) => ({ ...item, icon: [Building2, UserRound, Calculator][i], href: audienceLinks[i] })).map((item) => (

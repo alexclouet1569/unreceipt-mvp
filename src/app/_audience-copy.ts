@@ -131,9 +131,9 @@ const accountantsEn: AudienceCopy = {
     ],
     newTitle: "With UnReceipt",
     new: [
-      "Clients send each receipt when they pay: photo or forwarded email",
-      "Merchant, date, VAT amount and rate already read and checked",
-      "Per client, you see which receipts still need a check",
+      "Clients send each receipt when they pay: photo, forwarded email or connected inbox",
+      "Merchant, date, VAT amount and rate already read for you",
+      "Bank payments without a receipt listed, and a Monday reminder sent for you",
       "Foreign receipts converted at the ECB rate of the purchase day",
     ],
   },
@@ -144,15 +144,15 @@ const accountantsEn: AudienceCopy = {
     items: [
       {
         title: "Link your clients",
-        desc: "Invite a client company by email, or accept the invite a client sends you. The invited side always confirms from its own signed-in account.",
+        desc: "Invite clients by email, up to 25 at once, or share your firm's own link and QR code; a client can also invite you. Nothing is shared until the client says yes from its own signed-in account.",
       },
       {
         title: "They send, we read",
-        desc: "Clients snap paper receipts or forward email ones to their private address. Each receipt is read automatically and checked within 24 hours.",
+        desc: "Clients snap paper receipts, forward email ones or connect their Gmail or Outlook. Each receipt is read in seconds and reaches your portal as it arrives.",
       },
       {
         title: "You review and export",
-        desc: "Open a client's month, complete what's missing, then export a ZIP: a bookkeeping file with one line per receipt and VAT rate, plus every PDF and original.",
+        desc: "Open a client's month, import the bank statement to see what's missing, complete the rest, then export a ZIP: a bookkeeping file with one line per receipt and VAT rate, plus every PDF and original.",
       },
     ],
   },
@@ -163,12 +163,12 @@ const accountantsEn: AudienceCopy = {
       {
         icon: "users",
         title: "Every client on one screen",
-        desc: "All linked companies, with the number of receipts waiting for a check next to each.",
+        desc: "All linked companies with what's new, what needs a check and what's ready, on the web and in the Clients tab of the iPhone app.",
       },
       {
         icon: "receipt",
-        title: "VAT split per rate",
-        desc: "Each receipt carries its VAT amount and rate; the bookkeeping file has one line per receipt and VAT rate.",
+        title: "Payments without a receipt",
+        desc: "Import a client's bank statement (a CSV file, no bank login) and see which payments still have no receipt. Email the list to the client in one click.",
       },
       {
         icon: "calculator",
@@ -181,9 +181,9 @@ const accountantsEn: AudienceCopy = {
         desc: "An export only takes receipts that haven't been exported before, and you can mark each one as booked with its voucher number.",
       },
       {
-        icon: "globe",
-        title: "Foreign currencies handled",
-        desc: "A receipt in EUR, USD, GBP, NOK, DKK, CHF or PLN keeps its own amount and gets an estimated kronor amount from the ECB rate of the purchase day, or the amount from the bank statement.",
+        icon: "clock",
+        title: "A reminder every Monday",
+        desc: "Clients get one email in your firm's name listing what's still missing; nothing is sent when all is in. Switch it per client, or send one now.",
       },
       {
         icon: "layers",
@@ -203,7 +203,7 @@ const accountantsEn: AudienceCopy = {
   faq: [
     {
       q: "How does an accounting firm get started with UnReceipt?",
-      a: "Ask a client to invite you from UnReceipt (Settings → Your accountant) and accept with your work email: that creates your firm's portal. Or write to support@unreceipt.com and we'll set up your firm and walk you through it. From the portal you can then invite your other clients by email.",
+      a: "Write to support@unreceipt.com and we'll set up your firm's portal and walk you through it, or ask a client to invite you from UnReceipt (Settings → Your accountant) and accept: that creates your portal too. From the portal you invite your other clients by email (up to 25 at once) or share your firm's link and QR code.",
     },
     {
       q: "What does UnReceipt cost an accounting firm?",
@@ -215,7 +215,7 @@ const accountantsEn: AudienceCopy = {
     },
     {
       q: "Who can see a client's receipts?",
-      a: "Besides the client itself and UnReceipt's concierge, who checks each receipt, only your firm's staff, and only for companies linked to your firm. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
+      a: "Besides the client itself, only your firm's staff, and only for companies linked to your firm. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
     },
     {
       q: "Can I change the category or account of a receipt?",
@@ -223,7 +223,7 @@ const accountantsEn: AudienceCopy = {
     },
     {
       q: "Is the portal in Swedish?",
-      a: "The product is in English for now. The website is in English, Swedish and French.",
+      a: "The iPhone app is in English, Swedish and French. The web portal and the emails are in English for now.",
     },
   ],
   ending: {
@@ -289,9 +289,9 @@ const accountantsSv: AudienceCopy = {
     ],
     newTitle: "Med UnReceipt",
     new: [
-      "Klienten skickar kvittot direkt vid köpet: foto eller vidarebefordrat mejl",
-      "Säljare, datum, momsbelopp och momssats redan avlästa och kontrollerade",
-      "Per klient ser du vilka kvitton som behöver granskas",
+      "Klienten skickar kvittot direkt vid köpet: foto, vidarebefordrat mejl eller kopplad inkorg",
+      "Säljare, datum, momsbelopp och momssats redan avlästa åt dig",
+      "Betalningar utan kvitto listade, och en påminnelse varje måndag skickas åt dig",
       "Utländska kvitton omräknade med ECB:s kurs för köpdagen",
     ],
   },
@@ -302,15 +302,15 @@ const accountantsSv: AudienceCopy = {
     items: [
       {
         title: "Koppla dina klienter",
-        desc: "Bjud in ett klientföretag via mejl, eller acceptera inbjudan som klienten skickar till dig. Den inbjudna parten bekräftar alltid från sitt eget inloggade konto.",
+        desc: "Bjud in klienter via mejl, upp till 25 åt gången, eller dela byråns egen länk och QR-kod; en klient kan också bjuda in dig. Inget delas förrän klienten tackar ja från sitt eget inloggade konto.",
       },
       {
         title: "De skickar, vi läser av",
-        desc: "Klienterna fotar papperskvitton eller vidarebefordrar e-postkvitton till sin privata adress. Varje kvitto läses av automatiskt och kontrolleras inom 24 timmar.",
+        desc: "Klienterna fotar papperskvitton, vidarebefordrar e-postkvitton eller kopplar sin Gmail eller Outlook. Varje kvitto läses av på sekunder och kommer till portalen direkt.",
       },
       {
         title: "Du granskar och exporterar",
-        desc: "Öppna klientens månad, komplettera det som saknas och exportera en ZIP: en bokföringsfil med en rad per kvitto och momssats, plus varje PDF och original.",
+        desc: "Öppna klientens månad, importera kontoutdraget för att se vad som saknas, komplettera resten och exportera en ZIP: en bokföringsfil med en rad per kvitto och momssats, plus varje PDF och original.",
       },
     ],
   },
@@ -321,12 +321,12 @@ const accountantsSv: AudienceCopy = {
       {
         icon: "users",
         title: "Alla klienter i en vy",
-        desc: "Alla kopplade företag, med antalet kvitton som väntar på granskning bredvid varje.",
+        desc: "Alla kopplade företag med vad som är nytt, vad som behöver granskas och vad som är klart, på webben och under Clients i iPhone-appen.",
       },
       {
         icon: "receipt",
-        title: "Momsen uppdelad per sats",
-        desc: "Varje kvitto har momsbelopp och momssats; bokföringsfilen har en rad per kvitto och momssats.",
+        title: "Betalningar utan kvitto",
+        desc: "Importera klientens kontoutdrag (en CSV-fil, ingen bankinloggning) och se vilka betalningar som fortfarande saknar kvitto. Mejla listan till klienten med ett klick.",
       },
       {
         icon: "calculator",
@@ -339,9 +339,9 @@ const accountantsSv: AudienceCopy = {
         desc: "En export tar bara med kvitton som inte exporterats tidigare, och du kan markera varje kvitto som bokfört med verifikationsnummer.",
       },
       {
-        icon: "globe",
-        title: "Utländsk valuta klar",
-        desc: "Ett kvitto i EUR, USD, GBP, NOK, DKK, CHF eller PLN behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen, eller beloppet från kontoutdraget.",
+        icon: "clock",
+        title: "En påminnelse varje måndag",
+        desc: "Klienten får ett mejl i byråns namn med det som fortfarande saknas; inget skickas när allt är på plats. Slå av eller på per klient, eller skicka en direkt.",
       },
       {
         icon: "layers",
@@ -362,7 +362,7 @@ const accountantsSv: AudienceCopy = {
   faq: [
     {
       q: "Hur kommer en redovisningsbyrå igång med UnReceipt?",
-      a: "Be en klient bjuda in dig från UnReceipt (Settings → Your accountant) och acceptera med din jobbmejl: då skapas byråns portal. Eller mejla support@unreceipt.com så sätter vi upp byrån och visar hur det fungerar. Från portalen bjuder du sedan in dina andra klienter via mejl.",
+      a: "Mejla support@unreceipt.com så sätter vi upp byråns portal och visar hur det fungerar, eller be en klient bjuda in dig från UnReceipt (Settings → Your accountant) och acceptera: då skapas portalen också. Från portalen bjuder du in dina andra klienter via mejl (upp till 25 åt gången) eller delar byråns länk och QR-kod.",
     },
     {
       q: "Vad kostar UnReceipt för en redovisningsbyrå?",
@@ -374,7 +374,7 @@ const accountantsSv: AudienceCopy = {
     },
     {
       q: "Vem kan se klientens kvitton?",
-      a: "Förutom klienten själv och UnReceipts concierge, som kontrollerar varje kvitto, bara byråns personal, och bara för företag som är kopplade till byrån. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
+      a: "Förutom klienten själv bara byråns personal, och bara för företag som är kopplade till byrån. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
     },
     {
       q: "Kan jag ändra kategori eller konto på ett kvitto?",
@@ -382,7 +382,7 @@ const accountantsSv: AudienceCopy = {
     },
     {
       q: "Finns portalen på svenska?",
-      a: "Produkten är på engelska än så länge. Webbplatsen finns på svenska, engelska och franska.",
+      a: "iPhone-appen finns på svenska, engelska och franska. Webbportalen och mejlen är på engelska än så länge.",
     },
   ],
   ending: {
@@ -447,9 +447,9 @@ const accountantsFr: AudienceCopy = {
     ],
     newTitle: "Avec UnReceipt",
     new: [
-      "Le client envoie chaque reçu au moment de l’achat : photo ou e-mail transféré",
-      "Fournisseur, date, montant et taux de TVA déjà lus et vérifiés",
-      "Pour chaque client, vous voyez les reçus à revoir",
+      "Le client envoie chaque reçu au moment de l’achat : photo, e-mail transféré ou boîte connectée",
+      "Fournisseur, date, montant et taux de TVA déjà lus pour vous",
+      "Les paiements sans reçu listés, et un rappel envoyé pour vous chaque lundi",
       "Reçus en devises convertis au taux BCE du jour de l’achat",
     ],
   },
@@ -460,15 +460,15 @@ const accountantsFr: AudienceCopy = {
     items: [
       {
         title: "Reliez vos clients",
-        desc: "Invitez une entreprise cliente par e-mail, ou acceptez l’invitation qu’un client vous envoie. La partie invitée confirme toujours depuis son propre compte connecté.",
+        desc: "Invitez vos clients par e-mail, jusqu’à 25 d’un coup, ou partagez le lien et le QR code de votre cabinet ; un client peut aussi vous inviter. Rien n’est partagé avant que le client accepte depuis son propre compte connecté.",
       },
       {
         title: "Ils envoient, nous lisons",
-        desc: "Vos clients photographient leurs tickets ou transfèrent leurs reçus par e-mail à leur adresse privée. Chaque reçu est lu automatiquement et vérifié sous 24 heures.",
+        desc: "Vos clients photographient leurs tickets, transfèrent leurs reçus par e-mail ou connectent leur Gmail ou Outlook. Chaque reçu est lu en quelques secondes et arrive aussitôt dans votre portail.",
       },
       {
         title: "Vous revoyez et exportez",
-        desc: "Ouvrez le mois d’un client, complétez ce qui manque, puis exportez un ZIP : un CSV des reçus avec montants et TVA, chaque justificatif en PDF et les fichiers d’origine.",
+        desc: "Ouvrez le mois d’un client, importez son relevé bancaire pour voir ce qui manque, complétez le reste, puis exportez un ZIP : un CSV des reçus avec montants et TVA, chaque justificatif en PDF et les fichiers d’origine.",
       },
     ],
   },
@@ -479,12 +479,12 @@ const accountantsFr: AudienceCopy = {
       {
         icon: "users",
         title: "Tous vos clients sur un écran",
-        desc: "Toutes les entreprises reliées, avec le nombre de reçus qui attendent une vérification.",
+        desc: "Toutes les entreprises reliées avec ce qui est nouveau, à vérifier ou prêt, sur le web et dans l’onglet Clients de l’app iPhone.",
       },
       {
         icon: "receipt",
-        title: "La TVA relevée",
-        desc: "Chaque reçu indique le montant et le taux de TVA tels qu’ils figurent sur le justificatif.",
+        title: "Les paiements sans reçu",
+        desc: "Importez le relevé bancaire d’un client (un fichier CSV, sans accès à sa banque) et voyez quels paiements n’ont pas encore de reçu. Envoyez la liste au client en un clic.",
       },
       {
         icon: "check",
@@ -492,9 +492,9 @@ const accountantsFr: AudienceCopy = {
         desc: "Un export ne reprend que les reçus jamais exportés, et vous pouvez marquer chaque reçu comme comptabilisé avec sa référence.",
       },
       {
-        icon: "globe",
-        title: "Les devises gérées",
-        desc: "Un reçu en SEK, USD, GBP, NOK, DKK, CHF ou PLN garde son montant et reçoit un montant estimé en euros au taux de référence BCE du jour de l’achat, ou celui du relevé bancaire.",
+        icon: "clock",
+        title: "Un rappel chaque lundi",
+        desc: "Le client reçoit un e-mail au nom du cabinet avec ce qui manque encore ; rien n’est envoyé quand tout est là. Activez-le client par client, ou envoyez-en un tout de suite.",
       },
       {
         icon: "download",
@@ -520,7 +520,7 @@ const accountantsFr: AudienceCopy = {
   faq: [
     {
       q: "Comment un cabinet d’expertise comptable démarre-t-il avec UnReceipt ?",
-      a: "Demandez à un client de vous inviter depuis UnReceipt (Settings → Your accountant) et acceptez avec votre e-mail professionnel : le portail de votre cabinet est créé. Ou écrivez à support@unreceipt.com et nous configurons votre cabinet avec vous. Depuis le portail, vous invitez ensuite vos autres clients par e-mail.",
+      a: "Écrivez à support@unreceipt.com et nous configurons le portail de votre cabinet avec vous, ou demandez à un client de vous inviter depuis UnReceipt (Settings → Your accountant) et acceptez : le portail est créé aussi. Depuis le portail, vous invitez vos autres clients par e-mail (jusqu’à 25 d’un coup) ou partagez le lien et le QR code du cabinet.",
     },
     {
       q: "Combien coûte UnReceipt pour un cabinet ?",
@@ -532,7 +532,7 @@ const accountantsFr: AudienceCopy = {
     },
     {
       q: "Qui peut voir les reçus d’un client ?",
-      a: "Outre le client lui-même et l’équipe UnReceipt qui vérifie chaque reçu, seuls les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
+      a: "Outre le client lui-même, seuls les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
     },
     {
       q: "UnReceipt remplace-t-il le ticket papier ?",
@@ -540,7 +540,7 @@ const accountantsFr: AudienceCopy = {
     },
     {
       q: "Le portail est-il en français ?",
-      a: "L’application est pour l’instant en anglais. Le site est en français, en anglais et en suédois.",
+      a: "L’app iPhone est en français, en anglais et en suédois. Le portail web et les e-mails sont pour l’instant en anglais.",
     },
   ],
   ending: {
@@ -608,7 +608,7 @@ const freelancersEn: AudienceCopy = {
     ],
     newTitle: "With UnReceipt",
     new: [
-      "One private address and a camera button",
+      "A camera button, your own receipt address and your inbox connected once",
       "Every receipt sorted by date and category as it arrives",
       "Foreign receipts converted at the ECB rate of the purchase day",
       "Your accountant sees your receipts directly, or you export a ZIP",
@@ -625,7 +625,7 @@ const freelancersEn: AudienceCopy = {
       },
       {
         title: "Make it automatic",
-        desc: "Add one Gmail or Outlook filter and receipt emails reach UnReceipt on their own. Each receipt is checked within 24 hours.",
+        desc: "Connect Gmail or Outlook in one click (or add a forwarding filter) and receipt emails reach UnReceipt on their own, read in seconds.",
       },
       {
         title: "Export or share",
@@ -692,7 +692,7 @@ const freelancersEn: AudienceCopy = {
     },
     {
       q: "Can receipt emails reach UnReceipt automatically?",
-      a: "Yes. The setup guide in the app gives you a ready-made Gmail or Outlook filter that forwards receipt emails to your private UnReceipt address, so you don't have to forward them one by one.",
+      a: "Yes. Connect your Gmail or Outlook inbox in one click and UnReceipt picks out the emails that look like a receipt, invoice or order confirmation; you confirm each one before it counts. Prefer not to connect? The setup guide gives you a ready-made filter that forwards receipt emails to your UnReceipt address.",
     },
     {
       q: "What happens to my receipts if I stop using UnReceipt?",
@@ -762,7 +762,7 @@ const freelancersSv: AudienceCopy = {
     ],
     newTitle: "Med UnReceipt",
     new: [
-      "En privat adress och en kameraknapp",
+      "En kameraknapp, din egen kvittoadress och inkorgen kopplad en gång",
       "Varje kvitto sorterat efter datum och kategori direkt",
       "Utländska kvitton omräknade med ECB:s kurs för köpdagen",
       "Konsulten ser dina kvitton direkt, eller så exporterar du en ZIP",
@@ -779,7 +779,7 @@ const freelancersSv: AudienceCopy = {
       },
       {
         title: "Gör det automatiskt",
-        desc: "Lägg till ett filter i Gmail eller Outlook så kommer kvittomejlen till UnReceipt av sig själva. Varje kvitto kontrolleras inom 24 timmar.",
+        desc: "Koppla Gmail eller Outlook med ett klick (eller lägg till ett filter för vidarebefordran) så kommer kvittomejlen till UnReceipt av sig själva, avlästa på sekunder.",
       },
       {
         title: "Exportera eller dela",
@@ -851,7 +851,7 @@ const freelancersSv: AudienceCopy = {
     },
     {
       q: "Kan kvittomejl komma till UnReceipt automatiskt?",
-      a: "Ja. Guiden i appen ger dig ett färdigt filter för Gmail eller Outlook som vidarebefordrar kvittomejl till din privata UnReceipt-adress, så att du slipper göra det ett i taget.",
+      a: "Ja. Koppla din Gmail- eller Outlook-inkorg med ett klick så plockar UnReceipt ut mejlen som ser ut som ett kvitto, en faktura eller en orderbekräftelse; du bekräftar varje kvitto innan det räknas. Vill du inte koppla inkorgen? Guiden i appen ger dig ett färdigt filter som vidarebefordrar kvittomejl till din UnReceipt-adress.",
     },
   ],
   ending: {
@@ -916,7 +916,7 @@ const freelancersFr: AudienceCopy = {
     ],
     newTitle: "Avec UnReceipt",
     new: [
-      "Une adresse privée et un bouton photo",
+      "Un bouton photo, votre adresse de reçus et votre boîte mail connectée une fois",
       "Chaque reçu classé par date et catégorie dès son arrivée",
       "Reçus en devises convertis au taux BCE du jour de l’achat",
       "Votre expert-comptable voit vos reçus, ou vous exportez un ZIP",
@@ -933,7 +933,7 @@ const freelancersFr: AudienceCopy = {
       },
       {
         title: "Automatisez",
-        desc: "Ajoutez un filtre Gmail ou Outlook et vos reçus par e-mail arrivent seuls dans UnReceipt. Chaque reçu est vérifié sous 24 heures.",
+        desc: "Connectez Gmail ou Outlook en un clic (ou ajoutez un filtre de transfert) et vos reçus par e-mail arrivent seuls dans UnReceipt, lus en quelques secondes.",
       },
       {
         title: "Exportez ou partagez",
