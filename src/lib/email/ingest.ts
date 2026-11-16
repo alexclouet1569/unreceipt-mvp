@@ -7,8 +7,9 @@
 // Flow:
 //   1. intake_ref = Message-Id || sha256(raw .eml) (|| sha256 of the
 //      caller's fallback identity when there is neither).
-//   0. An email sent by UnReceipt itself, or a reply or mailing-list email
-//      without a PDF or photo (./own-sender.ts) → "ignored".
+//   0. An email sent by UnReceipt itself, a GitHub notification, or a
+//      mailing-list email that names no receipt and attaches no file
+//      (./own-sender.ts) → "ignored".
 //   2. Existing (user_id, intake_ref) row → "duplicate", no side effects.
 //   3. Run the parser. Parser throw → pending_review (row still inserted
 //      with nullable canonical fields so the user can complete it).
@@ -47,8 +48,8 @@ import { homeCurrencyOf } from "@/lib/fx";
 import { fillFromText, partialAttachmentFields, type PartialAttachmentFields } from "@/lib/email/attachment-fields";
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
-import { isListOrReply, isOwnEmail } from "@/lib/email/own-sender";
-import { isReply } from "@/lib/mailboxes/select";
+import { hasListId, isNotificationSender, isOwnEmail } from "@/lib/email/own-sender";
+import { subjectNamesReceipt } from "@/lib/mailboxes/select";
 
 /**
  * What decides whether a template (Uber, Stripe) may mark the receipt
@@ -117,7 +118,7 @@ export type IngestResult =
    * invitation, a reminder…), which a forwarding rule or a connected
    * mailbox can pick up. Final: don't deliver it again.
    */
-  | { kind: "ignored"; reason: "own_email" | "list_or_reply" }
+  | { kind: "ignored"; reason: "own_email" | "notification" }
   /**
    * Nothing was saved (or what was stored was removed again); the sender
    * should deliver the message again. Resend: 5xx.
@@ -182,19 +183,24 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
   const html = input.html === null ? null : stripNul(input.html);
   const dmarc = trust.dmarc;
   const hasRaw = rawEml !== null && rawEml.length > 0;
-  // A notification or a reply (a forwarding rule on "receipt" catches
-  // "Re: your receipt" and GitHub's "…receipts (PR #157)"): the same rule
-  // a connected mailbox applies before downloading (../mailboxes/select.ts),
-  // here for forwarding too. One with a PDF or photo is still read.
+  // A notification a forwarding rule on "receipt" picked up (GitHub's
+  // "…receipts (PR #157)", a newsletter): GitHub's notification sender
+  // always, and a mailing-list email (top-level List-Id) unless its subject
+  // names a receipt or it carries a real attached file. A group passing on
+  // an Uber receipt keeps it; replies are left alone here, because a
+  // forward prefix in one language is a reply prefix in another ("VS:").
+  if (isNotificationSender(input.from)) {
+    console.info(`${tag} ignored a notification email`);
+    return { kind: "ignored", reason: "notification" };
+  }
   if (
-    isListOrReply({
-      reply: isReply(subject),
-      listIds: hasRaw ? rawHeaderValues(rawEml.toString("latin1"), "list-id") : null,
-    }) &&
-    !(rawEml && pickReceiptAttachment(extractAttachments(rawEml)))
+    hasRaw &&
+    hasListId(rawHeaderValues(rawEml.toString("latin1"), "list-id")) &&
+    !subjectNamesReceipt(subject) &&
+    pickReceiptAttachment(extractAttachments(rawEml))?.disposition !== "attachment"
   ) {
-    console.info(`${tag} ignored a reply or mailing-list email without an attachment`);
-    return { kind: "ignored", reason: "list_or_reply" };
+    console.info(`${tag} ignored a mailing-list email that names no receipt`);
+    return { kind: "ignored", reason: "notification" };
   }
 
   // intake_ref: prefer Message-Id (provider-stable identity that survives

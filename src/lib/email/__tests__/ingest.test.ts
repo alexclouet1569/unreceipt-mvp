@@ -133,39 +133,91 @@ beforeEach(() => {
 });
 
 describe("ingestReceiptEmail", () => {
-  it("sets aside a notification email (List-Id) that a forwarding rule picked up for its subject", async () => {
-    const raw = Buffer.from(
+  const listEml = (subject: string, extra: string[] = []) =>
+    Buffer.from(
       [
-        "From: Someone <notifications@github.com>",
+        "From: Billing <billing-group@acme.se>",
         "To: anna@gmail.com",
-        "List-ID: acme/app <app.acme.github.com>",
-        "Subject: Re: [acme/app] Never turn our own emails into receipts (PR #157)",
+        "List-ID: <billing.acme.se>",
+        `Subject: ${subject}`,
+        ...extra,
         "",
-        "Merged #157 into main.",
+        "Hello",
       ].join("\r\n")
     );
+
+  it("sets aside GitHub's notifications whatever the subject says", async () => {
     const result = await ingestReceiptEmail(
-      input({ rawEml: raw, from: "notifications@github.com", subject: "[acme/app] New receipts screen (PR #158)" })
+      input({ from: "Someone <notifications@github.com>", subject: "Re: [acme/app] Fix receipt upload (PR #12)" })
     );
-
-    expect(result).toEqual({ kind: "ignored", reason: "list_or_reply" });
+    expect(result).toEqual({ kind: "ignored", reason: "notification" });
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("sets aside a mailing-list email that names no receipt and attaches no file", async () => {
+    const subject = "[acme/app] Never turn our own emails into receipts (PR #157)";
+    const result = await ingestReceiptEmail(input({ rawEml: listEml(subject), subject, from: "billing-group@acme.se" }));
+    expect(result).toEqual({ kind: "ignored", reason: "notification" });
     expect(mocks.storageUpload).not.toHaveBeenCalled();
-    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+    expect(mocks.usage).not.toHaveBeenCalled();
   });
 
-  it("sets aside a reply without a PDF or photo", async () => {
-    const result = await ingestReceiptEmail(input({ subject: "Re: Your receipt from Uber" }));
-    expect(result).toEqual({ kind: "ignored", reason: "list_or_reply" });
-    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  it("keeps a receipt that reached the user through a group (List-Id, subject names a receipt)", async () => {
+    const subject = "Your receipt from Uber";
+    const result = await ingestReceiptEmail(input({ rawEml: listEml(subject), subject, from: "billing-group@acme.se" }));
+    expect(result.kind).toBe("created");
   });
 
-  it("still reads a reply that carries a PDF", async () => {
+  it("doesn't count an inline image (a logo in the signature) as an attached file", async () => {
+    // A PNG signature, > 8 KB like a real logo, placed inline.
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(12_000, 1)]);
+    const raw = Buffer.from(
+      [
+        "From: news@shop.example",
+        "To: anna@gmail.com",
+        "List-ID: <news.shop.example>",
+        "Subject: Our autumn news",
+        'Content-Type: multipart/related; boundary="B1"',
+        "",
+        "--B1",
+        "Content-Type: text/html",
+        "",
+        "<p>News</p><img src=cid:logo>",
+        "--B1",
+        "Content-Type: image/png; name=image001.png",
+        "Content-Transfer-Encoding: base64",
+        "Content-Disposition: inline; filename=image001.png",
+        "Content-ID: <logo>",
+        "",
+        png.toString("base64"),
+        "--B1--",
+      ].join("\r\n"),
+      "latin1"
+    );
+    const result = await ingestReceiptEmail(input({ rawEml: raw, subject: "Our autumn news", from: "news@shop.example" }));
+    expect(result).toEqual({ kind: "ignored", reason: "notification" });
+    expect(mocks.ocr).not.toHaveBeenCalled();
+  });
+
+  it("keeps a mailing-list email that carries an attached file", async () => {
     mocks.ocr.mockResolvedValueOnce({ status: "error" });
+    const withPdf = Buffer.from(
+      emlWithPdf().toString("latin1").replace("To: anna@gmail.com", "To: anna@gmail.com\r\nList-ID: <billing.acme.se>"),
+      "latin1"
+    );
     const result = await ingestReceiptEmail(
-      input({ rawEml: emlWithPdf(), subject: "Sv: Kvitto", from: "kvitto@ica.se", trust: { dmarc: null, recipient: { from: "to-header", aliasAddress: ALIAS } } })
+      input({ rawEml: withPdf, subject: "Månadsrapport", from: "kvitto@ica.se", trust: { dmarc: null, recipient: { from: "to-header", aliasAddress: ALIAS } } })
     );
     expect(result.kind).toBe("created");
+  });
+
+  it("leaves replies and forwards in any language alone (Danish and Norwegian forwards start with \"VS:\")", async () => {
+    for (const subject of ["VS: Din kvittering fra 7-Eleven", "Re: Your receipt from Uber", "Réf : Facture 2026-114"]) {
+      mocks.receiptsInsert.mockClear();
+      const result = await ingestReceiptEmail(input({ subject, from: "anna@gmail.com", messageId: `<${subject}>` }));
+      expect(result.kind).toBe("created");
+    }
   });
 
   it("still reads a receipt the user forwarded by hand", async () => {

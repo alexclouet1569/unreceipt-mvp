@@ -33,18 +33,24 @@ export function isOwnEmail(from: string | null | undefined): boolean {
   return addressOf(from) === OWN_SENDER_ADDRESS;
 }
 
-/**
- * A mailing-list or notification email (it carries a List-Id header,
- * RFC 2919: GitHub, Google Groups, newsletters) or a reply in a
- * conversation ("Re:", "Sv:", "AW:"…; ../mailboxes/select.ts isReply()).
- * Neither is a receipt on its own; ingest still reads one that carries a
- * PDF or photo. Read from the message's own top-level headers, so a
- * receipt the user forwards by hand ("Fwd: …", sent by them, no List-Id)
- * is never caught; an automatic forwarding rule keeps the original
- * headers, which is where a GitHub notification about a "receipt" pull
- * request came from (2026-11-16, pilot dry run).
- */
-export function isListOrReply(message: { reply: boolean; listIds: string[] | null }): boolean {
-  return message.reply || (message.listIds ?? []).some((v) => v.trim() !== "");
+/** Senders that never send a receipt: GitHub's notifications (its billing
+ *  receipts come from other addresses). The mailbox rules skip it too
+ *  (../mailboxes/select.ts IGNORED_SENDERS). */
+const NEVER_RECEIPT_SENDERS = ["notifications@github.com"];
+
+export function isNotificationSender(from: string | null | undefined): boolean {
+  if (!from) return false;
+  const address = addressOf(from);
+  return address !== null && NEVER_RECEIPT_SENDERS.includes(address);
 }
 
+/**
+ * The message's own top-level List-Id header (RFC 2919) is set: it came
+ * through a mailing list, a notification feed or a group (Google Groups
+ * add one to everything they pass on, receipts included). Not a reason on
+ * its own to drop an email: ingest keeps one whose subject names a receipt
+ * or that carries a real attached file.
+ */
+export function hasListId(listIds: string[] | null): boolean {
+  return (listIds ?? []).some((v) => v.trim() !== "");
+}

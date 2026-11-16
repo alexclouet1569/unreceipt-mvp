@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FROM_ADDRESS } from "@/lib/email/send";
-import { isListOrReply, isOwnEmail, OWN_SENDER_ADDRESS } from "@/lib/email/own-sender";
+import { hasListId, isNotificationSender, isOwnEmail, OWN_SENDER_ADDRESS } from "@/lib/email/own-sender";
 
 describe("isOwnEmail", () => {
   it("recognises the address every UnReceipt email is sent from", () => {
@@ -28,15 +28,20 @@ describe("isOwnEmail", () => {
   });
 });
 
-describe("isListOrReply", () => {
-  it("is true for a reply or an email with a List-Id", () => {
-    expect(isListOrReply({ reply: true, listIds: null })).toBe(true);
-    expect(isListOrReply({ reply: false, listIds: ["acme/app <app.acme.github.com>"] })).toBe(true);
+describe("isNotificationSender", () => {
+  it("is GitHub's notification address only", () => {
+    expect(isNotificationSender("Someone <notifications@github.com>")).toBe(true);
+    expect(isNotificationSender("noreply@github.com")).toBe(false);
+    expect(isNotificationSender("receipts@uber.com")).toBe(false);
+    expect(isNotificationSender(null)).toBe(false);
   });
+});
 
-  it("is false for anything else, an empty List-Id included", () => {
-    expect(isListOrReply({ reply: false, listIds: null })).toBe(false);
-    expect(isListOrReply({ reply: false, listIds: [] })).toBe(false);
-    expect(isListOrReply({ reply: false, listIds: ["  "] })).toBe(false);
+describe("hasListId", () => {
+  it("is true only for a non-empty List-Id", () => {
+    expect(hasListId(["acme/app <app.acme.github.com>"])).toBe(true);
+    expect(hasListId(null)).toBe(false);
+    expect(hasListId([])).toBe(false);
+    expect(hasListId(["  "])).toBe(false);
   });
 });
