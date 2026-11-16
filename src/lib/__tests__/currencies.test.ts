@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CURRENCY_OPTIONS, HOME_CURRENCY_OPTIONS, formatAmount } from "@/lib/receipt-format";
-import { FX_CONVERTED_CURRENCIES } from "@/lib/bookkeeping/rules";
+import { FX_CONVERTED_CURRENCIES, FX_RATE_GAPS } from "@/lib/bookkeeping/rules";
 
 // The app's list, read as text (the app has its own tsconfig).
 function appCurrencies(): string[] {
@@ -21,6 +21,10 @@ describe("currency lists", () => {
 
   it("only converts currencies a receipt can be in", () => {
     for (const c of FX_CONVERTED_CURRENCIES) expect(CURRENCY_OPTIONS).toContain(c);
+  });
+
+  it("lists rate gaps only for converted currencies", () => {
+    for (const c of Object.keys(FX_RATE_GAPS)) expect(FX_CONVERTED_CURRENCIES).toContain(c);
   });
 
   it("offers a company only currencies the ECB still publishes", () => {

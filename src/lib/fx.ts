@@ -19,6 +19,7 @@ import {
   FX_CONVERTED_CURRENCIES,
   FX_FIRST_RATE_DATE,
   FX_MAX_RATE_AGE_DAYS,
+  FX_RATE_GAPS,
 } from "./bookkeeping/rules";
 import type { Receipt } from "./types";
 
@@ -141,6 +142,20 @@ function usable(c: Cached | null, date: string): c is Cached {
 export type FetchBudget = Set<"90d" | "all">;
 
 /**
+ * Whether the ECB publishes (or published) a rate for `currency` on
+ * `date`, as far as the calendar goes: a currency we cache, outside its
+ * known gaps (FX_RATE_GAPS). Without this, a BGN receipt dated 2026 missed
+ * the cache, downloaded the ECB history and missed again, on every load.
+ */
+export function ecbPublishes(currency: string, date: string): boolean {
+  if (currency === "EUR") return true;
+  if (!CACHED_CURRENCIES.has(currency)) return false;
+  return !(FX_RATE_GAPS[currency] ?? []).some(
+    ([from, to]) => (from == null || date >= from) && (to == null || date <= to)
+  );
+}
+
+/**
  * Rate from `from` to `to` on `date`: the ECB rate of that day, or of the
  * last banking day before it. Null when it isn't known (yet): dates before
  * the first ECB rate or in the future, or today before the ECB publishes.
@@ -156,7 +171,7 @@ export async function rateOn(
 ): Promise<{ rate: number; rateDate: string } | null> {
   if (date < FX_FIRST_RATE_DATE || date > today()) return null;
   const sides = [from, to].filter((c) => c !== "EUR");
-  if (sides.some((c) => !CACHED_CURRENCIES.has(c))) return null;
+  if (sides.some((c) => !ecbPublishes(c, date))) return null;
 
   const read = async () => {
     const found = await Promise.all(
@@ -381,6 +396,7 @@ export async function ensureHomeAmounts(rows: Receipt[], home: string): Promise<
       if (r.currency === home || !convertible(r.currency) || !needsConversion(r, home)) continue;
       const d = conversionDate(r);
       if (!d || d < FX_FIRST_RATE_DATE || d > latest) continue;
+      if (!ecbPublishes(r.currency, d) || !ecbPublishes(home, d)) continue;
       dates.push(d);
       currencies.add(r.currency);
     }

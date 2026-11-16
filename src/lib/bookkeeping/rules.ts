@@ -84,6 +84,21 @@ export const FX_CONVERTED_CURRENCIES = [
   "BGN",
 ] as const;
 
+// Spans (inclusive, null = open-ended) in which the ECB published no rate
+// for a currency it otherwise has. A date inside one is never converted
+// and never makes us download the ECB files again: no download could fill
+// it. Checked against the ECB Data Portal (series EXR D.<CUR>.EUR.SP00.A)
+// on 2026-11-16, and for ISK the Central Bank of Iceland ("discontinued on
+// 3 December 2008", "resumed on 1 February 2018"). TRY and RON start at
+// their 2005 redenominations; the portal back-fills earlier days, but we
+// don't count on the XML file doing the same.
+export const FX_RATE_GAPS: Record<string, ReadonlyArray<readonly [string | null, string | null]>> = {
+  BGN: [["2026-01-01", null]],
+  ISK: [["2008-12-04", "2018-01-31"]],
+  RON: [[null, "2005-06-30"]],
+  TRY: [[null, "2005-01-02"]],
+};
+
 // First day of ECB reference rates; nothing earlier can be converted.
 export const FX_FIRST_RATE_DATE = "1999-01-04";
 

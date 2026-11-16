@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import { conversionDate, crossRate, needsConversion, parseEcbXml, rateOn, round2, roundTo } from "@/lib/fx";
+import { conversionDate, crossRate, ecbPublishes, needsConversion, parseEcbXml, rateOn, round2, roundTo } from "@/lib/fx";
 import type { Receipt } from "@/lib/types";
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -77,8 +77,32 @@ describe("fx", () => {
     expect(await rateOn("1990-01-01", "EUR", "SEK")).toBeNull();
     expect(await rateOn("2999-01-01", "EUR", "SEK")).toBeNull();
     expect(await rateOn("2026-01-05", "EUR", "XYZ")).toBeNull();
+    // Dates the ECB has no rate for: no download could fill them.
+    expect(await rateOn("2026-03-02", "BGN", "SEK")).toBeNull();
+    expect(await rateOn("2026-03-02", "SEK", "BGN")).toBeNull();
+    expect(await rateOn("2012-06-01", "ISK", "EUR")).toBeNull();
+    expect(await rateOn("2004-06-01", "TRY", "SEK")).toBeNull();
+    expect(await rateOn("2005-03-01", "RON", "EUR")).toBeNull();
+    expect(await rateOn("2026-01-05", "RSD", "EUR")).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+});
+
+describe("ecbPublishes", () => {
+  it("follows the ECB's calendar for each currency", () => {
+    expect(ecbPublishes("EUR", "1990-01-01")).toBe(true);
+    expect(ecbPublishes("BGN", "2025-12-31")).toBe(true);
+    expect(ecbPublishes("BGN", "2026-01-01")).toBe(false);
+    expect(ecbPublishes("ISK", "2008-12-03")).toBe(true);
+    expect(ecbPublishes("ISK", "2008-12-04")).toBe(false);
+    expect(ecbPublishes("ISK", "2018-01-31")).toBe(false);
+    expect(ecbPublishes("ISK", "2018-02-01")).toBe(true);
+    expect(ecbPublishes("TRY", "2005-01-02")).toBe(false);
+    expect(ecbPublishes("TRY", "2005-01-03")).toBe(true);
+    expect(ecbPublishes("RON", "2005-07-01")).toBe(true);
+    expect(ecbPublishes("CZK", "2001-05-02")).toBe(true);
+    expect(ecbPublishes("UAH", "2026-01-05")).toBe(false);
   });
 });
 
