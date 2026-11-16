@@ -1,9 +1,9 @@
 // POST /api/organization/currency — the company's own currency (2026-11-05).
 // Totals, the accountant's export and the "≈" amounts use it; receipts in
-// another currency are converted at the ECB rate (src/lib/fx.ts). Changing
-// it needs no backfill: every row converted to the old currency is
-// converted again on its next read. Only an owner of the company may
-// change it.
+// another currency are converted at the ECB rate (src/lib/fx.ts). A change
+// converts the company's receipts into the new currency at once
+// (reconvertOrganization(); typed bank amounts and approved outlays follow
+// on read). Only an owner of the company may change it.
 
 import { after, NextResponse, type NextRequest } from "next/server";
 import * as Sentry from "@sentry/nextjs";
@@ -15,6 +15,7 @@ import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { countryForCurrency } from "@/lib/country";
 import { reconvertOrganization } from "@/lib/fx";
+import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,19 +24,24 @@ export const maxDuration = 60;
 
 // How long the answer waits for the receipts to be converted, so the
 // screens' refresh right after shows the new currency; the rest goes on
-// after the answer.
-const CONVERT_BEFORE_ANSWER_MS = 15_000;
-const CONVERT_AFTER_ANSWER_MS = 40_000;
+// after the answer, until this long after the request started (inside
+// maxDuration, with room for the page in progress).
+const CONVERT_BEFORE_ANSWER_MS = 12_000;
+const CONVERT_UNTIL_MS = 45_000;
 
 const BodySchema = z.object({ currency: z.enum(HOME_CURRENCY_OPTIONS) });
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   const origin = request.headers.get("origin");
   if (origin && !isSameHost(origin, request.headers.get("host"))) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const limited = await rateLimit("organizationCurrency", user.id);
+  if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Pick a currency." }, { status: 400 });
@@ -92,15 +98,18 @@ export async function POST(request: NextRequest) {
     console.error("[/api/organization/currency] reconvert failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "currency" } });
   };
-  const first = await reconvertOrganization(organizationId, home, Date.now() + CONVERT_BEFORE_ANSWER_MS).catch(
+  const first = await reconvertOrganization(organizationId, home, startedAt + CONVERT_BEFORE_ANSWER_MS).catch(
     (err) => {
       failed(err);
-      return { done: true, seen: 0 };
+      return { done: true, seen: 0, lastId: "" };
     }
   );
   if (!first.done) {
     after(() =>
-      reconvertOrganization(organizationId, home, Date.now() + CONVERT_AFTER_ANSWER_MS).then(() => undefined, failed)
+      reconvertOrganization(organizationId, home, startedAt + CONVERT_UNTIL_MS, { startAfter: first.lastId }).then(
+        () => undefined,
+        failed
+      )
     );
   }
   return NextResponse.json({ ok: true, currency: home });

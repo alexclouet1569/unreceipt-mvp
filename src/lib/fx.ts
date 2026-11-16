@@ -448,31 +448,53 @@ export async function homeCurrencyOf(organizationId: string | null): Promise<str
   return typeof c === "string" && /^[A-Z]{3}$/.test(c) ? c : "SEK";
 }
 
-// Columns ensureHomeAmounts() reads and writes.
+// Columns ensureHomeAmounts() reads and writes, and what the eager pass
+// leaves alone.
 const CONVERSION_COLUMNS =
-  "id, total, currency, purchased_at, receipt_date, home_currency, home_total, fx_rate, fx_date, fx_source";
+  "id, total, currency, purchased_at, receipt_date, home_currency, home_total, fx_rate, fx_date, fx_source, approval_status";
 const RECONVERT_PAGE = 500;
+
+/**
+ * Rows the eager pass never rewrites; they follow on read as before:
+ * an amount typed from the bank statement (only its owner can say what
+ * the bank charged in the new currency, and once replaced it is gone),
+ * and an approved employee outlay (its home amount is what gets paid
+ * back, part of what was approved: src/lib/team/rules.ts APPROVED_FIELDS).
+ */
+export function keptOnCurrencyChange(r: Pick<Receipt, "fx_source"> & { approval_status?: string | null }): boolean {
+  return r.fx_source === "manual" || r.approval_status === "approved";
+}
 
 /**
  * After the company's currency changed: converts every receipt of the
  * company into `home` now (2026-11-16), instead of waiting until each is
  * read again, so the home screen's month totals, Insights and the export
- * all show the new currency at once. Rows already in `home` are skipped;
- * keyset paging on id, so a receipt that can't be converted (no ECB rate,
- * no date) is passed once, not read again. Stops at `deadline` (ms since
- * epoch): the rest is converted on read, as before. A typed bank amount
- * was in the old currency and is replaced by the ECB estimate, as when
- * the amount, currency or date changes (receipts_clear_stale_fx).
+ * all show the new currency at once. Rows already in `home` are skipped,
+ * and so are keptOnCurrencyChange() rows. Keyset paging on id from
+ * `startAfter`, so a receipt that can't be converted (no ECB rate, no
+ * date) is passed once, not read again. Stops at `deadline` (ms since
+ * epoch), or as soon as the company's currency is no longer `home` (a
+ * second change is converting now): the rest is converted on read, as
+ * before. Returns the last id seen, for a later pass to carry on from.
  */
 export async function reconvertOrganization(
   organizationId: string,
   home: string,
   deadline: number,
-  convert: (rows: Receipt[], home: string) => Promise<Receipt[]> = ensureHomeAmounts
-): Promise<{ done: boolean; seen: number }> {
-  let after = "";
+  {
+    startAfter = "",
+    convert = ensureHomeAmounts,
+    currencyNow = homeCurrencyOf,
+  }: {
+    startAfter?: string;
+    convert?: (rows: Receipt[], home: string) => Promise<Receipt[]>;
+    currencyNow?: (organizationId: string) => Promise<string>;
+  } = {}
+): Promise<{ done: boolean; seen: number; lastId: string }> {
+  let after = startAfter;
   let seen = 0;
   while (Date.now() < deadline) {
+    if ((await currencyNow(organizationId)) !== home) return { done: true, seen, lastId: after };
     let query = getSupabaseAdmin()
       .from("receipts")
       .select(CONVERSION_COLUMNS)
@@ -484,12 +506,15 @@ export async function reconvertOrganization(
     if (after) query = query.gt("id", after);
     const { data, error } = await query;
     if (error) throw new Error(`reconvert read ${error.code}`);
-    const rows = (data ?? []) as unknown as Receipt[];
-    if (rows.length === 0) return { done: true, seen };
-    await convert(rows, home);
+    const rows = (data ?? []) as unknown as Array<Receipt & { approval_status?: string | null }>;
+    if (rows.length === 0) return { done: true, seen, lastId: after };
+    await convert(
+      rows.filter((r) => !keptOnCurrencyChange(r)),
+      home
+    );
     seen += rows.length;
     after = rows[rows.length - 1].id;
-    if (rows.length < RECONVERT_PAGE) return { done: true, seen };
+    if (rows.length < RECONVERT_PAGE) return { done: true, seen, lastId: after };
   }
-  return { done: false, seen };
+  return { done: false, seen, lastId: after };
 }
