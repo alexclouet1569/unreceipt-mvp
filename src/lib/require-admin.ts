@@ -3,7 +3,7 @@
 // re-checks the allowlist, and throws AdminAuthError on either miss.
 //
 // Every admin server action and every /api/admin/* route handler must call
-// this before doing anything else. The proxy.ts gate is optimistic; this
+// this before doing anything else. The proxy gate (src/lib/host-proxy.ts) is optimistic; this
 // is the gate that actually protects the data.
 
 import { cookies } from "next/headers";

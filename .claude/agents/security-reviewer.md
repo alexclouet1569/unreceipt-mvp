@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Reviews a diff in unreceipt-mvp for security and cost-abuse regressions against this repo's own rules (admin auth, service-role client, rate limits, RLS, PII in logs, webhooks). Use on every change that touches src/app/api/**, src/lib/**, proxy.ts, next.config.ts or supabase/**, before committing.
+description: Reviews a diff in unreceipt-mvp for security and cost-abuse regressions against this repo's own rules (admin auth, service-role client, rate limits, RLS, PII in logs, webhooks). Use on every change that touches src/app/api/**, src/lib/**, src/proxy.ts, next.config.ts or supabase/**, before committing.
 tools: Read, Grep, Glob, Bash
 ---
 

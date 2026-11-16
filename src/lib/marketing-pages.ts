@@ -3,7 +3,7 @@ import type { Locale } from "@/lib/locale";
 /**
  * Every public marketing page on unreceipt.com, with its path in each
  * language it exists in. One list for the sitemap, the hreflang tags, the
- * footer links and the apex/app host split in proxy.ts, so a new page
+ * footer links and the apex/app host split in src/lib/host-proxy.ts, so a new page
  * can't be published in one place and forgotten in another.
  *
  * Paths are in the page's own language (`/sv/redovisningsbyra`, not
