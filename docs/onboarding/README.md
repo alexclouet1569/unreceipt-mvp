@@ -1,11 +1,13 @@
 # Onboarding guides (PDF)
 
-Two A4 guides for the accounting-firm pilot, in the brand of `DESIGN.md`:
+Four A4 guides for the accounting-firm pilot: two full guides and two short get-started sheets, in the brand of `DESIGN.md`:
 
 | Guide | Source | PDF |
 |---|---|---|
 | For the accounting firm (8 pages) | `accountant.html` | `UnReceipt-Guide-for-accounting-firms.pdf` |
 | For the firm's clients (5 pages) | `client.html` | `UnReceipt-Guide-for-clients.pdf` |
+| Get started, accounting firms (2 pages: sign in, join, invite, first receipts) | `quickstart-firm.html` | `UnReceipt-Get-started-accounting-firms.pdf` |
+| Get started, companies (2 pages: accept, sign up, send receipts, check) | `quickstart-company.html` | `UnReceipt-Get-started-companies.pdf` |
 
 Both share `style.css` (tokens from `DESIGN.md`), the fonts in `fonts/` (Manrope, Figtree, Geist Mono; SIL Open Font License, the files `next/font` downloads) and the screenshots in `img/`.
 

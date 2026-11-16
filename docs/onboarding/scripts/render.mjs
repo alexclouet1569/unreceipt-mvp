@@ -15,6 +15,8 @@ const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const GUIDES = {
   accountant: "UnReceipt-Guide-for-accounting-firms.pdf",
   client: "UnReceipt-Guide-for-clients.pdf",
+  "quickstart-firm": "UnReceipt-Get-started-accounting-firms.pdf",
+  "quickstart-company": "UnReceipt-Get-started-companies.pdf",
 };
 
 const wanted = process.argv.slice(2);
@@ -28,7 +30,7 @@ const browser = await chromium.launch(
 let failed = false;
 try {
   for (const name of names) {
-    if (!GUIDES[name]) throw new Error(`Unknown guide "${name}" (accountant or client)`);
+    if (!GUIDES[name]) throw new Error(`Unknown guide "${name}" (accountant, client, quickstart-firm or quickstart-company)`);
     const page = await browser.newPage({ viewport: { width: 794, height: 1123 } });
     await page.goto(`file://${DIR}/${name}.html`, { waitUntil: "networkidle" });
     await page.evaluate(() => document.fonts.ready);
