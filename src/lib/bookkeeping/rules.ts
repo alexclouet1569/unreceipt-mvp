@@ -105,6 +105,40 @@ export const FX_RATE_GAPS: Record<string, ReadonlyArray<readonly [string | null,
 // First day of ECB reference rates; nothing earlier can be converted.
 export const FX_FIRST_RATE_DATE = "1999-01-04";
 
-// Default company currency by country (organizations.currency); the
-// company can change it in Settings.
-export const DEFAULT_CURRENCY_BY_COUNTRY: Record<string, string> = { SE: "SEK", FR: "EUR" };
+// Default company currency by country (organizations.currency), set when
+// the company is created (src/lib/country.ts); the company can change it in
+// Settings. Only currencies the ECB still publishes (HOME_CURRENCY_OPTIONS
+// in receipt-format.ts; a test checks): a country whose own currency has no
+// ECB rate (RS, UA, MD, MK, AL, BA, BY, RU) and any country not listed get
+// FALLBACK_HOME_CURRENCY. Euro area as of 2026-01-01 (Bulgaria joined then,
+// Croatia 2023-01-01), plus the euro users AD, MC, SM, VA, ME, XK.
+export const DEFAULT_CURRENCY_BY_COUNTRY: Record<string, string> = {
+  SE: "SEK",
+  NO: "NOK",
+  DK: "DKK",
+  FO: "DKK",
+  GL: "DKK",
+  IS: "ISK",
+  GB: "GBP",
+  GG: "GBP",
+  JE: "GBP",
+  IM: "GBP",
+  CH: "CHF",
+  LI: "CHF",
+  PL: "PLN",
+  CZ: "CZK",
+  HU: "HUF",
+  RO: "RON",
+  TR: "TRY",
+  US: "USD",
+  ...Object.fromEntries(
+    [
+      "AT", "BE", "BG", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV",
+      "MT", "NL", "PT", "SI", "SK", "AD", "MC", "SM", "VA", "ME", "XK",
+    ].map((c) => [c, "EUR"])
+  ),
+};
+export const FALLBACK_HOME_CURRENCY = "EUR";
+
+// Without any sign of where a company is, it starts as before: Swedish.
+export const DEFAULT_COUNTRY = "SE";

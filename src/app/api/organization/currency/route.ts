@@ -12,6 +12,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { countryForCurrency } from "@/lib/country";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,9 +45,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Only the company's owner can change this." }, { status: 403 });
   }
 
+  // A currency only one country uses (SEK, PLN…) also moves the company
+  // there, so a wrongly guessed country (src/lib/country.ts) is fixed here
+  // too: the Swedish VAT view and a new firm's country follow it.
+  const { data: org, error: readError } = await db
+    .from("organizations")
+    .select("country")
+    .eq("id", organizationId)
+    .maybeSingle();
+  if (readError) {
+    console.error("[/api/organization/currency] read failed", readError.code);
+    return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });
+  }
+  const country =
+    typeof org?.country === "string" ? countryForCurrency(parsed.data.currency, org.country) : null;
   const { error } = await db
     .from("organizations")
-    .update({ currency: parsed.data.currency })
+    .update(country ? { currency: parsed.data.currency, country } : { currency: parsed.data.currency })
     .eq("id", organizationId);
   if (error) {
     console.error("[/api/organization/currency] update failed", error.code);

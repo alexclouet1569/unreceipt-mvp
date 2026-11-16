@@ -13,7 +13,10 @@ const m = vi.hoisted(() => ({
   homeCurrencyOf: vi.fn(),
   ensureHomeAmounts: vi.fn(),
   loadSummaryRows: vi.fn(),
+  requestHeaders: new Headers(),
 }));
+
+vi.mock("next/headers", () => ({ headers: async () => m.requestHeaders }));
 
 // A chain that answers each table with its canned row(s), however it's filtered.
 vi.mock("@/lib/supabase-admin", () => ({
@@ -94,7 +97,8 @@ describe("loadHome", () => {
     m.homeCurrencyOf.mockResolvedValue("SEK");
     const home = await loadHome(USER, null);
     if (home.kind !== "ready") throw new Error(home.kind);
-    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id);
+    // anna@firma.se: a Swedish address, no other sign.
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id, { country: "SE" });
     expect(m.homeCurrencyOf).toHaveBeenCalledWith("org-new");
     expect(home.data.homeCurrency).toBe("SEK");
     expect(home.data.forwardingEmail).toBe("receipts+new777@in.unreceipt.com");
@@ -172,7 +176,19 @@ describe("loadHome", () => {
     const home = await loadHome(user, null);
     expect(home.kind).toBe("ready");
     expect(m.findPendingFirmSeat).not.toHaveBeenCalled();
-    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id);
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id, { country: "SE" });
+  });
+
+  it("creates a new company in the country the user's own request shows", async () => {
+    m.requestHeaders = new Headers({ "accept-language": "pl-PL,pl;q=0.9", "x-vercel-ip-country": "DE" });
+    m.tables.organizations = { data: null, error: null };
+    m.getOrCreateDefaultOrganization.mockResolvedValue("org-new");
+    m.homeCurrencyOf.mockResolvedValue("PLN");
+    const user = { ...USER, email: "jan@gmail.com" } as User;
+    const home = await loadHome(user, null);
+    expect(home.kind).toBe("ready");
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id, { country: "PL" });
+    m.requestHeaders = new Headers();
   });
 
   it("keeps the company of someone with a pending seat who already has one", async () => {
