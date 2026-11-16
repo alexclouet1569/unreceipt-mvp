@@ -5,7 +5,8 @@
 // converted again on its next read. Only an owner of the company may
 // change it.
 
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
@@ -13,9 +14,18 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { countryForCurrency } from "@/lib/country";
+import { reconvertOrganization } from "@/lib/fx";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Room to reconvert a large company's receipts after the answer.
+export const maxDuration = 60;
+
+// How long the answer waits for the receipts to be converted, so the
+// screens' refresh right after shows the new currency; the rest goes on
+// after the answer.
+const CONVERT_BEFORE_ANSWER_MS = 15_000;
+const CONVERT_AFTER_ANSWER_MS = 40_000;
 
 const BodySchema = z.object({ currency: z.enum(HOME_CURRENCY_OPTIONS) });
 
@@ -76,5 +86,22 @@ export async function POST(request: NextRequest) {
     console.error("[/api/organization/currency] update failed", error.code);
     return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, currency: parsed.data.currency });
+  // Every receipt follows the new currency now, not one by one as read.
+  const home = parsed.data.currency;
+  const failed = (err: unknown) => {
+    console.error("[/api/organization/currency] reconvert failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "currency" } });
+  };
+  const first = await reconvertOrganization(organizationId, home, Date.now() + CONVERT_BEFORE_ANSWER_MS).catch(
+    (err) => {
+      failed(err);
+      return { done: true, seen: 0 };
+    }
+  );
+  if (!first.done) {
+    after(() =>
+      reconvertOrganization(organizationId, home, Date.now() + CONVERT_AFTER_ANSWER_MS).then(() => undefined, failed)
+    );
+  }
+  return NextResponse.json({ ok: true, currency: home });
 }

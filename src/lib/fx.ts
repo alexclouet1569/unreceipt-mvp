@@ -447,3 +447,49 @@ export async function homeCurrencyOf(organizationId: string | null): Promise<str
   const c = data?.currency;
   return typeof c === "string" && /^[A-Z]{3}$/.test(c) ? c : "SEK";
 }
+
+// Columns ensureHomeAmounts() reads and writes.
+const CONVERSION_COLUMNS =
+  "id, total, currency, purchased_at, receipt_date, home_currency, home_total, fx_rate, fx_date, fx_source";
+const RECONVERT_PAGE = 500;
+
+/**
+ * After the company's currency changed: converts every receipt of the
+ * company into `home` now (2026-11-16), instead of waiting until each is
+ * read again, so the home screen's month totals, Insights and the export
+ * all show the new currency at once. Rows already in `home` are skipped;
+ * keyset paging on id, so a receipt that can't be converted (no ECB rate,
+ * no date) is passed once, not read again. Stops at `deadline` (ms since
+ * epoch): the rest is converted on read, as before. A typed bank amount
+ * was in the old currency and is replaced by the ECB estimate, as when
+ * the amount, currency or date changes (receipts_clear_stale_fx).
+ */
+export async function reconvertOrganization(
+  organizationId: string,
+  home: string,
+  deadline: number,
+  convert: (rows: Receipt[], home: string) => Promise<Receipt[]> = ensureHomeAmounts
+): Promise<{ done: boolean; seen: number }> {
+  let after = "";
+  let seen = 0;
+  while (Date.now() < deadline) {
+    let query = getSupabaseAdmin()
+      .from("receipts")
+      .select(CONVERSION_COLUMNS)
+      .eq("organization_id", organizationId)
+      .not("total", "is", null)
+      .or(`home_currency.is.null,home_currency.neq.${home},home_total.is.null`)
+      .order("id", { ascending: true })
+      .limit(RECONVERT_PAGE);
+    if (after) query = query.gt("id", after);
+    const { data, error } = await query;
+    if (error) throw new Error(`reconvert read ${error.code}`);
+    const rows = (data ?? []) as unknown as Receipt[];
+    if (rows.length === 0) return { done: true, seen };
+    await convert(rows, home);
+    seen += rows.length;
+    after = rows[rows.length - 1].id;
+    if (rows.length < RECONVERT_PAGE) return { done: true, seen };
+  }
+  return { done: false, seen };
+}
