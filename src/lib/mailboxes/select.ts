@@ -153,6 +153,16 @@ export function isReply(subject: string): boolean {
   return REPLY_PREFIX.test(subject.slice(0, 200));
 }
 
+/**
+ * The subject names a receipt, an invoice, an order or booking
+ * confirmation, or a payment (MAILBOX_RECEIPT_WORDS; plurals and generic
+ * words don't count). Also used by the email intake to keep a receipt that
+ * reached the user through a mailing list or group (../email/ingest.ts).
+ */
+export function subjectNamesReceipt(subject: string): boolean {
+  return matchesWord(subject);
+}
+
 function matchesWord(subject: string): boolean {
   const s = subject.toLowerCase();
   return WORDS.some((w) => {

@@ -32,3 +32,25 @@ export function isOwnEmail(from: string | null | undefined): boolean {
   if (!from) return false;
   return addressOf(from) === OWN_SENDER_ADDRESS;
 }
+
+/** Senders that never send a receipt: GitHub's notifications (its billing
+ *  receipts come from other addresses). The mailbox rules skip it too
+ *  (../mailboxes/select.ts IGNORED_SENDERS). */
+const NEVER_RECEIPT_SENDERS = ["notifications@github.com"];
+
+export function isNotificationSender(from: string | null | undefined): boolean {
+  if (!from) return false;
+  const address = addressOf(from);
+  return address !== null && NEVER_RECEIPT_SENDERS.includes(address);
+}
+
+/**
+ * The message's own top-level List-Id header (RFC 2919) is set: it came
+ * through a mailing list, a notification feed or a group (Google Groups
+ * add one to everything they pass on, receipts included). Not a reason on
+ * its own to drop an email: ingest keeps one whose subject names a receipt
+ * or that carries a real attached file.
+ */
+export function hasListId(listIds: string[] | null): boolean {
+  return (listIds ?? []).some((v) => v.trim() !== "");
+}

@@ -7,7 +7,9 @@
 // Flow:
 //   1. intake_ref = Message-Id || sha256(raw .eml) (|| sha256 of the
 //      caller's fallback identity when there is neither).
-//   0. An email sent by UnReceipt itself (./own-sender.ts) → "ignored".
+//   0. An email sent by UnReceipt itself, a GitHub notification, or a
+//      mailing-list email that names no receipt and attaches no file
+//      (./own-sender.ts) → "ignored".
 //   2. Existing (user_id, intake_ref) row → "duplicate", no side effects.
 //   3. Run the parser. Parser throw → pending_review (row still inserted
 //      with nullable canonical fields so the user can complete it).
@@ -46,7 +48,8 @@ import { homeCurrencyOf } from "@/lib/fx";
 import { fillFromText, partialAttachmentFields, type PartialAttachmentFields } from "@/lib/email/attachment-fields";
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
-import { isOwnEmail } from "@/lib/email/own-sender";
+import { hasListId, isNotificationSender, isOwnEmail } from "@/lib/email/own-sender";
+import { subjectNamesReceipt } from "@/lib/mailboxes/select";
 
 /**
  * What decides whether a template (Uber, Stripe) may mark the receipt
@@ -115,7 +118,7 @@ export type IngestResult =
    * invitation, a reminder…), which a forwarding rule or a connected
    * mailbox can pick up. Final: don't deliver it again.
    */
-  | { kind: "ignored"; reason: "own_email" }
+  | { kind: "ignored"; reason: "own_email" | "notification" }
   /**
    * Nothing was saved (or what was stored was removed again); the sender
    * should deliver the message again. Resend: 5xx.
@@ -163,6 +166,13 @@ async function receiptAttachmentOf(rawEml: Buffer | null): Promise<EmailAttachme
   return picked;
 }
 
+// A file the sender attached: any PDF (Apple Mail marks attached PDFs
+// inline), or an image sent as an attachment. An inline image is a logo
+// in the signature, not a receipt.
+function carriesFile(picked: EmailAttachment | null): boolean {
+  return picked !== null && (picked.mediaType === "application/pdf" || picked.disposition === "attachment");
+}
+
 export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResult> {
   const { userId, rawEml, trust } = input;
   const tag = input.source === "mailbox" ? "[intake/mailbox]" : "[intake/email]";
@@ -180,6 +190,25 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
   const html = input.html === null ? null : stripNul(input.html);
   const dmarc = trust.dmarc;
   const hasRaw = rawEml !== null && rawEml.length > 0;
+  // A notification a forwarding rule on "receipt" picked up (GitHub's
+  // "…receipts (PR #157)", a newsletter): GitHub's notification sender
+  // always, and a mailing-list email (top-level List-Id) unless its subject
+  // names a receipt or it carries a real attached file. A group passing on
+  // an Uber receipt keeps it; replies are left alone here, because a
+  // forward prefix in one language is a reply prefix in another ("VS:").
+  if (isNotificationSender(input.from)) {
+    console.info(`${tag} ignored a notification email`);
+    return { kind: "ignored", reason: "notification" };
+  }
+  if (
+    hasRaw &&
+    hasListId(rawHeaderValues(rawEml.toString("latin1"), "list-id")) &&
+    !subjectNamesReceipt(subject) &&
+    !carriesFile(pickReceiptAttachment(extractAttachments(rawEml)))
+  ) {
+    console.info(`${tag} ignored a mailing-list email that names no receipt`);
+    return { kind: "ignored", reason: "notification" };
+  }
 
   // intake_ref: prefer Message-Id (provider-stable identity that survives
   // re-forwarding by the user). Fall back to sha256 of the raw .eml so we
