@@ -133,6 +133,27 @@ beforeEach(() => {
 });
 
 describe("ingestReceiptEmail", () => {
+  it.each([
+    ["forwarding", "UnReceipt <hello@unreceipt.com>"],
+    ["mailbox", "hello@unreceipt.com"],
+  ] as const)(
+    "sets aside an email UnReceipt sent itself (%s), before reading, storing or counting it",
+    async (source, from) => {
+      // A client's Gmail rule for "receipt" also forwards "<firm> wants to see your receipts".
+      const result = await ingestReceiptEmail(
+        input({ source, from, subject: "UnReceipt Test Firm wants to see your receipts" })
+      );
+
+      expect(result).toEqual({ kind: "ignored", reason: "own_email" });
+      expect(mocks.receiptsLookup).not.toHaveBeenCalled();
+      expect(mocks.parseReceipt).not.toHaveBeenCalled();
+      expect(mocks.ocr).not.toHaveBeenCalled();
+      expect(mocks.storageUpload).not.toHaveBeenCalled();
+      expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+      expect(mocks.usage).not.toHaveBeenCalled();
+    }
+  );
+
   it("creates a receipt with the message as its original and counts a verified one", async () => {
     mocks.parseReceipt.mockResolvedValueOnce(UBER_OK);
 

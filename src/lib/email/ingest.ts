@@ -7,6 +7,7 @@
 // Flow:
 //   1. intake_ref = Message-Id || sha256(raw .eml) (|| sha256 of the
 //      caller's fallback identity when there is neither).
+//   0. An email sent by UnReceipt itself (./own-sender.ts) → "ignored".
 //   2. Existing (user_id, intake_ref) row → "duplicate", no side effects.
 //   3. Run the parser. Parser throw → pending_review (row still inserted
 //      with nullable canonical fields so the user can complete it).
@@ -45,6 +46,7 @@ import { homeCurrencyOf } from "@/lib/fx";
 import { fillFromText, partialAttachmentFields, type PartialAttachmentFields } from "@/lib/email/attachment-fields";
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
+import { isOwnEmail } from "@/lib/email/own-sender";
 
 /**
  * What decides whether a template (Uber, Stripe) may mark the receipt
@@ -109,6 +111,12 @@ export type IngestResult =
   | { kind: "created"; receiptId: string; status: ReceiptStatus }
   | { kind: "duplicate"; receiptId: string }
   /**
+   * Deliberately not saved: the email was sent by UnReceipt itself (an
+   * invitation, a reminder…), which a forwarding rule or a connected
+   * mailbox can pick up. Final: don't deliver it again.
+   */
+  | { kind: "ignored"; reason: "own_email" }
+  /**
    * Nothing was saved (or what was stored was removed again); the sender
    * should deliver the message again. Resend: 5xx.
    */
@@ -158,6 +166,12 @@ async function receiptAttachmentOf(rawEml: Buffer | null): Promise<EmailAttachme
 export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResult> {
   const { userId, rawEml, trust } = input;
   const tag = input.source === "mailbox" ? "[intake/mailbox]" : "[intake/email]";
+  // Our own mail (an invitation, a reminder) is never a receipt: set it
+  // aside before anything is read, stored or counted (./own-sender.ts).
+  if (isOwnEmail(input.from)) {
+    console.info(`${tag} ignored an email sent by UnReceipt`);
+    return { kind: "ignored", reason: "own_email" };
+  }
   const supabase = getSupabaseAdmin();
   // Already clean when the route passes them; the other channels get the
   // same treatment.

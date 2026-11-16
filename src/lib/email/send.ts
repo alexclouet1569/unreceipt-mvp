@@ -7,10 +7,11 @@
 // unreceipt.com itself has no inbox.
 
 import * as Sentry from "@sentry/nextjs";
+import { OWN_SENDER_ADDRESS } from "./own-sender";
 
 const RESEND_URL = "https://api.resend.com/emails";
 
-export const FROM_ADDRESS = "UnReceipt <hello@unreceipt.com>";
+export const FROM_ADDRESS = `UnReceipt <${OWN_SENDER_ADDRESS}>`;
 
 export type OutgoingEmail = {
   to: string;

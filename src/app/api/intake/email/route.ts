@@ -328,6 +328,9 @@ function ingestResponse(result: IngestResult) {
       return NextResponse.json({ ok: true, id: result.receiptId });
     case "duplicate":
       return NextResponse.json({ ok: true, id: result.receiptId, duplicate: true });
+    case "ignored":
+      // Final: a 2xx so Resend doesn't deliver our own email again.
+      return NextResponse.json({ ok: true, ignored: result.reason });
     case "retry":
       return NextResponse.json(
         {

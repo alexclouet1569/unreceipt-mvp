@@ -429,6 +429,7 @@ class GmailSync {
         return "created";
       }
       if (result.kind === "duplicate") return "duplicate";
+      if (result.kind === "ignored") return "skipped";
       // Nothing was saved (database or storage blip): stop before this
       // message, so the next sync reads it again; but not forever, or a
       // message that can never be stored would hold the cursor and no
