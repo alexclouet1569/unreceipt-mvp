@@ -4,9 +4,10 @@ Measures how well `extractReceipt()` (`src/lib/ocr.ts`) reads receipt photos, an
 
 ## What's in the set
 
-`cases/synthetic.json`: 34 cases rendered by `generate.mjs` from `receipts.mjs`. The ground truth is computed from the receipt lines, so it can't disagree with the image.
+`cases/synthetic.json`: 48 cases rendered by `generate.mjs` from `receipts.mjs`. The ground truth is computed from the receipt lines, so it can't disagree with the image.
 
 - 20 Swedish, 6 French, 3 English (US, UK, an Uber trip in EUR) receipts, plus 5 things that aren't receipts (a menu, a business card, a shopping list, a store flyer, an empty desk).
+- 14 currency-recognition receipts (tag `currency`, 2026-11-16), each printing only its local sign: Norwegian, Danish and Icelandic "kr" (tag `nordic-kr`: the reader must tell them from SEK by the country), zł, Kč, Ft, Romanian and Moldovan "lei" (tag `lei`), Swiss "Fr.", ₺, грн, a 2025 Bulgarian receipt in лв, a 2026 one priced in EUR with the лв amount for information (tag `bgn`: must answer EUR), and a Japanese ¥ receipt (tag `unsupported`: must answer JPY, not a currency the app handles). `comparison.md` shows each tag's score.
 - Cases that trip up a reader: a tip on top of the bill, cash paid with change given, öresavrundning, member discounts, mixed VAT rates (6/12/25 %, 0 % prescription, 5.5/10/20 % in France), US sales tax added on top, a card-terminal slip with no item lines, a 25-line grocery receipt, `dd.mm.yy` and UK `dd/mm/yyyy` dates.
 - Photo conditions: flat scan, phone photo at an angle, faded thermal ink, blur, crumpled paper, upside down, digital receipt.
 
@@ -36,6 +37,8 @@ Needs an Anthropic API key in `UNRECEIPT_EVAL_ANTHROPIC_KEY` (in a Claude Code c
 evals/receipt-ocr/run-all.sh          # every model, 2 reps each
 node evals/receipt-ocr/compare.mjs    # rewrite the summary from what's on disk
 ```
+
+To render the images with the browser preinstalled in a Claude Code cloud session, set `RECEIPT_EVAL_CHROMIUM=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`. A newer Chromium re-encodes the existing JPEGs slightly differently: keep only the new images (`git checkout` the changed ones).
 
 The first run stops with "no approved harness sha". Look over `run-eval.mjs` and `src/lib/ocr.ts`, then approve once:
 
