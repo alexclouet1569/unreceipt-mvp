@@ -320,6 +320,10 @@ export function ReceiptBackdrop({ locale = "en" }: { locale?: Locale }) {
            in-flow row groups, so both agree on the paper width. */
         .receipt-scope {
           --paper-w: clamp(280px, 40vw, 400px);
+          /* The stamp's scale-in and the paper's soft edges must never
+             widen the page on a phone. clip, unlike hidden, makes no
+             scroll container, so the scroll-driven printing still works. */
+          overflow-x: clip;
         }
         @media (max-width: 640px) {
           .receipt-scope {
@@ -572,6 +576,8 @@ export function ReceiptBackdrop({ locale = "en" }: { locale?: Locale }) {
           }
           .rb-stamp {
             right: 0;
+            /* Grow in from the right edge so the stamp stays on the paper. */
+            transform-origin: right center;
           }
         }
         @media (prefers-reduced-motion: reduce) {
