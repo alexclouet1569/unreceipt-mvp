@@ -39,9 +39,14 @@ const APP_HOST = "app.unreceipt.com";
 const APEX_ONLY_EXACT = new Set([...MARKETING_PATHS, "/privacy"]);
 const APEX_ONLY_PREFIX = ["/api/waitlist"];
 
-// Paths that belong on the product host. Includes Stripe webhook,
-// checkout, auth callback, admin and the firm portal so signups, payments,
-// magic links and operator tools all originate from one cookie origin.
+// Paths that belong on the product host: checkout, auth callback, admin and
+// the firm portal, so signups, payments, magic links and operator tools all
+// originate from one cookie origin.
+//
+// /api/webhooks is deliberately NOT here: Stripe treats a 3xx as a failed
+// delivery and never follows it, so a webhook endpoint registered on the
+// apex would silently stop receiving events. The route checks Stripe's
+// signature, which is its protection on either host.
 const APP_ONLY_PREFIX = [
   "/app",
   "/admin",
@@ -52,7 +57,6 @@ const APP_ONLY_PREFIX = [
   "/subscribe",
   "/api/checkout",
   "/api/billing",
-  "/api/webhooks",
   "/api/admin",
 ];
 
@@ -142,10 +146,9 @@ export async function proxy(request: NextRequest) {
   // ─── END session refresh ───
 
   // Cross-host redirects for the remaining app-only paths (/admin, /auth,
-  // /subscribe, /api/checkout, /api/webhooks, /api/admin); /app is already
-  // handled above. 308 preserves method + body so a POST to the wrong host
-  // (e.g. a still-pointing-at-apex Stripe webhook) survives the transition
-  // window while the founder updates the dashboard URLs.
+  // /subscribe, /api/checkout, /api/billing, /api/admin, /firm, /demo);
+  // /app is already handled above. 308 preserves method + body for clients
+  // that follow it (browsers do; Stripe doesn't, see APP_ONLY_PREFIX).
   if (onApex && isAppOnly(path)) {
     return withRefreshedCookies(
       NextResponse.redirect(

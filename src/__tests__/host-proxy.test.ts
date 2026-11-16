@@ -64,17 +64,15 @@ describe("proxy — host-based routing", () => {
     );
   });
 
-  it("redirects /api/webhooks from apex → app subdomain (308 preserves POST)", async () => {
+  it("serves /api/webhooks on the apex too: Stripe never follows a redirect", async () => {
     const res = await proxy(
       buildRequest(
         "https://unreceipt.com/api/webhooks/stripe",
         "unreceipt.com"
       )
     );
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe(
-      "https://app.unreceipt.com/api/webhooks/stripe"
-    );
+    expect(res.status).not.toBe(308);
+    expect(res.headers.get("location")).toBeNull();
   });
 
   it("redirects /subscribe from apex → app subdomain", async () => {
