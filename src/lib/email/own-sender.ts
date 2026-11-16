@@ -32,3 +32,19 @@ export function isOwnEmail(from: string | null | undefined): boolean {
   if (!from) return false;
   return addressOf(from) === OWN_SENDER_ADDRESS;
 }
+
+/**
+ * A mailing-list or notification email (it carries a List-Id header,
+ * RFC 2919: GitHub, Google Groups, newsletters) or a reply in a
+ * conversation ("Re:", "Sv:", "AW:"…; ../mailboxes/select.ts isReply()).
+ * Neither is a receipt on its own; ingest still reads one that carries a
+ * PDF or photo. Read from the message's own top-level headers, so a
+ * receipt the user forwards by hand ("Fwd: …", sent by them, no List-Id)
+ * is never caught; an automatic forwarding rule keeps the original
+ * headers, which is where a GitHub notification about a "receipt" pull
+ * request came from (2026-11-16, pilot dry run).
+ */
+export function isListOrReply(message: { reply: boolean; listIds: string[] | null }): boolean {
+  return message.reply || (message.listIds ?? []).some((v) => v.trim() !== "");
+}
+

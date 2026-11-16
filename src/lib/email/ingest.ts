@@ -7,7 +7,8 @@
 // Flow:
 //   1. intake_ref = Message-Id || sha256(raw .eml) (|| sha256 of the
 //      caller's fallback identity when there is neither).
-//   0. An email sent by UnReceipt itself (./own-sender.ts) → "ignored".
+//   0. An email sent by UnReceipt itself, or a reply or mailing-list email
+//      without a PDF or photo (./own-sender.ts) → "ignored".
 //   2. Existing (user_id, intake_ref) row → "duplicate", no side effects.
 //   3. Run the parser. Parser throw → pending_review (row still inserted
 //      with nullable canonical fields so the user can complete it).
@@ -46,7 +47,8 @@ import { homeCurrencyOf } from "@/lib/fx";
 import { fillFromText, partialAttachmentFields, type PartialAttachmentFields } from "@/lib/email/attachment-fields";
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
 import { EXTENSION_BY_TYPE } from "@/lib/receipts/upload-limits";
-import { isOwnEmail } from "@/lib/email/own-sender";
+import { isListOrReply, isOwnEmail } from "@/lib/email/own-sender";
+import { isReply } from "@/lib/mailboxes/select";
 
 /**
  * What decides whether a template (Uber, Stripe) may mark the receipt
@@ -115,7 +117,7 @@ export type IngestResult =
    * invitation, a reminder…), which a forwarding rule or a connected
    * mailbox can pick up. Final: don't deliver it again.
    */
-  | { kind: "ignored"; reason: "own_email" }
+  | { kind: "ignored"; reason: "own_email" | "list_or_reply" }
   /**
    * Nothing was saved (or what was stored was removed again); the sender
    * should deliver the message again. Resend: 5xx.
@@ -180,6 +182,20 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
   const html = input.html === null ? null : stripNul(input.html);
   const dmarc = trust.dmarc;
   const hasRaw = rawEml !== null && rawEml.length > 0;
+  // A notification or a reply (a forwarding rule on "receipt" catches
+  // "Re: your receipt" and GitHub's "…receipts (PR #157)"): the same rule
+  // a connected mailbox applies before downloading (../mailboxes/select.ts),
+  // here for forwarding too. One with a PDF or photo is still read.
+  if (
+    isListOrReply({
+      reply: isReply(subject),
+      listIds: hasRaw ? rawHeaderValues(rawEml.toString("latin1"), "list-id") : null,
+    }) &&
+    !(rawEml && pickReceiptAttachment(extractAttachments(rawEml)))
+  ) {
+    console.info(`${tag} ignored a reply or mailing-list email without an attachment`);
+    return { kind: "ignored", reason: "list_or_reply" };
+  }
 
   // intake_ref: prefer Message-Id (provider-stable identity that survives
   // re-forwarding by the user). Fall back to sha256 of the raw .eml so we

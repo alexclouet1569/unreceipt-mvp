@@ -133,6 +133,46 @@ beforeEach(() => {
 });
 
 describe("ingestReceiptEmail", () => {
+  it("sets aside a notification email (List-Id) that a forwarding rule picked up for its subject", async () => {
+    const raw = Buffer.from(
+      [
+        "From: Someone <notifications@github.com>",
+        "To: anna@gmail.com",
+        "List-ID: acme/app <app.acme.github.com>",
+        "Subject: Re: [acme/app] Never turn our own emails into receipts (PR #157)",
+        "",
+        "Merged #157 into main.",
+      ].join("\r\n")
+    );
+    const result = await ingestReceiptEmail(
+      input({ rawEml: raw, from: "notifications@github.com", subject: "[acme/app] New receipts screen (PR #158)" })
+    );
+
+    expect(result).toEqual({ kind: "ignored", reason: "list_or_reply" });
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.storageUpload).not.toHaveBeenCalled();
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("sets aside a reply without a PDF or photo", async () => {
+    const result = await ingestReceiptEmail(input({ subject: "Re: Your receipt from Uber" }));
+    expect(result).toEqual({ kind: "ignored", reason: "list_or_reply" });
+    expect(mocks.receiptsInsert).not.toHaveBeenCalled();
+  });
+
+  it("still reads a reply that carries a PDF", async () => {
+    mocks.ocr.mockResolvedValueOnce({ status: "error" });
+    const result = await ingestReceiptEmail(
+      input({ rawEml: emlWithPdf(), subject: "Sv: Kvitto", from: "kvitto@ica.se", trust: { dmarc: null, recipient: { from: "to-header", aliasAddress: ALIAS } } })
+    );
+    expect(result.kind).toBe("created");
+  });
+
+  it("still reads a receipt the user forwarded by hand", async () => {
+    const result = await ingestReceiptEmail(input({ subject: "Fwd: Your receipt from Uber", from: "anna@gmail.com" }));
+    expect(result.kind).toBe("created");
+  });
+
   it.each([
     ["forwarding", "UnReceipt <hello@unreceipt.com>"],
     ["mailbox", "hello@unreceipt.com"],

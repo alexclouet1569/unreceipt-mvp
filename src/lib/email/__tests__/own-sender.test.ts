@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FROM_ADDRESS } from "@/lib/email/send";
-import { isOwnEmail, OWN_SENDER_ADDRESS } from "@/lib/email/own-sender";
+import { isListOrReply, isOwnEmail, OWN_SENDER_ADDRESS } from "@/lib/email/own-sender";
 
 describe("isOwnEmail", () => {
   it("recognises the address every UnReceipt email is sent from", () => {
@@ -25,5 +25,18 @@ describe("isOwnEmail", () => {
     expect(isOwnEmail(undefined)).toBe(false);
     expect(isOwnEmail("")).toBe(false);
     expect(isOwnEmail("UnReceipt")).toBe(false);
+  });
+});
+
+describe("isListOrReply", () => {
+  it("is true for a reply or an email with a List-Id", () => {
+    expect(isListOrReply({ reply: true, listIds: null })).toBe(true);
+    expect(isListOrReply({ reply: false, listIds: ["acme/app <app.acme.github.com>"] })).toBe(true);
+  });
+
+  it("is false for anything else, an empty List-Id included", () => {
+    expect(isListOrReply({ reply: false, listIds: null })).toBe(false);
+    expect(isListOrReply({ reply: false, listIds: [] })).toBe(false);
+    expect(isListOrReply({ reply: false, listIds: ["  "] })).toBe(false);
   });
 });
