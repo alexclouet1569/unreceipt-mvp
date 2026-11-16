@@ -55,11 +55,11 @@ function pricingAnswerFr(pilotMode: boolean): string {
 /** The cost answer while prices are hidden (SHOW_PRICES off). */
 const PRICE_HIDDEN: Record<Locale, (pilotMode: boolean) => string> = {
   en: (pilot) =>
-    `One monthly price per company account, sized by how many receipts you send each month. Accounting firms need no plan of their own. ${pilot ? "UnReceipt is free during the pilot." : "The first week is free; the plans are shown before you subscribe."}`,
+    `Paid by the company, per person using UnReceipt; your accountant uses it free. ${pilot ? "UnReceipt is free during the pilot." : "The first week is free; the plans are shown before you subscribe."}`,
   sv: (pilot) =>
-    `Ett månadspris per företagskonto, efter hur många kvitton ni skickar i månaden. Redovisningsbyråer behöver ingen egen plan. ${pilot ? "UnReceipt är gratis under piloten." : "Första veckan är gratis; planerna visas innan du tecknar dig."}`,
+    `Företaget betalar, per person som använder UnReceipt; din redovisningsbyrå använder det gratis. ${pilot ? "UnReceipt är gratis under piloten." : "Första veckan är gratis; planerna visas innan du tecknar dig."}`,
   fr: (pilot) =>
-    `Un prix mensuel par compte d’entreprise, selon le nombre de reçus envoyés chaque mois. Les cabinets comptables n’ont pas besoin d’abonnement propre. ${pilot ? "UnReceipt est gratuit pendant la phase pilote." : "La première semaine est gratuite\u00a0; les formules sont présentées avant l’abonnement."}`,
+    `Payé par l’entreprise, par personne qui utilise UnReceipt\u00a0; votre expert-comptable l’utilise gratuitement. ${pilot ? "UnReceipt est gratuit pendant la phase pilote." : "La première semaine est gratuite\u00a0; les formules sont présentées avant l’abonnement."}`,
 };
 
 export function getFaq(
@@ -77,7 +77,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is the receipt app a small business shares with its accountant. Snap a paper receipt, forward an email receipt or connect your Gmail or Outlook inbox, and each receipt is read in seconds into a record with merchant, date, line items, VAT and category, kept with its original file. Your accountant sees it right away, checks it against your bank statement and exports it for the books. It is made for small businesses, freelancers and their accounting firms.",
+      a: "UnReceipt is a receipt app for small businesses and freelancers. Snap a paper receipt, forward an email receipt or connect your Gmail or Outlook inbox, and each receipt is read in seconds into a record with merchant, date, line items, VAT and category, kept with its original file. Employees can send theirs to you for approval, and your accountant sees your receipts as they arrive — free for them — and exports them for the books.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
@@ -122,7 +122,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Vad är UnReceipt?",
-      a: "UnReceipt är kvittoappen som ett småföretag delar med sin redovisningskonsult. Fota ett papperskvitto, vidarebefordra ett e-postkvitto eller koppla din Gmail- eller Outlook-inkorg, så läses varje kvitto av på några sekunder till ett underlag med säljare, datum, kvittorader, moms och kategori, sparat med originalfilen. Din redovisningskonsult ser det direkt, stämmer av det mot kontoutdraget och exporterar det till bokföringen. iPhone-appen finns på svenska; webbappen är på engelska än så länge.",
+      a: "UnReceipt är en kvittoapp för småföretag och enskilda firmor. Fota ett papperskvitto, vidarebefordra ett e-postkvitto eller koppla din Gmail- eller Outlook-inkorg, så läses varje kvitto av på några sekunder till ett underlag med säljare, datum, kvittorader, moms och kategori, sparat med originalfilen. Anställda kan skicka sina kvitton till dig för godkännande, och din redovisningskonsult ser kvittona när de kommer in — gratis för hen — och exporterar dem till bokföringen. iPhone-appen finns på svenska; webbappen är på engelska än så länge.",
     },
     {
       q: "Hur skickar jag kvitton till UnReceipt?",
@@ -171,7 +171,7 @@ function faqFr(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Qu’est-ce qu’UnReceipt\u00a0?",
-      a: "UnReceipt est l’application de reçus qu’une petite entreprise partage avec son expert-comptable. Photographiez un ticket, transférez un reçu reçu par e-mail ou connectez votre boîte Gmail ou Outlook\u00a0: chaque reçu est lu en quelques secondes et devient une fiche — fournisseur, date, lignes, TVA et catégorie — conservée avec son fichier d’origine. Votre expert-comptable la voit tout de suite, la rapproche de votre relevé bancaire et l’exporte pour la saisie. L’app iPhone est en français\u00a0; l’application web est pour l’instant en anglais.",
+      a: "UnReceipt est une application de reçus pour les TPE et les indépendants. Photographiez un ticket, transférez un reçu reçu par e-mail ou connectez votre boîte Gmail ou Outlook\u00a0: chaque reçu est lu en quelques secondes et devient une fiche — fournisseur, date, lignes, TVA et catégorie — conservée avec son fichier d’origine. Vos salariés peuvent vous envoyer leurs reçus pour validation, et votre expert-comptable voit vos reçus dès leur arrivée — gratuitement — et les exporte pour la saisie. L’app iPhone est en français\u00a0; l’application web est pour l’instant en anglais.",
     },
     {
       q: "Comment envoyer mes reçus à UnReceipt\u00a0?",

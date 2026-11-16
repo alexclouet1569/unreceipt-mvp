@@ -664,8 +664,8 @@ const freelancersEn: AudienceCopy = {
       },
       {
         icon: "clock",
-        title: "One flat price",
-        desc: "One monthly price for your business, sized by how many receipts you send. No bank connection, no new card.",
+        title: "One simple price",
+        desc: "One monthly price for one person, paid by your business. No bank connection, no new card.",
       },
     ],
   },
@@ -680,7 +680,7 @@ const freelancersEn: AudienceCopy = {
   faq: [
     {
       q: "Is UnReceipt made for one-person businesses?",
-      a: "Yes. UnReceipt is built for one-person businesses: one account with its own receipt address, every receipt in one place, and a monthly price sized by how many receipts you send.",
+      a: "Yes. UnReceipt is built for one-person businesses: one account with its own receipt address, every receipt in one place, and one simple monthly price for one person.",
     },
     {
       q: "Do I need an accountant to use UnReceipt?",
@@ -818,8 +818,8 @@ const freelancersSv: AudienceCopy = {
       },
       {
         icon: "clock",
-        title: "Ett fast pris",
-        desc: "Ett månadspris för firman, efter hur många kvitton du skickar. Ingen bankkoppling, inget nytt kort.",
+        title: "Ett enkelt pris",
+        desc: "Ett månadspris för en person, betalt av firman. Ingen bankkoppling, inget nytt kort.",
       },
     ],
   },
@@ -835,7 +835,7 @@ const freelancersSv: AudienceCopy = {
   faq: [
     {
       q: "Passar UnReceipt för en enskild firma?",
-      a: "Ja. UnReceipt är byggt för enmansföretag: ett konto med en egen kvittoadress, alla kvitton på ett ställe och ett månadspris efter hur många kvitton du skickar.",
+      a: "Ja. UnReceipt är byggt för enmansföretag: ett konto med en egen kvittoadress, alla kvitton på ett ställe och ett enkelt månadspris för en person.",
     },
     {
       q: "Måste en enskild firma spara kvitton?",
@@ -972,8 +972,8 @@ const freelancersFr: AudienceCopy = {
       },
       {
         icon: "clock",
-        title: "Un prix fixe",
-        desc: "Un prix mensuel pour votre activité, selon le nombre de reçus envoyés. Sans connexion bancaire, sans nouvelle carte.",
+        title: "Un prix simple",
+        desc: "Un prix mensuel pour une personne, payé par votre activité. Sans connexion bancaire, sans nouvelle carte.",
       },
     ],
   },
@@ -989,7 +989,7 @@ const freelancersFr: AudienceCopy = {
   faq: [
     {
       q: "UnReceipt convient-il à un micro-entrepreneur ?",
-      a: "Oui. UnReceipt est pensé pour les entreprises d’une personne : un compte avec sa propre adresse de réception, tous les reçus au même endroit, et un prix mensuel selon le nombre de reçus envoyés.",
+      a: "Oui. UnReceipt est pensé pour les entreprises d’une personne : un compte avec sa propre adresse de réception, tous les reçus au même endroit, et un prix mensuel simple pour une personne.",
     },
     {
       q: "Un micro-entrepreneur doit-il conserver ses justificatifs ?",

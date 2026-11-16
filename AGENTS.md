@@ -219,7 +219,15 @@ Stripe Checkout `success_url` / `cancel_url` use `NEXT_PUBLIC_APP_URL` so the cu
 
 # Messaging (2026-11-16)
 
-Every marketing surface (landing, FAQ, audience pages, About, llms.txt, SEO descriptions) follows one frame. Mission, shown on the landing and About: no business owner, and no accountant, should ever have to chase a receipt. Positioning: the receipt app your accountant is already in. Three proof points: every way in (photo, forward, connected Gmail/Outlook, several at once), read in seconds (VAT included; uncertain receipts wait for the owner or accountant to confirm; no person at UnReceipt checks receipts, never promise a "concierge" or a turnaround time), and the accountant in the loop (bank check, Monday reminder, export). The long-term vision (every expense, then every invoice and document) is on the About page only, labelled as direction, never as a feature. Markets: built for Sweden and France, open to companies elsewhere with that caveat stated. When a feature ships or changes, update these surfaces in the same PR.
+One reader per page. The homepage (`/`, `/sv`, `/fr`), FAQ, About, llms.txt and SEO descriptions speak to **small businesses and freelancers**; accounting firms are addressed only on their own pages (`/accountants`, `/sv/redovisningsbyra`, `/fr/experts-comptables`). On business pages the accountant appears as a benefit to the business ("your accountant already has it, free for them"), never as a second audience.
+
+- Mission (landing "Who it's for", About): no business owner should ever have to chase a receipt — or be chased for one.
+- Hero: "Every receipt, done the moment you pay."
+- Three proof points: every way in (photo, forward, connected Gmail/Outlook, several at once); read in seconds (VAT included; uncertain receipts wait for the owner or accountant to confirm; no person at UnReceipt checks receipts, never promise a "concierge" or a turnaround time); your team and your accountant in one place (approvals, paying back, accountant free).
+- Who pays (founder decision 2026-11-16): the company, per person using it; accountants use it free. **Billing doesn't do this yet**: `plans.ts`, Stripe and `/api/checkout` still charge one price per company sized by receipts ("no per-user fees", shown only while `SHOW_PRICES` is on). Price-free copy says "per person"; rebuild billing before turning `PILOT_MODE` off or `SHOW_PRICES` on.
+- The long-term vision (every expense, then every invoice and document) is on the About page only, labelled as direction, never as a feature.
+- Markets: built for Sweden and France, open to companies elsewhere with that caveat stated.
+- When a feature ships or changes, update these surfaces in the same PR.
 
 # Languages
 

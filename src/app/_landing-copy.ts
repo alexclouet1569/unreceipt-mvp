@@ -193,11 +193,11 @@ const en: LandingCopy = {
     closeMenu: "Close menu",
   },
   hero: {
-    seoTitle: "Receipt app for small businesses and their accountants",
-    titleLine1: "Every receipt.",
-    titleLine2: "Already with",
-    titleAccent: "your accountant.",
-    lead: "Snap a receipt, forward it, or connect Gmail or Outlook once. UnReceipt reads each one in seconds, VAT included, and your accountant sees it right away — no more chasing at month-end, on either side.",
+    seoTitle: "Receipt app for small businesses and freelancers",
+    titleLine1: "Every receipt,",
+    titleLine2: "done the moment",
+    titleAccent: "you pay.",
+    lead: "Snap it, forward it, or connect your inbox once. UnReceipt reads every receipt in seconds, VAT included — yours and your team's — and your accountant already has it. No shoebox, no month-end chase.",
     ctaPilot: "Join the pilot",
     ctaPaid: "Start your free week",
     secondary: "See the demo",
@@ -246,8 +246,8 @@ const en: LandingCopy = {
         desc: "Merchant, date, line items, VAT rate and amount are read for you, and foreign receipts get a home-currency amount at the ECB rate. Anything uncertain waits for one tap to confirm.",
       },
       {
-        title: "Your Accountant, Already in the Loop",
-        desc: "Your accountant sees your receipts as they arrive, checks them against your bank statement and exports them for the books. No ZIP files to send, no month-end chase.",
+        title: "Your Team and Your Accountant, in One Place",
+        desc: "Employees send their receipts to you for approval, and you see who to pay back. Your accountant sees your receipts as they arrive — free for them, with no ZIP files to send.",
       },
     ],
   },
@@ -258,23 +258,23 @@ const en: LandingCopy = {
     step: "STEP",
     items: [
       {
-        title: "Connect with your accountant",
-        desc: "Invite your accountant from Settings, or open the link they send you and press Yes, share. No accountant? Skip this step and export yourself.",
-      },
-      {
         title: "Send receipts as you pay",
-        desc: "Snap the paper ones, forward or auto-collect the email ones. Each is read in seconds; you confirm the uncertain ones against the original.",
+        desc: "Snap the paper ones, forward the email ones, or connect Gmail or Outlook once so they arrive by themselves. Each is read in seconds.",
       },
       {
-        title: "Ready to book",
-        desc: "Your accountant sees every receipt, spots bank payments that still miss one, and exports the month with its VAT lines.",
+        title: "Confirm in one tap",
+        desc: "Check anything uncertain against the original. Employees send their receipts to you for approval, saying whether they paid themselves.",
+      },
+      {
+        title: "Your accountant has it",
+        desc: "Invite your accountant for free and they see your receipts as they arrive, ready to book. No accountant? Export any month as a ZIP.",
       },
     ],
   },
   difference: {
     eyebrow: "The Difference",
     title: "Paper Fades. Simplicity Stays.",
-    lead: "Why small businesses and their accountants switch to UnReceipt",
+    lead: "Why small businesses switch to UnReceipt",
     oldTitle: "The old way",
     old: [
       "Paper receipts lost in wallets and cars",
@@ -286,7 +286,7 @@ const en: LandingCopy = {
     new: [
       "Each receipt sent the moment you pay: photo, forward or straight from your inbox",
       "Merchant, amount and VAT read in seconds",
-      "Missing receipts found from the bank statement, with a reminder every Monday",
+      "Your accountant sees your receipts as they arrive, free for them",
       "Employees send their receipts to you for approval",
     ],
   },
@@ -316,8 +316,8 @@ const en: LandingCopy = {
   },
   about: {
     eyebrow: "Who it's for",
-    title: "One App for the Business and Its Accountant",
-    lead: "Our mission: no business owner, and no accountant, should ever have to chase a receipt.",
+    title: "Built for Small Businesses — and Their Accountants",
+    lead: "Our mission: no business owner should ever have to chase a receipt — or be chased for one.",
     more: "Learn more",
     items: [
       {
@@ -326,11 +326,11 @@ const en: LandingCopy = {
       },
       {
         title: "Freelancers & Sole Traders",
-        desc: "Every receipt sorted with its VAT as it arrives, ready for your tax return or your accountant. One flat monthly price.",
+        desc: "Every receipt sorted with its VAT as it arrives, ready for your tax return or your accountant. One simple monthly price.",
       },
       {
-        title: "Accounting Firms",
-        desc: "Every client's receipts in one portal, checked against their bank statement, with a Monday reminder in your firm's name and an export for the books. Free for your firm.",
+        title: "Your Accountant",
+        desc: "Free for your accountant: a portal with your receipts as they arrive, a bank-statement check and an export for the books.",
       },
     ],
   },
@@ -339,7 +339,7 @@ const en: LandingCopy = {
     "Data Stored in the EU",
     "Original File Kept",
     "iPhone App and Web",
-    "Free for Accounting Firms",
+    "Free for Your Accountant",
   ],
   ending: {
     kind: "cta",
@@ -364,11 +364,11 @@ const sv: LandingCopy = {
     closeMenu: "Stäng menyn",
   },
   hero: {
-    seoTitle: "Kvittohantering för småföretag och deras redovisningsbyråer",
-    titleLine1: "Varje kvitto.",
-    titleLine2: "Direkt hos",
-    titleAccent: "din redovisare.",
-    lead: "Fota kvittot, vidarebefordra det, eller koppla Gmail eller Outlook en gång. UnReceipt läser av varje kvitto på några sekunder, med momsen, och din redovisningskonsult ser det direkt — ingen jakt på kvitton vid månadsskiftet, på någon sida.",
+    seoTitle: "Kvittoapp för småföretag och enskild firma",
+    titleLine1: "Varje kvitto,",
+    titleLine2: "klart när du",
+    titleAccent: "betalar.",
+    lead: "Fota det, vidarebefordra det, eller koppla inkorgen en gång. UnReceipt läser av varje kvitto på några sekunder, med momsen — ditt och teamets — och din redovisningskonsult har det redan. Ingen skokartong, ingen jakt vid månadsskiftet.",
     ctaPilot: "Gå med i piloten",
     ctaPaid: "Prova gratis i en vecka",
     secondary: "Se demon",
@@ -417,8 +417,8 @@ const sv: LandingCopy = {
         desc: "Säljare, datum, kvittorader, momssats och momsbelopp läses av åt dig, och utländska kvitton får ett belopp i kronor efter ECB:s kurs. Det som är osäkert väntar på att du bekräftar med ett tryck.",
       },
       {
-        title: "Redovisningskonsulten är redan med",
-        desc: "Din redovisningskonsult ser kvittona när de kommer in, stämmer av dem mot kontoutdraget och exporterar dem till bokföringen. Inga ZIP-filer att skicka, ingen jakt vid månadsskiftet.",
+        title: "Teamet och redovisningskonsulten på ett ställe",
+        desc: "Anställda skickar sina kvitton till dig för godkännande, och du ser vem som ska få pengar tillbaka. Din redovisningskonsult ser kvittona när de kommer in — gratis för hen, inga ZIP-filer att skicka.",
       },
     ],
   },
@@ -429,23 +429,23 @@ const sv: LandingCopy = {
     step: "STEG",
     items: [
       {
-        title: "Koppla ihop dig med byrån",
-        desc: "Bjud in din redovisningskonsult under Settings, eller öppna länken byrån skickar och tryck på Yes, share. Ingen redovisningskonsult? Hoppa över steget och exportera själv.",
-      },
-      {
         title: "Skicka kvittot när du betalar",
-        desc: "Fota papperskvittona, vidarebefordra eller hämta in e-postkvittona automatiskt. Varje kvitto läses av på sekunder; de osäkra bekräftar du mot originalet.",
+        desc: "Fota papperskvittona, vidarebefordra e-postkvittona eller koppla Gmail eller Outlook en gång så kommer de in av sig själva. Varje kvitto läses av på sekunder.",
       },
       {
-        title: "Klart att bokföra",
-        desc: "Din redovisningskonsult ser varje kvitto, hittar betalningar på kontoutdraget som saknar kvitto och exporterar månaden med momsraderna.",
+        title: "Bekräfta med ett tryck",
+        desc: "Kontrollera det som är osäkert mot originalet. Anställda skickar sina kvitton till dig för godkännande och anger om de betalade själva.",
+      },
+      {
+        title: "Din redovisningskonsult har det",
+        desc: "Bjud in din redovisningskonsult gratis så ser hen kvittona när de kommer in, klara att bokföra. Ingen redovisningskonsult? Exportera valfri månad som ZIP.",
       },
     ],
   },
   difference: {
     eyebrow: "Skillnaden",
     title: "Papper bleknar. Enkelheten består.",
-    lead: "Därför byter småföretag och deras redovisningsbyråer till UnReceipt",
+    lead: "Därför byter småföretag till UnReceipt",
     oldTitle: "Det gamla sättet",
     old: [
       "Papperskvitton som försvinner i plånböcker och bilar",
@@ -457,7 +457,7 @@ const sv: LandingCopy = {
     new: [
       "Varje kvitto skickas när du betalar: foto, vidarebefordrat eller direkt från inkorgen",
       "Säljare, belopp och moms avlästa på sekunder",
-      "Saknade kvitton hittas via kontoutdraget, med en påminnelse varje måndag",
+      "Din redovisningskonsult ser kvittona direkt, gratis för hen",
       "Anställda skickar sina kvitton till dig för godkännande",
     ],
   },
@@ -490,8 +490,8 @@ const sv: LandingCopy = {
   },
   about: {
     eyebrow: "För vem",
-    title: "En app för företaget och redovisningsbyrån",
-    lead: "Vårt uppdrag: ingen företagare, och ingen redovisningskonsult, ska behöva jaga ett kvitto igen.",
+    title: "Byggt för småföretag — och deras redovisningsbyråer",
+    lead: "Vårt uppdrag: ingen företagare ska behöva jaga ett kvitto — eller bli jagad för ett.",
     more: "Läs mer",
     items: [
       {
@@ -500,11 +500,11 @@ const sv: LandingCopy = {
       },
       {
         title: "Enskild firma och frilansare",
-        desc: "Varje kvitto sorterat med momsen direkt när det kommer in, redo för deklarationen eller din redovisningskonsult. Ett fast månadspris.",
+        desc: "Varje kvitto sorterat med momsen direkt när det kommer in, redo för deklarationen eller din redovisningskonsult. Ett enkelt månadspris.",
       },
       {
-        title: "Redovisningsbyråer",
-        desc: "Alla klienters kvitton i en portal, avstämda mot kontoutdraget, med en påminnelse varje måndag i byråns namn och en export till bokföringen. Gratis för byrån.",
+        title: "Din redovisningsbyrå",
+        desc: "Gratis för din redovisningskonsult: en portal med dina kvitton när de kommer in, avstämning mot kontoutdraget och export till bokföringen.",
       },
     ],
   },
@@ -513,7 +513,7 @@ const sv: LandingCopy = {
     "Data lagras inom EU",
     "Originalfilen sparas",
     "iPhone-app och webb",
-    "Gratis för redovisningsbyråer",
+    "Gratis för din redovisningsbyrå",
   ],
   ending: {
     kind: "cta",
@@ -538,11 +538,11 @@ const fr: LandingCopy = {
     closeMenu: "Fermer le menu",
   },
   hero: {
-    seoTitle: "Gestion des justificatifs pour TPE, indépendants et leurs experts-comptables",
-    titleLine1: "Chaque reçu.",
-    titleLine2: "Déjà chez",
-    titleAccent: "votre comptable.",
-    lead: "Photographiez un reçu, transférez-le, ou connectez Gmail ou Outlook une fois pour toutes. UnReceipt lit chaque reçu en quelques secondes, TVA comprise, et votre expert-comptable le voit tout de suite — fini les relances de fin de mois, d’un côté comme de l’autre.",
+    seoTitle: "Application de reçus pour TPE et indépendants",
+    titleLine1: "Chaque reçu,",
+    titleLine2: "réglé dès que",
+    titleAccent: "vous payez.",
+    lead: "Photographiez-le, transférez-le, ou connectez votre boîte mail une fois pour toutes. UnReceipt lit chaque reçu en quelques secondes, TVA comprise — les vôtres et ceux de votre équipe — et votre expert-comptable l’a déjà. Fini la boîte à chaussures et les relances de fin de mois.",
     ctaPilot: "Rejoindre la phase pilote",
     ctaPaid: "Essayer gratuitement une semaine",
     secondary: "Voir la démo",
@@ -591,8 +591,8 @@ const fr: LandingCopy = {
         desc: "Fournisseur, date, lignes, taux et montant de TVA sont lus pour vous, et les reçus en devises reçoivent un montant converti au taux de la BCE. Ce qui est incertain attend une simple confirmation.",
       },
       {
-        title: "Votre expert-comptable, déjà dans la boucle",
-        desc: "Votre expert-comptable voit vos reçus dès leur arrivée, les rapproche de votre relevé bancaire et les exporte pour la saisie. Plus de ZIP à envoyer, plus de relances en fin de mois.",
+        title: "Votre équipe et votre expert-comptable, au même endroit",
+        desc: "Vos salariés vous envoient leurs reçus pour validation, et vous voyez qui rembourser. Votre expert-comptable voit vos reçus dès leur arrivée — gratuitement, sans ZIP à envoyer.",
       },
     ],
   },
@@ -603,23 +603,23 @@ const fr: LandingCopy = {
     step: "ÉTAPE",
     items: [
       {
-        title: "Reliez-vous à votre expert-comptable",
-        desc: "Invitez votre expert-comptable depuis les réglages, ou ouvrez le lien qu’il vous envoie et appuyez sur Yes, share. Pas d’expert-comptable\u00a0? Passez cette étape et exportez vous-même.",
-      },
-      {
         title: "Envoyez chaque reçu au moment de payer",
-        desc: "Photographiez les tickets, transférez ou laissez arriver tout seuls les reçus par e-mail. Chacun est lu en quelques secondes\u00a0; vous confirmez les incertains face à l’original.",
+        desc: "Photographiez les tickets, transférez les reçus par e-mail ou connectez Gmail ou Outlook une fois pour qu’ils arrivent tout seuls. Chacun est lu en quelques secondes.",
       },
       {
-        title: "Prêt pour la saisie",
-        desc: "Votre expert-comptable voit chaque reçu, repère les paiements du relevé bancaire qui n’en ont pas encore, et exporte le mois avec ses lignes de TVA.",
+        title: "Confirmez d’un geste",
+        desc: "Vérifiez ce qui est incertain face à l’original. Vos salariés vous envoient leurs reçus pour validation, en indiquant s’ils ont payé eux-mêmes.",
+      },
+      {
+        title: "Votre expert-comptable l’a déjà",
+        desc: "Invitez gratuitement votre expert-comptable\u00a0: il voit vos reçus dès leur arrivée, prêts pour la saisie. Pas d’expert-comptable\u00a0? Exportez n’importe quel mois en ZIP.",
       },
     ],
   },
   difference: {
     eyebrow: "La différence",
     title: "Le papier s’efface. La simplicité reste.",
-    lead: "Pourquoi les petites entreprises et leurs experts-comptables passent à UnReceipt",
+    lead: "Pourquoi les petites entreprises passent à UnReceipt",
     oldTitle: "Avant",
     old: [
       "Des tickets perdus dans les portefeuilles et les voitures",
@@ -631,7 +631,7 @@ const fr: LandingCopy = {
     new: [
       "Chaque reçu envoyé au moment de payer\u00a0: photo, transfert ou directement depuis la boîte mail",
       "Fournisseur, montant et TVA lus en quelques secondes",
-      "Les reçus manquants repérés sur le relevé bancaire, avec un rappel chaque lundi",
+      "Votre expert-comptable voit vos reçus dès leur arrivée, gratuitement",
       "Vos salariés vous envoient leurs reçus pour validation",
     ],
   },
@@ -664,8 +664,8 @@ const fr: LandingCopy = {
   },
   about: {
     eyebrow: "Pour qui",
-    title: "Une application pour l’entreprise et son expert-comptable",
-    lead: "Notre mission\u00a0: qu’aucun dirigeant, ni aucun expert-comptable, n’ait plus jamais à courir après un reçu.",
+    title: "Conçu pour les TPE — et leurs experts-comptables",
+    lead: "Notre mission\u00a0: qu’aucun dirigeant n’ait plus jamais à courir après un reçu — ni à se le faire réclamer.",
     more: "En savoir plus",
     items: [
       {
@@ -674,11 +674,11 @@ const fr: LandingCopy = {
       },
       {
         title: "Indépendants",
-        desc: "Chaque reçu classé avec sa TVA dès son arrivée, prêt pour votre comptabilité ou votre expert-comptable. Un prix mensuel fixe.",
+        desc: "Chaque reçu classé avec sa TVA dès son arrivée, prêt pour votre comptabilité ou votre expert-comptable. Un prix mensuel simple.",
       },
       {
-        title: "Experts-comptables",
-        desc: "Les reçus de tous vos clients dans un seul portail, rapprochés de leur relevé bancaire, avec un rappel chaque lundi au nom du cabinet et un export pour la saisie. Gratuit pour le cabinet.",
+        title: "Votre expert-comptable",
+        desc: "Gratuit pour votre expert-comptable\u00a0: un portail avec vos reçus dès leur arrivée, le rapprochement bancaire et un export pour la saisie.",
       },
     ],
   },
@@ -687,7 +687,7 @@ const fr: LandingCopy = {
     "Données hébergées dans l’UE",
     "Fichier d’origine conservé",
     "App iPhone et web",
-    "Gratuit pour les cabinets",
+    "Gratuit pour votre comptable",
   ],
   ending: {
     kind: "cta",

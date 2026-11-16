@@ -50,21 +50,21 @@ export const ABOUT_AS_OF = "2026-11-16";
 
 function pricingEn(pilot: boolean): string {
   if (!SHOW_PRICES)
-    return `One monthly price per company account, sized by how many receipts it sends each month. ${pilot ? "Free during the current pilot." : "First week free."} Accounting firms need no plan of their own.`;
+    return `Paid by the company, per person using UnReceipt. ${pilot ? "Free during the current pilot." : "First week free."} Accountants use it free; accounting firms need no plan of their own.`;
   const plans = PLANS.map((p) => `${p.name} ${formatPrice(p.price)}/month (${p.receipts} receipts)`).join(", ");
   return `${plans}, excl. VAT, one price for the whole company with no per-user fees; extra receipts ${formatPrice(OVERAGE_PRICE)} each. ${pilot ? "Free during the current pilot." : "First week free."} Accounting firms need no plan of their own.`;
 }
 
 function pricingSv(pilot: boolean): string {
   if (!SHOW_PRICES)
-    return `Ett månadspris per företagskonto, efter hur många kvitton det skickar i månaden. ${pilot ? "Gratis under den pågående piloten." : "Första veckan gratis."} Redovisningsbyråer behöver ingen egen plan.`;
+    return `Företaget betalar, per person som använder UnReceipt. ${pilot ? "Gratis under den pågående piloten." : "Första veckan gratis."} Redovisningskonsulter använder det gratis; byråer behöver ingen egen plan.`;
   const plans = PLANS.map((p) => `${p.name} ${formatSek(p.priceSek)}/mån (${p.receipts} kvitton)`).join(", ");
   return `${plans}, exkl. moms, ett pris för hela företaget utan avgifter per användare; extra kvitton ${formatSek(OVERAGE_PRICE_SEK)} styck. ${pilot ? "Gratis under den pågående piloten." : "Första veckan gratis."} Redovisningsbyråer behöver ingen egen plan.`;
 }
 
 function pricingFr(pilot: boolean): string {
   if (!SHOW_PRICES)
-    return `Un prix mensuel par compte d’entreprise, selon le nombre de reçus envoyés chaque mois. ${pilot ? "Gratuit pendant la phase pilote en cours." : "Première semaine gratuite."} Les cabinets comptables n’ont pas besoin d’abonnement propre.`;
+    return `Payé par l’entreprise, par personne qui utilise UnReceipt. ${pilot ? "Gratuit pendant la phase pilote en cours." : "Première semaine gratuite."} Les experts-comptables l’utilisent gratuitement ; les cabinets n’ont pas besoin d’abonnement propre.`;
   const plans = PLANS.map((p) => `${p.name} ${formatEurFr(p.price)} HT/mois (${p.receipts} reçus)`).join(", ");
   return `${plans}, un prix pour toute l’entreprise sans frais par utilisateur ; reçu supplémentaire ${formatEurFr(OVERAGE_PRICE)} HT. ${pilot ? "Gratuit pendant la phase pilote en cours." : "Première semaine gratuite."} Les cabinets comptables n’ont pas besoin d’abonnement propre.`;
 }
@@ -74,13 +74,13 @@ function en(pilot: boolean): About {
     meta: {
       title: "What is UnReceipt? Facts, pricing and limits | UnReceipt",
       description:
-        "UnReceipt in plain facts: the receipt app small businesses share with their accountant, built for Sweden and France — how it works, what it costs, where data is stored and what it doesn't do.",
+        "UnReceipt in plain facts: a receipt app for small businesses and freelancers, free for their accountants, built for Sweden and France — how it works, what it costs, where data is stored and what it doesn't do.",
     },
     breadcrumb: "About UnReceipt",
     eyebrow: "Fact sheet",
     title: "What is UnReceipt?",
     summary:
-      "UnReceipt is the receipt app a small business shares with its accountant. It is built for small businesses, freelancers and sole traders, and the accounting firms that keep their books, in Sweden and France. Receipts arrive as photos, as forwarded emails or straight from a connected Gmail or Outlook inbox; each one is read automatically in seconds into a record with its VAT amount and rate (where the receipt shows them), category and file, and the accountant sees it right away. It collects and checks receipts — it is not a bookkeeping program.",
+      "UnReceipt is a receipt app for small businesses, freelancers and sole traders in Sweden and France, and for the accountants they work with, who use it free. Receipts arrive as photos, as forwarded emails or straight from a connected Gmail or Outlook inbox; each one is read automatically in seconds into a record with its VAT amount and rate (where the receipt shows them), category and file, and the accountant sees it right away. It collects and checks receipts — it is not a bookkeeping program.",
     asOfLabel: "Facts as of",
     factsTitle: "Key facts",
     facts: [
@@ -140,7 +140,7 @@ function en(pilot: boolean): About {
     ],
     visionTitle: "Why UnReceipt exists",
     vision:
-      "Our mission: no business owner, and no accountant, should ever have to chase a receipt. We're starting with receipts and expenses. Where we're going: every expense, and in time every invoice and business document, handled automatically from the moment it arrives. Today UnReceipt does what this page lists, and nothing more.",
+      "Our mission: no business owner should ever have to chase a receipt — or be chased for one. We're starting with receipts and expenses. Where we're going: every expense, and in time every invoice and business document, handled automatically from the moment it arrives. Today UnReceipt does what this page lists, and nothing more.",
     contactTitle: "Contact",
     contact: "Questions, partnerships or a demo for your accounting firm: support@unreceipt.com.",
   };
@@ -151,13 +151,13 @@ function sv(pilot: boolean): About {
     meta: {
       title: "Vad är UnReceipt? Fakta, priser och begränsningar | UnReceipt",
       description:
-        "UnReceipt i klartext: kvittoappen som småföretag delar med sin redovisningsbyrå, byggd för Sverige och Frankrike — hur den fungerar, vad den kostar, var data lagras och vad den inte gör.",
+        "UnReceipt i klartext: en kvittoapp för småföretag och enskilda firmor, gratis för deras redovisningsbyråer, byggd för Sverige och Frankrike — hur den fungerar, vad den kostar, var data lagras och vad den inte gör.",
     },
     breadcrumb: "Om UnReceipt",
     eyebrow: "Faktablad",
     title: "Vad är UnReceipt?",
     summary:
-      "UnReceipt är kvittoappen som ett småföretag delar med sin redovisningskonsult. Den är byggd för småföretag, enskilda firmor och frilansare, och för redovisningsbyråerna som sköter deras bokföring, i Sverige och Frankrike. Kvittona kommer in som foton, som vidarebefordrade mejl eller direkt från en kopplad Gmail- eller Outlook-inkorg; varje kvitto läses av automatiskt på några sekunder till ett underlag med momsbelopp och momssats (när kvittot visar dem), kategori och fil, och redovisningskonsulten ser det direkt. Tjänsten samlar in och kontrollerar kvitton — den är inget bokföringsprogram.",
+      "UnReceipt är en kvittoapp för småföretag, enskilda firmor och frilansare i Sverige och Frankrike, och för redovisningskonsulterna de arbetar med, som använder den gratis. Kvittona kommer in som foton, som vidarebefordrade mejl eller direkt från en kopplad Gmail- eller Outlook-inkorg; varje kvitto läses av automatiskt på några sekunder till ett underlag med momsbelopp och momssats (när kvittot visar dem), kategori och fil, och redovisningskonsulten ser det direkt. Tjänsten samlar in och kontrollerar kvitton — den är inget bokföringsprogram.",
     asOfLabel: "Uppgifterna gäller per",
     factsTitle: "Fakta i korthet",
     facts: [
@@ -216,7 +216,7 @@ function sv(pilot: boolean): About {
     ],
     visionTitle: "Varför UnReceipt finns",
     vision:
-      "Vårt uppdrag: ingen företagare, och ingen redovisningskonsult, ska behöva jaga ett kvitto igen. Vi börjar med kvitton och utlägg. Dit vi är på väg: varje utgift, och med tiden varje faktura och affärsdokument, hanterat automatiskt från det ögonblick det kommer in. I dag gör UnReceipt det som står på den här sidan, och inget mer.",
+      "Vårt uppdrag: ingen företagare ska behöva jaga ett kvitto — eller bli jagad för ett. Vi börjar med kvitton och utlägg. Dit vi är på väg: varje utgift, och med tiden varje faktura och affärsdokument, hanterat automatiskt från det ögonblick det kommer in. I dag gör UnReceipt det som står på den här sidan, och inget mer.",
     contactTitle: "Kontakt",
     contact: "Frågor, samarbeten eller en demo för din redovisningsbyrå: support@unreceipt.com.",
   };
@@ -227,13 +227,13 @@ function fr(pilot: boolean): About {
     meta: {
       title: "Qu’est-ce qu’UnReceipt ? Faits, tarifs et limites | UnReceipt",
       description:
-        "UnReceipt en faits : l’application de reçus que les TPE partagent avec leur expert-comptable, conçue pour la France et la Suède — fonctionnement, tarifs, hébergement des données et limites.",
+        "UnReceipt en faits : une application de reçus pour TPE et indépendants, gratuite pour leurs experts-comptables, conçue pour la France et la Suède — fonctionnement, tarifs, hébergement des données et limites.",
     },
     breadcrumb: "À propos d’UnReceipt",
     eyebrow: "Fiche d’information",
     title: "Qu’est-ce qu’UnReceipt ?",
     summary:
-      "UnReceipt est l’application de reçus qu’une petite entreprise partage avec son expert-comptable. Elle est conçue pour les TPE, les indépendants et micro-entrepreneurs, et les cabinets d’expertise comptable qui tiennent leur comptabilité, en France et en Suède. Les reçus arrivent en photo, par e-mail transféré ou directement depuis une boîte Gmail ou Outlook connectée ; chacun est lu automatiquement en quelques secondes et devient une fiche avec le montant et le taux de TVA (quand le justificatif les indique), la catégorie et le fichier, que l’expert-comptable voit aussitôt. Le service collecte et vérifie les justificatifs — ce n’est pas un logiciel de comptabilité.",
+      "UnReceipt est une application de reçus pour les TPE, les indépendants et micro-entrepreneurs en France et en Suède, et pour les experts-comptables avec qui ils travaillent, qui l’utilisent gratuitement. Les reçus arrivent en photo, par e-mail transféré ou directement depuis une boîte Gmail ou Outlook connectée ; chacun est lu automatiquement en quelques secondes et devient une fiche avec le montant et le taux de TVA (quand le justificatif les indique), la catégorie et le fichier, que l’expert-comptable voit aussitôt. Le service collecte et vérifie les justificatifs — ce n’est pas un logiciel de comptabilité.",
     asOfLabel: "Informations à jour au",
     factsTitle: "L’essentiel",
     facts: [
@@ -293,7 +293,7 @@ function fr(pilot: boolean): About {
     ],
     visionTitle: "Pourquoi UnReceipt existe",
     vision:
-      "Notre mission : qu’aucun dirigeant, ni aucun expert-comptable, n’ait plus jamais à courir après un reçu. Nous commençons par les reçus et les notes de frais. Là où nous allons : chaque dépense, et à terme chaque facture et document de l’entreprise, traités automatiquement dès leur arrivée. Aujourd’hui, UnReceipt fait ce que décrit cette page, rien de plus.",
+      "Notre mission : qu’aucun dirigeant n’ait plus jamais à courir après un reçu — ni à se le faire réclamer. Nous commençons par les reçus et les notes de frais. Là où nous allons : chaque dépense, et à terme chaque facture et document de l’entreprise, traités automatiquement dès leur arrivée. Aujourd’hui, UnReceipt fait ce que décrit cette page, rien de plus.",
     contactTitle: "Contact",
     contact: "Questions, partenariats ou démo pour votre cabinet : support@unreceipt.com.",
   };

@@ -20,26 +20,26 @@ export const SITE_URL = "https://unreceipt.com";
 export const TITLE = "Receipt App for Small Businesses & Accountants | UnReceipt";
 
 export const DESCRIPTION =
-  "The receipt app your accountant is already in. Snap, forward or auto-collect receipts; each is read in seconds, VAT included, and shared with your accountant. For small businesses, freelancers and accounting firms.";
+  "Receipts done the moment you pay. Snap, forward or auto-collect receipts for you and your team; each is read in seconds, VAT included, and your accountant has it, free for them. For small businesses and freelancers.";
 
 export const SHARE_DESCRIPTION =
-  "Every receipt, already with your accountant: snap, forward or connect your inbox, and each one is read in seconds, VAT included.";
+  "Every receipt, done the moment you pay: snap, forward or connect your inbox, and each one is read in seconds, VAT included, and already with your accountant.";
 
 export const SV_TITLE = "Kvittohantering för småföretag och redovisningsbyråer | UnReceipt";
 
 export const SV_DESCRIPTION =
-  "Kvittoappen som din redovisningsbyrå redan finns i. Fota, vidarebefordra eller hämta in kvitton automatiskt; varje kvitto läses av på sekunder, med momsen, och delas med byrån. För småföretag, enskild firma och byråer.";
+  "Kvitton klara när du betalar. Fota, vidarebefordra eller hämta in kvitton automatiskt, dina och teamets; varje kvitto läses av på sekunder, med momsen, och din redovisningsbyrå har det, gratis för byrån. För småföretag och enskild firma.";
 
 export const SV_SHARE_DESCRIPTION =
-  "Varje kvitto, direkt hos din redovisare: fota, vidarebefordra eller koppla inkorgen, så läses det av på sekunder, med momsen.";
+  "Varje kvitto, klart när du betalar: fota, vidarebefordra eller koppla inkorgen, så läses det av på sekunder, med momsen, och finns redan hos din redovisare.";
 
 export const FR_TITLE = "Gestion des justificatifs pour TPE et experts-comptables | UnReceipt";
 
 export const FR_DESCRIPTION =
-  "L’application de reçus où votre expert-comptable est déjà. Photographiez, transférez ou laissez arriver vos reçus\u00a0: chacun est lu en quelques secondes, TVA comprise, et partagé avec votre cabinet. Pour TPE, indépendants et cabinets.";
+  "Vos reçus réglés dès que vous payez. Photographiez, transférez ou laissez arriver vos reçus et ceux de votre équipe\u00a0: chacun est lu en quelques secondes, TVA comprise, et votre expert-comptable l’a déjà, gratuitement. Pour TPE et indépendants.";
 
 export const FR_SHARE_DESCRIPTION =
-  "Chaque reçu, déjà chez votre comptable\u00a0: photographiez, transférez ou connectez votre boîte mail, et il est lu en quelques secondes, TVA comprise.";
+  "Chaque reçu, réglé dès que vous payez\u00a0: photographiez, transférez ou connectez votre boîte mail, et il est lu en quelques secondes, TVA comprise, déjà chez votre comptable.";
 
 /** Open Graph locale per site language. */
 const OG_LOCALE: Record<Locale, string> = { en: "en_US", sv: "sv_SE", fr: "fr_FR" };
@@ -249,7 +249,7 @@ const FEATURES: Record<Locale, string[]> = {
     "Receipts read in seconds; uncertain ones confirmed by the user or accountant",
     "Foreign-currency receipts converted at the ECB reference rate",
     "Employee receipts sent for approval",
-    "Accounting-firm portal with per-client review, bank-statement check, weekly reminders and monthly export",
+    "Free portal for the company's accountant: review, bank-statement check, weekly reminders and monthly export",
     "ZIP export with CSV, PDFs and original files",
   ],
   sv: [
@@ -259,7 +259,7 @@ const FEATURES: Record<Locale, string[]> = {
     "Kvitton avlästa på sekunder; osäkra bekräftas av användaren eller byrån",
     "Utländska kvitton räknas om med ECB:s referenskurs",
     "Anställdas kvitton skickas för godkännande",
-    "Byråportal med granskning per klient, avstämning mot kontoutdrag, påminnelser varje vecka och månadsexport med BAS-kontoförslag",
+    "Gratis portal för företagets redovisningsbyrå: granskning, avstämning mot kontoutdrag, påminnelser varje vecka och månadsexport med BAS-kontoförslag",
     "ZIP-export med CSV, PDF:er och originalfiler",
   ],
   fr: [
@@ -269,7 +269,7 @@ const FEATURES: Record<Locale, string[]> = {
     "Reçus lus en quelques secondes ; les incertains confirmés par l’utilisateur ou le cabinet",
     "Reçus en devises convertis au taux de référence de la BCE",
     "Reçus des salariés envoyés pour validation",
-    "Portail cabinet avec revue par client, rapprochement du relevé bancaire, rappels hebdomadaires et export mensuel",
+    "Portail gratuit pour l’expert-comptable de l’entreprise : revue, rapprochement du relevé bancaire, rappels hebdomadaires et export mensuel",
     "Export ZIP avec CSV, PDF et fichiers d’origine",
   ],
 };
