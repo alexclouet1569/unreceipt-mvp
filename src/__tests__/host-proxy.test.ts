@@ -110,12 +110,35 @@ describe("proxy — host-based routing", () => {
     expect(res.headers.get("location")).toBe("https://app.unreceipt.com/demo/company?step=2");
   });
 
-  it("redirects / from app subdomain → apex", async () => {
+  it("sends / on the app subdomain to /app (307, not cached for good)", async () => {
     const res = await proxy(
       buildRequest("https://app.unreceipt.com/", "app.unreceipt.com")
     );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/app");
+    expect(mocks.getUser).not.toHaveBeenCalled();
+  });
+
+  it("keeps the query string when sending app-host / to /app", async () => {
+    const res = await proxy(
+      buildRequest("https://app.unreceipt.com/?utm_source=x", "app.unreceipt.com")
+    );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/app?utm_source=x");
+  });
+
+  it("still serves / on the apex as the marketing page", async () => {
+    const res = await proxy(buildRequest("https://unreceipt.com/", "unreceipt.com"));
+    expect(res.status).not.toBe(307);
+    expect(res.status).not.toBe(308);
+  });
+
+  it("redirects the other marketing pages from app subdomain → apex", async () => {
+    const res = await proxy(
+      buildRequest("https://app.unreceipt.com/sv", "app.unreceipt.com")
+    );
     expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://unreceipt.com/");
+    expect(res.headers.get("location")).toBe("https://unreceipt.com/sv");
   });
 
   it("redirects /privacy from app subdomain → apex", async () => {

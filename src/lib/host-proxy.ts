@@ -121,6 +121,17 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // The product host's root opens the product, not the marketing page (a
+  // person typing app.unreceipt.com wants their receipts). 307, not 308:
+  // browsers cache a permanent redirect indefinitely, and this one may
+  // change. Runs before the refresh because /app's own request refreshes.
+  if (onApp && path === "/") {
+    return NextResponse.redirect(
+      new URL("/app" + request.nextUrl.search, `https://${APP_HOST}`),
+      307
+    );
+  }
+
   // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
   // Official Supabase + Next.js App Router pattern: read the auth cookies
   // off the request, call getUser() (which silently rotates an expiring

@@ -204,7 +204,7 @@ One Capacitor app wraps `app.unreceipt.com` for both roles (plan: `docs/plans/un
 Two hosts, one Next.js app:
 
 - `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/fr`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
-- `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/billing/*`, `/api/admin/*`. PWA-installable. `/api/webhooks/*` answers on both hosts and is never redirected: Stripe treats a 3xx as a failed delivery.
+- `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/billing/*`, `/api/admin/*`. PWA-installable. Its root `/` answers 307 → `/app` (temporary, so browsers don't cache it); the other marketing paths on this host 308 to the apex. `/api/webhooks/*` answers on both hosts and is never redirected: Stripe treats a 3xx as a failed delivery.
 - `/demo` (on the app host) — the public guided tour: `/demo/company` and `/demo/accountant` render the real screens with sample data, and every `/api` call is answered in the browser, so nothing reaches the database, Resend or Claude. Keep it that way: a demo component must never call a real route. Linked from the landing hero.
 - `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
 

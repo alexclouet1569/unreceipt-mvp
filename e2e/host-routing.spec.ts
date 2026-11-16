@@ -36,12 +36,12 @@ test.describe("host routing — apex ↔ app split", () => {
     );
   });
 
-  test("app.unreceipt.com/ → 308 → unreceipt.com/", async ({ request }) => {
+  test("app.unreceipt.com/ → 307 → app.unreceipt.com/app", async ({ request }) => {
     const res = await request.get("https://app.unreceipt.com/", {
       maxRedirects: 0,
     });
-    expect(res.status()).toBe(308);
-    expect(res.headers()["location"]).toBe("https://unreceipt.com/");
+    expect(res.status()).toBe(307);
+    expect(res.headers()["location"]).toBe("https://app.unreceipt.com/app");
   });
 
   test("apex landing HTML does NOT include the manifest link", async ({
