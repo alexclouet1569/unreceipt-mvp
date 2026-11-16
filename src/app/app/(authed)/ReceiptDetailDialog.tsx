@@ -16,6 +16,7 @@ import { Download, Loader2, Pencil, Plus, Sparkles, Trash2, X } from "lucide-rea
 import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import { BookReceiptControl } from "@/components/receipt/BookReceiptControl";
+import { BasAccountControl } from "@/components/receipt/BasAccountControl";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -319,6 +320,12 @@ export function ReceiptDetailDialog({
                     <Pencil className="w-4 h-4" />
                     Edit receipt
                   </Button>
+                  ) : null}
+                  {isFirm ? (
+                    <BasAccountControl
+                      key={`${receipt.id}:${receipt.bas_account ?? ""}:${receipt.category}`}
+                      receipt={receipt}
+                    />
                   ) : null}
                   {isFirm ? <BookReceiptControl receipt={receipt} /> : null}
                 </>

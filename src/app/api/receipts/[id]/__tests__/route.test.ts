@@ -386,6 +386,71 @@ describe("PATCH /api/receipts/[id]", () => {
     expect(res.status).toBe(400);
     expect(mocks.updateEq).not.toHaveBeenCalled();
   });
+
+  describe("the BAS account alone (the firm's bookkeeping field)", () => {
+    const FIRM_USER = "33333333-3333-4333-8333-333333333333";
+    const toConfirm = {
+      id: RECEIPT_ID,
+      user_id: USER_ID,
+      status: "pending_review",
+      merchant_name: "Circle K",
+      purchased_at: "2026-11-03T12:00:00.000Z",
+      receipt_date: "2026-11-03",
+      total: 812,
+      currency: "SEK",
+      category: "transport",
+      parse_confidence: 0.9,
+      approval_status: null,
+    };
+
+    it("saves the account and leaves an unconfirmed receipt unconfirmed", async () => {
+      mocks.getServerUser.mockResolvedValueOnce({ id: FIRM_USER, email: "a@firm.se" });
+      mocks.maybeSingle.mockResolvedValueOnce({ data: toConfirm, error: null });
+
+      const res = await PATCH(req({ bas_account: "5611" }), params());
+
+      expect(res.status).toBe(200);
+      const [payload, , , scopeCol, scopeVal] = mocks.updateEq.mock.calls[0];
+      expect(payload.bas_account).toBe("5611");
+      expect(payload).not.toHaveProperty("status");
+      // Written for the receipt's owner, never the firm user.
+      expect([scopeCol, scopeVal]).toEqual(["user_id", USER_ID]);
+      // Not a confirmation: nothing is counted toward the plan.
+      expect(usageMock).not.toHaveBeenCalled();
+      expect((await res.json()).status).toBe("pending_review");
+    });
+
+    it("clears the account with null (back to the category suggestion)", async () => {
+      mocks.maybeSingle.mockResolvedValueOnce({
+        data: { ...toConfirm, status: "verified", bas_account: "5611" },
+        error: null,
+      });
+
+      const res = await PATCH(req({ bas_account: null }), params());
+
+      expect(res.status).toBe(200);
+      const [payload] = mocks.updateEq.mock.calls[0];
+      expect(payload.bas_account).toBeNull();
+      expect(payload).not.toHaveProperty("status");
+      expect((await res.json()).status).toBe("verified");
+    });
+
+    it("refuses an account that isn't 4 digits", async () => {
+      const res = await PATCH(req({ bas_account: "56A1" }), params());
+      expect(res.status).toBe(400);
+      expect(mocks.updateEq).not.toHaveBeenCalled();
+    });
+
+    it("still confirms on an empty save (Confirm receipt with nothing changed)", async () => {
+      mocks.maybeSingle.mockResolvedValueOnce({ data: toConfirm, error: null });
+
+      const res = await PATCH(req({}), params());
+
+      expect(res.status).toBe(200);
+      const [payload] = mocks.updateEq.mock.calls[0];
+      expect(payload.status).toBe("verified");
+    });
+  });
 });
 
 describe("DELETE /api/receipts/[id]", () => {

@@ -714,10 +714,16 @@ export function FirmApp({
               update.purchased_at = `${body.receipt_date}T12:00:00.000Z`;
             }
             if (body.category != null) update.category = body.category;
-            for (const k of ["notes", "tax_amount", "tax_rate", "payment_method", "items"]) {
+            for (const k of ["notes", "tax_amount", "tax_rate", "payment_method", "items", "bas_account"]) {
               if (k in body) update[k] = body[k];
             }
             const merged = { ...r, ...update } as Receipt;
+            // The BAS account alone is bookkeeping, not a review (as the route).
+            const keys = Object.keys(body);
+            if (keys.length > 0 && keys.every((k) => k === "bas_account")) {
+              status = r.status;
+              return merged;
+            }
             status = computeReceiptStatus({
               merchant_name: merged.merchant_name,
               purchased_at: merged.purchased_at,

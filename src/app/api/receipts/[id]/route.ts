@@ -273,7 +273,14 @@ export async function PATCH(
     );
   }
 
-  update.status = computeReceiptStatus(merged);
+  // Choosing the bookkeeping account (the firm's BAS field) is not a review
+  // of the receipt: it leaves the status as it is, so it can neither
+  // confirm a receipt nobody checked (which would show a mailbox receipt to
+  // the firm and bill it) nor send a confirmed one back. An empty patch is
+  // not this case: it is "Confirm receipt" with nothing changed.
+  const patchKeys = Object.keys(patch);
+  const bookkeepingOnly = patchKeys.length > 0 && patchKeys.every((k) => k === "bas_account");
+  if (!bookkeepingOnly) update.status = computeReceiptStatus(merged);
 
   // The employee changed what was approved: it goes back for approval
   // (src/lib/team/rules.ts). Compared with the stored values, so saving
@@ -326,7 +333,7 @@ export async function PATCH(
     });
   }
 
-  return NextResponse.json({ ok: true, status: update.status });
+  return NextResponse.json({ ok: true, status: update.status ?? existingRow.status });
 }
 
 export async function DELETE(
