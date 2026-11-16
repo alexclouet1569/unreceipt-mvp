@@ -27,7 +27,7 @@ Switch to a real migration tool (Supabase CLI under `supabase/migrations/`) once
 
 Defense in depth (plan decision A2):
 
-1. **`proxy.ts`** at the project root gates `/admin/:path*` and `/api/admin/:path*` — this is the optimistic check the Vercel CDN can run cheaply. Non-admin browsers are redirected to `/app`; non-admin API callers get a 403 JSON.
+1. **The proxy** (`src/proxy.ts` → `proxy()` in `src/lib/host-proxy.ts`) gates `/admin/:path*` and `/api/admin/:path*` — the optimistic check, run before the route. Non-admin browsers are redirected to `/app`; non-admin API callers get a 403 JSON. Next 16 registers `proxy.ts` only next to the `app` directory (`src/`), so until 2026-11-16 this lived in a repo-root `proxy.ts` that never ran in production: never add a root `proxy.ts` again (with both present, the build took `src/proxy.ts`'s matcher and ran the root file's code).
 2. **`requireAdmin()`** from `src/lib/require-admin.ts` is the real authorization gate. Every admin server action and every `/api/admin/*` route handler must call it before doing anything else. It re-reads the session cookie and re-checks the allowlist. Throws `AdminAuthError` on failure.
 
 `src/lib/auth-admin.ts` exports the pure `isAdminEmail()` matcher. Both the proxy and `requireAdmin()` share it so the policy is defined once.
@@ -205,11 +205,11 @@ One Capacitor app wraps `app.unreceipt.com` for both roles (plan: `docs/plans/un
 Two hosts, one Next.js app:
 
 - `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/fr`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
-- `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/billing/*`, `/api/webhooks/*`, `/api/admin/*`. PWA-installable.
+- `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/billing/*`, `/api/admin/*`. PWA-installable. Its root `/` answers 307 → `/app` (temporary, so browsers don't cache it); the other marketing paths on this host 308 to the apex. `/api/webhooks/*` answers on both hosts and is never redirected: Stripe treats a 3xx as a failed delivery.
 - `/demo` (on the app host) — the public guided tour: `/demo/company` and `/demo/accountant` render the real screens with sample data, and every `/api` call is answered in the browser, so nothing reaches the database, Resend or Claude. Keep it that way: a demo component must never call a real route. Linked from the landing hero.
 - `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
 
-`proxy.ts` enforces the split with 308 redirects when a request lands on the wrong host. It also refreshes the Supabase session with the official `@supabase/ssr` pattern: rotated auth cookies are written onto the request (forwarded upstream with `NextResponse.next({ request })`, so server components don't refresh again with the used-up refresh token) and onto the response, with the SDK's no-cache headers. Local dev (`localhost`, `127.*`) and Vercel previews (`*.vercel.app`) sit outside the apex/app split, so both surfaces remain reachable on the same origin.
+`src/proxy.ts` is the only proxy Next runs (matcher: everything except `_next/static`, `_next/image` and `favicon.ico`, plus every path holding a backslash). It answers 404 to any path with `\` or `%5C`, then calls `proxy()` in `src/lib/host-proxy.ts`, which enforces the split with 308 redirects when a request lands on the wrong host (live since 2026-11-16; before that the logic sat in a root `proxy.ts` Next never registered). The matcher is written literally in `src/proxy.ts` because Next reads it statically; `HOST_PROXY_MATCHER` holds the same string and a test keeps them equal. It also refreshes the Supabase session with the official `@supabase/ssr` pattern: rotated auth cookies are written onto the request (forwarded upstream with `NextResponse.next({ request })`, so server components don't refresh again with the used-up refresh token) and onto the response, with the SDK's no-cache headers. Local dev (`localhost`, `127.*`) and Vercel previews (`*.vercel.app`) sit outside the apex/app split, so both surfaces remain reachable on the same origin.
 
 Cross-host links from marketing to product use `appUrl(path)` from `src/lib/app-url.ts`. Server callers respect `NEXT_PUBLIC_APP_URL` (set on Vercel for Production AND Preview); browser callers detect dev/preview origins and fall back to a relative path so localhost still works without the env var.
 
@@ -250,7 +250,7 @@ Sentry (`@sentry/nextjs`) loads from `src/instrumentation.ts` (server/edge) and 
 
 `.claude/agents/` holds three read-only reviewers. Run the matching one on a diff before committing:
 
-- `security-reviewer`: anything under `src/app/api/**`, `src/lib/**`, `proxy.ts`, `next.config.ts`, `supabase/**`.
+- `security-reviewer`: anything under `src/app/api/**`, `src/lib/**`, `src/proxy.ts`, `next.config.ts`, `supabase/**`.
 - `design-reviewer`: anything under `src/app/app/**`, `src/components/**`, `globals.css`.
 - `compliance-reviewer`: extraction, the compliance rules config, the proof PDF, retention/deletion.
 

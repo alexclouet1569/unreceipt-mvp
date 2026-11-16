@@ -28,7 +28,8 @@ vi.mock("@/lib/auth-admin", () => ({
     email === "founder@unreceipt.com",
 }));
 
-import { proxy } from "../../proxy";
+import { proxy } from "@/proxy";
+import { HOST_PROXY_MATCHER } from "@/lib/host-proxy";
 
 const buildRequest = (url: string, host: string) => {
   const req = new NextRequest(url);
@@ -63,17 +64,15 @@ describe("proxy — host-based routing", () => {
     );
   });
 
-  it("redirects /api/webhooks from apex → app subdomain (308 preserves POST)", async () => {
+  it("serves /api/webhooks on the apex too: Stripe never follows a redirect", async () => {
     const res = await proxy(
       buildRequest(
         "https://unreceipt.com/api/webhooks/stripe",
         "unreceipt.com"
       )
     );
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe(
-      "https://app.unreceipt.com/api/webhooks/stripe"
-    );
+    expect(res.status).not.toBe(308);
+    expect(res.headers.get("location")).toBeNull();
   });
 
   it("redirects /subscribe from apex → app subdomain", async () => {
@@ -111,12 +110,35 @@ describe("proxy — host-based routing", () => {
     expect(res.headers.get("location")).toBe("https://app.unreceipt.com/demo/company?step=2");
   });
 
-  it("redirects / from app subdomain → apex", async () => {
+  it("sends / on the app subdomain to /app (307, not cached for good)", async () => {
     const res = await proxy(
       buildRequest("https://app.unreceipt.com/", "app.unreceipt.com")
     );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/app");
+    expect(mocks.getUser).not.toHaveBeenCalled();
+  });
+
+  it("keeps the query string when sending app-host / to /app", async () => {
+    const res = await proxy(
+      buildRequest("https://app.unreceipt.com/?utm_source=x", "app.unreceipt.com")
+    );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/app?utm_source=x");
+  });
+
+  it("still serves / on the apex as the marketing page", async () => {
+    const res = await proxy(buildRequest("https://unreceipt.com/", "unreceipt.com"));
+    expect(res.status).not.toBe(307);
+    expect(res.status).not.toBe(308);
+  });
+
+  it("redirects the other marketing pages from app subdomain → apex", async () => {
+    const res = await proxy(
+      buildRequest("https://app.unreceipt.com/sv", "app.unreceipt.com")
+    );
     expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://unreceipt.com/");
+    expect(res.headers.get("location")).toBe("https://unreceipt.com/sv");
   });
 
   it("redirects /privacy from app subdomain → apex", async () => {
@@ -353,5 +375,94 @@ describe("proxy — billing routes stay on the product host", () => {
     );
     expect(res.status).toBe(308);
     expect(res.headers.get("location")).toBe("https://app.unreceipt.com/api/billing/portal");
+  });
+});
+
+// src/proxy.ts is the file Next runs: a backslash guard in front of the host
+// proxy above, and the matcher that decides which requests reach either.
+describe("src/proxy.ts — backslash guard", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    mocks.getUser.mockReset();
+  });
+
+  it.each([
+    "https://app.unreceipt.com/%5Cevil.com",
+    "https://app.unreceipt.com/app%5c..%5cadmin",
+    "https://unreceipt.com/admin%5C",
+    "https://app.unreceipt.com/_next/static%5Cchunks/main.js",
+    "https://app.unreceipt.com/favicon.ico%5C",
+  ])("answers 404 for %s before anything else runs", async (url) => {
+    const host = new URL(url).host;
+    const res = await proxy(buildRequest(url, host));
+    expect(res.status).toBe(404);
+    expect(res.headers.get("location")).toBeNull();
+    expect(mocks.getUser).not.toHaveBeenCalled();
+  });
+
+  it("lets ordinary paths through to the host proxy", async () => {
+    const res = await proxy(
+      buildRequest("https://unreceipt.com/app/login", "unreceipt.com")
+    );
+    expect(res.status).toBe(308);
+  });
+});
+
+describe("src/proxy.ts — matcher", () => {
+  // Compile the matcher the way `next build` does, so the test sees the
+  // paths Next will actually send to the proxy.
+  const matches = async (pathname: string) => {
+    const { config } = await import("@/proxy");
+    // Exported at runtime but missing from Next's type declarations.
+    const { getMiddlewareMatchers } = (await import(
+      "next/dist/build/analysis/get-page-static-info"
+    )) as unknown as {
+      getMiddlewareMatchers: (
+        matcher: string[],
+        nextConfig: object
+      ) => { regexp: string }[];
+    };
+    const compiled = getMiddlewareMatchers(config.matcher, {});
+    return compiled.some((m) =>
+      new RegExp(m.regexp).test(pathname)
+    );
+  };
+
+  it("keeps host-proxy's wide matcher, written out literally", async () => {
+    const { config } = await import("@/proxy");
+    expect(config.matcher[0]).toBe(HOST_PROXY_MATCHER);
+  });
+
+  it.each([
+    "/",
+    "/sv",
+    "/privacy",
+    "/app",
+    "/app/login",
+    "/admin",
+    "/api/admin/firms",
+    "/api/webhooks/stripe",
+    "/api/mobile/home",
+    "/auth/callback",
+  ])("sends %s to the proxy", async (path) => {
+    expect(await matches(path)).toBe(true);
+  });
+
+  it.each(["/_next/static/chunks/main.js", "/_next/image", "/favicon.ico"])(
+    "skips %s",
+    async (path) => {
+      expect(await matches(path)).toBe(false);
+    }
+  );
+
+  it.each([
+    "/%5Cevil.com",
+    "/_next/static%5Cchunks/main.js",
+    "/_next/image%5c",
+    "/favicon.ico%5C",
+    "/a\\b",
+  ])("sends backslash path %s to the proxy", async (path) => {
+    expect(await matches(path)).toBe(true);
   });
 });

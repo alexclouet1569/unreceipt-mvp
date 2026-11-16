@@ -1,6 +1,12 @@
-// Next.js 16 root proxy (formerly `middleware.ts`).
+// Host split, admin gate and session refresh, called from `src/proxy.ts`.
 //
-// Two responsibilities:
+// This file is NOT a Next.js convention file. Next 16 looks for `proxy.ts`
+// only next to the `app` directory (here `src/`), so when this logic lived
+// in a repo-root `proxy.ts` it was compiled but never ran (found
+// 2026-11-16). `src/proxy.ts` is the one proxy; it calls `proxy()` below
+// and carries the matcher, which Next reads statically from that file.
+//
+// Three responsibilities:
 //   1. Host-based routing — keep marketing on the apex
 //      (unreceipt.com) and product on the app subdomain
 //      (app.unreceipt.com). Cross-host visits 308-redirect to the
@@ -10,6 +16,7 @@
 //      requireAdmin() inside each admin server action / route handler
 //      is the real authorization (plan decision A2 — defense in depth);
 //      the proxy keeps non-admins from even reaching those routes.
+//   3. Supabase session refresh on every non-static request (below).
 //
 // Local dev (host = localhost / 127.* / a vercel.app preview) is
 // neither apex nor app, so the host-routing redirects no-op and both
@@ -32,9 +39,14 @@ const APP_HOST = "app.unreceipt.com";
 const APEX_ONLY_EXACT = new Set([...MARKETING_PATHS, "/privacy"]);
 const APEX_ONLY_PREFIX = ["/api/waitlist"];
 
-// Paths that belong on the product host. Includes Stripe webhook,
-// checkout, auth callback, admin and the firm portal so signups, payments,
-// magic links and operator tools all originate from one cookie origin.
+// Paths that belong on the product host: checkout, auth callback, admin and
+// the firm portal, so signups, payments, magic links and operator tools all
+// originate from one cookie origin.
+//
+// /api/webhooks is deliberately NOT here: Stripe treats a 3xx as a failed
+// delivery and never follows it, so a webhook endpoint registered on the
+// apex would silently stop receiving events. The route checks Stripe's
+// signature, which is its protection on either host.
 const APP_ONLY_PREFIX = [
   "/app",
   "/admin",
@@ -45,7 +57,6 @@ const APP_ONLY_PREFIX = [
   "/subscribe",
   "/api/checkout",
   "/api/billing",
-  "/api/webhooks",
   "/api/admin",
 ];
 
@@ -110,6 +121,17 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // The product host's root opens the product, not the marketing page (a
+  // person typing app.unreceipt.com wants their receipts). 307, not 308:
+  // browsers cache a permanent redirect indefinitely, and this one may
+  // change. Runs before the refresh because /app's own request refreshes.
+  if (onApp && path === "/") {
+    return NextResponse.redirect(
+      new URL("/app" + request.nextUrl.search, `https://${APP_HOST}`),
+      307
+    );
+  }
+
   // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
   // Official Supabase + Next.js App Router pattern: read the auth cookies
   // off the request, call getUser() (which silently rotates an expiring
@@ -135,10 +157,9 @@ export async function proxy(request: NextRequest) {
   // ─── END session refresh ───
 
   // Cross-host redirects for the remaining app-only paths (/admin, /auth,
-  // /subscribe, /api/checkout, /api/webhooks, /api/admin); /app is already
-  // handled above. 308 preserves method + body so a POST to the wrong host
-  // (e.g. a still-pointing-at-apex Stripe webhook) survives the transition
-  // window while the founder updates the dashboard URLs.
+  // /subscribe, /api/checkout, /api/billing, /api/admin, /firm, /demo);
+  // /app is already handled above. 308 preserves method + body for clients
+  // that follow it (browsers do; Stripe doesn't, see APP_ONLY_PREFIX).
   if (onApex && isAppOnly(path)) {
     return withRefreshedCookies(
       NextResponse.redirect(
@@ -276,9 +297,8 @@ function forbid(request: NextRequest, isApiPath: boolean) {
   return NextResponse.redirect(new URL("/app", request.url));
 }
 
-export const config = {
-  // Match everything except Next internals — the static-asset check
-  // above filters the rest. _next/static and _next/image are excluded
-  // here too so we don't even invoke the proxy for them.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+// The paths this proxy is meant to see: everything except Next internals
+// (the static-asset check above filters the rest). Next only reads a matcher
+// written literally in `src/proxy.ts`, so that file repeats this string; a
+// test keeps the two equal.
+export const HOST_PROXY_MATCHER = "/((?!_next/static|_next/image|favicon.ico).*)";

@@ -5,7 +5,7 @@
 // are served — this is not an open image proxy — and responses are
 // cached hard by the browser and Vercel's CDN, so each logo is fetched
 // from the icon service about once a month. No auth: logos aren't
-// private, and proxy.ts lets this path skip the session refresh.
+// private, and the proxy (src/lib/host-proxy.ts) lets this path skip the session refresh.
 //
 // Anything that fails returns 404 and the client shows the merchant's
 // initials instead.

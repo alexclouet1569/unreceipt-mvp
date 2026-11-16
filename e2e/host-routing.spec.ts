@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 /**
  * Host-routing live smoke test. Production-only: the apex/app split
- * is enforced by `proxy.ts` based on the `host` header, and Vercel
+ * is enforced by `src/proxy.ts` (→ `src/lib/host-proxy.ts`) based on the `host` header, and Vercel
  * deploys both hosts to the same project. Local dev sees both
  * surfaces on a single origin so this test would always be skipped
  * there.
@@ -36,12 +36,12 @@ test.describe("host routing — apex ↔ app split", () => {
     );
   });
 
-  test("app.unreceipt.com/ → 308 → unreceipt.com/", async ({ request }) => {
+  test("app.unreceipt.com/ → 307 → app.unreceipt.com/app", async ({ request }) => {
     const res = await request.get("https://app.unreceipt.com/", {
       maxRedirects: 0,
     });
-    expect(res.status()).toBe(308);
-    expect(res.headers()["location"]).toBe("https://unreceipt.com/");
+    expect(res.status()).toBe(307);
+    expect(res.headers()["location"]).toBe("https://app.unreceipt.com/app");
   });
 
   test("apex landing HTML does NOT include the manifest link", async ({
