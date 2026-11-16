@@ -169,6 +169,21 @@ describe("ingestReceiptEmail", () => {
     expect(result.kind).toBe("created");
   });
 
+  it("counts a PDF as an attached file even when it's marked inline (Apple Mail)", async () => {
+    mocks.ocr.mockResolvedValueOnce({ status: "error" });
+    const inlinePdf = Buffer.from(
+      emlWithPdf()
+        .toString("latin1")
+        .replace("To: anna@gmail.com", "To: anna@gmail.com\r\nList-ID: <billing.acme.se>")
+        .replace("Content-Disposition: attachment; filename=kvitto.pdf", "Content-Disposition: inline; filename=underlag.pdf"),
+      "latin1"
+    );
+    const result = await ingestReceiptEmail(
+      input({ rawEml: inlinePdf, subject: "Underlag oktober", from: "kvitto@ica.se", trust: { dmarc: null, recipient: { from: "to-header", aliasAddress: ALIAS } } })
+    );
+    expect(result.kind).toBe("created");
+  });
+
   it("doesn't count an inline image (a logo in the signature) as an attached file", async () => {
     // A PNG signature, > 8 KB like a real logo, placed inline.
     const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(12_000, 1)]);

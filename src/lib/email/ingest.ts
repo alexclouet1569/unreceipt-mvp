@@ -166,6 +166,13 @@ async function receiptAttachmentOf(rawEml: Buffer | null): Promise<EmailAttachme
   return picked;
 }
 
+// A file the sender attached: any PDF (Apple Mail marks attached PDFs
+// inline), or an image sent as an attachment. An inline image is a logo
+// in the signature, not a receipt.
+function carriesFile(picked: EmailAttachment | null): boolean {
+  return picked !== null && (picked.mediaType === "application/pdf" || picked.disposition === "attachment");
+}
+
 export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResult> {
   const { userId, rawEml, trust } = input;
   const tag = input.source === "mailbox" ? "[intake/mailbox]" : "[intake/email]";
@@ -197,7 +204,7 @@ export async function ingestReceiptEmail(input: IngestInput): Promise<IngestResu
     hasRaw &&
     hasListId(rawHeaderValues(rawEml.toString("latin1"), "list-id")) &&
     !subjectNamesReceipt(subject) &&
-    pickReceiptAttachment(extractAttachments(rawEml))?.disposition !== "attachment"
+    !carriesFile(pickReceiptAttachment(extractAttachments(rawEml)))
   ) {
     console.info(`${tag} ignored a mailing-list email that names no receipt`);
     return { kind: "ignored", reason: "notification" };
