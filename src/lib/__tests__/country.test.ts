@@ -43,6 +43,10 @@ describe("guessCountry", () => {
     expect(guessCountry({ ipCountry: "XX" })).toBeNull();
     expect(guessCountry({ ipCountry: "not a country" })).toBeNull();
     expect(guessCountry({ acceptLanguage: "*" })).toBeNull();
+    // Made-up codes are no guess.
+    expect(guessCountry({ acceptLanguage: "xx-ZZ" })).toBeNull();
+    expect(guessCountry({ email: "a@b.zz" })).toBeNull();
+    expect(guessCountry({ acceptLanguage: "xx-ZZ", ipCountry: "NO" })).toBe("NO");
   });
 });
 

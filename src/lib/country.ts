@@ -20,6 +20,22 @@ import { DEFAULT_CURRENCY_BY_COUNTRY, FALLBACK_HOME_CURRENCY } from "@/lib/bookk
 
 const COUNTRY = /^[A-Z]{2}$/;
 
+// ISO 3166-1 alpha-2, plus XK (Kosovo, user-assigned but used by banks and
+// the EU). A guess outside it ("ZZ" from a made-up language tag or a
+// ".zz" address) is no guess.
+const ISO_COUNTRIES = new Set(
+  (
+    "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ " +
+    "CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR " +
+    "GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP " +
+    "KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT " +
+    "MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW " +
+    "SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG " +
+    "UM US UY UZ VA VC VE VG VI VN VU WF WS XK YE YT ZA ZM ZW"
+  ).split(" ")
+);
+const known = (c: string | null | undefined): string | null => (c && ISO_COUNTRIES.has(c) ? c : null);
+
 // Languages spoken as the main language of one country only.
 const LANGUAGE_COUNTRY: Record<string, string> = {
   sv: "SE", nb: "NO", nn: "NO", no: "NO", da: "DK", is: "IS", fi: "FI", pl: "PL", cs: "CZ", sk: "SK",
@@ -50,7 +66,7 @@ function fromLanguage(acceptLanguage: string | null | undefined, ipCountry: stri
   const region = rest.find((p) => /^[A-Za-z]{2}$/.test(p))?.toUpperCase();
   const tag = region ? `${lang.toLowerCase()}-${region}` : lang.toLowerCase();
   if (region && COUNTRY.test(region)) {
-    if (!DEFAULT_TAGS.has(tag)) return region;
+    if (!DEFAULT_TAGS.has(tag)) return known(region);
     return region === ipCountry ? region : null;
   }
   return LANGUAGE_COUNTRY[lang.toLowerCase()] ?? null;
@@ -59,14 +75,13 @@ function fromLanguage(acceptLanguage: string | null | undefined, ipCountry: stri
 function fromEmail(email: string | null | undefined) {
   const tld = email?.trim().toLowerCase().match(/@[^@\s]+\.([a-z]{2})$/)?.[1];
   if (!tld || GENERIC_TLDS.has(tld)) return null;
-  return TLD_COUNTRY[tld] ?? tld.toUpperCase();
+  return TLD_COUNTRY[tld] ?? known(tld.toUpperCase());
 }
 
 /** The company's likely country (ISO 3166 alpha-2), or null without a sign. */
 export function guessCountry({ ipCountry, acceptLanguage, email }: CountryHints): string | null {
-  const ip = ipCountry && COUNTRY.test(ipCountry.trim().toUpperCase()) ? ipCountry.trim().toUpperCase() : null;
-  // "XX"/"T1" style placeholders some proxies send aren't countries.
-  const located = ip && ip !== "XX" ? ip : null;
+  // Placeholders some proxies send ("XX", "T1") aren't countries.
+  const located = ipCountry && COUNTRY.test(ipCountry.trim().toUpperCase()) ? known(ipCountry.trim().toUpperCase()) : null;
   return fromLanguage(acceptLanguage, located) ?? fromEmail(email) ?? located;
 }
 

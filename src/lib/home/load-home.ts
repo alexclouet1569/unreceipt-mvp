@@ -208,8 +208,10 @@ async function readDefaultOrganization(userId: string): Promise<{ id: string; cu
 
 /**
  * The country of a company created on this load: guessed from the user's
- * own request (website or iPhone app), which is where every company is
- * first created (src/lib/country.ts). Null when nothing says.
+ * own request (website or iPhone app; src/lib/country.ts). Most companies
+ * are created here; one made first by another flow (accepting an
+ * accountant's invite, a firm's join link, "Not me" on firm-join) starts
+ * Swedish as before. Null when nothing says.
  */
 async function newCompanyCountry(user: User): Promise<string | null> {
   try {

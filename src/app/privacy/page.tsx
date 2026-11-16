@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-11-13";
+const LAST_UPDATED = "2026-11-16";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -98,6 +98,14 @@ export default function PrivacyPage() {
               <strong>Standard request metadata.</strong> IP, user agent, and
               timestamps captured by our hosting provider for security and
               abuse prevention.
+            </li>
+            <li>
+              <strong>Your company&apos;s country and currency.</strong> When your
+              company is created, we guess its country from your device&apos;s
+              language and region, your email address&apos;s domain and the
+              country your connection comes from (not your IP address itself),
+              and store only the country and its currency. You can change the
+              currency in Settings.
             </li>
           </ul>
         </Section>
