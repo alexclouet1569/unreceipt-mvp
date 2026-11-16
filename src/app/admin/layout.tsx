@@ -6,9 +6,12 @@ import { requireAdminPage } from "@/lib/require-admin";
 export const dynamic = "force-dynamic";
 
 /**
- * Layout for /admin/**. The proxy.ts root middleware also gates these
- * paths (plan A2 defense in depth); requireAdmin() here is the
- * server-side re-check that actually protects the data.
+ * Layout for /admin/**. src/lib/host-proxy.ts is written to also gate
+ * these paths (plan A2 defense in depth) but is not active yet (it never
+ * ran as a root proxy.ts). requireAdminPage() in each /admin page and
+ * requireAdmin() in each /api/admin handler are the only gate in
+ * production; this layout check is a convenience (layouts don't re-run on
+ * client navigations).
  */
 export default async function AdminLayout({
   children,

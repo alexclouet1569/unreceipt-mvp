@@ -208,12 +208,12 @@ describe("AI search visibility", () => {
     for (const r of rules) expect(r.disallow).toEqual(expect.arrayContaining(["/app", "/api/", "/admin", "/firm"]));
   });
 
-  it("serves the IndexNow key file that the proxy lets through", async () => {
+  it("serves the IndexNow key file that host-proxy.ts lets through", async () => {
     const { INDEXNOW_KEY } = await import("@/lib/indexnow");
     expect(INDEXNOW_KEY).toMatch(/^[0-9a-f]{32}$/);
     const { readFileSync } = await import("node:fs");
     expect(readFileSync(join(process.cwd(), "public", `${INDEXNOW_KEY}.txt`), "utf8")).toBe(INDEXNOW_KEY);
-    expect(readFileSync(join(process.cwd(), "proxy.ts"), "utf8")).toContain("`/${INDEXNOW_KEY}.txt`");
+    expect(readFileSync(join(process.cwd(), "src/lib/host-proxy.ts"), "utf8")).toContain("`/${INDEXNOW_KEY}.txt`");
   });
 
   it("puts every fact sheet, FAQ and guide into /llms-full.txt", async () => {

@@ -3,7 +3,7 @@ import type { Locale } from "@/lib/locale";
 /**
  * Every public marketing page on unreceipt.com, with its path in each
  * language it exists in. One list for the sitemap, the hreflang tags, the
- * footer links and the apex/app host split in proxy.ts, so a new page
+ * footer links and the apex/app host split in host-proxy.ts, so a new page
  * can't be published in one place and forgotten in another.
  *
  * Paths are in the page's own language (`/sv/redovisningsbyra`, not
@@ -14,7 +14,7 @@ import type { Locale } from "@/lib/locale";
  * written per country (Swedish law on /sv, French law on /fr) and are not
  * translations of each other, so they carry no hreflang alternates.
  *
- * Pure data, safe to import from client components and the proxy.
+ * Pure data, safe to import from client components and host-proxy.ts.
  */
 
 export type MarketingPageId =
@@ -95,7 +95,7 @@ export function pageLanguages(id: MarketingPageId): Record<string, string> | und
   return languages;
 }
 
-/** Every marketing path, every language. The proxy keeps these on the apex. */
+/** Every marketing path, every language. host-proxy.ts keeps these on the apex (once it is active). */
 export const MARKETING_PATHS: readonly string[] = Object.values(MARKETING_PAGES).flatMap(
   (p) => Object.values(p.paths) as string[]
 );

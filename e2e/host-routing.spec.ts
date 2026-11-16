@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 /**
  * Host-routing live smoke test. Production-only: the apex/app split
- * is enforced by `proxy.ts` based on the `host` header, and Vercel
+ * is written in `src/lib/host-proxy.ts` based on the `host` header (NOT
+ * active yet: until `src/proxy.ts` calls it, this test fails against
+ * production), and Vercel
  * deploys both hosts to the same project. Local dev sees both
  * surfaces on a single origin so this test would always be skipped
  * there.

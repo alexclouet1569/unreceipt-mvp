@@ -27,10 +27,10 @@ Switch to a real migration tool (Supabase CLI under `supabase/migrations/`) once
 
 Defense in depth (plan decision A2):
 
-1. **`proxy.ts`** at the project root gates `/admin/:path*` and `/api/admin/:path*` — this is the optimistic check the Vercel CDN can run cheaply. Non-admin browsers are redirected to `/app`; non-admin API callers get a 403 JSON.
+1. **`src/lib/host-proxy.ts`** (formerly the root `proxy.ts`) gates `/admin/:path*` and `/api/admin/:path*` — this is the optimistic check the Vercel CDN can run cheaply. Non-admin browsers are redirected to `/app`; non-admin API callers get a 403 JSON. **Not active today:** Next 16 runs `proxy.ts` only next to the `app` directory (`src/`), so the root file never ran, in production either (found 2026-11-16, see its header). `requireAdmin()` is the only gate in production. Never put a second `proxy.ts` at the repo root: with both present the build uses `src/proxy.ts`'s matcher but runs the root file's code.
 2. **`requireAdmin()`** from `src/lib/require-admin.ts` is the real authorization gate. Every admin server action and every `/api/admin/*` route handler must call it before doing anything else. It re-reads the session cookie and re-checks the allowlist. Throws `AdminAuthError` on failure.
 
-`src/lib/auth-admin.ts` exports the pure `isAdminEmail()` matcher. Both the proxy and `requireAdmin()` share it so the policy is defined once.
+`src/lib/auth-admin.ts` exports the pure `isAdminEmail()` matcher. Both `src/lib/host-proxy.ts` (not active) and `requireAdmin()` share it so the policy is defined once.
 
 `src/lib/supabase-admin.ts` exposes `getSupabaseAdmin()` — a Supabase client built with the **service-role** key. This bypasses RLS and is god-mode for the database. Rules:
 
@@ -201,14 +201,14 @@ One Capacitor app wraps `app.unreceipt.com` for both roles (plan: `docs/plans/un
 
 # Hosts
 
-Two hosts, one Next.js app:
+Two hosts, one Next.js app. The split below is the design; **today both hosts serve every path**, because the proxy that enforces it (`src/lib/host-proxy.ts`) is not active (see the paragraph after the list):
 
 - `unreceipt.com` (apex) — marketing only: `/`, `/sv`, `/fr`, `/privacy`, `/api/waitlist`. Pure website; no manifest, no service worker, no install prompt.
 - `app.unreceipt.com` — product: `/app/*`, `/admin/*`, `/subscribe`, `/auth/*`, `/api/checkout`, `/api/billing/*`, `/api/webhooks/*`, `/api/admin/*`. PWA-installable.
 - `/demo` (on the app host) — the public guided tour: `/demo/company` and `/demo/accountant` render the real screens with sample data, and every `/api` call is answered in the browser, so nothing reaches the database, Resend or Claude. Keep it that way: a demo component must never call a real route. Linked from the landing hero.
 - `www.unreceipt.com` — 308 → apex via `next.config.ts redirects()`.
 
-`proxy.ts` enforces the split with 308 redirects when a request lands on the wrong host. It also refreshes the Supabase session with the official `@supabase/ssr` pattern: rotated auth cookies are written onto the request (forwarded upstream with `NextResponse.next({ request })`, so server components don't refresh again with the used-up refresh token) and onto the response, with the SDK's no-cache headers. Local dev (`localhost`, `127.*`) and Vercel previews (`*.vercel.app`) sit outside the apex/app split, so both surfaces remain reachable on the same origin.
+**Not active today** (see Admin auth, item 1): `src/lib/host-proxy.ts` is written to enforce the split with 308 redirects when a request lands on the wrong host. It also refreshes the Supabase session with the official `@supabase/ssr` pattern: rotated auth cookies are written onto the request (forwarded upstream with `NextResponse.next({ request })`, so server components don't refresh again with the used-up refresh token) and onto the response, with the SDK's no-cache headers. The proxy Next does run is `src/proxy.ts`: only paths holding a backslash (`%5C`, which made Vercel answer 500 MODULE_NOT_FOUND) reach it, and it answers 404. Local dev (`localhost`, `127.*`) and Vercel previews (`*.vercel.app`) sit outside the apex/app split, so both surfaces remain reachable on the same origin.
 
 Cross-host links from marketing to product use `appUrl(path)` from `src/lib/app-url.ts`. Server callers respect `NEXT_PUBLIC_APP_URL` (set on Vercel for Production AND Preview); browser callers detect dev/preview origins and fall back to a relative path so localhost still works without the env var.
 
@@ -224,7 +224,7 @@ The marketing site has three languages: English at `/`, Swedish at `/sv` and Fre
 - Questions about one country's rules (receipt retention, paper originals) belong on that country's language page; the English FAQ stays general.
 - Each landing page declares `alternates.languages` (hreflang) for every language plus `x-default` → `/`, and the sitemap lists every URL with the same alternates. A new language needs a page, a copy entry, receipt text, FAQ answers, an entry in `LOCALES`, and its paths in `MARKETING_PAGES` (sitemap, hreflang and the proxy follow from there).
 - The root layout always renders `<html lang="en">` because it can't see the pathname; `/sv` and `/fr` correct it after hydration with `HtmlLang` (`src/app/_html-lang.tsx`). Search engines read the language from hreflang and the content.
-- Beyond the landing pages, the marketing site has audience pages (accounting firms: `/accountants`, `/sv/redovisningsbyra`, `/fr/experts-comptables`; freelancers and sole traders: `/freelancers`, `/sv/enskild-firma`, `/fr/independants`) and guides (one country's law per page). Every marketing path is registered once in `MARKETING_PAGES` (`src/lib/marketing-pages.ts`), which feeds the sitemap, hreflang, the footer and `APEX_ONLY_EXACT` in `proxy.ts`; a test fails if a registered path has no `page.tsx`. Audience copy is in `src/app/_audience-copy.ts`, guides with their sources in `src/lib/guides.ts`, header/footer in `src/app/_site-chrome.tsx`. Every page builds its metadata with `marketingMetadata()` (`src/lib/seo.ts`) so none loses the share image. Guides cite their legal sources and a review date: re-check them, bump `updated` and the page's `lastModified` when a rule changes (LPF L102 B becomes 10 years on 2027-01-01). Those pages are server components; never call `buttonVariants()` there (it lives in a client module). For AI assistants: `/about` (+ `/sv/om-unreceipt`, `/fr/a-propos`, facts in `src/lib/about.ts`, limits included and kept true), `/llms.txt` and `/llms-full.txt` (built from the same sources), `robots.ts` names the AI crawlers, and IndexNow (`src/lib/indexnow.ts`, key file in `public/`, `node scripts/indexnow.mjs` after a deploy that changes marketing pages).
+- Beyond the landing pages, the marketing site has audience pages (accounting firms: `/accountants`, `/sv/redovisningsbyra`, `/fr/experts-comptables`; freelancers and sole traders: `/freelancers`, `/sv/enskild-firma`, `/fr/independants`) and guides (one country's law per page). Every marketing path is registered once in `MARKETING_PAGES` (`src/lib/marketing-pages.ts`), which feeds the sitemap, hreflang, the footer and `APEX_ONLY_EXACT` in `src/lib/host-proxy.ts`; a test fails if a registered path has no `page.tsx`. Audience copy is in `src/app/_audience-copy.ts`, guides with their sources in `src/lib/guides.ts`, header/footer in `src/app/_site-chrome.tsx`. Every page builds its metadata with `marketingMetadata()` (`src/lib/seo.ts`) so none loses the share image. Guides cite their legal sources and a review date: re-check them, bump `updated` and the page's `lastModified` when a rule changes (LPF L102 B becomes 10 years on 2027-01-01). Those pages are server components; never call `buttonVariants()` there (it lives in a client module). For AI assistants: `/about` (+ `/sv/om-unreceipt`, `/fr/a-propos`, facts in `src/lib/about.ts`, limits included and kept true), `/llms.txt` and `/llms-full.txt` (built from the same sources), `robots.ts` names the AI crawlers, and IndexNow (`src/lib/indexnow.ts`, key file in `public/`, `node scripts/indexnow.mjs` after a deploy that changes marketing pages).
 - Paper originals differ by country: the Swedish FAQ says they may be thrown away once digitised (with the BFL 7 kap. conditions), the French FAQ says to keep them because UnReceipt doesn't produce the *copie conforme* that LPF art. A102 B-2 requires for paper invoices. Change both if the product starts keeping untouched originals.
 
 # Design System
@@ -249,7 +249,7 @@ Sentry (`@sentry/nextjs`) loads from `src/instrumentation.ts` (server/edge) and 
 
 `.claude/agents/` holds three read-only reviewers. Run the matching one on a diff before committing:
 
-- `security-reviewer`: anything under `src/app/api/**`, `src/lib/**`, `proxy.ts`, `next.config.ts`, `supabase/**`.
+- `security-reviewer`: anything under `src/app/api/**`, `src/lib/**`, `src/proxy.ts`, `next.config.ts`, `supabase/**`.
 - `design-reviewer`: anything under `src/app/app/**`, `src/components/**`, `globals.css`.
 - `compliance-reviewer`: extraction, the compliance rules config, the proof PDF, retention/deletion.
 

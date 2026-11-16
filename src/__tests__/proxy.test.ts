@@ -28,7 +28,7 @@ vi.mock("@/lib/auth-admin", () => ({
     email === "founder@unreceipt.com",
 }));
 
-import { proxy } from "../../proxy";
+import { proxy } from "../lib/host-proxy";
 
 const buildRequest = (url: string, host: string) => {
   const req = new NextRequest(url);

@@ -1,3 +1,14 @@
+// NOT ACTIVE (found 2026-11-16). This was the repo-root `proxy.ts`. Next 16
+// registers proxy.ts only next to the `app` directory, which in this repo is
+// `src/app`, so the root file was never called, in production either (no
+// build listed "Proxy (Middleware)"): none of the host split, admin gate or
+// session refresh below has ever run. It was moved here, under a name Next
+// ignores, because with both a root and a `src/proxy.ts` the build took the
+// matcher from `src/proxy.ts` but ran this file's code. The proxy Next runs
+// is `src/proxy.ts` (404 for backslash paths). Activating this file means
+// calling it from `src/proxy.ts` after the backslash guard, widening that
+// matcher to this one's, and checking a preview deploy before merging.
+//
 // Next.js 16 root proxy (formerly `middleware.ts`).
 //
 // Two responsibilities:
