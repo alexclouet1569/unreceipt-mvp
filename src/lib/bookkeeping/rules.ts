@@ -64,7 +64,7 @@ export const FX_MAX_RATE_AGE_DAYS = 7;
 // for (checked against eurofxref-daily.xml on 2026-11-16). BGN has rates
 // up to 2025-12-31 only (Bulgaria uses the euro since 2026-01-01). The
 // ECB publishes none for ALL, BAM, BYN, MDL, MKD, RSD, UAH, and none for
-// RUB since 2022-03-01: those receipts get no ECB estimate (product
+// RUB after 2022-03-01: those receipts get no ECB estimate (product
 // choice, no legal source). The firm export README lists these by hand;
 // a test keeps it in step.
 export const FX_CONVERTED_CURRENCIES = [
@@ -88,12 +88,15 @@ export const FX_CONVERTED_CURRENCIES = [
 // for a currency it otherwise has. A date inside one is never converted
 // and never makes us download the ECB files again: no download could fill
 // it. Checked against the ECB Data Portal (series EXR D.<CUR>.EUR.SP00.A)
-// on 2026-11-16, and for ISK the Central Bank of Iceland ("discontinued on
+// on 2026-11-16 (BGN from 2000-07-19 to 2025-12-31), and for ISK the Central Bank of Iceland ("discontinued on
 // 3 December 2008", "resumed on 1 February 2018"). TRY and RON start at
 // their 2005 redenominations; the portal back-fills earlier days, but we
 // don't count on the XML file doing the same.
 export const FX_RATE_GAPS: Record<string, ReadonlyArray<readonly [string | null, string | null]>> = {
-  BGN: [["2026-01-01", null]],
+  BGN: [
+    [null, "2000-07-18"],
+    ["2026-01-01", null],
+  ],
   ISK: [["2008-12-04", "2018-01-31"]],
   RON: [[null, "2005-06-30"]],
   TRY: [[null, "2005-01-02"]],

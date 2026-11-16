@@ -92,6 +92,8 @@ describe("fx", () => {
 describe("ecbPublishes", () => {
   it("follows the ECB's calendar for each currency", () => {
     expect(ecbPublishes("EUR", "1990-01-01")).toBe(true);
+    expect(ecbPublishes("BGN", "2000-07-18")).toBe(false);
+    expect(ecbPublishes("BGN", "2000-07-19")).toBe(true);
     expect(ecbPublishes("BGN", "2025-12-31")).toBe(true);
     expect(ecbPublishes("BGN", "2026-01-01")).toBe(false);
     expect(ecbPublishes("ISK", "2008-12-03")).toBe(true);

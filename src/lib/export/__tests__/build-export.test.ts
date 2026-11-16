@@ -165,10 +165,10 @@ describe("export helpers", () => {
     expect(firm).toContain("ESTIMATE, not what the bank charged");
     expect(firm).toContain("A bank-statement amount always takes precedence");
     expect(firm.replace(/\s+/g, " ")).toContain(
-      "Only EUR, USD, GBP, NOK, DKK, CHF, PLN, CZK, HUF, ISK, RON, TRY and BGN get an estimate"
+      "Only EUR, USD, GBP, NOK, DKK, CHF, PLN, CZK, HUF, ISK, RON, TRY and BGN get an estimate (BGN only"
     );
     // A typed amount works for any currency, so nothing may promise a blank.
-    expect(firm).toContain("Total SEK blank until the bank-statement amount is typed in");
+    expect(firm.replace(/\s+/g, " ")).toContain("Total SEK blank until the bank-statement amount is typed in");
     expect(firm).toContain("SUGGESTION");
     // The currency list is typed by hand: it must be exactly the set fx.ts
     // converts, minus SEK itself.

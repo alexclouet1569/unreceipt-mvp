@@ -129,6 +129,7 @@ describe("mergeExtraction", () => {
     const { patch } = mergeExtraction(row, {
       merchant: "ICA Maxi Liljeholmen",
       amount: 194,
+      currency: "SEK",
       confidence: 0.95,
     });
 
@@ -181,6 +182,26 @@ describe("mergeExtraction", () => {
     expect(patch.merchant_name).toBe("ICA");
     expect(patch.status).toBe("pending_review");
     expect(changed).not.toContain("status");
+  });
+
+  it("writes an amount only together with the currency it was read in", () => {
+    const empty = baseRow({ total: null, currency: "SEK", parse_confidence: 0.9 });
+    // A currency we don't handle, or none: the amount is not taken.
+    for (const currency of ["JPY", undefined]) {
+      const { patch } = mergeExtraction(empty, { amount: 45000, currency, confidence: 0.5 });
+      expect(patch.total, String(currency)).toBeUndefined();
+    }
+    // Another currency that isn't written (lower confidence): not taken either.
+    expect(mergeExtraction(empty, { amount: 500, currency: "DKK", confidence: 0.5 }).patch.total).toBeUndefined();
+    // Same currency: taken.
+    expect(mergeExtraction(empty, { amount: 500, currency: "SEK", confidence: 0.5 }).patch.total).toBe(500);
+    // A new currency that is written: taken with it.
+    const won = mergeExtraction(baseRow({ total: null, currency: "SEK", parse_confidence: 0.3 }), {
+      amount: 500,
+      currency: "DKK",
+      confidence: 0.9,
+    }).patch;
+    expect(won).toMatchObject({ total: 500, currency: "DKK" });
   });
 
   it("ignores unknown currency / category values", () => {

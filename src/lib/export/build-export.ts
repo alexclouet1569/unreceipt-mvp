@@ -258,9 +258,10 @@ export function readme(
           "              amount, currency or date is changed later. SEK rate is the rate",
           "              used (for a bank-statement amount, the rate it implies); Rate",
           "              source says which. Only EUR, USD, GBP, NOK, DKK, CHF, PLN, CZK, HUF,",
-          "              ISK, RON, TRY and BGN get an estimate, for a company whose currency",
-          "              is SEK; other currencies, and receipts no ECB rate was found for,",
-          "              have Total SEK blank until the bank-statement amount is typed in.",
+          "              ISK, RON, TRY and BGN get an estimate (BGN only for receipts dated",
+          "              up to 2025-12-31), for a company whose currency is SEK; other",
+          "              currencies, and receipts no ECB rate was found for, have Total SEK",
+          "              blank until the bank-statement amount is typed in.",
           "              Ready receipts included for the first time are stamped as",
           "              exported; a re-export never changes the stamp.",
         ]

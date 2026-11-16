@@ -201,15 +201,20 @@ export function mergeExtraction(
   };
 
   writeIfBetter("merchant_name", typeof fresh.merchant === "string" ? fresh.merchant : null);
-  writeIfBetter(
-    "total",
-    typeof fresh.amount === "number" && Number.isFinite(fresh.amount) ? fresh.amount : null
-  );
-  if (
-    typeof fresh.currency === "string" &&
-    (CURRENCY_OPTIONS as readonly string[]).includes(fresh.currency)
-  ) {
-    writeIfBetter("currency", fresh.currency);
+  const freshCurrency =
+    typeof fresh.currency === "string" && (CURRENCY_OPTIONS as readonly string[]).includes(fresh.currency)
+      ? fresh.currency
+      : null;
+  if (freshCurrency) writeIfBetter("currency", freshCurrency);
+  // An amount is only written with the currency it was read in: 45,000
+  // JPY (or an amount whose currency wasn't read) must not become 45,000
+  // in the receipt's current currency.
+  const currencyAfter = (patch.currency as string | undefined) ?? existing.currency;
+  if (freshCurrency && freshCurrency === currencyAfter) {
+    writeIfBetter(
+      "total",
+      typeof fresh.amount === "number" && Number.isFinite(fresh.amount) ? fresh.amount : null
+    );
   }
   if (
     typeof fresh.receipt_date === "string" &&

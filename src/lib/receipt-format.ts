@@ -77,8 +77,8 @@ export const CATEGORY_CONFIG: Record<CategoryKey, CategoryConfig> = {
 
 export const CATEGORY_KEYS = Object.keys(CATEGORY_CONFIG) as CategoryKey[];
 
-// A receipt's own currency (2026-11-16: every currency in use in Europe,
-// plus USD). The euro, the Swedish krona and the US dollar and pound come
+// A receipt's own currency (2026-11-16: the currencies in use in Europe,
+// Türkiye included, the Caucasus and Kazakhstan not; plus USD). The euro, the Swedish krona and the US dollar and pound come
 // first as before; the rest is alphabetical. Bulgaria joined the euro on
 // 2026-01-01: BGN stays for older receipts. Receipts in a currency the ECB
 // doesn't publish (FX_CONVERTED_CURRENCIES in bookkeeping/rules.ts) keep

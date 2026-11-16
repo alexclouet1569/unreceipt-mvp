@@ -125,7 +125,7 @@ function en(pilot: boolean): About {
     limits: [
       "No direct integration with bookkeeping programs such as Fortnox, Visma or Pennylane; the export is CSV, PDFs and receipt files.",
       "One sign-in per company account for now: colleagues can't be added to a company yet (accounting firms can add colleagues to their portal).",
-      "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY and SEK. Receipts in other European currencies (such as RSD or UAH) keep their own amount with no estimate.",
+      "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY and SEK. Receipts in ALL, BAM, BYN, MDL, MKD, RSD, RUB or UAH keep their own amount with no estimate.",
       "No bank or card connection, and no company cards.",
       "It doesn't decide whether VAT is deductible: the VAT is recorded as read from the receipt (worth checking), the bookkeeping CSV only suggests accounts, and the accountant decides.",
       "In France it doesn't produce the compliant copy (LPF art. A102 B-2) needed to destroy a paper invoice, so French users keep their paper originals.",
@@ -195,7 +195,7 @@ function sv(pilot: boolean): About {
     limits: [
       "Ingen direktintegration med bokföringsprogram som Fortnox eller Visma; exporten är CSV, PDF:er och kvittofiler.",
       "En inloggning per företagskonto än så länge: kollegor kan inte läggas till i ett företag ännu (redovisningsbyråer kan lägga till kollegor i sin portal).",
-      "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON och TRY. Kvitton i andra europeiska valutor (till exempel RSD eller UAH) behåller sitt belopp utan uppskattning.",
+      "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON och TRY. Kvitton i ALL, BAM, BYN, MDL, MKD, RSD, RUB eller UAH behåller sitt belopp utan uppskattning.",
       "Ingen bank- eller kortkoppling, och inga företagskort.",
       "Tjänsten avgör inte om momsen är avdragsgill: momsen sparas som den lästs av från kvittot (värt att kontrollera), bokföringsfilen föreslår bara konton, och redovisningskonsulten avgör.",
       "Appen är bara på engelska.",
@@ -264,7 +264,7 @@ function fr(pilot: boolean): About {
     limits: [
       "Pas d’intégration directe avec un logiciel comptable comme Pennylane ; l’export est un CSV, des PDF et les fichiers des reçus.",
       "Un seul accès par compte d’entreprise pour l’instant : on ne peut pas encore ajouter de collègues à une entreprise (les cabinets peuvent ajouter leurs collaborateurs à leur portail).",
-      "La conversion couvre SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON et TRY. Les reçus dans d’autres devises européennes (par exemple RSD ou UAH) gardent leur montant, sans estimation.",
+      "La conversion couvre SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON et TRY. Les reçus en ALL, BAM, BYN, MDL, MKD, RSD, RUB ou UAH gardent leur montant, sans estimation.",
       "Pas de connexion bancaire ni de carte, et pas de cartes d’entreprise.",
       "Le service ne décide pas si la TVA est récupérable : elle est relevée telle que lue sur le justificatif (à vérifier), et l’expert-comptable décide.",
       "Pas de copie conforme au sens de l’article A102 B-2 du LPF : conservez vos originaux papier.",

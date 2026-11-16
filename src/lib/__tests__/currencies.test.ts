@@ -44,3 +44,13 @@ describe("currency lists", () => {
     expect(formatAmount(12.5, "EUR")).toBe("€12.50");
   });
 });
+
+describe("reading prompts", () => {
+  it("ask the photo reader for the currency it saw, even one we don't handle", async () => {
+    // The attachment and scan rules compare what OCR saw with the text's
+    // currency; an omitted one would let 45,000 JPY become 45,000 kr.
+    const { SYSTEM_PROMPT } = await import("@/lib/ocr");
+    expect(SYSTEM_PROMPT).toContain("give its ISO code anyway");
+    expect(SYSTEM_PROMPT).not.toContain("omit it");
+  });
+});
