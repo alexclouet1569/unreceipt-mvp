@@ -53,7 +53,14 @@ export function PilotBanner({ inStoreApp = false }: { inStoreApp?: boolean }) {
           {inStoreApp ? (
             <>
               You&apos;re using the UnReceipt free pilot. Thanks for helping
-              us shape it: tell us what&apos;s missing at support@unreceipt.com.
+              us shape it: tell us what&apos;s missing at{" "}
+              <a
+                href="mailto:support@unreceipt.com"
+                className="underline underline-offset-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
+              >
+                support@unreceipt.com
+              </a>
+              .
             </>
           ) : (
             <>
