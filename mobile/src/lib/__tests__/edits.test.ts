@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MobileReceipt } from "@/lib/mobile/types";
-import { applyPatch, parseAmount, toPlainDate } from "../edits";
+import { EDITABLE_CURRENCIES, applyPatch, currencyChoices, parseAmount, toPlainDate } from "../edits";
 
 describe("parseAmount", () => {
   it("reads amounts the way people type them in each country", () => {
@@ -57,5 +57,18 @@ describe("applyPatch", () => {
   it("keeps the conversion when only the category changes", () => {
     const next = applyPatch({ ...r, total: 18.5, missing: [] }, { category: "meals" }, "verified");
     expect(next).toMatchObject({ category: "meals", homeTotal: 120, fxSource: "ecb" });
+  });
+});
+
+describe("currencyChoices", () => {
+  it("puts the receipt's currency, then the company's, first", () => {
+    const order = currencyChoices("PLN", "SEK");
+    expect(order.slice(0, 3)).toEqual(["PLN", "SEK", "EUR"]);
+    expect(new Set(order).size).toBe(EDITABLE_CURRENCIES.length);
+  });
+
+  it("ignores a currency the server wouldn't accept", () => {
+    expect(currencyChoices("JPY", null)).toEqual([...EDITABLE_CURRENCIES]);
+    expect(currencyChoices(undefined, "EUR")).toEqual([...EDITABLE_CURRENCIES]);
   });
 });

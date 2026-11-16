@@ -97,6 +97,22 @@ const CURRENCY_WORDS: Record<string, string> = {
   dkk: "DKK",
   usd: "USD",
   gbp: "GBP",
+  // Other European codes as written in a header ("Amount (PLN)"). Not
+  // "all" or "try": they are words, and a trailing word is read as a code.
+  bam: "BAM",
+  bgn: "BGN",
+  byn: "BYN",
+  chf: "CHF",
+  czk: "CZK",
+  huf: "HUF",
+  isk: "ISK",
+  mdl: "MDL",
+  mkd: "MKD",
+  pln: "PLN",
+  ron: "RON",
+  rsd: "RSD",
+  rub: "RUB",
+  uah: "UAH",
 };
 
 const DELIMITERS = [";", "\t", ","] as const;

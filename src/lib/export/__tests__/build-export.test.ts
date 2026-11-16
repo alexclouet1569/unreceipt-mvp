@@ -164,13 +164,15 @@ describe("export helpers", () => {
     expect(firm).toContain("Total SEK (ECB estimate)");
     expect(firm).toContain("ESTIMATE, not what the bank charged");
     expect(firm).toContain("A bank-statement amount always takes precedence");
-    expect(firm).toContain("Only EUR, USD, GBP, NOK, DKK, CHF and PLN get an estimate");
+    expect(firm.replace(/\s+/g, " ")).toContain(
+      "Only EUR, USD, GBP, NOK, DKK, CHF, PLN, CZK, HUF, ISK, RON, TRY and BGN get an estimate"
+    );
     // A typed amount works for any currency, so nothing may promise a blank.
     expect(firm).toContain("Total SEK blank until the bank-statement amount is typed in");
     expect(firm).toContain("SUGGESTION");
     // The currency list is typed by hand: it must be exactly the set fx.ts
     // converts, minus SEK itself.
-    const listed = firm.match(/Only ([A-Z, ]+ and [A-Z]{3}) get an estimate/)?.[1];
+    const listed = firm.replace(/\s+/g, " ").match(/Only ([A-Z, ]+ and [A-Z]{3}) get an estimate/)?.[1];
     expect(listed?.split(/, | and /).sort()).toEqual(
       FX_CONVERTED_CURRENCIES.filter((c) => c !== INPUT_VAT_CURRENCY).sort()
     );

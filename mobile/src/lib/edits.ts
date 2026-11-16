@@ -5,9 +5,47 @@
 
 import type { MobileReceipt } from "@/lib/mobile/types";
 
-/** The currencies PATCH /api/receipts/[id] accepts (CURRENCY_OPTIONS). */
-export const EDITABLE_CURRENCIES = ["SEK", "EUR", "USD", "GBP"] as const;
+/**
+ * The currencies PATCH /api/receipts/[id] accepts: a copy of the website's
+ * CURRENCY_OPTIONS (src/lib/receipt-format.ts), same order; a test there
+ * keeps the two identical.
+ */
+export const EDITABLE_CURRENCIES = [
+  "EUR",
+  "SEK",
+  "USD",
+  "GBP",
+  "ALL",
+  "BAM",
+  "BGN",
+  "BYN",
+  "CHF",
+  "CZK",
+  "DKK",
+  "HUF",
+  "ISK",
+  "MDL",
+  "MKD",
+  "NOK",
+  "PLN",
+  "RON",
+  "RSD",
+  "RUB",
+  "TRY",
+  "UAH",
+] as const;
 export type EditableCurrency = (typeof EDITABLE_CURRENCIES)[number];
+
+/**
+ * The order of the currency chips (a row that scrolls sideways): the
+ * receipt's own currency, then the company's, so the likely ones are in
+ * view without scrolling; then the rest in list order.
+ */
+export function currencyChoices(receiptCurrency: string | null | undefined, homeCurrency: string | null | undefined): EditableCurrency[] {
+  const all = EDITABLE_CURRENCIES as readonly string[];
+  const first = [receiptCurrency, homeCurrency].filter((c): c is EditableCurrency => !!c && all.includes(c));
+  return [...new Set<EditableCurrency>([...first, ...EDITABLE_CURRENCIES])];
+}
 
 export const CATEGORIES = [
   "meals",

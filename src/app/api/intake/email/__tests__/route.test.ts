@@ -834,7 +834,7 @@ describe("POST /api/intake/email — attachments", () => {
         fields: { merchant_name: "Netto", purchased_at: "2026-11-02T12:00:00.000Z", total: 500, currency: "SEK", parse_confidence: 0.6 },
       };
       // A currency the app handles, and one it doesn't (kept out of the row).
-      for (const [seen, stored] of [["GBP", "GBP"], ["DKK", "SEK"]]) {
+      for (const [seen, stored] of [["GBP", "GBP"], ["DKK", "DKK"], ["JPY", "SEK"]]) {
         mocks.receiptsInsert.mockClear();
         ocrMock.mockResolvedValue({ merchant: "Netto", currency: seen, receipt_date: "2026-11-02" });
         mocks.parseReceipt.mockResolvedValueOnce({ status: "pending_review" }).mockResolvedValueOnce(textSaysSek);

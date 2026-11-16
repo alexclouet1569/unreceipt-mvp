@@ -46,7 +46,7 @@ describe("fieldsFromOcr", () => {
   });
 
   it("never derives a currency: an unsupported one means no fields", () => {
-    expect(fieldsFromOcr({ merchant: "X", amount: 10, receipt_date: "2026-11-02", currency: "DKK" })).toBeNull();
+    expect(fieldsFromOcr({ merchant: "X", amount: 10, receipt_date: "2026-11-02", currency: "JPY" })).toBeNull();
     expect(fieldsFromOcr({ merchant: "X", amount: 10, receipt_date: "2026-11-02" })).toBeNull();
   });
 

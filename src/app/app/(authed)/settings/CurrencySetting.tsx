@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
 /**
  * Settings → "Your currency": the company's currency. Receipts in another
@@ -56,7 +56,7 @@ export function CurrencySetting({ currency }: { currency: string }) {
           onChange={(e) => save(e.target.value)}
           className="h-11 rounded-[6px] border border-[var(--hairline)] bg-card px-3 text-[16px] text-[var(--ink)]"
         >
-          {CURRENCY_OPTIONS.map((c) => (
+          {HOME_CURRENCY_OPTIONS.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

@@ -11,12 +11,12 @@ import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
-import { CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BodySchema = z.object({ currency: z.enum(CURRENCY_OPTIONS) });
+const BodySchema = z.object({ currency: z.enum(HOME_CURRENCY_OPTIONS) });
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");

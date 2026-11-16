@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
 const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
@@ -73,7 +74,7 @@ describe("GET /api/mobile/account", () => {
     expect(body).toEqual({
       email: USER.email,
       hasCompany: true,
-      currency: { value: "SEK", options: ["EUR", "SEK", "USD", "GBP"], canChange: true },
+      currency: { value: "SEK", options: [...HOME_CURRENCY_OPTIONS], canChange: true },
       accountant: [
         {
           id: "l1",

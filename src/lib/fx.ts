@@ -25,8 +25,8 @@ import type { Receipt } from "./types";
 const ECB_90D = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml";
 const ECB_ALL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml";
 // Only these are cached (FX_CONVERTED_CURRENCIES without the euro, which
-// is the base and always 1). Keeps a full-history fetch to a few tens of
-// thousands of rows.
+// is the base and always 1). A full-history fetch stores about 90,000
+// rows (13 currencies since 1999, fewer for ISK and TRY), in batches.
 const CACHED_CURRENCIES = new Set<string>(FX_CONVERTED_CURRENCIES.filter((c) => c !== "EUR"));
 // The 90-day file covers recent dates; older ones need the full history.
 const RECENT_DAYS = 85;

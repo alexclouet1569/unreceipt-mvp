@@ -59,12 +59,30 @@ export const FX_RATE_SOURCE = "ECB euro reference rate";
 // rate is missing, not a holiday (product choice, no legal source).
 export const FX_MAX_RATE_AGE_DAYS = 7;
 
-// Currencies we convert between: the euro (the ECB's base) plus the
-// receipt and company currencies we support and the neighbours a Nordic
-// company meets. Rates for the others are not cached, so a receipt in any
-// other currency gets no ECB estimate (product choice, no legal source).
-// The firm export README lists these by hand; a test keeps it in step.
-export const FX_CONVERTED_CURRENCIES = ["EUR", "SEK", "USD", "GBP", "NOK", "DKK", "CHF", "PLN"] as const;
+// Currencies we convert between: the euro (the ECB's base) plus every
+// receipt currency (CURRENCY_OPTIONS) the ECB publishes a reference rate
+// for (checked against eurofxref-daily.xml on 2026-11-16). BGN has rates
+// up to 2025-12-31 only (Bulgaria uses the euro since 2026-01-01). The
+// ECB publishes none for ALL, BAM, BYN, MDL, MKD, RSD, UAH, and none for
+// RUB since 2022-03-01: those receipts get no ECB estimate (product
+// choice, no legal source). The firm export README lists these by hand;
+// a test keeps it in step.
+export const FX_CONVERTED_CURRENCIES = [
+  "EUR",
+  "SEK",
+  "USD",
+  "GBP",
+  "NOK",
+  "DKK",
+  "CHF",
+  "PLN",
+  "CZK",
+  "HUF",
+  "ISK",
+  "RON",
+  "TRY",
+  "BGN",
+] as const;
 
 // First day of ECB reference rates; nothing earlier can be converted.
 export const FX_FIRST_RATE_DATE = "1999-01-04";

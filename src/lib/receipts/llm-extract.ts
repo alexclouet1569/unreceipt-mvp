@@ -103,7 +103,7 @@ Rules:
 - If a field is unknown, OMIT it. Never invent. Never put null.
 - amount is the FINAL TOTAL paid, not subtotal.
 - vat_lines: one entry per VAT rate when the receipt prints a VAT table; omit when only one total VAT figure is shown. Never invent seller_org_number or seller_vat_number: copy them as printed or omit.
-- currency: € → EUR, kr/SEK → SEK, $ → USD. Default SEK when ambiguous and the language looks Swedish; EUR otherwise.
+- currency: € → EUR, $ → USD, £ → GBP, zł → PLN, Kč → CZK, Ft → HUF, lei → RON, ₺ → TRY, an ISO code as written. "kr" is SEK unless the email shows it is Norwegian (NOK), Danish (DKK) or Icelandic (ISK). Default SEK when ambiguous and the language looks Swedish; EUR otherwise. If the currency is not in the list, omit it.
 - receipt_date: convert relative dates ("today", "yesterday", "i går") using Stockholm timezone.
 - receipt_time: only include when explicitly stated.
 - category: pick the closest match from the allowed list; default "other" when unclear.
