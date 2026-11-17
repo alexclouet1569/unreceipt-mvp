@@ -11,7 +11,7 @@ import type { User } from "@supabase/supabase-js";
 import { ensureHomeAmounts } from "@/lib/fx";
 import type { MobileAnalytics, MobileReceipt } from "@/lib/mobile/types";
 import { toMobileReceipt } from "@/lib/mobile/receipt";
-import { getDefaultOrganizationId, hasAnyMembership } from "@/lib/organizations";
+import { hasAnyMembership } from "@/lib/organizations";
 import { missingRequiredFields } from "@/lib/receipts/status";
 import { getFirmMembership } from "@/lib/require-firm";
 import { checkSubscriptionGate } from "@/lib/subscription-gate";
@@ -38,6 +38,19 @@ const MAX_ROWS = 20_000;
 export const MAX_DRILL_RECEIPTS = 200;
 
 export class AnalyticsInputError extends Error {}
+
+/**
+ * The user has no company yet: the home screen's first load creates it
+ * (loadHome(), with the country guessed from the user's own request), and
+ * a new account's first Insights request can arrive a second before that.
+ * Not a failure: the routes answer 503 `not_ready` (retry) and report
+ * nothing to Sentry.
+ */
+export class AnalyticsNotReadyError extends Error {
+  constructor() {
+    super("analytics: no organization yet");
+  }
+}
 
 /**
  * Every receipt of the user, the analytics columns only, converted to
@@ -121,17 +134,33 @@ export async function analyticsAccess(user: User): Promise<Access> {
   const [firmMembership, gate, organizationId, employment] = await Promise.all([
     getFirmMembership(user.id),
     checkSubscriptionGate(user.id, null),
-    getDefaultOrganizationId(user.id),
+    defaultOrganizationIdStrict(user.id),
     // A failed read throws: the screen retries, never a guessed currency.
     getEmployment(user.id),
   ]);
   if (firmMembership && !(await hasAnyMembership(user.id))) return { kind: "firm_only" };
   if (gate.kind === "redirect_subscribe" || gate.kind === "self_heal") return { kind: "inactive" };
   const companyId = employment?.organizationId ?? organizationId;
-  // No company yet (the home screen creates it) or a failed read is an
-  // error the screen retries, never a guessed currency.
-  if (!companyId) throw new Error("analytics: no organization");
+  // No company yet: the home screen creates it. The screen retries; never
+  // a guessed currency. (Not an employee: the home screen mints none for
+  // them, so an employee is answered above and never waits here forever.)
+  if (!companyId) throw new AnalyticsNotReadyError();
   return { kind: "ready", ...(await companyOf(companyId)) };
+}
+
+/**
+ * The user's default company id, or null when there is none yet. Unlike
+ * getDefaultOrganizationId() (which answers null on a failed read), a
+ * failed read throws: it is a real error, never "not created yet".
+ */
+async function defaultOrganizationIdStrict(userId: string): Promise<string | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("organizations")
+    .select("id")
+    .eq("default_for_user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(`analytics: default organization ${error.code}`);
+  return typeof data?.id === "string" ? data.id : null;
 }
 
 export function todayInStockholm(now = new Date()): string {

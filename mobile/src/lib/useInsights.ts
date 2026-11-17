@@ -1,6 +1,11 @@
 // One period of the Insights tab: the saved answer at once (an instant
 // screen, offline too), then the server's. Refreshed when the period
 // changes, when the receipts list changes (a scan, an edit) and on pull.
+//
+// The server is asked only once the home screen has an answer (saved or
+// fresh) or has failed: a new account's company is created by the home
+// screen's first load, and an Insights request sent beside it at sign-in
+// arrives before the company exists (Sentry JAVASCRIPT-NEXTJS-2).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MobileAnalytics } from "@/lib/mobile/types";
@@ -23,7 +28,8 @@ export type InsightsState = {
 
 export function useInsights(query: PeriodQuery): InsightsState {
   const { userId, signOut } = useAuth();
-  const { home, extra } = useHome();
+  const { home, extra, error: homeError } = useHome();
+  const homeSettled = home != null || homeError != null;
   const key = periodCacheKey(query);
   const qs = periodQueryString(query);
   const [state, setState] = useState<{ key: string; data: MobileAnalytics | null }>({ key, data: null });
@@ -54,7 +60,8 @@ export function useInsights(query: PeriodQuery): InsightsState {
     }
   }, [userId, key, qs, signOut]);
 
-  // A new period: its saved copy first (if any), then the server.
+  // A new period: its saved copy first (if any), then the server, once the
+  // home screen has answered.
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -63,11 +70,13 @@ export function useInsights(query: PeriodQuery): InsightsState {
       if (!alive || !cached) return;
       setState((current) => (current.key === key && current.data ? current : { key, data: cached }));
     });
-    void refresh();
     return () => {
       alive = false;
     };
-  }, [userId, key, refresh]);
+  }, [userId, key]);
+  useEffect(() => {
+    if (homeSettled) void refresh();
+  }, [homeSettled, refresh]);
 
   // The receipts changed (a scan landed, an edit, a delete): ask again,
   // gently, so a burst of changes is one request.
@@ -75,15 +84,18 @@ export function useInsights(query: PeriodQuery): InsightsState {
   // that brings back the same receipts doesn't ask the server again.
   const receipts = home?.state === "ready" ? home.receipts : null;
   const signature = useMemo(() => receiptsSignature([receipts, extra]), [receipts, extra]);
+  // Counted from the home screen's first answer: that answer is the one
+  // the request above already waited for.
   const first = useRef(true);
   useEffect(() => {
+    if (!homeSettled) return;
     if (first.current) {
       first.current = false;
       return;
     }
     const t = setTimeout(() => void refresh(), 1_500);
     return () => clearTimeout(t);
-  }, [signature, refresh]);
+  }, [signature, refresh, homeSettled]);
 
   const data = state.key === key ? state.data : null;
   return { data, error, refreshing, loading: data == null && error == null, refresh };
