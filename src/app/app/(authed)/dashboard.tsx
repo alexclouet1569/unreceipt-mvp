@@ -38,9 +38,6 @@ type DashboardProps = {
   // Server-component minted/fetched in page.tsx so we never block on the
   // round-trip here.
   forwardingEmail: string | null;
-  // Shared SMS/WhatsApp intake number (step 7). Null when unset so the
-  // empty-state degrades to email-only without rendering a dangling label.
-  intakeSmsNumber: string | null;
   // First run: no receipts yet and onboarding never finished or skipped.
   showOnboarding?: boolean;
   // Accounting-firm invites waiting for this user's answer.
@@ -74,7 +71,6 @@ export function Dashboard({
   userEmail,
   receipts: serverReceipts,
   forwardingEmail,
-  intakeSmsNumber,
   showOnboarding = false,
   accountantInvites = [],
   homeCurrency,
@@ -377,7 +373,6 @@ export function Dashboard({
         ) : receipts.length === 0 ? (
           <EmptyState
             forwardingEmail={forwardingEmail}
-            intakeSmsNumber={intakeSmsNumber}
             mailboxProviders={mailboxProviders}
             connectedMailboxes={connectedMailboxes}
             onCapture={() => setCaptureOpen(true)}
@@ -545,13 +540,11 @@ export function Dashboard({
 
 function EmptyState({
   forwardingEmail,
-  intakeSmsNumber,
   mailboxProviders,
   connectedMailboxes,
   onCapture,
 }: {
   forwardingEmail: string | null;
-  intakeSmsNumber: string | null;
   mailboxProviders: MailboxProviders;
   connectedMailboxes: string[];
   onCapture: () => void;
@@ -589,9 +582,7 @@ function EmptyState({
           ? `Checking ${connectedMailboxes.join(", ")} for new receipts. They show up here as they arrive.`
           : connectFirst
             ? "Connect your email and receipts arrive by themselves. We'll have them VAT-ready in minutes."
-            : intakeSmsNumber
-              ? "Forward email receipts or text us a photo. We'll have them VAT-ready in minutes."
-              : "Forward email receipts or snap a paper one. We'll have them VAT-ready in minutes."}
+            : "Forward email receipts or snap a paper one. We'll have them VAT-ready in minutes."}
       </p>
 
       <div className="w-full max-w-[340px] space-y-3" style={{ marginBottom: "20px" }}>
@@ -607,15 +598,6 @@ function EmptyState({
         ) : (
           <ForwardingUnavailable />
         )}
-        {intakeSmsNumber ? (
-          <IntakeRow
-            callout="Or text a photo to"
-            value={intakeSmsNumber}
-            mono
-            copyLabel="Copy concierge SMS number"
-            quiet={connectFirst}
-          />
-        ) : null}
         <GuideLink instead={connectFirst} />
       </div>
 

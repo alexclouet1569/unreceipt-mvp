@@ -1,4 +1,12 @@
 import { ImageResponse } from "next/og";
+import { PLANS, formatPrice } from "@/lib/plans";
+import { SHOW_PRICES } from "@/lib/pricing-visibility";
+
+// The share image is public, so it follows SHOW_PRICES like every other
+// marketing surface: no price while the pricing model is under review.
+const lastPill = SHOW_PRICES
+  ? `From ${formatPrice(Math.min(...PLANS.map((p) => p.price)))} / month`
+  : "Ready for your accountant";
 
 export const alt =
   "UnReceipt — VAT-ready receipts for small businesses. From Chaos to Clarity.";
@@ -130,7 +138,7 @@ export default async function Image() {
               fontWeight: 600,
             }}
           >
-            From €5.99 / month
+            {lastPill}
           </div>
         </div>
       </div>
