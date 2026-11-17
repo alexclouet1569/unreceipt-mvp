@@ -23,6 +23,7 @@ import {
   Globe,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { ExplainerVideo } from "./_explainer-video";
 import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
@@ -717,6 +718,18 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           </div>
         </div>
       </Section>
+
+      {/* ─── EXPLAINER VIDEO ─── (languages with their own loop) */}
+      {t.video ? (
+        <Section className="pt-4 pb-10 px-4 sm:px-6">
+          <div className="max-w-xl mx-auto text-center">
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.video.eyebrow}</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">{t.video.title}</h2>
+            <p className="text-[#303568]/50 text-lg mb-10">{t.video.lead}</p>
+            <ExplainerVideo className="border border-[#E8E5DD]" />
+          </div>
+        </Section>
+      ) : null}
 
       <ReceiptRows locale={locale} rows={RECEIPT[locale].end} />
       </div>
