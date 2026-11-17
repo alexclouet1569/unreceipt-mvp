@@ -13,7 +13,6 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
-import { countryForCurrency } from "@/lib/country";
 import { reconvertOrganization } from "@/lib/fx";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
@@ -61,33 +60,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Only the company's owner can change this." }, { status: 403 });
   }
 
-  // A currency only one country uses (SEK, PLN…) also moves the company
-  // there, so a wrongly guessed country (src/lib/country.ts) is fixed here
-  // too: the Swedish VAT view and a new firm's country follow it. The
-  // write only lands on the country it was decided from (two quick saves
-  // must not leave SEK with PL); a lost race is decided again once.
-  let error: { code?: string } | null = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const { data: org, error: readError } = await db
-      .from("organizations")
-      .select("country")
-      .eq("id", organizationId)
-      .maybeSingle();
-    if (readError || typeof org?.country !== "string") {
-      console.error("[/api/organization/currency] read failed", readError?.code);
-      return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });
-    }
-    const country = countryForCurrency(parsed.data.currency, org.country);
-    const { data: written, error: writeError } = await db
-      .from("organizations")
-      .update(country ? { currency: parsed.data.currency, country } : { currency: parsed.data.currency })
-      .eq("id", organizationId)
-      .eq("country", org.country)
-      .select("id");
-    error = writeError;
-    if (writeError || (written ?? []).length > 0) break;
-    if (attempt === 1) error = { code: "conflict" };
-  }
+  // The currency only: the company's country stays what it is (founder
+  // decision 2026-11-17).
+  const { error } = await db
+    .from("organizations")
+    .update({ currency: parsed.data.currency })
+    .eq("id", organizationId);
   if (error) {
     console.error("[/api/organization/currency] update failed", error.code);
     return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });

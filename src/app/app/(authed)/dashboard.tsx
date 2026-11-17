@@ -525,6 +525,7 @@ export function Dashboard({
       <CaptureDialog
         open={captureOpen}
         onOpenChange={setCaptureOpen}
+        homeCurrency={homeCurrency}
         onSaved={() => {
           if (onboardingStep === 2) setOnboardingStep(3);
         }}

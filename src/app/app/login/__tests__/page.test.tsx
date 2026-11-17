@@ -77,6 +77,7 @@ afterEach(() => {
 
 async function fillSignUp(user: ReturnType<typeof userEvent.setup>, opts: { name?: string; password?: string } = {}) {
   if (opts.name !== "") await user.type(screen.getByLabelText(/Full name/i), opts.name ?? "Alex Andersson");
+  await user.selectOptions(screen.getByLabelText(/^Country/i), "SE");
   await user.type(screen.getByLabelText(/Work email/i), "alex@example.se");
   await user.type(screen.getByLabelText(/^Password/i), opts.password ?? "supersecret");
 }
@@ -325,7 +326,7 @@ describe("/app/login — create account", () => {
       password: "supersecret",
       options: {
         emailRedirectTo: CALLBACK,
-        data: { full_name: "Alex Andersson", company_name: "Acme AB" },
+        data: { full_name: "Alex Andersson", company_name: "Acme AB", country: "SE" },
       },
     });
     expect(await screen.findByRole("heading", { name: /Confirm your email/i })).toBeInTheDocument();
@@ -333,6 +334,37 @@ describe("/app/login — create account", () => {
     await user.type(screen.getByLabelText(/6-digit code/i), "654321");
     expect(mocks.verifyOtp).toHaveBeenCalledWith({ email: "alex@example.se", token: "654321", type: "email" });
     await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith("/app"));
+  });
+
+  it("asks where the company is and says which currency follows", async () => {
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup" });
+    // jsdom's browser is en-US: no guess, so the person chooses.
+    const country = screen.getByLabelText(/^Country/i);
+    expect(country).toHaveValue("");
+    await user.type(screen.getByLabelText(/Full name/i), "Anna");
+    await user.type(screen.getByLabelText(/Work email/i), "anna@example.ch");
+    await user.type(screen.getByLabelText(/^Password/i), "supersecret");
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+    expect(await screen.findByText(/Choose the country your business is in/i)).toBeInTheDocument();
+    expect(mocks.signUp).not.toHaveBeenCalled();
+
+    await user.selectOptions(country, "CH");
+    expect(screen.getByText(/Your currency will be CHF/i)).toBeInTheDocument();
+  });
+
+  it("sends no country for another country: it is guessed on the first sign-in", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup" });
+    await fillSignUp(user);
+    await user.selectOptions(screen.getByLabelText(/^Country/i), "other");
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+    expect(mocks.signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ data: expect.objectContaining({ country: null }) }),
+      })
+    );
   });
 
   it("goes straight in when the project doesn't require confirmation", async () => {

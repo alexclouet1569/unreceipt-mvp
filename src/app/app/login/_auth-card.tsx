@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Lock } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { defaultCurrencyFor, guessCountry, SIGNUP_COUNTRIES } from "@/lib/country";
 import { cn } from "@/lib/utils";
 import {
   CODE_LENGTH,
@@ -28,6 +29,7 @@ import {
   FOCUS_RING,
   Notice,
   PasswordInput,
+  SelectInput,
   Step,
   SubmitButton,
   TextInput,
@@ -65,7 +67,10 @@ type AuthCardProps = {
 // sign-up resend for a confirmed address.
 type PendingCode = { email: string; purpose: "signup" | "signin"; existingAccount?: boolean };
 type EntryFocus = "first" | "email" | null;
-type SignUpDetails = { fullName: string; companyName: string; password: string };
+// country: "" until chosen (pre-filled from the browser once it is known),
+// a country code, or OTHER_COUNTRY.
+type SignUpDetails = { fullName: string; companyName: string; country: string; password: string };
+const OTHER_COUNTRY = "other";
 
 export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = false, next = "/app" }: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -77,7 +82,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
   // Lifted so switching tabs or going back from the code step keeps what
   // the person already typed.
   const [email, setEmail] = useState("");
-  const [details, setDetails] = useState<SignUpDetails>({ fullName: "", companyName: "", password: "" });
+  const [details, setDetails] = useState<SignUpDetails>({ fullName: "", companyName: "", country: "", password: "" });
   const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
 
   const switchMode = (to: AuthMode) => {
@@ -546,6 +551,7 @@ function SignInPanel({
 const SIGNUP_FIELD: Record<string, string> = {
   full_name: "name",
   company_name: "company",
+  country: "country",
   email: "email",
   password: "password",
 };
@@ -570,9 +576,35 @@ function SignUpPanel({
   next: string;
 }) {
   const ids = useId();
-  const { fullName, companyName, password } = details;
+  const { fullName, companyName, country, password } = details;
   const setField = (key: keyof SignUpDetails) => (value: string) =>
     setDetails((d) => ({ ...d, [key]: value }));
+  // The country menu starts on the browser's own country (language and
+  // region, src/lib/country.ts), read after the first paint: the server
+  // can't know it. Never over a choice already made.
+  useEffect(() => {
+    const guess = guessCountry({ acceptLanguage: navigator.languages?.join(",") || navigator.language });
+    if (guess && SIGNUP_COUNTRIES.includes(guess)) {
+      setDetails((d) => (d.country ? d : { ...d, country: guess }));
+    }
+  }, [setDetails]);
+  const countryOptions = useMemo(() => {
+    let names: Intl.DisplayNames | null = null;
+    try {
+      names = new Intl.DisplayNames(["en"], { type: "region" });
+    } catch {
+      names = null;
+    }
+    return SIGNUP_COUNTRIES.map((code) => ({ code, name: names?.of(code) ?? code })).sort((a, b) =>
+      a.name.localeCompare(b.name, "en")
+    );
+  }, []);
+  const countryHint =
+    country && country !== OTHER_COUNTRY
+      ? `Your currency will be ${defaultCurrencyFor(country)}. You can change it in Settings.`
+      : country === OTHER_COUNTRY
+        ? "We'll guess your currency from your browser and email address. You can change it in Settings."
+        : null;
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>("idle");
   const formRef = useRef<HTMLFormElement>(null);
@@ -585,6 +617,7 @@ function SignUpPanel({
     const parsed = signUpSchema.safeParse({
       full_name: fullName,
       company_name: companyName,
+      country,
       email,
       password,
     });
@@ -611,6 +644,8 @@ function SignUpPanel({
           data: {
             full_name: parsed.data.full_name,
             company_name: parsed.data.company_name || null,
+            // The business's country and so its currency (loadHome()).
+            country: parsed.data.country === OTHER_COUNTRY ? null : parsed.data.country,
           },
         },
       });
@@ -716,6 +751,48 @@ function SignUpPanel({
             }}
             {...errors.describe("company")}
           />
+        </Field>
+        <Field
+          label="Country"
+          htmlFor={`${ids}-country`}
+          error={errors.fieldError("country")}
+          errorId={`${ids}-country-error`}
+        >
+          <SelectInput
+            id={`${ids}-country`}
+            autoComplete="country"
+            value={country}
+            onChange={(e) => {
+              setField("country")(e.target.value);
+              errors.clearField("country");
+            }}
+            required
+            // Faint until chosen, like a text field's placeholder; the
+            // open list stays ink.
+            className={cn(!country && "text-[var(--ink-faint)] [&>option]:text-[var(--ink)]")}
+            {...(errors.fieldError("country")
+              ? errors.describe("country")
+              : countryHint
+                ? { "aria-describedby": `${ids}-country-hint` }
+                : {})}
+          >
+            <option value="" disabled>
+              Where your business is based
+            </option>
+            {countryOptions.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+            <option value={OTHER_COUNTRY}>Another country</option>
+          </SelectInput>
+          {/* The line is kept even while empty: the guess arrives after the
+              first paint and must not push the fields below. */}
+          {errors.fieldError("country") ? null : (
+            <p id={`${ids}-country-hint`} className="type-caption mt-2 min-h-[18px] text-[var(--ink-muted)]">
+              {countryHint}
+            </p>
+          )}
         </Field>
         <Field
           label="Work email"

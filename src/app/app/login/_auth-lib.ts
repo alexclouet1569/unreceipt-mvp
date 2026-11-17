@@ -21,6 +21,10 @@ export const emailSchema = z
 export const signUpSchema = z.object({
   full_name: z.string().trim().min(1, "Full name is required").max(100),
   company_name: z.string().trim().max(100).optional().or(z.literal("")),
+  // Where the business is: sets its currency (src/lib/country.ts). A code,
+  // or "other" (guessed on the first sign-in); empty until chosen. Checked
+  // in field order with the rest, so an empty form names Full name first.
+  country: z.string().regex(/^(?:[A-Z]{2}|other)$/, "Choose the country your business is in"),
   email: emailSchema,
   password: z
     .string()

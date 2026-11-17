@@ -355,6 +355,41 @@ describe("CaptureDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it("reads the currency on a foreign receipt: CHF in Zurich, whatever the company's currency", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(
+      okResponse({ ...OCR_RESULT, merchant: "Sprüngli", amount: 12.5, currency: "CHF", tax_amount: 0.32, tax_rate: 2.6 })
+    );
+    render(<CaptureDialog open={true} onOpenChange={vi.fn()} homeCurrency="SEK" />);
+
+    await user.upload(uploadInput(), new File(["fake"], "zurich.jpg", { type: "image/jpeg" }));
+
+    expect(await screen.findByRole("heading", { name: /Check and save/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Currency/i)).toHaveValue("CHF");
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(12.5);
+  });
+
+  it("leaves the amount empty for a currency the app doesn't handle, never under another currency", async () => {
+    const user = userEvent.setup();
+    mocks.fetch.mockResolvedValue(okResponse({ ...OCR_RESULT, merchant: "Lawson", amount: 4500, currency: "JPY" }));
+    render(<CaptureDialog open={true} onOpenChange={vi.fn()} homeCurrency="SEK" />);
+
+    await user.upload(uploadInput(), new File(["fake"], "tokyo.jpg", { type: "image/jpeg" }));
+
+    await waitFor(() => expect(screen.getByLabelText(/Merchant/i)).toHaveValue("Lawson"));
+    expect(screen.getByLabelText(/Currency/i)).toHaveValue("SEK");
+    expect(screen.getByLabelText(/Total paid/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/VAT amount/i)).toHaveValue(null);
+    expect(screen.getByText(/This receipt is in JPY, which UnReceipt can't convert yet/i)).toBeInTheDocument();
+  });
+
+  it("starts a receipt typed by hand in the company's currency", async () => {
+    const user = userEvent.setup();
+    render(<CaptureDialog open={true} onOpenChange={vi.fn()} homeCurrency="NOK" />);
+    await enterManually(user);
+    expect(screen.getByLabelText(/Currency/i)).toHaveValue("NOK");
+  });
+
   it("keeps what the customer typed when a photo is added afterwards", async () => {
     const user = userEvent.setup();
     mocks.fetch.mockResolvedValue(okResponse(OCR_RESULT));
