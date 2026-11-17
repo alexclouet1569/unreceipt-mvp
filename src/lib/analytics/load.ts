@@ -16,6 +16,7 @@ import { missingRequiredFields } from "@/lib/receipts/status";
 import { getFirmMembership } from "@/lib/require-firm";
 import { checkSubscriptionGate } from "@/lib/subscription-gate";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { getEmployment } from "@/lib/team/membership";
 import type { Receipt } from "@/lib/types";
 import { buildAnalytics } from "./aggregate";
 import { merchantKey } from "./merchants";
@@ -110,19 +111,27 @@ async function companyOf(organizationId: string): Promise<{ home: string; countr
  * The same who-sees-what as the home screen (src/lib/home/load-home.ts):
  * firm staff without a company and accounts without a plan get no data.
  * Reads only: the home screen is where an organisation is minted.
+ *
+ * An employee's receipts belong to the employer and are in its currency
+ * (the home screen and receiptOrganizationFor() apply the same rule), so
+ * the employer's company decides the currency and country. An employee
+ * usually has no company of their own: the home screen mints none for them.
  */
 export async function analyticsAccess(user: User): Promise<Access> {
-  const [firmMembership, gate, organizationId] = await Promise.all([
+  const [firmMembership, gate, organizationId, employment] = await Promise.all([
     getFirmMembership(user.id),
     checkSubscriptionGate(user.id, null),
     getDefaultOrganizationId(user.id),
+    // A failed read throws: the screen retries, never a guessed currency.
+    getEmployment(user.id),
   ]);
   if (firmMembership && !(await hasAnyMembership(user.id))) return { kind: "firm_only" };
   if (gate.kind === "redirect_subscribe" || gate.kind === "self_heal") return { kind: "inactive" };
+  const companyId = employment?.organizationId ?? organizationId;
   // No company yet (the home screen creates it) or a failed read is an
   // error the screen retries, never a guessed currency.
-  if (!organizationId) throw new Error("analytics: no organization");
-  return { kind: "ready", ...(await companyOf(organizationId)) };
+  if (!companyId) throw new Error("analytics: no organization");
+  return { kind: "ready", ...(await companyOf(companyId)) };
 }
 
 export function todayInStockholm(now = new Date()): string {
