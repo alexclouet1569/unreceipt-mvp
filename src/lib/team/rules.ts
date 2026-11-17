@@ -9,7 +9,9 @@
 //
 // What: draft → submitted → approved | sent_back | rejected. A sent-back
 // receipt is fixed and sent again. Changing what was approved (amount,
-// currency, date, merchant, paid by) sends it back to submitted.
+// currency, date, merchant, paid by) sends it back to submitted. Once the
+// owner has paid an outlay back, what was approved is fixed: the amount
+// paid must stay the amount on the receipt (founder decision 2026-11-17).
 
 import type { ApprovalStatus, MembershipRole, PaidBy } from "@/lib/types";
 
@@ -84,13 +86,31 @@ export const APPROVED_FIELDS = [
   "vat_lines",
 ] as const;
 
+/** True when one of the changed columns is part of what was approved. */
+export function touchesApproved(changed: ReadonlyArray<string>): boolean {
+  return changed.some((f) => (APPROVED_FIELDS as ReadonlyArray<string>).includes(f));
+}
+
 /** After an edit by the receipt's owner: the new status, or null to keep it. */
 export function statusAfterEdit(
   status: ApprovalStatus | null | undefined,
   changed: ReadonlyArray<string>
 ): ApprovalStatus | null {
   if (status !== "approved") return null;
-  return changed.some((f) => (APPROVED_FIELDS as ReadonlyArray<string>).includes(f)) ? "submitted" : null;
+  return touchesApproved(changed) ? "submitted" : null;
+}
+
+/**
+ * An outlay already paid back: its owner may no longer change what was
+ * approved (the route answers 409 "reimbursed"); notes and category stay
+ * editable. Reopening it would leave the payment recorded against an
+ * amount nobody paid, and "To pay back" lists only unpaid outlays.
+ */
+export function lockedAfterPayback(
+  r: { approval_status?: ApprovalStatus | null; reimbursed_at?: string | null },
+  changed: ReadonlyArray<string>
+): boolean {
+  return r.approval_status === "approved" && Boolean(r.reimbursed_at) && touchesApproved(changed);
 }
 
 /** The employee may edit everything but a rejected receipt (the decision stands). */

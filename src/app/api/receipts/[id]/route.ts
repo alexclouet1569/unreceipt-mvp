@@ -45,7 +45,7 @@ import {
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt } from "@/lib/types";
 import { homeCurrencyOf, round2 } from "@/lib/fx";
-import { ownerMayDelete, ownerMayEdit, statusAfterEdit } from "@/lib/team/rules";
+import { lockedAfterPayback, ownerMayDelete, ownerMayEdit, statusAfterEdit } from "@/lib/team/rules";
 import { logApproval } from "@/lib/team/decisions";
 import { getEmployment } from "@/lib/team/membership";
 
@@ -82,6 +82,28 @@ const PatchSchema = z.object({
   // the company's (a company card).
   paid_by: z.enum(["employee", "company"]).optional(),
 });
+
+// Same value, compared by content: a JSON column (vat_lines, items) comes
+// back from the database as a new object, with its keys in jsonb's order
+// (shortest first), so a resave of the same lines must not look changed.
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === "object") {
+    return Object.fromEntries(
+      Object.keys(v as Record<string, unknown>)
+        .sort()
+        .map((k) => [k, canonical((v as Record<string, unknown>)[k])])
+    );
+  }
+  return v;
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -286,7 +308,13 @@ export async function PATCH(
   // (src/lib/team/rules.ts). Compared with the stored values, so saving
   // the same amount again doesn't ask twice.
   const existingValues = existingRow as unknown as Record<string, unknown>;
-  const changed = Object.keys(update).filter((k) => update[k] !== existingValues[k]);
+  const changed = Object.keys(update).filter((k) => !sameValue(update[k], existingValues[k]));
+  // Already paid back: what was approved is what was paid, so it stays
+  // (founder decision 2026-11-17). The accounting firm's edits are not
+  // refused here (AGENTS.md, Company team → Known gaps).
+  if (access.via === "owner" && lockedAfterPayback(existingRow, changed)) {
+    return NextResponse.json({ error: "reimbursed" }, { status: 409 });
+  }
   const reopened = access.via === "owner" ? statusAfterEdit(existingRow.approval_status, changed) : null;
   if (reopened) {
     update.approval_status = reopened;
@@ -310,6 +338,8 @@ export async function PATCH(
   write = existingRow.approval_status
     ? write.eq("approval_status", existingRow.approval_status)
     : write.is("approval_status", null);
+  // Nor can a payment recorded meanwhile end up against a reopened amount.
+  if (reopened && !existingRow.reimbursed_at) write = write.is("reimbursed_at", null);
   const { data: written, error: updateError } = await write.select("id");
 
   if (updateError) {

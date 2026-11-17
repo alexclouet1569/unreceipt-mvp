@@ -8,7 +8,9 @@ import {
   owedToEmployee,
   ownerMayDelete,
   ownerMayEdit,
+  lockedAfterPayback,
   statusAfterEdit,
+  touchesApproved,
   submitTransition,
   type TeamMember,
 } from "../rules";
@@ -76,6 +78,27 @@ describe("what happens", () => {
     expect(statusAfterEdit("approved", ["vat_lines"])).toBe("submitted");
     expect(statusAfterEdit("approved", ["notes", "category"])).toBeNull();
     expect(statusAfterEdit("submitted", ["total"])).toBeNull();
+  });
+
+  it("knows which changed columns were approved", () => {
+    expect(touchesApproved(["total", "status"])).toBe(true);
+    expect(touchesApproved(["home_currency"])).toBe(true);
+    expect(touchesApproved(["notes", "category", "status", "edited_at"])).toBe(false);
+    expect(touchesApproved([])).toBe(false);
+  });
+
+  it("fixes what was approved once the outlay is paid back (founder decision 2026-11-17)", () => {
+    const paid = { approval_status: "approved" as const, reimbursed_at: "2026-11-10T09:00:00+00:00" };
+    expect(lockedAfterPayback(paid, ["total"])).toBe(true);
+    expect(lockedAfterPayback(paid, ["home_total", "home_currency"])).toBe(true);
+    expect(lockedAfterPayback(paid, ["vat_lines"])).toBe(true);
+    // Notes and category stay editable.
+    expect(lockedAfterPayback(paid, ["notes", "category"])).toBe(false);
+    // Not paid back yet: the edit reopens approval instead.
+    expect(lockedAfterPayback({ approval_status: "approved", reimbursed_at: null }, ["total"])).toBe(false);
+    expect(lockedAfterPayback({ approval_status: "approved" }, ["total"])).toBe(false);
+    expect(lockedAfterPayback({ approval_status: "submitted", reimbursed_at: paid.reimbursed_at }, ["total"])).toBe(false);
+    expect(lockedAfterPayback({ approval_status: null, reimbursed_at: null }, ["total"])).toBe(false);
   });
 
   it("a rejection stands; a pending or approved receipt can't be deleted by its owner", () => {

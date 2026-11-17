@@ -21,6 +21,9 @@ import { applyPatch, type ReceiptPatch } from "./edits";
 import { useHome } from "./HomeProvider";
 import { onBeforeRestart } from "./useAppUpdates";
 
+/** PATCH refused: the outlay was already paid back (409 "reimbursed"). */
+class PaidBackError extends Error {}
+
 const UNDO_MS = 5_000;
 // With VoiceOver, finding Undo takes longer (WCAG 2.2.1).
 const UNDO_MS_SCREEN_READER = 15_000;
@@ -78,17 +81,19 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
           method: "PATCH",
           body: JSON.stringify(patch),
         });
-        const body = (await res.json().catch(() => null)) as { status?: MobileReceipt["status"] } | null;
+        const body = (await res.json().catch(() => null)) as { status?: MobileReceipt["status"]; error?: string } | null;
+        // An outlay already paid back: what was approved can't change.
+        if (res.status === 409 && body?.error === "reimbursed") throw new PaidBackError();
         if (!res.ok || !body?.status) throw new ApiError("server");
         const status = body.status;
         mutate((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, status) : r)));
         // The server's full row (conversions) a moment later.
         setTimeout(() => void refresh(), 1_000);
         return true;
-      } catch {
+      } catch (err) {
         mutate((rs) => rs.map((r) => (r.id === id ? before : r)));
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(s.edit.saveFailed);
+        Alert.alert(err instanceof PaidBackError ? s.edit.paidBackLocked : s.edit.saveFailed);
         return false;
       }
     },

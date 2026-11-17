@@ -178,6 +178,7 @@ export const fr: Strings = {
     merchantPlaceholder: "Nom du commerce ou de l’entreprise",
     invalidAmount: "Saisissez un montant, par exemple 245,50.",
     saveFailed: "Enregistrement impossible. Vérifiez votre connexion et réessayez.",
+    paidBackLocked: "Déjà remboursé, donc le montant, la date, le commerçant et la TVA ne peuvent plus être modifiés. Demandez au responsable de l'entreprise.",
     add: "Ajouter",
     restored: "Reçu restauré",
     amountPlaceholder: "0,00",

@@ -14,7 +14,15 @@ const mocks = vi.hoisted(() => ({
   storageRemove: vi.fn(),
   // Other receipts sharing a scanned PDF (count query).
   scanSharers: 0,
+  updateFilters: [] as Array<Array<[string, string, unknown]>>,
+  getEmployment: vi.fn(),
+  logApproval: vi.fn(async () => {}),
 }));
+
+// An employee's receipt (2026-11-15 team block): the route checks they
+// still work for the receipt's company, and logs a reopened approval.
+vi.mock("@/lib/team/membership", () => ({ getEmployment: mocks.getEmployment }));
+vi.mock("@/lib/team/decisions", () => ({ logApproval: mocks.logApproval }));
 
 const usageMock = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/usage", async (importOriginal) => ({
@@ -32,18 +40,23 @@ vi.mock("@/lib/supabase-admin", () => ({
         };
         return chain;
       },
-      update: (payload: Record<string, unknown>) => ({
-        eq: (col: string, val: string) => ({
-          eq: (col2: string, val2: string) => {
-            // Then the compare-and-set on the approval state, and select("id").
-            const result = async () => {
-              const r = (await mocks.updateEq(payload, col, val, col2, val2)) as { error: unknown };
-              return { data: r?.error ? null : [{ id: val }], error: r?.error ?? null };
-            };
-            return { is: () => ({ select: result }), eq: () => ({ select: result }) };
+      update: (payload: Record<string, unknown>) => {
+        // eq(id), eq(user_id), then the compare-and-set filters, then
+        // select("id"). Every filter is kept in mocks.updateFilters.
+        const filters: Array<[string, string, unknown]> = [];
+        const chain = {
+          eq: (col: string, val: unknown) => (filters.push(["eq", col, val]), chain),
+          is: (col: string, val: unknown) => (filters.push(["is", col, val]), chain),
+          select: async () => {
+            mocks.updateFilters.push(filters);
+            const [[, col, val], [, col2, val2]] = filters;
+            const r = (await mocks.updateEq(payload, col, val, col2, val2)) as { error: unknown; none?: boolean };
+            if (r?.none) return { data: [], error: null };
+            return { data: r?.error ? null : [{ id: val }], error: r?.error ?? null };
           },
-        }),
-      }),
+        };
+        return chain;
+      },
     }),
     storage: {
       from: (bucket: string) => ({
@@ -106,6 +119,7 @@ beforeEach(() => {
   mocks.updateEq.mockResolvedValue({ error: null });
   mocks.deleteEq.mockResolvedValue({ error: null });
   mocks.storageRemove.mockResolvedValue({ error: null });
+  mocks.updateFilters.length = 0;
 });
 
 afterEach(() => {
@@ -628,5 +642,123 @@ describe("PATCH /api/receipts/[id] — bookkeeping fields", () => {
     mocks.getServerUser.mockResolvedValue({ id: USER_ID, email: "u@x.com" });
     const res = await PATCH(req({ bas_account: "54" }), params());
     expect(res.status).toBe(400);
+  });
+});
+
+describe("PATCH /api/receipts/[id] — an employee's outlay already paid back", () => {
+  const ORG_ID = "44444444-4444-4444-8444-444444444444";
+  const FIRM_USER = "33333333-3333-4333-8333-333333333333";
+  const approved = {
+    id: RECEIPT_ID,
+    user_id: USER_ID,
+    organization_id: ORG_ID,
+    status: "verified",
+    merchant_name: "Taxi Stockholm",
+    purchased_at: "2026-11-03T12:00:00+00:00",
+    receipt_date: "2026-11-03",
+    total: 420,
+    currency: "SEK",
+    home_total: 420,
+    home_currency: "SEK",
+    fx_source: "same",
+    category: "transport",
+    notes: null,
+    tax_amount: 25.2,
+    tax_rate: 6,
+    // jsonb gives keys back in its own order (shortest first).
+    vat_lines: [{ net: 420, vat: 25.2, rate: 6 }],
+    approval_status: "approved",
+    paid_by: "employee",
+    reimbursed_at: "2026-11-10T09:00:00+00:00",
+  };
+
+  beforeEach(() => {
+    mocks.getEmployment.mockResolvedValue({ organizationId: ORG_ID, role: "member" });
+  });
+
+  it("refuses a new amount with 409 reimbursed and writes nothing", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+    const res = await PATCH(req({ amount: 520 }), params());
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("reimbursed");
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+    expect(mocks.logApproval).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["date", { receipt_date: "2026-11-04" }],
+    ["merchant", { merchant: "Uber" }],
+    ["paid by", { paid_by: "company" }],
+    ["VAT", { tax_amount: 20, vat_lines: [{ rate: 6, net: 400, vat: 20 }] }],
+    ["home amount cleared", { home_total: null }],
+  ])("refuses a change of %s", async (_label, body) => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+    const res = await PATCH(req(body), params());
+    expect(res.status).toBe(409);
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+
+  it("still saves notes and category, without reopening approval", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+    const res = await PATCH(req({ notes: "Airport run", category: "travel" }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.notes).toBe("Airport run");
+    expect(payload).not.toHaveProperty("approval_status");
+    expect(mocks.logApproval).not.toHaveBeenCalled();
+  });
+
+  it("treats the same amount, VAT and VAT lines saved again as no change", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+    const res = await PATCH(
+      req({ amount: 420, tax_amount: 25.2, vat_lines: [{ rate: 6, net: 420, vat: 25.2 }] }),
+      params()
+    );
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload).not.toHaveProperty("approval_status");
+  });
+
+  it("lets the accounting firm correct it (founder decision 2026-11-17)", async () => {
+    mocks.getServerUser.mockResolvedValueOnce({ id: FIRM_USER, email: "a@firm.se" });
+    mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+    const res = await PATCH(req({ amount: 520 }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.total).toBe(520);
+    expect(payload).not.toHaveProperty("approval_status");
+  });
+
+  it("reopens an approved outlay not paid back yet, only if no payment lands meanwhile", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: { ...approved, reimbursed_at: null }, error: null });
+
+    const res = await PATCH(req({ amount: 520 }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.approval_status).toBe("submitted");
+    expect(mocks.updateFilters[0]).toContainEqual(["eq", "approval_status", "approved"]);
+    expect(mocks.updateFilters[0]).toContainEqual(["is", "reimbursed_at", null]);
+    expect(mocks.logApproval).toHaveBeenCalledWith(expect.objectContaining({ id: RECEIPT_ID }), USER_ID, "reopened", null);
+  });
+
+  it("answers 409 changed when the payment was recorded between the read and the write", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: { ...approved, reimbursed_at: null }, error: null });
+    // The compare-and-set matched no row.
+    mocks.updateEq.mockResolvedValueOnce({ error: null, none: true });
+
+    const res = await PATCH(req({ amount: 520 }), params());
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("changed");
+    expect(mocks.logApproval).not.toHaveBeenCalled();
   });
 });

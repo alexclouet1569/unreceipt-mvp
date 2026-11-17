@@ -634,7 +634,9 @@ function ReceiptEditForm({
         };
         throw new Error(
           resBody.issues?.[0]?.message ??
-            resBody.error ??
+            (resBody.error === "reimbursed"
+              ? "Already paid back to you, so the amount, date, merchant and VAT can't be changed. Ask the company's owner."
+              : resBody.error) ??
             `Save failed (HTTP ${res.status})`,
         );
       }

@@ -178,6 +178,7 @@ export const sv: Strings = {
     merchantPlaceholder: "Butikens eller företagets namn",
     invalidAmount: "Skriv ett belopp, till exempel 245,50.",
     saveFailed: "Kunde inte spara. Kontrollera anslutningen och försök igen.",
+    paidBackLocked: "Redan återbetalt till dig, så belopp, datum, säljare och moms kan inte ändras. Fråga företagets ägare.",
     add: "Lägg till",
     restored: "Kvittot är tillbaka",
     amountPlaceholder: "0,00",

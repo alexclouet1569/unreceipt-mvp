@@ -42,6 +42,8 @@ export type AnalyticsRow = Pick<
   | "bas_account"
   | "seller_org_number"
   | "merchant_vat_number"
+  // Read so ensureHomeAmounts() keeps a paid-back outlay's home amount.
+  | "reimbursed_at"
 >;
 
 /** What the home summary needs (olderSummary): no text, no VAT. */
@@ -54,7 +56,7 @@ export const SUMMARY_COLUMNS =
 export const ANALYTICS_COLUMNS =
   "id, merchant_name, category, currency, total, home_total, home_currency, fx_rate, fx_source, fx_date, " +
   "purchased_at, receipt_date, created_at, status, tax_amount, tax_rate, vat_lines, notes, bas_account, " +
-  "seller_org_number, merchant_vat_number";
+  "seller_org_number, merchant_vat_number, reimbursed_at";
 
 const dayFormat = new Intl.DateTimeFormat("sv-SE", {
   timeZone: ANALYTICS_TIME_ZONE,

@@ -409,7 +409,11 @@ export async function ensureHomeAmounts(rows: Receipt[], home: string): Promise<
   }
 
   for (const r of rows) {
-    if (!needsConversion(r, home)) {
+    // An outlay already paid back keeps the home amount it was paid in,
+    // even after the company changes currency (src/lib/team/rules.ts
+    // lockedAfterPayback). A first conversion of one never converted is
+    // still made.
+    if (!needsConversion(r, home) || (r.reimbursed_at && r.home_total != null)) {
       out.push(r);
       continue;
     }
@@ -425,7 +429,12 @@ export async function ensureHomeAmounts(rows: Receipt[], home: string): Promise<
         .eq("id", r.id)
         .eq("total", r.total as number)
         .eq("currency", r.currency);
-      write = r.home_total == null ? write.is("home_total", null) : write.eq("home_total", r.home_total);
+      // Checked again at the database, for callers that read only some
+      // columns (or a payment recorded since the read).
+      write =
+        r.home_total == null
+          ? write.is("home_total", null)
+          : write.eq("home_total", r.home_total).is("reimbursed_at", null);
       return write.then(({ error }) => {
         if (error) console.error("[fx] save failed", error.code);
       });
@@ -460,6 +469,8 @@ const RECONVERT_PAGE = 500;
  * the bank charged in the new currency, and once replaced it is gone),
  * and an approved employee outlay (its home amount is what gets paid
  * back, part of what was approved: src/lib/team/rules.ts APPROVED_FIELDS).
+ * One already paid back (reimbursed_at) isn't rewritten on read either:
+ * ensureHomeAmounts() keeps the home amount it was paid in.
  */
 export function keptOnCurrencyChange(r: Pick<Receipt, "fx_source"> & { approval_status?: string | null }): boolean {
   return r.fx_source === "manual" || r.approval_status === "approved";
