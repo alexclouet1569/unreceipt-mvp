@@ -52,6 +52,9 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   // redirecting again, which would loop between the two pages.
   // A firm added this address as staff and there's no company yet: ask.
   if (home.kind === "firm_pending") redirect("/app/firm-join");
+  // A client asked this address to be its accountant: answer before a
+  // company is created (one account, one role).
+  if (home.kind === "firm_request_pending") redirect(`/app/firm-request?id=${home.inviteId}`);
   if (home.kind === "firm_only") {
     if (firm === "unavailable") return <FirmUnavailable />;
     redirect("/firm");

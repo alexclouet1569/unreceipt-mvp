@@ -166,6 +166,32 @@ describe("loadHome", () => {
     expect((await loadHome(accountant, null, { askAboutFirmSeat: true })).kind).toBe("firm_pending");
   });
 
+  it("sends an address a client asked to be its accountant to the request, before any company is made", async () => {
+    // One account, one role: a company made first would lock them out of accepting.
+    const accountant = { ...USER, email: "eva@byran.se", email_confirmed_at: "2026-11-01" } as User;
+    m.tables.organizations = { data: null, error: null };
+    m.tables.receipts = { data: [], error: null };
+    m.tables.firm_clients = {
+      data: [
+        { id: "req-old", invite_expires_at: "2020-01-01T00:00:00Z" },
+        { id: "req-open", invite_expires_at: "2999-01-01T00:00:00Z" },
+      ],
+      error: null,
+    };
+    expect(await loadHome(accountant, null, { askAboutFirmSeat: true })).toEqual({
+      kind: "firm_request_pending",
+      inviteId: "req-open",
+    });
+    expect(m.getOrCreateDefaultOrganization).not.toHaveBeenCalled();
+
+    // Only expired requests: a company account as before.
+    m.tables.firm_clients = { data: [{ id: "req-old", invite_expires_at: "2020-01-01T00:00:00Z" }], error: null };
+    m.getOrCreateDefaultOrganization.mockResolvedValue("org-new");
+    m.homeCurrencyOf.mockResolvedValue("SEK");
+    expect((await loadHome(accountant, null, { askAboutFirmSeat: true })).kind).toBe("ready");
+    delete m.tables.firm_clients;
+  });
+
   it("never treats a pending seat as firm membership: without the website's question it goes on as a customer", async () => {
     // The iPhone app's call: a seat a firm added can't pull anyone into it.
     const user = { ...USER, email_confirmed_at: "2026-11-01" } as User;

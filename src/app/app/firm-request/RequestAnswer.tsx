@@ -85,6 +85,11 @@ export function RequestAnswer({
           <Link href="/firm/clients" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
             Open your clients
           </Link>
+        ) : needsFirm ? (
+          // Not an accountant after all: their own receipts are next.
+          <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
+            Go to your receipts
+          </Link>
         ) : null}
       </div>
     );

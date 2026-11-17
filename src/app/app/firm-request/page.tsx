@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { SignOutButton } from "@/app/app/(authed)/settings/SignOutButton";
 import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
-import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
+import { findPendingFirmSeat, getFirmMembership, isUuid } from "@/lib/require-firm";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { maskEmail } from "@/app/app/accountant/accept/_invite-card";
 import { checkMayJoinFirm } from "@/lib/account-roles";
@@ -28,13 +28,18 @@ type View =
   | { state: "company_account"; clientName: string }
   | { state: "open"; id: string; clientName: string; firmName: string | null };
 
-async function load(token: string | undefined, user: User): Promise<View> {
-  if (!isInviteTokenShape(token)) return { state: "missing" };
-  const { data, error } = await getSupabaseAdmin()
+// By the email's token, or by `id` when /app sends an accountant here
+// before a company is created for them (src/lib/home/load-home.ts): then
+// only a request to this signed-in, confirmed address is found.
+async function load(token: string | undefined, id: string | undefined, user: User): Promise<View> {
+  const signedIn = normalizedSessionEmail(user);
+  let query = getSupabaseAdmin()
     .from("firm_clients")
-    .select("id, status, direction, client_name, invited_email, invite_expires_at")
-    .eq("invite_token_hash", hashInviteToken(token))
-    .maybeSingle();
+    .select("id, status, direction, client_name, invited_email, invite_expires_at");
+  if (isInviteTokenShape(token)) query = query.eq("invite_token_hash", hashInviteToken(token));
+  else if (id && isUuid(id) && signedIn) query = query.eq("id", id).eq("invited_email", signedIn);
+  else return { state: "missing" };
+  const { data, error } = await query.maybeSingle();
   if (error || !data || data.direction !== "client") return { state: "missing" };
   if (data.status !== "invited") return { state: "used" };
   if (isInviteExpired(data.invite_expires_at as string | null)) return { state: "expired" };
@@ -67,14 +72,15 @@ const P = { fontSize: "15px", lineHeight: 1.5 } as const;
 export default async function FirmRequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; id?: string }>;
 }) {
-  const { token } = await searchParams;
+  const { token, id } = await searchParams;
   const user = await getServerUser();
   if (!user) {
-    redirect(`/app/login?next=${encodeURIComponent(`/app/firm-request?token=${token ?? ""}`)}`);
+    const back = token ? `/app/firm-request?token=${token}` : `/app/firm-request?id=${id ?? ""}`;
+    redirect(`/app/login?next=${encodeURIComponent(back)}`);
   }
-  const view = await load(token, user);
+  const view = await load(token, id, user);
 
   let body: React.ReactNode;
   if (view.state === "open") {

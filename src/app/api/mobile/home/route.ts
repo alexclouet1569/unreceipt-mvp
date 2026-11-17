@@ -39,7 +39,7 @@ export async function GET() {
     const firm: MobileFirmRef | null = membership ? { name: membership.firmName, role: membership.role } : null;
     if (home.kind === "firm_only") {
       body = { state: "firm_only", email, firm };
-    } else if (home.kind === "firm_pending") {
+    } else if (home.kind === "firm_pending" || home.kind === "firm_request_pending") {
       body = { state: "firm_only", email, firm: null };
     } else if (home.kind !== "ready") {
       body = { state: "inactive", email };

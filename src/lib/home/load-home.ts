@@ -16,6 +16,8 @@ import { checkSubscriptionGate } from "@/lib/subscription-gate";
 import { buildForwardingAddress, getOrCreateAliasForUser } from "@/lib/email-alias";
 import { getOrCreateDefaultOrganization, hasAnyMembership } from "@/lib/organizations";
 import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
+import { normalizedSessionEmail } from "@/lib/email-address";
+import { isInviteExpired } from "@/lib/firm/invites";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { olderSummary } from "@/lib/analytics/aggregate";
@@ -53,11 +55,16 @@ export type HomeData = {
 export type HomeLoad =
   // Firm staff with no company of their own: their place is /firm.
   | { kind: "firm_only" }
-  // Website only (askAboutFirmSeat): a firm added this confirmed address as
-  // staff and it has no company yet. /app/firm-join asks "Join <firm>?" —
-  // being added never makes anyone a member by itself (any firm admin can
-  // add any address).
+  // With askAboutFirmSeat: a firm added this confirmed address as staff and
+  // it has no company yet. /app/firm-join asks "Join <firm>?" — being added
+  // never makes anyone a member by itself (any firm admin can add any
+  // address).
   | { kind: "firm_pending"; firmName: string }
+  // With askAboutFirmSeat: a client company asked this confirmed address to
+  // be its accountant, and it has no company yet. /app/firm-request answers
+  // it; creating a company first would make the account a company account,
+  // which can't accept (one account, one role: src/lib/account-roles.ts).
+  | { kind: "firm_request_pending"; inviteId: string }
   // No active plan (and not pilot mode).
   | { kind: "subscribe" }
   // Back from Stripe Checkout before the webhook landed (website only).
@@ -227,6 +234,31 @@ async function newCompanyCountry(user: User): Promise<string | null> {
 }
 
 /**
+ * The oldest open request from a client company asking this confirmed
+ * address to be its accountant (firm_clients, direction 'client'), or null.
+ * Read-only; a failed read counts as none (the company is then created as
+ * before, and accepting refuses with a reason).
+ */
+async function findOpenClientRequest(user: User): Promise<string | null> {
+  const email = normalizedSessionEmail(user);
+  if (!email) return null;
+  const { data, error } = await getSupabaseAdmin()
+    .from("firm_clients")
+    .select("id, invite_expires_at")
+    .eq("invited_email", email)
+    .eq("direction", "client")
+    .eq("status", "invited")
+    .order("created_at", { ascending: true })
+    .limit(10);
+  if (error) {
+    console.error("[home] client request lookup failed", error.code);
+    return null;
+  }
+  const open = (data ?? []).find((r) => !isInviteExpired(r.invite_expires_at as string | null));
+  return open ? (open.id as string) : null;
+}
+
+/**
  * The signed-in user's home screen. `sessionId` is Stripe Checkout's
  * ?session_id on the website's return; the app passes null.
  */
@@ -266,9 +298,10 @@ export async function loadHome(
   // /subscribe. Someone who already has a company keeps it and sees
   // "Join <firm>" in Settings.
   if (askAboutFirmSeat && !firmMembership && !existingOrg) {
-    const seat = await findPendingFirmSeat(user);
-    if (seat && !(await hasAnyMembership(user.id))) {
-      return { kind: "firm_pending", firmName: seat.firmName };
+    const [seat, request] = await Promise.all([findPendingFirmSeat(user), findOpenClientRequest(user)]);
+    if ((seat || request) && !(await hasAnyMembership(user.id))) {
+      if (seat) return { kind: "firm_pending", firmName: seat.firmName };
+      if (request) return { kind: "firm_request_pending", inviteId: request };
     }
   }
   if (gate.kind === "redirect_subscribe") return { kind: "subscribe" };
