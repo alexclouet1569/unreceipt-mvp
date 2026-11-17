@@ -1,4 +1,4 @@
-import { Sequence } from "remotion";
+import { Html5Audio, Sequence, staticFile } from "remotion";
 import { loadFonts } from "./fonts";
 import { Accountant } from "./scenes/Accountant";
 import { Email } from "./scenes/Email";
@@ -13,6 +13,8 @@ export function Ad({ cut }: { cut: Cut }) {
   let from = 0;
   return (
     <>
+      {/* Original soundtrack made by scripts/music.py, timed to this cut's scenes. */}
+      <Html5Audio src={staticFile(`audio/${cut.id}.m4a`)} />
       {ORDER.map((id) => {
         const duration = cut.scenes[id];
         const start = from;

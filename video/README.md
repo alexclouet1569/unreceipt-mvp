@@ -23,6 +23,7 @@ npm install
 npm run studio            # preview in the browser
 npm run stills            # storyboard PNGs → out/stills/
 npm run render            # all 6 MP4s → out/
+python3 scripts/music.py  # regenerate the soundtrack
 ```
 
 In a cloud session without Remotion's browser download, point it at the installed Chromium: `REMOTION_CHROME=/opt/pw-browsers/chromium npm run render`.
@@ -35,7 +36,9 @@ Colours and fonts follow `DESIGN.md` (`src/brand.ts`): cream page, Deep Space in
 
 ## Music
 
-Put a licensed track at `public/music.mp3`; it isn't wired in until one is chosen. Check the licence covers paid social ads.
+`public/audio/Ad30.m4a` and `Ad15.m4a` are an original soundtrack synthesised by `scripts/music.py` (numpy + ffmpeg, no samples, so no licence to check). It is 120 BPM so every scene cut lands on a beat, with soft sound effects on the shutter, the fields appearing, the emails landing, the taps and the export. Its event frames are copied from the scene files: change both together. Regenerate with `python3 scripts/music.py`.
+
+To use a stock track instead, replace the two files (same names) and check its licence covers paid social ads.
 
 ## Licence
 
