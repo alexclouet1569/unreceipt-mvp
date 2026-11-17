@@ -82,6 +82,11 @@ export function TextInput(props: React.ComponentProps<"input">) {
   return <input {...props} className={cn(inputClass, props.className)} />;
 }
 
+/** A native menu styled like the text fields. */
+export function SelectInput(props: React.ComponentProps<"select">) {
+  return <select {...props} className={cn(inputClass, "pr-3", props.className)} />;
+}
+
 /** Email input that offers a fix for common domain typos ("gmial.com"). */
 export function EmailInput({
   value,

@@ -357,7 +357,7 @@ const paperSv: Guide = {
     "Guiden förklarar reglerna översiktligt och är inte juridisk rådgivning. Fråga din redovisningskonsult om din egen situation.",
   cta: {
     title: "Fota kvittot – släng papperet när bilden är kontrollerad",
-    lead: "UnReceipt läser av kvittot, sparar bilden och kontrollerar varje kvitto inom 24 timmar.",
+    lead: "AI läser av kvittot på några sekunder och UnReceipt sparar bilden. Kontrollera att den är skarp innan du slänger papperet.",
     secondaryLabel: "Se demon",
   },
   relatedTitle: "Läs mer",

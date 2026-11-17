@@ -361,7 +361,6 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
             userEmail="maja@nordljusdesign.se"
             receipts={receipts}
             forwardingEmail="receipts+nordljus@in.unreceipt.com"
-            intakeSmsNumber={null}
           />
         </>
       ) : step === 3 ? (

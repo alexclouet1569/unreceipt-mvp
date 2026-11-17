@@ -86,7 +86,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
     },
     footer: {
       tagline:
-        "Kontrollerade kvitton för småföretag, enskilda firmor och deras redovisningsbyråer. Paper is Past.",
+        "Kvitton med momsen klar för småföretag, enskilda firmor och deras redovisningsbyråer. Paper is Past.",
       product: "Produkt",
       demo: "Demo",
       faq: "Vanliga frågor",
@@ -118,7 +118,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
     },
     footer: {
       tagline:
-        "Des justificatifs vérifiés pour les TPE, les indépendants et leurs experts-comptables. Le papier, c’est du passé.",
+        "Des justificatifs avec la TVA relevée pour les TPE, les indépendants et leurs experts-comptables. Le papier, c’est du passé.",
       product: "Produit",
       demo: "Démo",
       faq: "FAQ",

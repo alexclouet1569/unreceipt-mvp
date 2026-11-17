@@ -20,26 +20,26 @@ export const SITE_URL = "https://unreceipt.com";
 export const TITLE = "Receipt App for Small Businesses & Accountants | UnReceipt";
 
 export const DESCRIPTION =
-  "Snap or forward any receipt. UnReceipt turns it into a VAT-ready record within 24 hours, shared with your accountant. For small businesses, freelancers and accounting firms.";
+  "Snap or forward any receipt. AI reads it into a VAT-ready record in seconds; you confirm it and your accountant sees it. For small businesses, freelancers and accounting firms.";
 
 export const SHARE_DESCRIPTION =
-  "Snap or forward any receipt and get a VAT-ready record within 24 hours — for small businesses, freelancers and their accountants.";
+  "Snap a receipt and AI reads it in seconds; email receipts arrive on their own. VAT-ready for small businesses, freelancers and their accountants.";
 
 export const SV_TITLE = "Kvittohantering för småföretag och redovisningsbyråer | UnReceipt";
 
 export const SV_DESCRIPTION =
-  "Fota eller vidarebefordra kvitton. UnReceipt gör varje kvitto till ett kontrollerat underlag med momsen uppdelad inom 24 timmar, redo för din redovisningsbyrå. För småföretag, enskild firma och byråer.";
+  "Fota eller vidarebefordra kvitton. AI läser av varje kvitto på sekunder med momsen uppdelad, du bekräftar och redovisningsbyrån ser det. För småföretag, enskild firma och byråer.";
 
 export const SV_SHARE_DESCRIPTION =
-  "Skicka vilket kvitto som helst — mejl eller foto — och få ett kontrollerat underlag inom 24 timmar, redo för din redovisningsbyrå.";
+  "Fota kvittot så läser AI av det på några sekunder, och e-postkvittona kommer av sig själva — med momsen klar för din redovisningsbyrå.";
 
 export const FR_TITLE = "Gestion des justificatifs pour TPE et experts-comptables | UnReceipt";
 
 export const FR_DESCRIPTION =
-  "Photographiez vos tickets ou transférez vos reçus par e-mail. UnReceipt en fait des justificatifs vérifiés sous 24 h, TVA relevée, prêts pour votre expert-comptable. Pour TPE, indépendants et cabinets.";
+  "Photographiez vos tickets ou transférez vos reçus par e-mail. L’IA les lit en quelques secondes, TVA relevée, vous confirmez et votre expert-comptable les voit. Pour TPE, indépendants et cabinets.";
 
 export const FR_SHARE_DESCRIPTION =
-  "Envoyez n’importe quel reçu — e-mail ou photo — et retrouvez-le vérifié sous 24 heures, prêt pour votre expert-comptable.";
+  "Photographiez un ticket, l’IA le lit en quelques secondes\u00a0; vos reçus par e-mail arrivent tout seuls, TVA relevée pour votre expert-comptable.";
 
 /** Open Graph locale per site language. */
 const OG_LOCALE: Record<Locale, string> = { en: "en_US", sv: "sv_SE", fr: "fr_FR" };
@@ -244,27 +244,27 @@ export function landingJsonLd(pilotMode: boolean, locale: Locale = "en", showPri
 const FEATURES: Record<Locale, string[]> = {
   en: [
     "Private email address per company for forwarded receipts",
-    "Photo capture with automatic field extraction",
+    "Photo capture with AI field extraction in seconds",
     "VAT amount and rate recorded for every receipt",
-    "Every receipt checked within 24 hours",
+    "Email receipts read as they arrive, forwarded or from a connected Gmail or Outlook mailbox",
     "Foreign-currency receipts converted at the ECB reference rate",
     "Accounting-firm portal with per-client review and monthly export",
     "ZIP export with CSV, PDFs and original files",
   ],
   sv: [
     "Privat e-postadress per företag för vidarebefordrade kvitton",
-    "Fota kvitton, fälten fylls i automatiskt",
+    "Fota kvitton, AI fyller i fälten på några sekunder",
     "Momsbelopp och momssats för varje kvitto",
-    "Varje kvitto kontrolleras inom 24 timmar",
+    "E-postkvitton läses av när de kommer, vidarebefordrade eller från en ansluten Gmail- eller Outlook-inkorg",
     "Utländska kvitton räknas om med ECB:s referenskurs",
     "Byråportal med granskning per klient och månadsexport med BAS-kontoförslag",
     "ZIP-export med CSV, PDF:er och originalfiler",
   ],
   fr: [
     "Adresse e-mail privée par entreprise pour les reçus transférés",
-    "Photo des tickets avec remplissage automatique",
+    "Photo des tickets, champs remplis par l’IA en quelques secondes",
     "Montant et taux de TVA relevés pour chaque reçu",
-    "Chaque reçu vérifié sous 24 heures",
+    "Reçus par e-mail lus dès leur arrivée, transférés ou depuis une boîte Gmail ou Outlook connectée",
     "Reçus en devises convertis au taux de référence de la BCE",
     "Portail cabinet avec revue par client et export mensuel",
     "Export ZIP avec CSV, PDF et fichiers d’origine",

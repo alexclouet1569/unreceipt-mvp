@@ -16,7 +16,6 @@ const renderDashboard = (showOnboarding: boolean) =>
       userEmail="owner@example.se"
       receipts={[]}
       forwardingEmail="receipts+abc@in.unreceipt.com"
-      intakeSmsNumber={null}
       showOnboarding={showOnboarding}
     />,
   );
@@ -69,10 +68,9 @@ describe("first-run onboarding", () => {
     expect(screen.getByText("Your inbox is empty")).toBeInTheDocument();
   });
 
-  it("isn't shown once done, and the empty state doesn't promise SMS without a number", () => {
+  it("isn't shown once done", () => {
     renderDashboard(false);
     expect(screen.queryByText("Step 1 of 3")).toBeNull();
     expect(screen.getByText(/snap a paper one/)).toBeInTheDocument();
-    expect(screen.queryByText(/text us a photo/)).toBeNull();
   });
 });

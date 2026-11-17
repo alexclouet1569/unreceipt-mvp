@@ -15,6 +15,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { checkMayHaveCompany, FIRM_ACCOUNT, FIRM_ACCOUNT_MESSAGE } from "@/lib/account-roles";
+import { chosenCountry } from "@/lib/country";
 import { isInviteExpired } from "@/lib/firm/invites";
 import { sendLinkConfirmation } from "@/lib/firm/link-emails";
 import { isUuid } from "@/lib/require-firm";
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
   if ((await checkMayHaveCompany(user.id)) === "blocked") {
     return NextResponse.json({ error: FIRM_ACCOUNT, message: FIRM_ACCOUNT_MESSAGE }, { status: 409 });
   }
-  const organizationId = await getOrCreateDefaultOrganization(user.id);
+  const organizationId = await getOrCreateDefaultOrganization(user.id, { country: chosenCountry(user) });
   if (!organizationId) {
     return NextResponse.json({ error: "Couldn't set up your company. Try again." }, { status: 500 });
   }

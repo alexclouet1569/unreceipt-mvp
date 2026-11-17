@@ -102,7 +102,7 @@ describe("POST /api/accountant/respond", () => {
     const res = await respond({ inviteId: INVITE_ID, action: "accept", token: TOKEN });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, status: "active" });
-    expect(mocks.org).toHaveBeenCalledWith(USER.id);
+    expect(mocks.org).toHaveBeenCalledWith(USER.id, { country: null });
     expect(link()).toMatchObject({
       status: "active",
       organization_id: "org-1",

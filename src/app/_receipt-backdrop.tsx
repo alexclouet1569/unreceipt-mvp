@@ -86,7 +86,7 @@ const TEXT: Record<Locale, ReceiptText> = {
     lost: "Borttappade kvitton",
     chasing: "Timmar på kvittojakt",
     stress: "Stress totalt",
-    stamp: "✓ Kontrollerat",
+    stamp: "✓ Momsen klar",
   },
   fr: {
     currency: "€",
@@ -108,7 +108,7 @@ const TEXT: Record<Locale, ReceiptText> = {
     lost: "Tickets perdus",
     chasing: "Heures de relance",
     stress: "Stress total",
-    stamp: "✓ Vérifié",
+    stamp: "✓ TVA relevée",
   },
 };
 

@@ -10,7 +10,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import type { User } from "@supabase/supabase-js";
-import { guessCountry } from "@/lib/country";
+import { chosenCountry, guessCountry } from "@/lib/country";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkSubscriptionGate } from "@/lib/subscription-gate";
 import { buildForwardingAddress, getOrCreateAliasForUser } from "@/lib/email-alias";
@@ -214,13 +214,16 @@ async function readDefaultOrganization(userId: string): Promise<{ id: string; cu
 }
 
 /**
- * The country of a company created on this load: guessed from the user's
- * own request (website or iPhone app; src/lib/country.ts). Most companies
- * are created here; one made first by another flow (accepting an
- * accountant's invite, a firm's join link, "Not me" on firm-join) starts
- * Swedish as before. Null when nothing says.
+ * The country of a company created on this load: what the person picked
+ * at sign-up on the website (user_metadata.country), else guessed from
+ * their own request (website or iPhone app; src/lib/country.ts). Most
+ * companies are created here; one made first by another flow (an
+ * accountant invite, a firm's join link, "Not me" on firm-join) takes the
+ * sign-up choice too, else starts Swedish. Null when nothing says.
  */
 async function newCompanyCountry(user: User): Promise<string | null> {
+  const chosen = chosenCountry(user);
+  if (chosen) return chosen;
   try {
     const h = await headers();
     return guessCountry({

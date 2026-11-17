@@ -80,11 +80,6 @@ export default async function AppPage({ searchParams }: AppPageProps) {
   // A company added this address to its team: offered on /app, joined on /app/team-join.
   const teamInvites = team === null || team.role === "owner" ? await findWaitingTeamInvites(user) : [];
 
-  // Shared concierge SMS/WhatsApp line (step 7). When unset, the empty
-  // state degrades to email-only — production should set this once the
-  // Twilio number is provisioned.
-  const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER ?? null;
-
   const inStoreApp = Boolean(await getNativeApp());
 
   // "Connect your email" (Gmail / Outlook) leads the first-run step and the
@@ -105,7 +100,6 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       userEmail={user.email ?? ""}
       receipts={receipts}
       forwardingEmail={forwardingEmail}
-      intakeSmsNumber={intakeSmsNumber}
       showOnboarding={showOnboarding}
       accountantInvites={accountantInvites}
       homeCurrency={homeCurrency}

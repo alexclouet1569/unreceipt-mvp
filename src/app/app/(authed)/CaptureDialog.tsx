@@ -58,6 +58,9 @@ import {
 
 type CaptureDialogProps = {
   open: boolean;
+  // The company's currency: a receipt typed in by hand starts in it. A
+  // photo's own currency replaces it once read.
+  homeCurrency?: string;
   onOpenChange: (open: boolean) => void;
   // Called after a receipt was saved (before the dialog closes).
   onSaved?: () => void;
@@ -71,9 +74,11 @@ type Stage = "choose" | "reading" | "review" | "saved" | "batch";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// The receipt's own currency comes from OCR. Without a photo, guess from
-// the phone's language/region: SEK for Sweden, EUR otherwise.
-const defaultCurrency = (): CurrencyCode => {
+// The receipt's own currency comes from OCR. Without a photo: the
+// company's currency, else a guess from the phone's language/region (SEK
+// for Sweden, EUR otherwise).
+const defaultCurrency = (home?: string): CurrencyCode => {
+  if (home && (CURRENCY_OPTIONS as readonly string[]).includes(home)) return home as CurrencyCode;
   if (typeof navigator === "undefined") return "EUR";
   return /^sv\b|-SE$/i.test(navigator.language) ? "SEK" : "EUR";
 };
@@ -94,10 +99,10 @@ type FormState = {
   notes: string;
 };
 
-const blankForm = (): FormState => ({
+const blankForm = (home?: string): FormState => ({
   merchant: "",
   amount: "",
-  currency: defaultCurrency(),
+  currency: defaultCurrency(home),
   date: today(),
   category: "other",
   taxAmount: "",
@@ -139,7 +144,7 @@ const writeIncludeVat = (value: boolean) => {
 const UNREADABLE_MESSAGE =
   "We couldn't read this photo. It's still attached, so just fill in the details below.";
 
-export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProps) {
+export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: CaptureDialogProps) {
   const router = useRouter();
   // Two hidden inputs: "Upload" opens the file/gallery picker and "Take
   // photo" opens the camera via `capture="environment"`. One input with
@@ -187,7 +192,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // The Save button unmounts when the receipt is saved; focus moves here.
   const doneButtonRef = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState<Stage>("choose");
-  const [form, setForm] = useState<FormState>(blankForm);
+  const [form, setForm] = useState<FormState>(() => blankForm(homeCurrency));
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -195,6 +200,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // Why the photo didn't fill the form (or was refused). Shown as an
   // attention notice so the customer knows to type the fields.
   const [ocrError, setOcrError] = useState<string | null>(null);
+  // The photo's currency when the app doesn't handle it (JPY, CAD…): its
+  // amounts were left empty, and the sheet says why.
+  const [unhandledCurrency, setUnhandledCurrency] = useState<string | null>(null);
   // True once OCR filled the form, so the review says where values came from.
   const [ocrFilled, setOcrFilled] = useState(false);
   // True while the VAT amount is ours (worked out from the rate), so a
@@ -232,12 +240,13 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       setStage("choose");
       setBatchFiles(null);
       setBatchBusy(false);
-      setForm(blankForm());
+      setForm(blankForm(homeCurrency));
       setImageFile(null);
       setImagePreview(null);
       setSaving(false);
       setSaveError(null);
       setOcrError(null);
+      setUnhandledCurrency(null);
       setOcrFilled(false);
       setTaxAuto(false);
       setShowNotes(false);
@@ -322,6 +331,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     stagedRef.current = null;
     setStage("reading");
     setOcrError(null);
+    setUnhandledCurrency(null);
     setOcrFilled(false);
     const applied: OcrApplied = new Map();
     try {
@@ -421,8 +431,25 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
       if (mayWrite) applied.set(field, value);
     };
     if (typeof data.merchant === "string" && data.merchant.trim()) offer("merchant", data.merchant, true);
-    if (isFiniteNumber(data.amount)) offer("amount", data.amount.toFixed(2), true);
-    if (isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) offer("taxAmount", data.tax_amount.toFixed(2), true);
+    // A currency the app doesn't handle (¥, C$…): its amounts must not sit
+    // next to one of ours ("4 500" ¥ saved as 4 500 kr). They stay empty,
+    // and one shown before the currency was read is taken back.
+    const foreignOnly =
+      typeof data.currency === "string" &&
+      data.currency.trim() !== "" &&
+      !(CURRENCY_OPTIONS as readonly string[]).includes(data.currency);
+    if (foreignOnly) {
+      setUnhandledCurrency((data.currency as string).trim().toUpperCase().slice(0, 3));
+      for (const field of ["amount", "taxAmount"] as const) {
+        const ours = applied.get(field);
+        if (ours !== undefined && current[field] === ours) patch[field] = "";
+        applied.delete(field);
+      }
+    }
+    if (!foreignOnly && isFiniteNumber(data.amount)) offer("amount", data.amount.toFixed(2), true);
+    if (!foreignOnly && isFiniteNumber(data.tax_amount) && data.tax_amount >= 0) {
+      offer("taxAmount", data.tax_amount.toFixed(2), true);
+    }
     if (isFiniteNumber(data.tax_rate) && data.tax_rate >= 0 && data.tax_rate <= 100) {
       offer("taxRate", String(data.tax_rate), true);
     }
@@ -450,7 +477,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
   // changed it since: the answer those values came from was refused.
   const withdrawOcrFields = (applied: OcrApplied) => {
     const current = formRef.current;
-    const blank = blankForm();
+    const blank = blankForm(homeCurrency);
     const patch: Partial<FormState> = {};
     for (const [field, value] of applied) {
       if (current[field] === value) Object.assign(patch, { [field]: blank[field] });
@@ -468,6 +495,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     e.target.value = "";
     if (!picked) return;
     setOcrError(null);
+    setUnhandledCurrency(null);
     // Shrink phone photos before anything leaves the device (faster on
     // mobile data, cheaper OCR, under the upload cap). PDFs pass through.
     const f = await prepareImageForUpload(picked);
@@ -503,6 +531,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
     setImageFile(null);
     setImagePreview(null);
     setOcrError(null);
+    setUnhandledCurrency(null);
     setOcrFilled(false);
     setItems(null);
   };
@@ -646,6 +675,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             onSeveral={() => severalInputRef.current?.click()}
             onManual={() => {
               setOcrError(null);
+              setUnhandledCurrency(null);
               setStage("review");
             }}
           />
@@ -684,8 +714,13 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
               }
             >
               {ocrError ? <Notice>{ocrError}</Notice> : null}
+              {!ocrError && unhandledCurrency ? (
+                <Notice>
+                  {`This receipt is in ${unhandledCurrency}, which UnReceipt can't convert yet. Type the amount from your bank statement and pick its currency.`}
+                </Notice>
+              ) : null}
 
-              <div className={`flex items-end gap-4 ${ocrError ? "mt-4" : ""}`}>
+              <div className={`flex items-end gap-4 ${ocrError || unhandledCurrency ? "mt-4" : ""}`}>
                 {imageFile ? (
                   <PhotoThumb
                     imagePreview={imagePreview}
@@ -971,6 +1006,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved }: CaptureDialogProp
             e.target.value = "";
             if (files.length === 0) return;
             setOcrError(null);
+            setUnhandledCurrency(null);
             setBatchFiles(files);
             setStage("batch");
           }}

@@ -45,8 +45,8 @@ export async function getDefaultOrganizationId(
  * repairs it instead of leaving a company nobody owns.
  *
  * `country`: the company's country when the caller knows it from the
- * user's own request (src/lib/country.ts, guessed in loadHome()); the
- * currency follows it. Without it the company starts Swedish (the column
+ * user's own choice at sign-up (chosenCountry()) or own request (guessed
+ * in loadHome(), src/lib/country.ts); the currency follows it. Without it the company starts Swedish (the column
  * defaults). Never pass a guess made from someone else's request (a
  * webhook, the admin form, a cron job): it would be that sender's country.
  */

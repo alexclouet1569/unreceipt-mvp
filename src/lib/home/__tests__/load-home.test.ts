@@ -205,6 +205,21 @@ describe("loadHome", () => {
     expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id, { country: "SE" });
   });
 
+  it("creates a new company in the country chosen at sign-up, before any guess", async () => {
+    m.requestHeaders = new Headers({ "accept-language": "sv-SE", "x-vercel-ip-country": "SE" });
+    m.tables.organizations = { data: null, error: null };
+    m.getOrCreateDefaultOrganization.mockResolvedValue("org-new");
+    m.homeCurrencyOf.mockResolvedValue("CHF");
+    const user = { ...USER, user_metadata: { country: "CH" } } as unknown as User;
+    await loadHome(user, null);
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id, { country: "CH" });
+    // A made-up value is no answer: the guess decides.
+    m.getOrCreateDefaultOrganization.mockClear();
+    await loadHome({ ...USER, user_metadata: { country: "ZZ" } } as unknown as User, null);
+    expect(m.getOrCreateDefaultOrganization).toHaveBeenCalledWith(USER.id, { country: "SE" });
+    m.requestHeaders = new Headers();
+  });
+
   it("creates a new company in the country the user's own request shows", async () => {
     m.requestHeaders = new Headers({ "accept-language": "pl-PL,pl;q=0.9", "x-vercel-ip-country": "DE" });
     m.tables.organizations = { data: null, error: null };

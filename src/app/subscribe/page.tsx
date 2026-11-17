@@ -43,8 +43,8 @@ export default async function SubscribePage({
   const trial = !billing?.hadSubscription;
   const bullets = [
     ...(trial ? ["First week free on every plan"] : []),
-    "Forward receipts to your private address",
-    "VAT-ready records in your dashboard within 24h",
+    "Snap or forward receipts: AI reads them in seconds",
+    "VAT split out, ready for your accountant",
     "Cancel anytime — no questions asked",
   ];
 
@@ -55,9 +55,9 @@ export default async function SubscribePage({
           <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mx-auto mb-3">
             <Receipt className="w-6 h-6 text-primary-foreground" />
           </div>
-          <h1 className="text-xl font-bold">UnReceipt Concierge</h1>
+          <h1 className="text-xl font-bold">UnReceipt</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Forward any receipt — we make it VAT-ready
+            Snap or forward any receipt — AI makes it VAT-ready
           </p>
         </div>
 

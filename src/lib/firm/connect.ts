@@ -15,6 +15,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { getDefaultOrganizationId, getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { chosenCountry } from "@/lib/country";
 import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
 import { checkMayHaveCompany } from "@/lib/account-roles";
 import { sendLinkConfirmation } from "./link-emails";
@@ -107,7 +108,7 @@ export async function connectToFirm(user: User, target: JoinTarget): Promise<Con
   if (blocked) {
     return { ok: false, reason: blocked.kind as "unconfirmed" | "join_firm_first" | "own_firm" | "firm_account" };
   }
-  const organizationId = await getOrCreateDefaultOrganization(user.id);
+  const organizationId = await getOrCreateDefaultOrganization(user.id, { country: chosenCountry(user) });
   if (!organizationId) return { ok: false, reason: "failed" };
   const active = await activeLinkOf(organizationId);
   if (active) return { ok: false, reason: active.firmId === target.firmId ? "already" : "other_firm" };

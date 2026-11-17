@@ -11,10 +11,12 @@
 //   2. The country domain of the sign-in address (".se", ".pl", ".co.uk").
 //   3. Where the request comes from (Vercel's x-vercel-ip-country), which
 //      is wrong for travellers and VPNs, hence last.
-// Nothing → null, and the company starts Swedish as before. The owner can
-// change the currency in Settings; picking a currency only one country
-// uses (SEK, PLN…) also moves the company to that country
-// (countryForCurrency), so a wrong guess is fixed in one place.
+// Nothing → null, and the company starts Swedish as before.
+//
+// On the website the person picks the country at sign-up (founder decision
+// 2026-11-17: ask, pre-filled with this guess); that answer comes first
+// (loadHome()). The owner can change the company's currency in Settings;
+// that never changes the country.
 
 import { DEFAULT_CURRENCY_BY_COUNTRY, FALLBACK_HOME_CURRENCY } from "@/lib/bookkeeping/rules";
 
@@ -35,6 +37,30 @@ const ISO_COUNTRIES = new Set(
   ).split(" ")
 );
 const known = (c: string | null | undefined): string | null => (c && ISO_COUNTRIES.has(c) ? c : null);
+
+/** A real ISO 3166 country code (e.g. from the sign-up form's metadata). */
+export function isCountryCode(value: unknown): value is string {
+  return typeof value === "string" && ISO_COUNTRIES.has(value);
+}
+
+/**
+ * The country the person chose at sign-up on the website, or null. Every
+ * flow that creates the user's own company passes it on, so an invite or a
+ * firm's join link opened before /app keeps the choice.
+ */
+export function chosenCountry(user: { user_metadata?: Record<string, unknown> | null }): string | null {
+  const c = user.user_metadata?.country;
+  return isCountryCode(c) ? c : null;
+}
+
+// The countries the sign-up form offers: Europe (every country with its
+// own default currency, and those whose currency has no ECB rate) and the
+// US. Anyone else picks "Another country" and gets the guess.
+export const SIGNUP_COUNTRIES: readonly string[] = [
+  "AD", "AL", "AT", "BA", "BE", "BG", "BY", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FO", "FR", "GB",
+  "GL", "GR", "HR", "HU", "IE", "IS", "IT", "LI", "LT", "LU", "LV", "MC", "MD", "ME", "MK", "MT", "NL", "NO",
+  "PL", "PT", "RO", "RS", "SE", "SI", "SK", "SM", "TR", "UA", "US", "VA", "XK",
+];
 
 // Languages spoken as the main language of one country only.
 const LANGUAGE_COUNTRY: Record<string, string> = {
@@ -88,22 +114,4 @@ export function guessCountry({ ipCountry, acceptLanguage, email }: CountryHints)
 /** The currency a company in `country` starts with. */
 export function defaultCurrencyFor(country: string): string {
   return DEFAULT_CURRENCY_BY_COUNTRY[country] ?? FALLBACK_HOME_CURRENCY;
-}
-
-// Company currencies used by one country only (CHF: Switzerland rather
-// than Liechtenstein). EUR and USD say nothing about the country.
-const CURRENCY_COUNTRY: Record<string, string> = {
-  SEK: "SE", NOK: "NO", DKK: "DK", ISK: "IS", GBP: "GB", CHF: "CH", PLN: "PL", CZK: "CZ", HUF: "HU",
-  RON: "RO", TRY: "TR",
-};
-
-/**
- * The country a company moves to when its owner picks `currency` as the
- * company's currency, or null to leave it: only when the currency belongs
- * to one country and the company's current country uses another.
- */
-export function countryForCurrency(currency: string, currentCountry: string): string | null {
-  const country = CURRENCY_COUNTRY[currency];
-  if (!country) return null;
-  return defaultCurrencyFor(currentCountry) === currency ? null : country;
 }
