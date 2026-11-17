@@ -1,5 +1,6 @@
 import { Composition } from "remotion";
 import { Ad } from "./Ad";
+import { HERO_FRAMES, HeroLoop } from "./hero/HeroLoop";
 import { CUT_15, CUT_30, FORMATS, FPS, totalFrames } from "./timings";
 
 export function RemotionRoot() {
@@ -19,6 +20,8 @@ export function RemotionRoot() {
           />
         )),
       )}
+      {/* The website's silent hero loop (src/app/_hero-video.tsx). */}
+      <Composition id="HeroLoop" component={HeroLoop} durationInFrames={HERO_FRAMES} fps={FPS} width={1080} height={1080} />
     </>
   );
 }
