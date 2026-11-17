@@ -8,7 +8,18 @@
 // Manrope. The wordmark is live text (not an image) so it shows even when
 // images are blocked.
 
+import { emailSiteUrl, type SiteLocale } from "./site-link";
+import type { EmailTag } from "./tags";
+
 export type EmailContent = { subject: string; html: string; text: string };
+
+/** The footer's link to unreceipt.com: which site, and this email's flow. */
+type SiteLink = { locale: SiteLocale; campaign: EmailTag };
+
+/** The same link at the end of the text part. */
+function withSiteText(text: string, site: SiteLink): string {
+  return `${text}\n\nunreceipt.com: ${emailSiteUrl(site.locale, site.campaign)}`;
+}
 
 const C = {
   surface: "#FAFAF7",
@@ -63,7 +74,12 @@ function step(n: number, title: string, bodyHtml: string): string {
 </tr>`;
 }
 
-function layout(opts: { preheader: string; bodyHtml: string; footerHtml: string }): string {
+// `site`: the footer's link to unreceipt.com (null only for the founder's
+// own digest). Every email someone else receives carries it.
+function layout(opts: { preheader: string; bodyHtml: string; footerHtml: string; site: SiteLink | null }): string {
+  const brandLine = opts.site
+    ? `<a href="${esc(emailSiteUrl(opts.site.locale, opts.site.campaign))}" style="color:${C.inkFaint};text-decoration:underline;">unreceipt.com</a> &middot; Paper is Past`
+    : "UnReceipt &middot; Paper is Past";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,7 +107,7 @@ function layout(opts: { preheader: string; bodyHtml: string; footerHtml: string 
         <tr>
           <td style="padding:20px 4px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:${C.inkFaint};">
             ${opts.footerHtml}
-            <br>UnReceipt &middot; Paper is Past
+            <br>${brandLine}
           </td>
         </tr>
       </table>
@@ -142,15 +158,17 @@ export function waitlistEmail(opts: {
     sign.html,
   ].join("\n");
 
+  const site: SiteLink = { locale: "en", campaign: "waitlist" };
   return {
     subject: "You're on the UnReceipt list",
     html: layout({
+      site,
       preheader: "We'll email you once, when UnReceipt opens in your country.",
       bodyHtml,
       footerHtml:
         "You're receiving this because this address was entered on unreceipt.com. If that wasn't you, ignore this email — you won't hear from us again.",
     }),
-    text: [
+    text: withSiteText([
       "Thanks — you're on the list",
       "",
       "We saw that you'd like to hear when UnReceipt opens in your country. You're on the list, and we'll email you once, when it does. No newsletter.",
@@ -163,7 +181,7 @@ export function waitlistEmail(opts: {
       "",
       "—",
       "You're receiving this because this address was entered on unreceipt.com. If that wasn't you, ignore this email.",
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
@@ -172,6 +190,8 @@ export function waitlistEmail(opts: {
 // ---------------------------------------------------------------------------
 
 export function pilotWelcomeEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
   firstName: string | null;
   appUrl: string;
   forwardingAddress: string | null;
@@ -223,14 +243,16 @@ export function pilotWelcomeEmail(opts: {
     sign.html,
   ].join("\n");
 
+  const site: SiteLink = { locale: opts.site, campaign: "pilot_welcome" };
   return {
     subject: opts.pilotMode ? "Welcome to the UnReceipt pilot" : "Welcome to UnReceipt",
     html: layout({
+      site,
       preheader: "Here's how to get your first receipt in — it takes under a minute.",
       bodyHtml,
       footerHtml: "You're receiving this because you just created an UnReceipt account.",
     }),
-    text: [
+    text: withSiteText([
       `${hey}, welcome aboard`,
       "",
       `${joined} Here's how to get your first receipt in:`,
@@ -243,7 +265,7 @@ export function pilotWelcomeEmail(opts: {
       ...(pilotNote ? ["", pilotNote] : []),
       "",
       sign.text,
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
@@ -253,6 +275,8 @@ export function pilotWelcomeEmail(opts: {
 // ---------------------------------------------------------------------------
 
 export function retentionReminderEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
   endedOn: string;
   deleteOn: string;
   settingsUrl: string;
@@ -278,15 +302,17 @@ export function retentionReminderEmail(opts: {
     sign.html,
   ].join("\n");
 
+  const site: SiteLink = { locale: opts.site, campaign: "retention_reminder" };
   return {
     subject: `Your UnReceipt receipts will be deleted on ${opts.deleteOn}`,
     html: layout({
+      site,
       preheader: `Download your receipts before ${opts.deleteOn}.`,
       bodyHtml,
       footerHtml:
         "You're receiving this because your UnReceipt subscription ended. It's the only reminder we send before deletion.",
     }),
-    text: [
+    text: withSiteText([
       `Your receipts will be deleted on ${opts.deleteOn}`,
       "",
       intro,
@@ -300,7 +326,7 @@ export function retentionReminderEmail(opts: {
       `${stay} ${opts.subscribeUrl}`,
       "",
       sign.text,
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
@@ -309,7 +335,7 @@ export function retentionReminderEmail(opts: {
 // someone who opened it on a phone (Gmail/Outlook rules need a computer)
 // ---------------------------------------------------------------------------
 
-export function forwardingSetupEmail(opts: { url: string }): EmailContent {
+export function forwardingSetupEmail(opts: { site: SiteLocale; url: string }): EmailContent {
   const intro =
     "Here's the link to set up automatic forwarding. Open it on a computer: Gmail and Outlook only let you create forwarding rules in a browser. It takes about 3 minutes, and after that your email receipts arrive in UnReceipt by themselves.";
   const bodyHtml = [
@@ -317,14 +343,16 @@ export function forwardingSetupEmail(opts: { url: string }): EmailContent {
     paragraph(esc(intro)),
     button("Open the setup", opts.url),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "forwarding_setup" };
   return {
     subject: "Your UnReceipt forwarding setup link",
     html: layout({
+      site,
       preheader: "Open it on a computer: about 3 minutes.",
       bodyHtml,
       footerHtml: "You're receiving this because you asked for the link in UnReceipt.",
     }),
-    text: ["Finish setting up forwarding", "", intro, "", `Open the setup: ${opts.url}`].join("\n"),
+    text: withSiteText(["Finish setting up forwarding", "", intro, "", `Open the setup: ${opts.url}`].join("\n"), site),
   };
 }
 
@@ -333,6 +361,8 @@ export function forwardingSetupEmail(opts: { url: string }): EmailContent {
 // ---------------------------------------------------------------------------
 
 export function firmInviteEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
   firmName: string;
   clientName: string;
   url: string;
@@ -355,14 +385,16 @@ export function firmInviteEmail(opts: {
       ? [paragraph(`On iPhone? <a href="${esc(opts.appUrl)}" style="color:${C.ink};">Get the UnReceipt app</a> and sign in with this address: the invite will be waiting.`)]
       : []),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "firm_invite" };
   return {
     subject: title,
     html: layout({
+      site,
       preheader: `Share your receipts with ${firm}.`,
       bodyHtml,
       footerHtml: `Sent because ${esc(firm)} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
     }),
-    text: [
+    text: withSiteText([
       title,
       "",
       intro,
@@ -373,12 +405,12 @@ export function firmInviteEmail(opts: {
       ...(opts.appUrl ? ["", `${onIphone} ${opts.appUrl}`] : []),
       "",
       `Sent because ${firm} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
 /** A client company asks its accountant to take its receipts (2026-11-05). */
-export function clientRequestEmail(opts: { clientName: string; url: string }): EmailContent {
+export function clientRequestEmail(opts: { site: SiteLocale; clientName: string; url: string }): EmailContent {
   const client = opts.clientName.trim() || "A client";
   const title = `${client} wants to share their receipts with you`;
   const intro = `${client} uses UnReceipt for their receipts. Accept, and you'll see all of them, checked and ready for your bookkeeping.`;
@@ -389,14 +421,16 @@ export function clientRequestEmail(opts: { clientName: string; url: string }): E
     button("Accept", opts.url),
     paragraph(esc(newHere)),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "client_request" };
   return {
     subject: title,
     html: layout({
+      site,
       preheader: `Accept to see ${client}'s receipts.`,
       bodyHtml,
       footerHtml: `Sent because ${esc(client)} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
     }),
-    text: [
+    text: withSiteText([
       title,
       "",
       intro,
@@ -406,12 +440,12 @@ export function clientRequestEmail(opts: { clientName: string; url: string }): E
       newHere,
       "",
       `Sent because ${client} entered this address. If you weren't expecting it, ignore this email and nothing happens.`,
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
 /** Sent to the client whenever a firm starts seeing their receipts. */
-export function linkConfirmationEmail(opts: { firmName: string; settingsUrl: string }): EmailContent {
+export function linkConfirmationEmail(opts: { site: SiteLocale; firmName: string; settingsUrl: string }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const title = `${firm} now sees your receipts`;
   const intro = `From now on, ${firm} sees all your receipts and does your bookkeeping. On Mondays they may send you a reminder of missing receipts; you can turn it off in Settings. If you didn't agree to this, stop sharing in Settings.`;
@@ -420,21 +454,23 @@ export function linkConfirmationEmail(opts: { firmName: string; settingsUrl: str
     paragraph(esc(intro)),
     button("Open Settings", opts.settingsUrl),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "link_confirmation" };
   return {
     subject: title,
     html: layout({
+      site,
       preheader: intro,
       bodyHtml,
       footerHtml: "You get this email whenever someone new can see your receipts.",
     }),
-    text: [title, "", intro, "", `Settings: ${opts.settingsUrl}`].join("\n"),
+    text: withSiteText([title, "", intro, "", `Settings: ${opts.settingsUrl}`].join("\n"), site),
   };
 }
 
 // The other half of linkConfirmationEmail: a firm the client was linked to
 // closed its UnReceipt account (its last person deleted their account,
 // src/lib/firm/account-exit.ts), so it no longer sees the receipts.
-export function firmClosedEmail(opts: { firmName: string; settingsUrl: string }): EmailContent {
+export function firmClosedEmail(opts: { site: SiteLocale; firmName: string; settingsUrl: string }): EmailContent {
   const firm = opts.firmName.trim() || "Your accounting firm";
   const title = `${firm} no longer sees your receipts`;
   const intro = `${firm} has deleted its UnReceipt account, so the link between you has ended. They can't see or export your receipts any more.`;
@@ -446,14 +482,16 @@ export function firmClosedEmail(opts: { firmName: string; settingsUrl: string })
     paragraph(esc(after)),
     button("Open Settings", opts.settingsUrl),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "firm_closed" };
   return {
     subject: title,
     html: layout({
+      site,
       preheader: intro,
       bodyHtml,
       footerHtml: "You get this email whenever someone stops seeing your receipts.",
     }),
-    text: [title, "", intro, "", after, "", `Settings: ${opts.settingsUrl}`].join("\n"),
+    text: withSiteText([title, "", intro, "", after, "", `Settings: ${opts.settingsUrl}`].join("\n"), site),
   };
 }
 
@@ -472,6 +510,8 @@ export function bankTextForEmail(text: string): string {
 }
 
 export function missingReceiptsEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
   firmName: string;
   clientName: string;
   monthLabel: string;
@@ -509,14 +549,16 @@ export function missingReceiptsEmail(opts: {
     paragraph(esc(how)),
     button("Add receipts", opts.appUrl),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "missing_receipts" };
   return {
     subject: `${title} — ${firm}`,
     html: layout({
+      site,
       preheader: intro,
       bodyHtml,
       footerHtml: `${esc(firm)} sent this through UnReceipt. Reply to this email to answer them.`,
     }),
-    text: [
+    text: withSiteText([
       title,
       "",
       intro,
@@ -529,7 +571,7 @@ export function missingReceiptsEmail(opts: {
       `Add receipts: ${opts.appUrl}`,
       "",
       `${firm} sent this through UnReceipt. Reply to this email to answer them.`,
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
@@ -540,6 +582,10 @@ export const WEEKLY_EMAIL_PAYMENTS = 25;
 export const WEEKLY_EMAIL_RECEIPTS = 15;
 
 export function weeklyReminderEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
+  /** The Monday email, or the same sent by hand ("Send a reminder now"). */
+  campaign: "weekly_reminder" | "manual_reminder";
   firmName: string;
   clientName: string;
   payments: Array<{ day: string; description: string; amount: string }>;
@@ -629,20 +675,22 @@ export function weeklyReminderEmail(opts: {
   const footer = `${firm} sends this reminder on Mondays through UnReceipt while something is missing. Reply to this email to reach them.`;
   const stop = "To stop these weekly emails: Settings, Your accountant.";
   text.push(`Open UnReceipt: ${opts.appUrl}`, "", footer, `${stop} ${opts.settingsUrl}`);
+  const site: SiteLink = { locale: opts.site, campaign: opts.campaign };
   return {
     subject: title,
     html: layout({
+      site,
       preheader: intro,
       bodyHtml: html.join("\n"),
       footerHtml: `${esc(footer)}<br><a href="${esc(opts.settingsUrl)}" style="color:${C.inkFaint};">${esc(stop)}</a>`,
     }),
-    text: text.join("\n"),
+    text: withSiteText(text.join("\n"), site),
   };
 }
 
 // The founder set up an accounting firm for an accountant on /admin/pilot:
 // how to sign in to the firm portal with this address.
-export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }): EmailContent {
+export function firmWelcomeEmail(opts: { site: SiteLocale; firmName: string; signInUrl: string }): EmailContent {
   const firm = opts.firmName.trim() || "your firm";
   const title = `${firm} is ready on UnReceipt`;
   const intro = `Your firm portal is set up. Sign in with this email address to invite your clients, see their receipts as they arrive and export each month for your bookkeeping.`;
@@ -659,10 +707,11 @@ export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }):
     button("Open the firm portal", opts.signInUrl),
     signOff(true).html,
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "firm_welcome" };
   return {
     subject: title,
-    html: layout({ preheader: intro, bodyHtml, footerHtml: "You get this email because UnReceipt set up a firm portal for this address." }),
-    text: [
+    html: layout({ site, preheader: intro, bodyHtml, footerHtml: "You get this email because UnReceipt set up a firm portal for this address." }),
+    text: withSiteText([
       title,
       "",
       intro,
@@ -674,7 +723,7 @@ export function firmWelcomeEmail(opts: { firmName: string; signInUrl: string }):
       `Open the firm portal: ${opts.signInUrl}`,
       "",
       signOff(true).text,
-    ].join("\n"),
+    ].join("\n"), site),
   };
 }
 
@@ -875,6 +924,8 @@ export function signupDigestEmail(opts: {
   return {
     subject,
     html: layout({
+      // Only the founder reads it: no link to the site.
+      site: null,
       preheader: "Reach out while they still remember signing up.",
       bodyHtml,
       footerHtml: "Sent every night when someone signed up. Only you receive this.",
@@ -889,6 +940,8 @@ export function signupDigestEmail(opts: {
 
 /** An owner adds this address to the company's team. */
 export function teamInviteEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
   companyName: string;
   inviterName: string;
   url: string;
@@ -909,15 +962,16 @@ export function teamInviteEmail(opts: {
       ? [paragraph(`On iPhone? <a href="${esc(opts.appUrl)}" style="color:${C.ink};">Get the UnReceipt app</a> and sign in with this address after joining.`)]
       : []),
   ].join("\n");
+  const site: SiteLink = { locale: opts.site, campaign: "team_invite" };
   return {
     subject: title,
-    html: layout({ preheader: intro, bodyHtml, footerHtml: esc(footer) }),
-    text: [title, "", intro, "", `Join the team: ${opts.url}`, "", newHere, ...(opts.appUrl ? ["", `iPhone app: ${opts.appUrl}`] : []), "", footer].join("\n"),
+    html: layout({ site, preheader: intro, bodyHtml, footerHtml: esc(footer) }),
+    text: withSiteText([title, "", intro, "", `Join the team: ${opts.url}`, "", newHere, ...(opts.appUrl ? ["", `iPhone app: ${opts.appUrl}`] : []), "", footer].join("\n"), site),
   };
 }
 
 /** Receipts wait for the approver (sent only when the first one arrives). */
-export function approvalRequestEmail(opts: { employee: string; url: string }): EmailContent {
+export function approvalRequestEmail(opts: { site: SiteLocale; employee: string; url: string }): EmailContent {
   const who = opts.employee.trim() || "A colleague";
   const title = `${who} sent receipts for approval`;
   const intro = "Check them and approve, send back with a comment, or reject. Your accountant sees them once you approve.";
@@ -927,15 +981,18 @@ export function approvalRequestEmail(opts: { employee: string; url: string }): E
     button("Review receipts", opts.url),
   ].join("\n");
   const footer = "You get this email when receipts start waiting for you, not for every receipt.";
+  const site: SiteLink = { locale: opts.site, campaign: "approval_request" };
   return {
     subject: title,
-    html: layout({ preheader: intro, bodyHtml, footerHtml: esc(footer) }),
-    text: [title, "", intro, "", `Review receipts: ${opts.url}`, "", footer].join("\n"),
+    html: layout({ site, preheader: intro, bodyHtml, footerHtml: esc(footer) }),
+    text: withSiteText([title, "", intro, "", `Review receipts: ${opts.url}`, "", footer].join("\n"), site),
   };
 }
 
 /** The approver sent the employee's receipt back, or rejected it, with why. */
 export function approvalDecisionEmail(opts: {
+  /** Which unreceipt.com the footer links to: emailSiteLocale(). */
+  site: SiteLocale;
   decision: "sent_back" | "rejected";
   merchant: string | null;
   comment: string | null;
@@ -955,9 +1012,10 @@ export function approvalDecisionEmail(opts: {
     button("Open receipt", opts.url),
   ].join("\n");
   const footer = "You get this email when a receipt you sent needs you.";
+  const site: SiteLink = { locale: opts.site, campaign: "approval_decision" };
   return {
     subject: title,
-    html: layout({ preheader: said ?? next, bodyHtml, footerHtml: esc(footer) }),
-    text: [title, "", ...(said ? [said, ""] : []), next, "", `Open receipt: ${opts.url}`, "", footer].join("\n"),
+    html: layout({ site, preheader: said ?? next, bodyHtml, footerHtml: esc(footer) }),
+    text: withSiteText([title, "", ...(said ? [said, ""] : []), next, "", `Open receipt: ${opts.url}`, "", footer].join("\n"), site),
   };
 }

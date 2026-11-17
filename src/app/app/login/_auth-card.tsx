@@ -845,6 +845,13 @@ function SignUpPanel({
         <SubmitButton state={submit} loadingLabel="Creating your account…" doneLabel="Account created">
           Create account
         </SubmitButton>
+        {/* Invite and join links open here (Create account) for people
+            who most likely have no account; anyone who has one switches. */}
+        {alreadyRegistered ? null : (
+          <div className="flex justify-center -mt-2">
+            <TextLink onClick={onSignIn}>I already have an account</TextLink>
+          </div>
+        )}
         <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] text-center">
           We&apos;ll email you a code to confirm it&apos;s you. How we handle
           your data:{" "}

@@ -12,6 +12,7 @@ import {
 
 const welcome = (overrides: Partial<Parameters<typeof pilotWelcomeEmail>[0]> = {}) =>
   pilotWelcomeEmail({
+    site: "sv",
     firstName: "Alex",
     appUrl: "https://app.unreceipt.com/app",
     forwardingAddress: null,
@@ -50,7 +51,8 @@ describe("pilotWelcomeEmail", () => {
   it("drops pilot wording outside pilot mode", () => {
     const email = welcome({ pilotMode: false });
     expect(email.subject).toBe("Welcome to UnReceipt");
-    expect(email.text).not.toMatch(/pilot/i);
+    // The footer's link names the flow (utm_campaign=pilot_welcome); the words don't.
+    expect(email.text.replace(/^unreceipt\.com: .*$/m, "")).not.toMatch(/pilot/i);
   });
 
   it("only invites a reply when replies reach someone", () => {
@@ -162,6 +164,7 @@ describe("signupDigestEmail links", () => {
 describe("firmInviteEmail", () => {
   it("names the firm and the client, links the accept page and escapes HTML", () => {
     const email = firmInviteEmail({
+      site: "sv",
       firmName: "Byrån <AB>",
       clientName: "Acme AB",
       url: "https://app.unreceipt.com/app/accountant/accept?token=abc",
@@ -179,6 +182,7 @@ describe("firmInviteEmail", () => {
 describe("firmClosedEmail", () => {
   it("says the firm no longer sees the receipts, that they stay, and links to Settings", () => {
     const email = firmClosedEmail({
+      site: "en",
       firmName: "Bokföring <AB>",
       settingsUrl: "https://app.unreceipt.com/app/settings",
     });
@@ -194,6 +198,7 @@ describe("firmClosedEmail", () => {
 
 describe("missingReceiptsEmail", () => {
   const base = {
+    site: "sv" as const,
     firmName: "Byrån AB",
     clientName: "Acme AB",
     monthLabel: "November 2026",

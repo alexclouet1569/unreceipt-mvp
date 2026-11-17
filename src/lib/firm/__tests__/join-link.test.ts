@@ -44,7 +44,7 @@ describe("iosAppUrl", () => {
   });
 
   it("adds the app line to the invite email only when there is a link", () => {
-    const base = { firmName: "Byrån AB", clientName: "Nordljus AB", url: "https://app.unreceipt.com/app/accountant/accept?token=x" };
+    const base = { site: "sv" as const, firmName: "Byrån AB", clientName: "Nordljus AB", url: "https://app.unreceipt.com/app/accountant/accept?token=x" };
     expect(firmInviteEmail(base).text).not.toContain("iPhone");
     const withApp = firmInviteEmail({ ...base, appUrl: "https://apps.apple.com/app/id123" });
     expect(withApp.text).toContain("On iPhone? Get the UnReceipt app");

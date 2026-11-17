@@ -27,6 +27,15 @@ import { parseNativeApp } from "@/lib/native-app";
  * redirects back to /app/login. Validate via getUser() before any
  * redirect, and signOut() to clear cookies on validation failure.
  */
+/**
+ * Pages that are meant to be seen signed out, so no session is no reason to
+ * leave: the login itself, and a firm's join link (/app/connect/<code>),
+ * which explains UnReceipt to a newcomer before they create an account.
+ */
+export function worksSignedOut(pathname: string | null): boolean {
+  return pathname === "/app/login" || Boolean(pathname?.startsWith("/app/connect/"));
+}
+
 export function ClientShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,7 +85,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
           // Stale cookie. Clear it locally so the next render is clean and
           // we don't ping-pong with the server gate.
           await supabase.auth.signOut().catch(() => {});
-          if (pathname !== "/app/login") {
+          if (!worksSignedOut(pathname)) {
             router.replace("/app/login");
           }
           return;
@@ -99,7 +108,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
       const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         // No session at all → redirect off authed surfaces.
         if (!session) {
-          if (pathname !== "/app/login") {
+          if (!worksSignedOut(pathname)) {
             router.replace("/app/login");
           }
           return;

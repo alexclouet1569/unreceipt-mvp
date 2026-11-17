@@ -190,6 +190,14 @@ export const RATE_LIMITS = {
     { limit: 300, windowSeconds: 60 * 60 },
     { limit: 1000, windowSeconds: 24 * 60 * 60 },
   ],
+  // Per IP: a signed-out visitor opening a firm's join link
+  // (/app/connect/<code>), which reads the firm's name with the service
+  // role. A person opens it a few times; a loop guessing codes (128 random
+  // bits) stops here and only ever sees the page without a name.
+  connectView: [
+    { limit: 30, windowSeconds: 60 },
+    { limit: 300, windowSeconds: 24 * 60 * 60 },
+  ],
   // Per IP: the form sends an email to whatever address is typed, so an
   // unthrottled loop would spam strangers from our domain.
   waitlist: [
@@ -243,10 +251,15 @@ export async function rateLimit(
  * client. Anything unidentifiable shares one "unknown" bucket.
  */
 export function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
+  return clientIpFrom(request.headers);
+}
+
+/** The same, from a server component's headers(). */
+export function clientIpFrom(headers: Pick<Headers, "get">): string {
+  const forwarded = headers.get("x-forwarded-for");
   const first = forwarded?.split(",")[0]?.trim();
   if (first) return first;
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+  return headers.get("x-real-ip")?.trim() || "unknown";
 }
 
 /** Standard 429 body + Retry-After header for a failed rateLimit(). */

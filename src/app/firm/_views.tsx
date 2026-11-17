@@ -12,6 +12,7 @@ import { formatInstantDate } from "@/lib/receipt-format";
 import type { FirmMemberRole, Receipt } from "@/lib/types";
 import { AddClientDialog } from "./clients/AddClientDialog";
 import { JoinLinkPanel, type JoinLinkView } from "./clients/JoinLinkPanel";
+import { RecommendPanel } from "./clients/RecommendPanel";
 import { RevokeInviteButton } from "./clients/RevokeInviteButton";
 import { ExportMonthPanel } from "./clients/[orgId]/ExportMonthPanel";
 import { BankPanel } from "./clients/[orgId]/BankPanel";
@@ -114,6 +115,7 @@ export function ClientsView({
       <div className="space-y-4">
         <AddClientDialog />
         {active.length === 0 ? <JoinLinkPanel link={joinLink} /> : null}
+        {active.length === 0 ? <RecommendPanel text={joinLink.recommend ?? null} linkOff={joinLink.off} /> : null}
       </div>
 
       {active.length === 0 ? (
@@ -155,6 +157,7 @@ export function ClientsView({
       ) : null}
 
       {active.length > 0 ? <JoinLinkPanel link={joinLink} /> : null}
+      {active.length > 0 ? <RecommendPanel text={joinLink.recommend ?? null} linkOff={joinLink.off} /> : null}
     </div>
   );
 }

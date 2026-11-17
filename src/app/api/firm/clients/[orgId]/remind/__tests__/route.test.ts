@@ -44,6 +44,7 @@ describe("POST /api/firm/clients/[orgId]/remind", () => {
     expect(m.send).toHaveBeenCalledWith({
       firmId: "firm-1",
       firmName: "Byrån AB",
+      firmCountry: null,
       firmClientId: "fc-1",
       organizationId: ORG,
       clientName: "Hallonbergen Bygg AB",

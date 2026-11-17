@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AccountantTour } from "./_accountant-tour";
 import { ACCOUNTANT_STEP_COUNT } from "./steps";
 import { joinQrDataUrl } from "@/lib/firm/join-qr";
+import { CLIENT_GUIDE_PATH, recommendEmail } from "@/lib/firm/recommend";
 
 const DEMO_JOIN_URL = "https://app.unreceipt.com/app/connect/Bergstrom-demo-link-01";
 import type { DemoParams } from "./_firm-app";
@@ -31,6 +32,11 @@ export default async function AccountantTourPage({
     qr: await joinQrDataUrl(DEMO_JOIN_URL),
     off: false,
     isAdmin: false,
+    recommend: recommendEmail({
+      firmName: "Bergström Redovisning AB",
+      joinUrl: DEMO_JOIN_URL,
+      guideUrl: `https://app.unreceipt.com${CLIENT_GUIDE_PATH}`,
+    }),
   };
   return <AccountantTour step={step} view={view} org={sp.org ?? null} month={sp.month ?? null} joinLink={joinLink} />;
 }

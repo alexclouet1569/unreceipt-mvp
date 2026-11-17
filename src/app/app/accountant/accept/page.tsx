@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
+import { loginPath } from "@/app/auth/callback/safe-next";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -52,7 +53,9 @@ export default async function AcceptInvitePage({
   const { token } = await searchParams;
   const user = await getServerUser();
   if (!user) {
-    redirect(`/app/login?next=${encodeURIComponent(`/app/accountant/accept?token=${token ?? ""}`)}`);
+    // New to UnReceipt, most likely: the invite email says "You'll create a
+    // free account first". Create account, then back here.
+    redirect(loginPath(`/app/accountant/accept?token=${token ?? ""}`, { signup: true }));
   }
   const invite = await loadInvite(token, user);
 

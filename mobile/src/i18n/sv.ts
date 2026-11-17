@@ -726,6 +726,7 @@ export const sv: Strings = {
     share: "Dela länken",
     copy: "Kopiera länken",
     copied: "Länken kopierad",
+    recommend: "Rekommendera till klienter",
     linkOff: "Länken är avstängd. En administratör kan slå på den igen på webbplatsen.",
     month: "Månad",
     prevMonth: "Föregående månad",

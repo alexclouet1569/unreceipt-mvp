@@ -9,6 +9,8 @@ import { getServerUser } from "@/lib/supabase-server";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { forwardingSetupEmail } from "@/lib/email/templates";
+import { emailSiteLocale } from "@/lib/email/site-link";
+import { chosenCountry } from "@/lib/country";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
   const url = `${base && base.startsWith("http") ? base : PRODUCT_URL_FALLBACK}/app/settings/forwarding`;
-  const content = forwardingSetupEmail({ url });
+  const content = forwardingSetupEmail({ url, site: emailSiteLocale({ country: chosenCountry(user), email: user.email }) });
   const result = await sendEmail({ to: user.email, ...content, tag: "forwarding_setup" });
   if (!result.ok) {
     return NextResponse.json({ error: "Couldn't send the email. Try again in a moment." }, { status: 502 });

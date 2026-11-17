@@ -494,6 +494,37 @@ describe("/app/login — ?next= (invite links, /firm)", () => {
     await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith(NEXT));
   });
 
+  it("comes back to a firm's join link after signing up with the emailed code", async () => {
+    const join = "/app/connect/AbCdEfGhIjKlMnOpQrStUv";
+    mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    mocks.verifyOtp.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup", next: join });
+    await fillSignUp(user);
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+    expect(mocks.signUp.mock.calls[0][0].options.emailRedirectTo).toBe(
+      `http://localhost:3000/auth/callback?next=${join}`
+    );
+    await user.type(await screen.findByLabelText(/6-digit code/i), "654321");
+    await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith(join));
+  });
+
+  it("offers I already have an account on Create account, keeping next", async () => {
+    const replaceState = vi.spyOn(window.history, "replaceState").mockImplementation(() => {});
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, href: `http://localhost:3000/app/login?mode=signup&next=${encodeURIComponent(NEXT)}` },
+    });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup", next: NEXT });
+    await user.click(screen.getByRole("button", { name: /I already have an account/i }));
+    expect(screen.getByRole("tab", { name: /Sign in/i })).toHaveAttribute("aria-selected", "true");
+    const url = replaceState.mock.calls[0][2] as URL;
+    expect(url.searchParams.get("mode")).toBeNull();
+    expect(url.searchParams.get("next")).toBe(NEXT);
+    replaceState.mockRestore();
+  });
+
   it("keeps next in the address when switching between Sign in and Create account", async () => {
     const replaceState = vi.spyOn(window.history, "replaceState").mockImplementation(() => {});
     Object.defineProperty(window, "location", {

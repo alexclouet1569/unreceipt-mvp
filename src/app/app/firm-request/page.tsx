@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getServerUser } from "@/lib/supabase-server";
+import { loginPath } from "@/app/auth/callback/safe-next";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { SignOutButton } from "@/app/app/(authed)/settings/SignOutButton";
@@ -65,7 +66,9 @@ export default async function FirmRequestPage({
   const { token } = await searchParams;
   const user = await getServerUser();
   if (!user) {
-    redirect(`/app/login?next=${encodeURIComponent(`/app/firm-request?token=${token ?? ""}`)}`);
+    // The email says "New to UnReceipt? You'll set up your firm first".
+    // An accountant who has an account switches to Sign in.
+    redirect(loginPath(`/app/firm-request?token=${token ?? ""}`, { signup: true }));
   }
   const view = await load(token, user);
 

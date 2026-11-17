@@ -15,6 +15,7 @@ import { ensureJoinCode, joinPath } from "@/lib/firm/join-link";
 import { joinQrDataUrl } from "@/lib/firm/join-qr";
 import { absoluteAppUrl } from "@/lib/app-url";
 import type { MobileFirmHome } from "@/lib/mobile/types";
+import { CLIENT_GUIDE_PATH, recommendEmail } from "@/lib/firm/recommend";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,7 +67,14 @@ export async function GET(request: Request) {
         invitedAt: p.created_at,
         expired: p.expired,
       })),
-      joinLink: url ? { url, qr: await joinQrDataUrl(url) } : null,
+      joinLink: url
+        ? {
+            url,
+            qr: await joinQrDataUrl(url),
+            // The same ready Swedish email as on /firm/clients.
+            recommend: recommendEmail({ firmName: ctx.firmName, joinUrl: url, guideUrl: absoluteAppUrl(CLIENT_GUIDE_PATH) }),
+          }
+        : null,
     };
     return NextResponse.json(body, { headers: NO_STORE });
   } catch (err) {

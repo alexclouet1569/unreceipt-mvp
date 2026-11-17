@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
+import { loginPath } from "@/app/auth/callback/safe-next";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { findWaitingTeamInvites } from "@/lib/team/invites";
 import { TeamJoinAnswer } from "./TeamJoinAnswer";
@@ -15,7 +16,9 @@ const P = { fontSize: "15px", lineHeight: 1.5 } as const;
 
 export default async function TeamJoinPage() {
   const user = await getServerUser();
-  if (!user) redirect("/app/login?next=/app/team-join");
+  // The invite email says "You'll create a free account with this address
+  // first": open Create account, then come back here.
+  if (!user) redirect(loginPath("/app/team-join", { signup: true }));
   const invites = await findWaitingTeamInvites(user);
   if (invites.length === 0) redirect("/app");
   const invite = invites[0];

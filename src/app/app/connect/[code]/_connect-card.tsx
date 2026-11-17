@@ -201,3 +201,58 @@ export function ConnectCard({
     </div>
   );
 }
+
+/**
+ * The same link for someone who isn't signed in: what UnReceipt is, what
+ * the firm will see, and the way in. Nothing is shared from here; the
+ * question itself (with who runs the firm) is asked once they are signed
+ * in. `firmName` is null when the visitor is over the rate limit or the
+ * read failed (the card then names nobody); `missing` when the code
+ * doesn't work.
+ */
+export function SignedOutConnectCard({
+  firmName,
+  signupHref,
+  signinHref,
+  missing,
+}: {
+  firmName: string | null;
+  signupHref: string;
+  signinHref: string;
+  missing: boolean;
+}) {
+  if (missing) {
+    return (
+      <div className="space-y-2">
+        <Title>This link doesn&apos;t work</Title>
+        <p className="type-body text-[var(--ink-muted)]">
+          It may have been replaced or turned off. Ask your accountant for their current link.
+        </p>
+      </div>
+    );
+  }
+  const firm = firmName ?? "your accountant";
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Title>Share your receipts with {firm}?</Title>
+        <p className="type-body text-[var(--ink-muted)]">
+          UnReceipt keeps your company&apos;s receipts in one place: snap the paper ones, forward the email ones, and
+          it reads the merchant, amount, VAT and date for you.
+        </p>
+        <p className="type-body text-[var(--ink-muted)]">
+          Nothing is shared until you sign in and press Yes, share. Then {firm} sees your company&apos;s receipts;
+          those read from a connected Gmail or Outlook stay yours until you confirm them.
+        </p>
+      </div>
+      <div className="flex flex-col items-start gap-1">
+        <Link href={signupHref} className={cn(buttonVariants(), "h-11")}>
+          Create account
+        </Link>
+        <Link href={signinHref} className="inline-flex min-h-11 items-center type-body text-[var(--ink)] underline">
+          I already have an account
+        </Link>
+      </div>
+    </div>
+  );
+}
