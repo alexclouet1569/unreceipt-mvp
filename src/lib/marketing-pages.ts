@@ -37,25 +37,25 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
   home: {
     paths: { en: "/", sv: "/sv", fr: "/fr" },
     translated: true,
-    lastModified: "2026-11-08",
+    lastModified: "2026-11-17",
     priority: 1,
   },
   accountants: {
     paths: { en: "/accountants", sv: "/sv/redovisningsbyra", fr: "/fr/experts-comptables" },
     translated: true,
-    lastModified: "2026-11-08",
+    lastModified: "2026-11-17",
     priority: 0.9,
   },
   freelancers: {
     paths: { en: "/freelancers", sv: "/sv/enskild-firma", fr: "/fr/independants" },
     translated: true,
-    lastModified: "2026-11-08",
+    lastModified: "2026-11-17",
     priority: 0.9,
   },
   about: {
     paths: { en: "/about", sv: "/sv/om-unreceipt", fr: "/fr/a-propos" },
     translated: true,
-    lastModified: "2026-11-08",
+    lastModified: "2026-11-17",
     priority: 0.8,
   },
   guideRetention: {
@@ -74,7 +74,7 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
       fr: "/fr/guides/jeter-les-tickets-de-caisse-apres-numerisation",
     },
     translated: false,
-    lastModified: "2026-11-08",
+    lastModified: "2026-11-17",
     priority: 0.7,
   },
 };

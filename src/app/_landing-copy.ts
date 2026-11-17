@@ -197,7 +197,7 @@ const en: LandingCopy = {
     titleLine1: "From Chaos",
     titleLine2: "to Clarity —",
     titleAccent: "Automatically.",
-    lead: "Built for small businesses and freelancers who hate chasing receipts — and for the accountants who chase them. Forward any receipt, email or photo, and get a VAT-ready record within 24 hours.",
+    lead: "Built for small businesses and freelancers who hate chasing receipts — and for the accountants who chase them. Snap a receipt and AI reads it in seconds; email receipts arrive on their own. You check, confirm, and the VAT is ready.",
     ctaPilot: "Join the pilot",
     ctaPaid: "Start your free week",
     secondary: "See the demo",
@@ -207,7 +207,7 @@ const en: LandingCopy = {
     notePaidNoPrice: "First week free. Cancel anytime.",
   },
   phone: {
-    verified: "Verified",
+    verified: "Confirmed",
     latestMeta: "Meals · Moms 12% 36,64 kr",
     today: "Today",
     todayCount: "3 receipts",
@@ -216,13 +216,13 @@ const en: LandingCopy = {
   },
   samples: SWEDISH_SAMPLES,
   stats: [
-    { value: "24 h", label: "from forwarded receipt to VAT-ready record" },
+    { value: "Seconds", label: "for AI to read a receipt photo" },
     { value: "1", label: "private receipt address for your company" },
     { value: "8", label: "expense categories, sorted for you" },
     { value: "0", label: "bank connections or new cards needed" },
   ],
   ticker: {
-    verified: "Verified",
+    verified: "Confirmed",
     categories: {
       meals: "Meals",
       software: "Software",
@@ -243,7 +243,7 @@ const en: LandingCopy = {
       },
       {
         title: "Every Line, VAT Included",
-        desc: "Merchant, date, line items, VAT amount and rate — read, checked and saved within 24 hours.",
+        desc: "Merchant, date, line items, VAT amount and rate — read by AI in seconds, checked by you, then saved.",
       },
       {
         title: "Find Anything, Keep Everything",
@@ -259,11 +259,11 @@ const en: LandingCopy = {
     items: [
       {
         title: "Forward or snap",
-        desc: "Forward email receipts to your private address, or take a photo of a paper receipt — the fields fill themselves.",
+        desc: "Snap a paper receipt, forward email ones to your private address, or connect Gmail or Outlook so they arrive on their own.",
       },
       {
-        title: "We check every receipt",
-        desc: "Within 24 hours each receipt is read, categorized and its VAT split out, then checked by our concierge.",
+        title: "AI reads, you confirm",
+        desc: "AI reads each receipt in seconds: merchant, date, category and the VAT split by rate. You check the fields and confirm.",
       },
       {
         title: "Ready for your accountant",
@@ -286,7 +286,7 @@ const en: LandingCopy = {
     new: [
       "One private address for every receipt",
       "Paper receipts captured with a photo",
-      "VAT split out and checked for you",
+      "VAT split out by rate, automatically",
       "Everything in one dashboard, receipt image included",
     ],
   },
@@ -306,9 +306,9 @@ const en: LandingCopy = {
     included: [
       "Private address — forward any receipt",
       "Photo capture with auto-fill",
-      "VAT-ready records within 24 hours",
+      "Receipts read by AI in seconds",
       "Receipt image + PDF for every receipt",
-      "Every receipt checked by our concierge",
+      "Email receipts read as soon as they arrive",
       "Cancel anytime",
     ],
     notePilot: "Free during the pilot. The prices above apply once the pilot ends. All prices excl. VAT; Swedish companies pay 25% moms on top, EU companies with a VAT number are reverse-charged.",
@@ -329,7 +329,7 @@ const en: LandingCopy = {
       },
       {
         title: "Accounting Firms",
-        desc: "Every client's receipts read, checked and VAT-split in one portal, with a monthly export for your bookkeeping.",
+        desc: "Every client's receipts read by AI, confirmed by the client and VAT-split in one portal, with a monthly export for your bookkeeping.",
       },
     ],
   },
@@ -344,7 +344,7 @@ const en: LandingCopy = {
     kind: "waitlist",
     badge: "Not in Sweden yet?",
     title: "Get notified when we launch in your country",
-    lead: "UnReceipt Concierge is in pilot in Sweden today. Drop your email and we'll let you know the moment we open in your market.",
+    lead: "UnReceipt is in pilot in Sweden today. Drop your email and we'll let you know the moment we open in your market.",
     success: "You're on the list! We'll be in touch.",
     placeholder: "your@company.com",
     submit: "Notify me",
@@ -373,7 +373,7 @@ const sv: LandingCopy = {
     titleLine1: "Från kaos",
     titleLine2: "till klarhet —",
     titleAccent: "automatiskt.",
-    lead: "Byggt för småföretag och enskilda firmor som är trötta på att jaga kvitton — och för redovisningsbyråerna som jagar dem. Skicka vilket kvitto som helst, mejl eller foto, och få ett kontrollerat underlag med momsen uppdelad inom 24 timmar.",
+    lead: "Byggt för småföretag och enskilda firmor som är trötta på att jaga kvitton — och för redovisningsbyråerna som jagar dem. Fota kvittot så läser AI av det på några sekunder, och e-postkvittona kommer av sig själva. Du bekräftar, och momsen är klar.",
     ctaPilot: "Gå med i piloten",
     ctaPaid: "Prova gratis i en vecka",
     secondary: "Se demon",
@@ -383,7 +383,7 @@ const sv: LandingCopy = {
     notePaidNoPrice: "Första veckan gratis. Avsluta när du vill.",
   },
   phone: {
-    verified: "Kontrollerat",
+    verified: "Bekräftat",
     latestMeta: "Måltider · Moms 12 % 36,64 kr",
     today: "Idag",
     todayCount: "3 kvitton",
@@ -392,13 +392,13 @@ const sv: LandingCopy = {
   },
   samples: SWEDISH_SAMPLES,
   stats: [
-    { value: "24 h", label: "från skickat kvitto till kontrollerat underlag" },
+    { value: "Sekunder", label: "tar det för AI att läsa av ett kvittofoto" },
     { value: "1", label: "privat kvittoadress för ditt företag" },
     { value: "8", label: "utgiftskategorier — kvittona sorteras åt dig" },
     { value: "0", label: "bankkopplingar eller nya kort behövs" },
   ],
   ticker: {
-    verified: "Kontrollerat",
+    verified: "Bekräftat",
     categories: {
       meals: "Måltider",
       software: "Programvara",
@@ -419,7 +419,7 @@ const sv: LandingCopy = {
       },
       {
         title: "Varje rad, med moms",
-        desc: "Säljare, datum, kvittorader, momsbelopp och momssats — avläst, kontrollerat och sparat inom 24 timmar.",
+        desc: "Säljare, datum, kvittorader, momsbelopp och momssats — avläst av AI på sekunder, kontrollerat av dig och sparat.",
       },
       {
         title: "Hitta allt, spara allt",
@@ -435,15 +435,15 @@ const sv: LandingCopy = {
     items: [
       {
         title: "Vidarebefordra eller fota",
-        desc: "Vidarebefordra e-postkvitton till din privata adress, eller ta ett foto av ett papperskvitto — fälten fylls i automatiskt.",
+        desc: "Fota ett papperskvitto, vidarebefordra e-postkvitton till din privata adress eller anslut Gmail eller Outlook så kommer de av sig själva.",
       },
       {
-        title: "Vi kontrollerar varje kvitto",
-        desc: "Inom 24 timmar läser vi av varje kvitto, kategoriserar det och delar upp momsen. Sedan kontrollerar vår concierge det.",
+        title: "AI läser, du bekräftar",
+        desc: "AI läser av varje kvitto på några sekunder: säljare, datum, kategori och momsen uppdelad per momssats. Du ser över fälten och bekräftar.",
       },
       {
         title: "Klart för din redovisningskonsult",
-        desc: "Varje kvitto väntar i din översikt, kontrollerat, med kvittobilden och en PDF ett klick bort.",
+        desc: "Varje kvitto väntar i din översikt med momsen uppdelad, kvittobilden och en PDF ett klick bort.",
       },
     ],
   },
@@ -462,7 +462,7 @@ const sv: LandingCopy = {
     new: [
       "En privat adress för alla kvitton",
       "Papperskvitton fångas med ett foto",
-      "Momsen uppdelad och kontrollerad åt dig",
+      "Momsen uppdelad per momssats, automatiskt",
       "Allt i en översikt, med kvittobilden",
     ],
   },
@@ -485,9 +485,9 @@ const sv: LandingCopy = {
     included: [
       "Privat adress — vidarebefordra vilket kvitto som helst",
       "Fota kvitton, fälten fylls i automatiskt",
-      "Kontrollerade underlag inom 24 timmar",
+      "AI läser av kvittot på några sekunder",
       "Kvittobild + PDF för varje kvitto",
-      "Varje kvitto kontrolleras av vår concierge",
+      "E-postkvitton läses av direkt när de kommer",
       "Avsluta när du vill",
     ],
     notePilot: "Gratis under piloten. Priserna ovan gäller när piloten är slut. Alla priser exkl. moms; svenska företag betalar 25 % moms ovanpå, EU-företag med momsregistreringsnummer faktureras med omvänd skattskyldighet.",
@@ -508,7 +508,7 @@ const sv: LandingCopy = {
       },
       {
         title: "Redovisningsbyråer",
-        desc: "Alla klienters kvitton avlästa, kontrollerade och med momsen uppdelad i en portal, med en månadsexport till bokföringen.",
+        desc: "Alla klienters kvitton avlästa av AI, bekräftade av klienten och med momsen uppdelad i en portal, med en månadsexport till bokföringen.",
       },
     ],
   },
@@ -546,7 +546,7 @@ const fr: LandingCopy = {
     titleLine1: "Du chaos",
     titleLine2: "à la clarté —",
     titleAccent: "automatiquement.",
-    lead: "Conçu pour les TPE et les indépendants qui en ont assez de courir après les justificatifs — et pour les experts-comptables qui les réclament. Transférez n’importe quel reçu, e-mail ou photo, et retrouvez-le vérifié, TVA relevée, sous 24 heures.",
+    lead: "Conçu pour les TPE et les indépendants qui en ont assez de courir après les justificatifs — et pour les experts-comptables qui les réclament. Photographiez un ticket, l’IA le lit en quelques secondes\u00a0; vos reçus par e-mail arrivent tout seuls. Vous confirmez, la TVA est relevée.",
     ctaPilot: "Rejoindre la phase pilote",
     ctaPaid: "Essayer gratuitement une semaine",
     secondary: "Voir la démo",
@@ -556,7 +556,7 @@ const fr: LandingCopy = {
     notePaidNoPrice: "Première semaine gratuite. Sans engagement.",
   },
   phone: {
-    verified: "Vérifié",
+    verified: "Confirmé",
     latestMeta: "Repas · TVA 10 % 1,68 €",
     today: "Aujourd’hui",
     todayCount: "3 reçus",
@@ -565,13 +565,13 @@ const fr: LandingCopy = {
   },
   samples: FRENCH_SAMPLES,
   stats: [
-    { value: "24\u00a0h", label: "entre l’envoi d’un reçu et sa fiche vérifiée" },
+    { value: "Secondes", label: "pour que l’IA lise la photo d’un reçu" },
     { value: "1", label: "adresse privée pour les reçus de votre entreprise" },
     { value: "8", label: "catégories de dépenses — vos reçus sont triés pour vous" },
     { value: "0", label: "connexion bancaire ou nouvelle carte nécessaire" },
   ],
   ticker: {
-    verified: "Vérifié",
+    verified: "Confirmé",
     categories: {
       meals: "Repas",
       software: "Logiciels",
@@ -592,7 +592,7 @@ const fr: LandingCopy = {
       },
       {
         title: "Chaque ligne, avec la TVA du ticket",
-        desc: "Fournisseur, date, lignes, montant et taux de TVA — lus, vérifiés et enregistrés sous 24 heures.",
+        desc: "Fournisseur, date, lignes, montant et taux de TVA — lus par l’IA en quelques secondes, vérifiés par vous, puis enregistrés.",
       },
       {
         title: "Tout retrouver, au même endroit",
@@ -608,15 +608,15 @@ const fr: LandingCopy = {
     items: [
       {
         title: "Transférez ou photographiez",
-        desc: "Transférez vos reçus par e-mail à votre adresse privée, ou prenez en photo un ticket papier — les champs se remplissent tout seuls.",
+        desc: "Photographiez un ticket papier, transférez vos reçus par e-mail à votre adresse privée, ou connectez Gmail ou Outlook pour qu’ils arrivent tout seuls.",
       },
       {
-        title: "Nous vérifions chaque reçu",
-        desc: "Sous 24 heures, chaque reçu est lu, classé et sa TVA relevée, puis vérifié par notre équipe.",
+        title: "L’IA lit, vous confirmez",
+        desc: "L’IA lit chaque reçu en quelques secondes\u00a0: fournisseur, date, catégorie et TVA ventilée par taux. Vous vérifiez les champs et vous confirmez.",
       },
       {
         title: "Prêt pour votre expert-comptable",
-        desc: "Chaque reçu vous attend dans votre tableau de bord, vérifié, avec le reçu d’origine et un PDF à portée de clic.",
+        desc: "Chaque reçu vous attend dans votre tableau de bord, TVA relevée, avec le reçu d’origine et un PDF à portée de clic.",
       },
     ],
   },
@@ -635,7 +635,7 @@ const fr: LandingCopy = {
     new: [
       "Une adresse privée pour tous vos reçus",
       "Les tickets papier capturés en une photo",
-      "La TVA relevée et vérifiée pour vous",
+      "La TVA relevée taux par taux, automatiquement",
       "Tout dans un tableau de bord, avec le reçu d’origine",
     ],
   },
@@ -658,9 +658,9 @@ const fr: LandingCopy = {
     included: [
       "Adresse privée — transférez n’importe quel reçu",
       "Photo avec remplissage automatique",
-      "Fiches vérifiées sous 24 heures",
+      "Reçus lus par l’IA en quelques secondes",
       "Reçu d’origine + PDF pour chaque reçu",
-      "Chaque reçu vérifié par notre équipe",
+      "Reçus par e-mail lus dès leur arrivée",
       "Sans engagement",
     ],
     notePilot: "Gratuit pendant la phase pilote. Les prix ci-dessus s’appliqueront à la fin du pilote. Tous les prix sont hors taxes\u00a0; la TVA applicable est calculée au paiement.",
@@ -681,7 +681,7 @@ const fr: LandingCopy = {
       },
       {
         title: "Experts-comptables",
-        desc: "Les reçus de tous vos clients lus, vérifiés et avec la TVA relevée dans un seul portail, avec un export mensuel pour la saisie.",
+        desc: "Les reçus de tous vos clients lus par l’IA, confirmés par le client et avec la TVA relevée dans un seul portail, avec un export mensuel pour la saisie.",
       },
     ],
   },

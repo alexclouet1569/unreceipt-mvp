@@ -117,7 +117,7 @@ export default async function Image() {
               fontWeight: 600,
             }}
           >
-            VAT-ready in 24 h
+            Read by AI in seconds
           </div>
           <div
             style={{

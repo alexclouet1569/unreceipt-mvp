@@ -77,11 +77,11 @@ function faqEn(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "What is UnReceipt?",
-      a: "UnReceipt is a receipt service for small businesses, freelancers and their accounting firms. Forward email receipts to your company's private UnReceipt address or snap a photo of a paper receipt, and within 24 hours each one becomes a VAT-ready record in your dashboard: merchant, date, line items, VAT and category.",
+      a: "UnReceipt is a receipt service for small businesses, freelancers and their accounting firms. Snap a photo of a paper receipt, forward email receipts to your company's private UnReceipt address or connect your Gmail or Outlook. AI reads a photo in seconds and an email receipt as soon as it arrives, and each one becomes a VAT-ready record in your dashboard (merchant, date, line items, VAT and category) that you check and confirm.",
     },
     {
       q: "How do I send receipts to UnReceipt?",
-      a: "Forward email receipts to your private UnReceipt address, or take a photo of a paper receipt in the app — the fields fill themselves. No bank connection or new card is needed.",
+      a: "Forward email receipts to your private UnReceipt address, connect your Gmail or Outlook so they arrive on their own, or take a photo of a paper receipt in the app — the fields fill themselves. No bank connection or new card is needed.",
     },
     {
       q: "How much does UnReceipt cost?",
@@ -93,7 +93,7 @@ function faqEn(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Who checks my receipts?",
-      a: "Each receipt is read automatically, then checked by our concierge within 24 hours before it's marked as verified.",
+      a: "You do. AI reads each receipt and fills in the fields: a photo in a few seconds, an email receipt as soon as it arrives. You check the fields and confirm; email receipts wait in Review needed until you have. Your accountant can complete and correct them too.",
     },
     {
       q: "Can my accountant see my receipts?",
@@ -118,11 +118,11 @@ function faqSv(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Vad är UnReceipt?",
-      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller fota ett papperskvitto, så blir varje kvitto inom 24 timmar ett kontrollerat underlag i din översikt: säljare, datum, kvittorader, moms och kategori. Appen är på engelska än så länge.",
+      a: "UnReceipt är en kvittotjänst för småföretag i Sverige. Fota ett papperskvitto, vidarebefordra e-postkvitton till ditt företags privata UnReceipt-adress eller anslut Gmail eller Outlook. AI läser av ett foto på några sekunder och ett e-postkvitto så fort det kommer, och varje kvitto blir ett underlag i din översikt (säljare, datum, kvittorader, moms och kategori) som du ser över och bekräftar. Appen är på engelska än så länge.",
     },
     {
       q: "Hur skickar jag kvitton till UnReceipt?",
-      a: "Vidarebefordra e-postkvitton till din privata UnReceipt-adress, eller ta ett foto av ett papperskvitto i appen — fälten fylls i automatiskt. Ingen bankkoppling eller nytt kort behövs.",
+      a: "Vidarebefordra e-postkvitton till din privata UnReceipt-adress, anslut Gmail eller Outlook så kommer de av sig själva, eller ta ett foto av ett papperskvitto i appen — fälten fylls i automatiskt. Ingen bankkoppling eller nytt kort behövs.",
     },
     {
       q: "Vad kostar UnReceipt?",
@@ -134,7 +134,7 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Vem kontrollerar mina kvitton?",
-      a: "Varje kvitto läses automatiskt och kontrolleras sedan av vår concierge inom 24 timmar innan det markeras som kontrollerat.",
+      a: "Det gör du. AI läser av kvittot och fyller i fälten: ett foto på några sekunder, ett e-postkvitto så fort det kommer. Du ser över fälten och bekräftar; e-postkvitton väntar under Review needed tills du har gjort det. Din redovisningskonsult kan också komplettera och rätta dem.",
     },
     {
       q: "Kan min redovisningsbyrå se mina kvitton?",
@@ -163,11 +163,11 @@ function faqFr(pilotMode: boolean): FaqItem[] {
   return [
     {
       q: "Qu’est-ce qu’UnReceipt\u00a0?",
-      a: "UnReceipt est un service de gestion des reçus pour les petites entreprises. Transférez vos factures et reçus envoyés par e-mail à l’adresse UnReceipt privée de votre entreprise ou photographiez un ticket papier\u00a0: sous 24 heures, chacun devient une fiche vérifiée dans votre tableau de bord — fournisseur, date, lignes, TVA et catégorie. L’application est pour l’instant en anglais.",
+      a: "UnReceipt est un service de gestion des reçus pour les petites entreprises. Photographiez un ticket papier, transférez vos factures et reçus envoyés par e-mail à l’adresse UnReceipt privée de votre entreprise, ou connectez Gmail ou Outlook. L’IA lit une photo en quelques secondes et un reçu par e-mail dès son arrivée\u00a0: chacun devient une fiche dans votre tableau de bord — fournisseur, date, lignes, TVA et catégorie — que vous vérifiez et confirmez. L’application est pour l’instant en anglais.",
     },
     {
       q: "Comment envoyer mes reçus à UnReceipt\u00a0?",
-      a: "Transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt privée, ou prenez en photo un ticket papier dans l’application — les champs se remplissent tout seuls. Aucune connexion bancaire ni nouvelle carte n’est nécessaire.",
+      a: "Transférez vos factures et reçus envoyés par e-mail à votre adresse UnReceipt privée, connectez Gmail ou Outlook pour qu’ils arrivent tout seuls, ou prenez en photo un ticket papier dans l’application — les champs se remplissent tout seuls. Aucune connexion bancaire ni nouvelle carte n’est nécessaire.",
     },
     {
       q: "Combien coûte UnReceipt\u00a0?",
@@ -179,7 +179,7 @@ function faqFr(pilotMode: boolean): FaqItem[] {
     },
     {
       q: "Qui vérifie mes reçus\u00a0?",
-      a: "Chaque reçu est lu automatiquement, puis vérifié par notre équipe sous 24 heures avant d’être marqué comme vérifié.",
+      a: "Vous. L’IA lit chaque reçu et remplit les champs\u00a0: une photo en quelques secondes, un reçu par e-mail dès son arrivée. Vous vérifiez les champs et vous confirmez\u00a0; les reçus par e-mail attendent dans «\u00a0Review needed\u00a0» jusque-là. Votre expert-comptable peut aussi les compléter et les corriger.",
     },
     {
       q: "Mon expert-comptable peut-il voir mes reçus\u00a0?",

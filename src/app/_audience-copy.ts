@@ -84,7 +84,7 @@ const accountantsEn: AudienceCopy = {
   meta: {
     title: "Receipt Collection Software for Accounting Firms | UnReceipt",
     description:
-      "Get your clients' receipts read, checked and VAT-split in one portal. See what needs review per client, export a month for your bookkeeping, never book a receipt twice.",
+      "Get your clients' receipts read by AI, confirmed by the client and VAT-split in one portal. See what needs review per client, export a month for your bookkeeping, never book a receipt twice.",
     shareTitle: "UnReceipt for accounting firms — your clients' receipts, ready to book",
     keywords: [
       "receipt software for accountants",
@@ -101,7 +101,7 @@ const accountantsEn: AudienceCopy = {
     eyebrow: "For accounting firms",
     title: "Your clients' receipts,",
     accent: "ready to book.",
-    lead: "Stop chasing photos, forwarded PDFs and paper bags at month-end. Your clients snap or forward their receipts to UnReceipt; you get every one read, checked and VAT-split in one portal, with one export per client and month.",
+    lead: "Stop chasing photos, forwarded PDFs and paper bags at month-end. Your clients snap or forward their receipts to UnReceipt; you get every one read by AI, confirmed by the client and VAT-split in one portal, with one export per client and month.",
     primary: "contactFirm",
     primaryLabel: "Book a 20-minute demo",
     secondary: "demoAccountant",
@@ -132,7 +132,7 @@ const accountantsEn: AudienceCopy = {
     newTitle: "With UnReceipt",
     new: [
       "Clients send each receipt when they pay: photo or forwarded email",
-      "Merchant, date, VAT amount and rate already read and checked",
+      "Merchant, date, VAT amount and rate already read and confirmed by the client",
       "Per client, you see which receipts still need a check",
       "Foreign receipts converted at the ECB rate of the purchase day",
     ],
@@ -148,7 +148,7 @@ const accountantsEn: AudienceCopy = {
       },
       {
         title: "They send, we read",
-        desc: "Clients snap paper receipts or forward email ones to their private address. Each receipt is read automatically and checked within 24 hours.",
+        desc: "Clients snap paper receipts, forward email ones to their private address or connect Gmail or Outlook. AI reads each receipt in seconds, and the client checks and confirms it.",
       },
       {
         title: "You review and export",
@@ -215,7 +215,7 @@ const accountantsEn: AudienceCopy = {
     },
     {
       q: "Who can see a client's receipts?",
-      a: "Besides the client itself and UnReceipt's concierge, who checks each receipt, only your firm's staff, and only for companies linked to your firm. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
+      a: "Only the client itself and your firm's staff, and only for companies linked to your firm. Receipts are read by AI, not by people: UnReceipt's own staff look at a client's receipts only when the client asks for support, for security, or when the law requires it. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
     },
     {
       q: "Can I change the category or account of a receipt?",
@@ -241,7 +241,7 @@ const accountantsSv: AudienceCopy = {
   meta: {
     title: "Kvittohantering för redovisningsbyråer – klienternas kvitton | UnReceipt",
     description:
-      "Få klienternas kvitton avlästa, kontrollerade och med momsen uppdelad i en byråportal. Se vad som behöver granskas per klient, exportera månaden med BAS-kontoförslag och bokför aldrig ett kvitto två gånger.",
+      "Få klienternas kvitton avlästa av AI, bekräftade av klienten och med momsen uppdelad i en portal. Se vad som behöver granskas per klient, exportera månaden med BAS-kontoförslag och bokför aldrig ett kvitto två gånger.",
     shareTitle: "UnReceipt för redovisningsbyråer — klienternas kvitton, klara att bokföra",
     keywords: [
       "kvittohantering redovisningsbyrå",
@@ -259,7 +259,7 @@ const accountantsSv: AudienceCopy = {
     eyebrow: "För redovisningsbyråer",
     title: "Klienternas kvitton,",
     accent: "klara att bokföra.",
-    lead: "Sluta jaga foton, vidarebefordrade PDF:er och kvittopåsar vid månadsskiftet. Dina klienter fotar eller vidarebefordrar sina kvitton till UnReceipt, och du får varje kvitto avläst, kontrollerat och med momsen uppdelad i en portal, med en export per klient och månad.",
+    lead: "Sluta jaga foton, vidarebefordrade PDF:er och kvittopåsar vid månadsskiftet. Dina klienter fotar eller vidarebefordrar sina kvitton till UnReceipt, och du får varje kvitto avläst av AI, bekräftat av klienten och med momsen uppdelad i en portal, med en export per klient och månad.",
     primary: "contactFirm",
     primaryLabel: "Boka en demo på 20 minuter",
     secondary: "demoAccountant",
@@ -290,7 +290,7 @@ const accountantsSv: AudienceCopy = {
     newTitle: "Med UnReceipt",
     new: [
       "Klienten skickar kvittot direkt vid köpet: foto eller vidarebefordrat mejl",
-      "Säljare, datum, momsbelopp och momssats redan avlästa och kontrollerade",
+      "Säljare, datum, momsbelopp och momssats redan avlästa och bekräftade av klienten",
       "Per klient ser du vilka kvitton som behöver granskas",
       "Utländska kvitton omräknade med ECB:s kurs för köpdagen",
     ],
@@ -306,7 +306,7 @@ const accountantsSv: AudienceCopy = {
       },
       {
         title: "De skickar, vi läser av",
-        desc: "Klienterna fotar papperskvitton eller vidarebefordrar e-postkvitton till sin privata adress. Varje kvitto läses av automatiskt och kontrolleras inom 24 timmar.",
+        desc: "Klienterna fotar papperskvitton, vidarebefordrar e-postkvitton till sin privata adress eller ansluter Gmail eller Outlook. AI läser av varje kvitto på några sekunder, och klienten ser över och bekräftar det.",
       },
       {
         title: "Du granskar och exporterar",
@@ -374,7 +374,7 @@ const accountantsSv: AudienceCopy = {
     },
     {
       q: "Vem kan se klientens kvitton?",
-      a: "Förutom klienten själv och UnReceipts concierge, som kontrollerar varje kvitto, bara byråns personal, och bara för företag som är kopplade till byrån. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
+      a: "Bara klienten själv och byråns personal, och bara för företag som är kopplade till byrån. Kvittona läses av AI, inte av människor: UnReceipts egen personal tittar på en klients kvitton bara om klienten ber om support, av säkerhetsskäl eller när lagen kräver det. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
     },
     {
       q: "Kan jag ändra kategori eller konto på ett kvitto?",
@@ -400,7 +400,7 @@ const accountantsFr: AudienceCopy = {
   meta: {
     title: "Collecte des justificatifs pour experts-comptables | UnReceipt",
     description:
-      "Recevez les reçus de vos clients lus, vérifiés et avec la TVA relevée dans un portail cabinet. Voyez ce qui reste à revoir par client et exportez chaque mois CSV et justificatifs PDF.",
+      "Recevez les reçus de vos clients lus par l’IA, confirmés par le client et avec la TVA relevée dans un portail cabinet. Voyez ce qui reste à revoir par client et exportez chaque mois CSV et justificatifs PDF.",
     shareTitle: "UnReceipt pour les experts-comptables — les justificatifs de vos clients, prêts à saisir",
     keywords: [
       "collecte justificatifs expert-comptable",
@@ -417,7 +417,7 @@ const accountantsFr: AudienceCopy = {
     eyebrow: "Pour les experts-comptables",
     title: "Les justificatifs de vos clients,",
     accent: "prêts à saisir.",
-    lead: "Fini les relances, les photos floues et les sacs de tickets en fin de mois. Vos clients photographient ou transfèrent leurs reçus à UnReceipt ; vous les retrouvez lus, vérifiés et avec la TVA relevée dans un seul portail, avec un export par client et par mois.",
+    lead: "Fini les relances, les photos floues et les sacs de tickets en fin de mois. Vos clients photographient ou transfèrent leurs reçus à UnReceipt ; vous les retrouvez lus par l’IA, confirmés par le client et avec la TVA relevée dans un seul portail, avec un export par client et par mois.",
     primary: "contactFirm",
     primaryLabel: "Réserver une démo de 20 minutes",
     secondary: "demoAccountant",
@@ -448,7 +448,7 @@ const accountantsFr: AudienceCopy = {
     newTitle: "Avec UnReceipt",
     new: [
       "Le client envoie chaque reçu au moment de l’achat : photo ou e-mail transféré",
-      "Fournisseur, date, montant et taux de TVA déjà lus et vérifiés",
+      "Fournisseur, date, montant et taux de TVA déjà lus et confirmés par le client",
       "Pour chaque client, vous voyez les reçus à revoir",
       "Reçus en devises convertis au taux BCE du jour de l’achat",
     ],
@@ -464,7 +464,7 @@ const accountantsFr: AudienceCopy = {
       },
       {
         title: "Ils envoient, nous lisons",
-        desc: "Vos clients photographient leurs tickets ou transfèrent leurs reçus par e-mail à leur adresse privée. Chaque reçu est lu automatiquement et vérifié sous 24 heures.",
+        desc: "Vos clients photographient leurs tickets, transfèrent leurs reçus par e-mail à leur adresse privée ou connectent Gmail ou Outlook. L’IA lit chaque reçu en quelques secondes, puis le client le vérifie et le confirme.",
       },
       {
         title: "Vous revoyez et exportez",
@@ -532,7 +532,7 @@ const accountantsFr: AudienceCopy = {
     },
     {
       q: "Qui peut voir les reçus d’un client ?",
-      a: "Outre le client lui-même et l’équipe UnReceipt qui vérifie chaque reçu, seuls les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
+      a: "Seuls le client lui-même et les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Les reçus sont lus par une IA, pas par des personnes : l’équipe UnReceipt ne consulte les reçus d’un client que s’il demande de l’aide, pour des raisons de sécurité ou si la loi l’exige. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
     },
     {
       q: "UnReceipt remplace-t-il le ticket papier ?",
@@ -625,7 +625,7 @@ const freelancersEn: AudienceCopy = {
       },
       {
         title: "Make it automatic",
-        desc: "Add one Gmail or Outlook filter and receipt emails reach UnReceipt on their own. Each receipt is checked within 24 hours.",
+        desc: "Connect Gmail or Outlook, or add one filter, and receipt emails reach UnReceipt on their own. Each one is read as it arrives and waits for your OK.",
       },
       {
         title: "Export or share",
@@ -779,7 +779,7 @@ const freelancersSv: AudienceCopy = {
       },
       {
         title: "Gör det automatiskt",
-        desc: "Lägg till ett filter i Gmail eller Outlook så kommer kvittomejlen till UnReceipt av sig själva. Varje kvitto kontrolleras inom 24 timmar.",
+        desc: "Anslut Gmail eller Outlook, eller lägg till ett filter, så kommer kvittomejlen till UnReceipt av sig själva. Varje kvitto läses av direkt och väntar på ditt OK.",
       },
       {
         title: "Exportera eller dela",
@@ -933,7 +933,7 @@ const freelancersFr: AudienceCopy = {
       },
       {
         title: "Automatisez",
-        desc: "Ajoutez un filtre Gmail ou Outlook et vos reçus par e-mail arrivent seuls dans UnReceipt. Chaque reçu est vérifié sous 24 heures.",
+        desc: "Connectez Gmail ou Outlook, ou ajoutez un filtre, et vos reçus par e-mail arrivent seuls dans UnReceipt. Chacun est lu dès son arrivée et attend votre feu vert.",
       },
       {
         title: "Exportez ou partagez",
