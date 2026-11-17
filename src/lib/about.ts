@@ -43,7 +43,7 @@ export type About = {
   contact: string;
 };
 
-export const ABOUT_AS_OF = "2026-11-13";
+export const ABOUT_AS_OF = "2026-11-17";
 
 function pricingEn(pilot: boolean): string {
   if (!SHOW_PRICES)
@@ -77,7 +77,7 @@ function en(pilot: boolean): About {
     eyebrow: "Fact sheet",
     title: "What is UnReceipt?",
     summary:
-      "UnReceipt is a receipt management service for small businesses, freelancers and sole traders, and the accounting firms that keep their books, in Sweden and France. Companies forward email receipts to a private UnReceipt address or photograph paper receipts on their phone; each receipt is read automatically into a record with its VAT amount and rate (where the receipt shows them), category and file, ready for the accountant. It collects and checks receipts — it is not a bookkeeping program.",
+      "UnReceipt is a receipt management service for small businesses, freelancers and sole traders, and the accounting firms that keep their books, in Sweden and France. Companies forward email receipts to a private UnReceipt address or photograph paper receipts on their phone; each receipt is read automatically into a record with its VAT amount and rate (where the receipt shows them), category and file, ready for the accountant. It collects and reads receipts — it is not a bookkeeping program.",
     asOfLabel: "Facts as of",
     factsTitle: "Key facts",
     facts: [
@@ -92,7 +92,7 @@ function en(pilot: boolean): About {
         label: "What is recorded",
         value: "Merchant, date, total, currency and category; line items, VAT amount and VAT rate when the receipt shows them; the photo as uploaded (large photos are reduced in size on the device first) or the forwarded email, kept unchanged; and a PDF once the receipt is complete.",
       },
-      { label: "Checking", value: "Each receipt is read automatically. Receipts that can't be read with confidence, and emails from senders that aren't trusted, wait in Review needed until you or your accountant confirm them. Receipts from a connected mailbox always wait there, and the accountant sees them only once you have confirmed them." },
+      { label: "Checking", value: "Each receipt is read by AI: a photo in seconds, an email as soon as it arrives. Nobody at UnReceipt checks receipts by hand. When you save a photo, you check the filled-in fields yourself; receipts that can't be read with confidence, several files scanned at once, and emails from senders that aren't trusted wait in Review needed until you or your accountant confirm them. Receipts from a connected mailbox always wait there, and the accountant sees them only once you have confirmed them." },
       {
         label: "Foreign currencies",
         value: "A receipt in EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY or SEK keeps its own amount and gets an estimated home-currency amount from the ECB reference rate of the purchase day (or the last banking day before it). The amount from the bank statement can be entered and takes precedence.",
@@ -147,7 +147,7 @@ function sv(pilot: boolean): About {
     eyebrow: "Faktablad",
     title: "Vad är UnReceipt?",
     summary:
-      "UnReceipt är en kvittotjänst för småföretag, enskilda firmor och frilansare, och för redovisningsbyråerna som sköter deras bokföring, i Sverige och Frankrike. Företaget vidarebefordrar e-postkvitton till en privat UnReceipt-adress eller fotar papperskvitton med mobilen; varje kvitto läses av automatiskt till ett underlag med momsbelopp och momssats (när kvittot visar dem), kategori och fil, redo för redovisningskonsulten. Tjänsten samlar in och kontrollerar kvitton — den är inget bokföringsprogram.",
+      "UnReceipt är en kvittotjänst för småföretag, enskilda firmor och frilansare, och för redovisningsbyråerna som sköter deras bokföring, i Sverige och Frankrike. Företaget vidarebefordrar e-postkvitton till en privat UnReceipt-adress eller fotar papperskvitton med mobilen; varje kvitto läses av automatiskt till ett underlag med momsbelopp och momssats (när kvittot visar dem), kategori och fil, redo för redovisningskonsulten. Tjänsten samlar in och läser av kvitton — den är inget bokföringsprogram.",
     asOfLabel: "Uppgifterna gäller per",
     factsTitle: "Fakta i korthet",
     facts: [
@@ -162,7 +162,7 @@ function sv(pilot: boolean): About {
         label: "Vad som sparas",
         value: "Säljare, datum, belopp, valuta och kategori; kvittorader, momsbelopp och momssats när kvittot visar dem; fotot som det laddades upp (stora foton förminskas i mobilen först) eller det vidarebefordrade mejlet, sparat oförändrat; och en PDF när kvittot är komplett.",
       },
-      { label: "Kontroll", value: "Varje kvitto läses av automatiskt. Kvitton som inte kan läsas säkert, och mejl från avsändare som inte är betrodda, väntar i Review needed tills du eller din redovisningskonsult bekräftar dem. Kvitton från en ansluten inkorg väntar alltid där, och redovisningskonsulten ser dem först när du har bekräftat dem." },
+      { label: "Kontroll", value: "Varje kvitto läses av AI: ett foto på några sekunder, ett mejl så fort det kommer. Ingen på UnReceipt kontrollerar kvitton för hand. När du sparar ett foto ser du själv över fälten; kvitton som inte kan läsas säkert, flera filer som skannas på en gång och mejl från avsändare som inte är betrodda väntar i Review needed tills du eller din redovisningskonsult bekräftar dem. Kvitton från en ansluten inkorg väntar alltid där, och redovisningskonsulten ser dem först när du har bekräftat dem." },
       {
         label: "Utländsk valuta",
         value: "Ett kvitto i EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON eller TRY behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen (eller närmast föregående bankdag). Beloppet från kontoutdraget kan skrivas in och gäller då före.",
@@ -216,7 +216,7 @@ function fr(pilot: boolean): About {
     eyebrow: "Fiche d’information",
     title: "Qu’est-ce qu’UnReceipt ?",
     summary:
-      "UnReceipt est un service de gestion des reçus et justificatifs pour les TPE, les indépendants et micro-entrepreneurs, et les cabinets d’expertise comptable qui tiennent leur comptabilité, en France et en Suède. L’entreprise transfère ses reçus reçus par e-mail à une adresse UnReceipt privée ou photographie ses tickets papier avec son téléphone ; chaque reçu est lu automatiquement et devient une fiche avec le montant et le taux de TVA (quand le justificatif les indique), la catégorie et le fichier, prête pour l’expert-comptable. Le service collecte et vérifie les justificatifs — ce n’est pas un logiciel de comptabilité.",
+      "UnReceipt est un service de gestion des reçus et justificatifs pour les TPE, les indépendants et micro-entrepreneurs, et les cabinets d’expertise comptable qui tiennent leur comptabilité, en France et en Suède. L’entreprise transfère ses reçus reçus par e-mail à une adresse UnReceipt privée ou photographie ses tickets papier avec son téléphone ; chaque reçu est lu automatiquement et devient une fiche avec le montant et le taux de TVA (quand le justificatif les indique), la catégorie et le fichier, prête pour l’expert-comptable. Le service collecte et lit les justificatifs — ce n’est pas un logiciel de comptabilité.",
     asOfLabel: "Informations à jour au",
     factsTitle: "L’essentiel",
     facts: [
@@ -231,7 +231,7 @@ function fr(pilot: boolean): About {
         label: "Ce qui est enregistré",
         value: "Fournisseur, date, montant, devise et catégorie ; lignes, montant et taux de TVA quand le justificatif les indique ; la photo telle qu’envoyée (les photos volumineuses sont réduites sur l’appareil) ou l’e-mail transféré, conservé à l’identique ; et un PDF une fois le reçu complet.",
       },
-      { label: "Vérification", value: "Chaque reçu est lu automatiquement. Les reçus qui ne peuvent pas être lus avec certitude, et les e-mails d’expéditeurs non reconnus, attendent dans « Review needed » que vous ou votre expert-comptable les confirmiez. Les reçus d’une boîte mail connectée y attendent toujours, et l’expert-comptable ne les voit qu’une fois que vous les avez confirmés." },
+      { label: "Vérification", value: "Chaque reçu est lu par l’IA : une photo en quelques secondes, un e-mail dès son arrivée. Personne chez UnReceipt ne vérifie les reçus à la main. Quand vous enregistrez une photo, vous vérifiez vous-même les champs remplis ; les reçus qui ne peuvent pas être lus avec certitude, les fichiers numérisés en lot et les e-mails d’expéditeurs non reconnus attendent dans « Review needed » que vous ou votre expert-comptable les confirmiez. Les reçus d’une boîte mail connectée y attendent toujours, et l’expert-comptable ne les voit qu’une fois que vous les avez confirmés." },
       {
         label: "Devises",
         value: "Un reçu en SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON ou TRY garde son montant et reçoit un montant estimé en euros au taux de référence de la BCE du jour de l’achat (ou du dernier jour ouvré). Le montant du relevé bancaire peut être saisi et prévaut.",

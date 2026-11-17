@@ -21,7 +21,6 @@ const renderDashboard = (
       userEmail="owner@example.se"
       receipts={[]}
       forwardingEmail="receipts+abc@in.unreceipt.com"
-      intakeSmsNumber={null}
       {...props}
     />,
   );

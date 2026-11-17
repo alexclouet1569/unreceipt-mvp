@@ -82,7 +82,6 @@ const renderDashboard = () =>
       userEmail="owner@example.se"
       receipts={RECEIPTS}
       forwardingEmail="receipts+abc@in.unreceipt.com"
-      intakeSmsNumber={null}
     />,
   );
 
@@ -140,7 +139,6 @@ describe("Dashboard period total", () => {
         userEmail="owner@example.se"
         receipts={receipts}
         forwardingEmail="receipts+abc@in.unreceipt.com"
-        intakeSmsNumber={null}
         homeCurrency={homeCurrency}
       />,
     );
@@ -285,7 +283,7 @@ describe("new receipts by themselves", () => {
   it("makes no request without a user id (tests, demo tour)", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    render(<Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} intakeSmsNumber={null} homeCurrency="SEK" />);
+    render(<Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} homeCurrency="SEK" />);
     await act(async () => {});
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/api/receipts/updates"), expect.anything());
   });
@@ -304,7 +302,7 @@ describe("new receipts by themselves", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     render(
-      <Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} intakeSmsNumber={null} homeCurrency="SEK" liveUpdatesUserId="u1" />,
+      <Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} homeCurrency="SEK" liveUpdatesUserId="u1" />,
     );
     await act(async () => {});
     expect(fetchMock.mock.calls[0][0]).toBe("/api/receipts/updates?rows=web&after=2026-11-14T09%3A00%3A00.000Z");

@@ -1,8 +1,7 @@
 "use client";
 
-// A labelled, copyable intake address (the user's forwarding email, or the
-// SMS number). Used on the empty state and on /app/settings. The value
-// renders in mono per DESIGN.md's empty-state spec.
+// A labelled, copyable value: the forwarding address, Gmail's code or a
+// filter query. Mono when the value is an address (DESIGN.md empty state).
 
 import { useCallback, useState } from "react";
 import { Check, Copy } from "lucide-react";

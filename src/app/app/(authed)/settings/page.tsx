@@ -128,7 +128,6 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   // employee sees whose team they are in.
   const employment = await getEmployment(user.id).catch(() => null);
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
-  const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
   // The Capacitor shell can't finish an OAuth flow (Google's screen opens
   // in Safari, away from the cookie that binds the flow to this browser):
   // no connect buttons there. Mailboxes already connected still show.
@@ -201,14 +200,6 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             ) : (
               <ForwardingUnavailable />
             )}
-            {intakeSmsNumber ? (
-              <IntakeRow
-                callout="Or text a photo to"
-                value={intakeSmsNumber}
-                mono
-                copyLabel="Copy SMS number"
-              />
-            ) : null}
             <Link
               href="/app/settings/forwarding"
               className="flex items-center justify-between gap-3 bg-card hover:bg-[var(--surface)] transition-colors duration-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2"
