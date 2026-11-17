@@ -13,7 +13,9 @@ import { DESCRIPTION, SITE_URL, absoluteUrl } from "@/lib/seo";
  * (llmstxt.org convention). Built from the same plans and FAQ the landing
  * page renders, so it can't drift from the site.
  */
-export const dynamic = "force-dynamic";
+// Built once per deployment, like the marketing pages: PILOT_MODE is
+// read at build time (src/lib/pilot.ts).
+export const dynamic = "force-static";
 
 export function GET() {
   const pilot = isPilotMode();
@@ -54,6 +56,8 @@ ${SHOW_PRICES ? `## Pricing (excl. VAT, one price per company, no per-user fees)
 - [Freelancers and sole traders](${page("freelancers", "en")}) — Swedish: [enskild firma](${page("freelancers", "sv")}), French: [indépendants](${page("freelancers", "fr")})
 
 ## Guides
+All guides: [English](${page("guides", "en")}), [Swedish](${page("guides", "sv")}), [French](${page("guides", "fr")})
+
 ${guides}
 
 ## Links

@@ -24,19 +24,18 @@ import {
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ExplainerVideo } from "./_explainer-video";
-import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
-import { getFaq } from "@/lib/faq";
+import type { FaqItem } from "@/lib/faq";
+import { fill } from "@/lib/fill";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
-import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
+import type { LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
-import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
-import { SiteFooter } from "./_site-chrome";
-import { SITE_COPY } from "./_site-copy";
+import { ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
+import type { LandingReceipt } from "./_receipt-text";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -174,13 +173,32 @@ function FloatingReceipts() {
   );
 }
 
-type LandingPageProps = {
+/**
+ * One language of the landing page. Everything language-specific arrives as
+ * props from the server (`_landing-page.tsx`), so the browser downloads only
+ * this page's language, never the copy of all three.
+ */
+export type LandingViewProps = {
   pilotMode: boolean;
-  locale?: Locale;
+  locale: Locale;
+  copy: LandingCopy;
+  /** The site-wide "Accountants" nav label in this language. */
+  accountantsLabel: string;
+  faq: FaqItem[];
+  receipt: LandingReceipt;
+  /** The site footer, rendered on the server. */
+  footer: React.ReactNode;
 };
 
-export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
-  const t = LANDING_COPY[locale];
+export function LandingView({
+  pilotMode,
+  locale,
+  copy: t,
+  accountantsLabel,
+  faq,
+  receipt,
+  footer,
+}: LandingViewProps) {
   const otherLocales = LOCALES.filter((l) => l !== locale);
   const s = t.samples;
   const fromPrice = planPriceLabel(PLANS[0], locale);
@@ -191,7 +209,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
     { label: t.nav.how, href: "#how" },
     ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
     { label: t.nav.about, href: "#about" },
-    { label: SITE_COPY[locale].nav.accountants, href: accountantsPath },
+    { label: accountantsLabel, href: accountantsPath },
     { label: t.nav.faq, href: "#faq" },
   ];
   // "Who it's for" cards link to each audience's own page; small
@@ -248,7 +266,6 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
       {/* The marketing site has no dark design: keep it light on shared hosts. */}
-      <LightOnly />
       {/* ─── NAV ─── */}
       {/* Solid cream bar from the first pixel so the full-color primary
           lockup never has to swap variants mid-scroll. Only the hairline
@@ -491,8 +508,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           surface with the printing receipt behind it, so these sections
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
-      <ReceiptBackdrop locale={locale} />
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].top} />
+      <ReceiptBackdrop currency={receipt.text.currency} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.top} />
 
       {/* ─── SOCIAL PROOF BAR ─── */}
       <Section className="py-10 px-4 sm:px-6">
@@ -513,7 +530,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         <ReceiptTicker t={t.ticker} samples={t.samples} />
       </section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].features} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.features} />
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
       <Section id="features" className="py-20 px-4 sm:px-6">
@@ -542,7 +559,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].how} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.how} />
 
       {/* ─── HOW IT WORKS ─── */}
       <Section id="how" className="py-20 px-4 sm:px-6">
@@ -577,7 +594,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].difference} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.difference} />
 
       {/* ─── COMPARISON ─── */}
       <Section id="difference" className="py-20 px-4 sm:px-6">
@@ -629,14 +646,19 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       {/* ─── PRICING ─── (hidden while SHOW_PRICES is off) */}
       {SHOW_PRICES ? (
         <>
-          <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
+          <ReceiptRows text={receipt.text} rows={receipt.rows.pricing} />
           <Section id="pricing" className="py-20 px-4 sm:px-6">
-            <Pricing pilotMode={pilotMode} locale={locale} />
+            <Pricing
+              locale={locale}
+              copy={t.pricing}
+              cta={heroCta}
+              note={pilotMode ? t.pricing.notePilot : t.pricing.notePaid}
+            />
           </Section>
         </>
       ) : null}
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].about} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.about} />
 
       {/* ─── BUILT FOR TEAMS ─── */}
       <Section id="about" className="py-20 px-4 sm:px-6">
@@ -683,7 +705,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           {/* Native <details>: every answer is in the HTML, so search
               engines and AI assistants read it without running JS. */}
           <div className="space-y-3">
-            {getFaq(pilotMode, locale).map((item) => (
+            {faq.map((item) => (
               <details
                 key={item.q}
                 className="group bg-white border border-[#E8E5DD] rounded-2xl px-5 sm:px-6 open:pb-5"
@@ -701,7 +723,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].badges} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.badges} />
 
       {/* ─── TRUST BADGES ─── */}
       <Section className="py-16 px-4 sm:px-6">
@@ -731,7 +753,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </Section>
       ) : null}
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].end} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.end} />
       </div>
 
       {/* ─── WAITLIST CTA ─── */}
@@ -817,7 +839,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <SiteFooter locale={locale} />
+      {footer}
 
       {/* ─── ANIMATIONS ─── */}
       <style jsx>{`

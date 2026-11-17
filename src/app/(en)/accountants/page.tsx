@@ -4,14 +4,13 @@ import { AudiencePage } from "@/app/_audience-page";
 import { isPilotMode } from "@/lib/pilot";
 import { marketingMetadata } from "@/lib/seo";
 
-// freelancers page, en. Copy in src/app/_audience-copy.ts; PILOT_MODE changes
-// the call to action, so the page renders per request like the landing.
-export const dynamic = "force-dynamic";
+// accountants page, en. Copy in src/app/_audience-copy.ts. PILOT_MODE changes
+// the call to action; it is read at build time (src/lib/pilot.ts).
 
-const t = AUDIENCE_COPY.freelancers.en;
+const t = AUDIENCE_COPY.accountants.en;
 
 export const metadata: Metadata = marketingMetadata({
-  page: "freelancers",
+  page: "accountants",
   locale: "en",
   title: t.meta.title,
   description: t.meta.description,
@@ -20,5 +19,5 @@ export const metadata: Metadata = marketingMetadata({
 });
 
 export default function Page() {
-  return <AudiencePage audience="freelancers" locale="en" pilotMode={isPilotMode()} />;
+  return <AudiencePage audience="accountants" locale="en" pilotMode={isPilotMode()} />;
 }

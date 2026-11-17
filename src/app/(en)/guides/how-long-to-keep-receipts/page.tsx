@@ -5,7 +5,6 @@ import { isPilotMode } from "@/lib/pilot";
 import { marketingMetadata } from "@/lib/seo";
 
 // Guide, en. Content and sources in src/lib/guides.ts.
-export const dynamic = "force-dynamic";
 
 const g = getGuide("guideRetention", "en");
 

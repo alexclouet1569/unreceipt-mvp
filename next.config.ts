@@ -75,6 +75,11 @@ const PDFJS_FILES = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // The site has several root layouts (src/app/_root-document.tsx), so an
+    // address that matches no route is answered by src/app/global-not-found.tsx.
+    globalNotFound: true,
+  },
   // PDF originals are drawn as pictures on the server
   // (src/lib/receipts/pdf-render.ts) in a worker thread
   // (pdf-render-worker.mjs, loaded by path): pdf.js and its native canvas

@@ -5,7 +5,6 @@ import type { Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { aboutJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
-import { HtmlLang } from "./_html-lang";
 import { SITE_COPY } from "./_site-copy";
 import { SiteFooter, SiteHeader } from "./_site-chrome";
 
@@ -44,7 +43,6 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
   return (
     <div className="min-h-screen bg-[#FAFAF7]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
-      {locale !== "en" ? <HtmlLang lang={locale} /> : null}
       <SiteHeader locale={locale} page="about" pilotMode={pilotMode} />
 
       <main className="px-4 sm:px-6 py-10 sm:py-14">

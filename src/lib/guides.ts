@@ -532,3 +532,72 @@ export function getGuide(page: GuidePageId, locale: Locale): Guide {
   if (!guide) throw new Error(`No ${locale} guide for ${page}`);
   return guide;
 }
+
+const DATE_LOCALE: Record<Locale, string> = { en: "en-GB", sv: "sv-SE", fr: "fr-FR" };
+
+/** A guide's date as the page shows it ("8 november 2026"). */
+export function formatGuideDate(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(DATE_LOCALE[locale], {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${iso}T00:00:00Z`));
+}
+
+/** The guides of one language, most recently reviewed first. */
+export function guidesFor(locale: Locale): Guide[] {
+  return GUIDES.filter((g) => g.locale === locale).sort(
+    (a, b) => b.updated.localeCompare(a.updated) || a.title.localeCompare(b.title)
+  );
+}
+
+/** Words of the guides index page (`/guides`, `/sv/guider`, `/fr/guides`). */
+export type GuidesIndexCopy = {
+  /** The <title>. */
+  metaTitle: string;
+  description: string;
+  /** Its name in breadcrumbs (on the index and on every guide). */
+  breadcrumb: string;
+  eyebrow: string;
+  title: string;
+  lead: string;
+  updatedLabel: string;
+  readLabel: string;
+};
+
+export const GUIDES_INDEX: Record<Locale, GuidesIndexCopy> = {
+  en: {
+    metaTitle: "Guides: receipt rules for small businesses | UnReceipt",
+    description:
+      "Plain-language guides to the rules for receipts and bookkeeping records, with their legal sources and the date each was last checked.",
+    breadcrumb: "Guides",
+    eyebrow: "Guides",
+    title: "Receipt rules, explained",
+    lead: "Short answers first, then the detail. Every guide cites its legal sources and says when it was last checked.",
+    updatedLabel: "Last reviewed",
+    readLabel: "Read the guide",
+  },
+  sv: {
+    metaTitle: "Guider om kvitton och bokföring | UnReceipt",
+    description:
+      "Guider om reglerna för kvitton och verifikationer i Sverige, med lagkällor och datum för när de senast granskades.",
+    breadcrumb: "Guider",
+    eyebrow: "Guider",
+    title: "Reglerna för kvitton, förklarade",
+    lead: "Det korta svaret först, sedan detaljerna. Varje guide anger sina källor och när den senast granskades.",
+    updatedLabel: "Senast granskad",
+    readLabel: "Läs guiden",
+  },
+  fr: {
+    metaTitle: "Guides : les règles des justificatifs | UnReceipt",
+    description:
+      "Des guides clairs sur les règles des tickets de caisse et des justificatifs comptables en France, avec leurs sources et leur date de vérification.",
+    breadcrumb: "Guides",
+    eyebrow: "Guides",
+    title: "Les règles des justificatifs, expliquées",
+    lead: "La réponse courte d’abord, puis le détail. Chaque guide cite ses sources et indique quand il a été vérifié.",
+    updatedLabel: "Dernière vérification",
+    readLabel: "Lire le guide",
+  },
+};

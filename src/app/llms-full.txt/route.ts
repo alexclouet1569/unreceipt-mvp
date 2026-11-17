@@ -15,7 +15,9 @@ import { absoluteUrl } from "@/lib/seo";
  * as the pages (about.ts, faq.ts, _audience-copy.ts, guides.ts), so it
  * never says something the site doesn't.
  */
-export const dynamic = "force-dynamic";
+// Built once per deployment, like the marketing pages: PILOT_MODE is
+// read at build time (src/lib/pilot.ts).
+export const dynamic = "force-static";
 
 const faqMd = (items: FaqItem[]) => items.map((i) => `#### ${i.q}\n${i.a}`).join("\n\n");
 

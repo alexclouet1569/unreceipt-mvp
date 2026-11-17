@@ -5,7 +5,6 @@ import { isPilotMode } from "@/lib/pilot";
 import { marketingMetadata } from "@/lib/seo";
 
 // "About UnReceipt" fact sheet, en. Facts in src/lib/about.ts.
-export const dynamic = "force-dynamic";
 
 // Titles and descriptions don't depend on PILOT_MODE; the pricing fact does.
 const meta = getAbout("en", false).meta;

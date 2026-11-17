@@ -25,7 +25,6 @@ import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { audienceJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { AUDIENCE_COPY, type AudienceId, type Cta, type IconName } from "./_audience-copy";
-import { HtmlLang } from "./_html-lang";
 import { fill } from "./_landing-copy";
 import { SITE_COPY } from "./_site-copy";
 import { SiteFooter, SiteHeader } from "./_site-chrome";
@@ -101,7 +100,6 @@ export function AudiencePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
-      {locale !== "en" ? <HtmlLang lang={locale} /> : null}
       <SiteHeader locale={locale} page={audience} pilotMode={pilotMode} />
 
       <main>

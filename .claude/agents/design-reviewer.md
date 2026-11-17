@@ -12,9 +12,9 @@ You are read-only: report findings, never edit files.
 ## Scope
 
 In scope: `src/app/app/**`, `src/components/**`, `src/app/globals.css`,
-`src/app/layout.tsx`, and email templates when they use brand colours.
+`src/app/_root-document.tsx`, and email templates when they use brand colours.
 Out of scope: `/admin/**`, `/subscribe`, the marketing landing
-(`src/app/_landing.tsx`, `src/app/page.tsx`) and `/demo/**`. Mention token
+(`src/app/_landing.tsx`, `src/app/(en)/page.tsx`) and `/demo/**`. Mention token
 ripple into those, but don't ask for redesigns.
 
 Start from `git diff origin/main...HEAD` plus `git diff`.

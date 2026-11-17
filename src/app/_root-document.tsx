@@ -4,10 +4,26 @@ import { Manrope, Figtree, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL, TITLE } from "@/lib/seo";
-import { MARKETING_PATHS } from "@/lib/marketing-pages";
+import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL, TITLE, OG_IMAGE } from "@/lib/seo";
+import type { Locale } from "@/lib/locale";
 import "./globals.css";
 import { NativeAppBridge } from "./_native-app-bridge";
+
+/**
+ * The `<html>` documents of the site. There is no `src/app/layout.tsx`:
+ * every part of the site has its own root layout (Next's "multiple root
+ * layouts"), so the server HTML carries the right `lang` and the marketing
+ * pages can be prerendered.
+ *
+ * - Marketing (`(en)/layout.tsx`, `sv/layout.tsx`, `fr/layout.tsx`):
+ *   `MarketingDocument`, static, always light, no PWA assets.
+ * - Product (`app/`, `admin/`, `firm/`, `demo/`, `subscribe/` layouts):
+ *   `ProductDocument`, which reads the host for the PWA assets and dark mode.
+ *
+ * Moving between two root layouts is a full page load, as it always is
+ * between the two hosts in production. A new top-level page folder needs a
+ * root layout (English marketing pages go inside `(en)/`); a test checks it.
+ */
 
 const APP_HOST = "app.unreceipt.com";
 
@@ -37,7 +53,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+const HTML_CLASS = `${manrope.variable} ${figtree.variable} ${geistMono.variable} h-full antialiased`;
+const BODY_CLASS = "min-h-full flex flex-col font-sans";
+
+/** Site-wide defaults; every root layout exports these (pages override). */
+export const ROOT_METADATA: Metadata = {
   title: {
     default: TITLE,
     template: "%s | UnReceipt",
@@ -62,20 +82,13 @@ export const metadata: Metadata = {
     siteName: "UnReceipt",
     title: "UnReceipt — From Chaos to Clarity",
     description: SHARE_DESCRIPTION,
-    images: [
-      {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: "UnReceipt — VAT-ready receipts for small businesses and their accountants.",
-      },
-    ],
+    images: [OG_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "UnReceipt — From Chaos to Clarity",
     description: SHARE_DESCRIPTION,
-    images: ["/opengraph-image"],
+    images: [OG_IMAGE.url],
   },
   robots: {
     index: true,
@@ -93,23 +106,33 @@ export const metadata: Metadata = {
   },
 };
 
-/** Marketing paths, which stay light (DESIGN.md "Dark mode"). */
-const LIGHT_PATHS = [...MARKETING_PATHS, "/privacy"];
+/**
+ * A marketing page's document. Reads nothing from the request, so the pages
+ * under it are prerendered at build time. The marketing site has no dark
+ * design (DESIGN.md "Dark mode"), so no `data-theme` is ever set here.
+ */
+export function MarketingDocument({ lang, children }: { lang: Locale; children: React.ReactNode }) {
+  return (
+    <html lang={lang} className={HTML_CLASS}>
+      <head>
+        <meta name="theme-color" content="#27BE7B" />
+      </head>
+      <body className={BODY_CLASS}>
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
+    </html>
+  );
+}
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+/** The product's document (English only, see AGENTS.md "Languages"). */
+export async function ProductDocument({ children }: { children: React.ReactNode }) {
   // PWA assets (manifest, apple-touch-icon, mobile-web-app meta) only
-  // ship on the product host. The marketing apex stays a pure website
-  // — no install prompts, no service-worker scope, browsers won't
-  // suggest "Add to Home Screen" from there. Localhost / Vercel
-  // previews see the PWA assets too so dev still works.
+  // ship on the product host. Localhost / Vercel previews see them too so
+  // dev still works. Product pages render per request anyway.
   const headerList = await headers();
   const host = (headerList.get("host") ?? "").toLowerCase();
-  // Hosts that serve the product and the marketing site from one origin.
-  const sharedHost = host.startsWith("localhost") || host.endsWith(".vercel.app") || host.startsWith("127.0.0.1");
   const isAppHost =
     host === APP_HOST ||
     host.startsWith("localhost") ||
@@ -118,15 +141,12 @@ export default async function RootLayout({
 
   return (
     // data-theme="auto": the product follows the device's light or dark
-    // setting (globals.css). The marketing apex stays light; local and
-    // preview addresses serve both surfaces, so there both follow it.
+    // setting (globals.css).
     <html
       lang="en"
       data-theme={isAppHost ? "auto" : undefined}
-      data-theme-default={isAppHost ? "auto" : undefined}
-      // A marketing page on a shared (local / preview) host removes it before paint.
       suppressHydrationWarning
-      className={`${manrope.variable} ${figtree.variable} ${geistMono.variable} h-full antialiased`}
+      className={HTML_CLASS}
     >
       <head>
         {isAppHost ? (
@@ -140,18 +160,8 @@ export default async function RootLayout({
         ) : null}
         <meta name="theme-color" content="#27BE7B" />
         {isAppHost ? <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1124" /> : null}
-        {sharedHost ? (
-          // Local and preview addresses serve the marketing site too, which
-          // has no dark design: drop the dark-mode mark before the first
-          // paint on its paths (LightOnly covers client navigations).
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `if(${JSON.stringify(LIGHT_PATHS)}.indexOf(location.pathname)>-1)document.documentElement.removeAttribute("data-theme")`,
-            }}
-          />
-        ) : null}
       </head>
-      <body className="min-h-full flex flex-col font-sans">
+      <body className={BODY_CLASS}>
         <TooltipProvider>{children}</TooltipProvider>
         <NativeAppBridge />
         <Analytics />

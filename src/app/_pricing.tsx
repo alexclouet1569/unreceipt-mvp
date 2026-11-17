@@ -7,7 +7,8 @@ import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/locale";
 import { PLANS, overagePriceLabel, planForReceipts, planPriceLabel } from "@/lib/plans";
-import { LANDING_COPY, fill } from "./_landing-copy";
+import { fill } from "@/lib/fill";
+import type { LandingCopy } from "./_landing-copy";
 
 /**
  * Three flat monthly plans per company, sized by how many receipts the
@@ -17,11 +18,19 @@ import { LANDING_COPY, fill } from "./_landing-copy";
 const MIN_RECEIPTS = 1;
 const MAX_RECEIPTS = PLANS[PLANS.length - 1].receipts;
 
-export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; locale?: Locale }) {
+export function Pricing({
+  locale,
+  copy: t,
+  cta,
+  note,
+}: {
+  locale: Locale;
+  /** This language's pricing copy only (the page sends one language). */
+  copy: LandingCopy["pricing"];
+  cta: string;
+  note: string;
+}) {
   const [receipts, setReceipts] = useState(10);
-  const all = LANDING_COPY[locale];
-  const t = all.pricing;
-  const cta = pilotMode ? all.hero.ctaPilot : all.hero.ctaPaid;
   const fits = planForReceipts(receipts);
   const [fitsBefore, fitsAfter = ""] = t.fits.split("{plan}");
 
@@ -176,7 +185,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
       </div>
 
       <p className="text-xs text-[#303568]/50 text-center mt-8">
-        {pilotMode ? t.notePilot : t.notePaid}
+        {note}
       </p>
     </div>
   );

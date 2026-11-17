@@ -27,6 +27,7 @@ export type SiteCopy = {
     whoFor: string;
     smallBusiness: string;
     guides: string;
+    allGuides: string;
     guideRetention: string;
     guidePaper: string | null;
     company: string;
@@ -61,6 +62,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       whoFor: "Who it's for",
       smallBusiness: "Small businesses",
       guides: "Guides",
+      allGuides: "All guides",
       guideRetention: "How long to keep receipts",
       guidePaper: null,
       company: "Company",
@@ -93,6 +95,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       whoFor: "För vem",
       smallBusiness: "Småföretag",
       guides: "Guider",
+      allGuides: "Alla guider",
       guideRetention: "Hur länge ska man spara kvitton?",
       guidePaper: "Får man slänga papperskvitton?",
       company: "Om oss",
@@ -125,6 +128,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       whoFor: "Pour qui",
       smallBusiness: "TPE",
       guides: "Guides",
+      allGuides: "Tous les guides",
       guideRetention: "Durée de conservation des justificatifs",
       guidePaper: "Peut-on jeter les tickets de caisse ?",
       company: "Entreprise",

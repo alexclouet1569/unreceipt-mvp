@@ -28,7 +28,7 @@
 - **Primary (body + headings):** **Manrope** — weights 600, 700, 800. App titles, screen titles, merchant names on cards, and all default body text. Manrope is the face of the product.
 - **Italic accent:** **Figtree** — weights 400, 500, 600. Reserved for short punchy callouts, pull quotes, and brief descriptive notes (e.g. the empty-state inbox subtitle). Always paired with `italic`. Never the body default, never on headings, never on monetary amounts.
 - **Monetary amounts only:** **Geist Mono** — weights 500, 600. Loaded via `next/font/google`.
-- **Loading:** all three via `next/font/google` (configured in `src/app/layout.tsx`).
+- **Loading:** all three via `next/font/google` (configured in `src/app/_root-document.tsx`, shared by every root layout).
 
 ### CSS variable mapping
 

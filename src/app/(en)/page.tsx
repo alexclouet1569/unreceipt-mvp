@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
 import { DESCRIPTION, SHARE_DESCRIPTION, TITLE, jsonLdHtml, landingJsonLd, marketingMetadata } from "@/lib/seo";
-import { LandingPage } from "./_landing";
+import { LandingPage } from "@/app/_landing-page";
 
-// PILOT_MODE is read server-side here and passed down so the client
-// component renders the right CTA copy. Forces dynamic so the toggle
-// flips with one redeploy without invalidating a static cache.
-export const dynamic = "force-dynamic";
+// PILOT_MODE is read when the page is built and passed down so the client
+// component renders the right CTA copy (src/lib/pilot.ts).
 
 export const metadata: Metadata = marketingMetadata({
   page: "home",
