@@ -32,6 +32,8 @@ export function TeamJoinAnswer({ inviteId, companyName }: { inviteId: string; co
             ? "This invitation isn't there any more. Ask to be invited again."
             : body.error === "already_in_a_team"
               ? "You're already in another company's team. Ask its owner to remove you first."
+              : body.error === "firm_account"
+                ? "This account is for an accounting firm, so it can't also join a company's team. Ask to be invited at another email address."
               : body.error === "own_company"
                 ? "This is your own company: you're already its owner."
                 : body.error === "email_not_confirmed"

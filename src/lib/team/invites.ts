@@ -15,6 +15,7 @@ import type { MembershipRole } from "../types";
 import { getEmployment, labelOf, loadTeam, peopleById, teamContextFor } from "./membership";
 import { sendTeamInvite } from "./emails";
 import { isAcceptableDisplayName } from "../firm/names";
+import { checkMayHaveCompany, FIRM_ACCOUNT } from "../account-roles";
 
 type Fail = { ok: false; status: 400 | 403 | 404 | 409 | 500; error: string };
 const fail = (status: Fail["status"], error: string): Fail => ({ ok: false, status, error });
@@ -271,6 +272,10 @@ export async function acceptTeamInvite(user: User, inviteId: string): Promise<{ 
   } | null;
   // Your own company can't employ you.
   if (org?.default_for_user_id === user.id) return fail(409, "own_company");
+  // One account, one role: an accounting-firm account can't work for a company.
+  const may = await checkMayHaveCompany(user.id);
+  if (may === "blocked") return fail(409, FIRM_ACCOUNT);
+  if (may === "error") return fail(500, "lookup_failed");
 
   let employment;
   try {

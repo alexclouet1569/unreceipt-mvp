@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
   decline: vi.fn(),
   mintOrg: vi.fn(),
+  mayJoin: "ok" as "ok" | "blocked" | "error",
 }));
 
 vi.mock("@/lib/supabase-server", () => ({ getServerUser: async () => mocks.user }));
@@ -20,6 +21,10 @@ vi.mock("@/lib/require-firm", () => ({
   declinePendingFirmSeats: mocks.decline,
 }));
 vi.mock("@/lib/organizations", () => ({ getOrCreateDefaultOrganization: mocks.mintOrg }));
+vi.mock("@/lib/account-roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/account-roles")>()),
+  checkMayJoinFirm: async () => mocks.mayJoin,
+}));
 
 import { POST } from "@/app/api/firm-join/route";
 
@@ -41,6 +46,7 @@ beforeEach(() => {
   mocks.claim.mockReset().mockResolvedValue({ firmId: "f1", memberId: "m1", firmName: "Byrån AB", role: "staff" });
   mocks.decline.mockReset().mockResolvedValue(true);
   mocks.mintOrg.mockReset().mockResolvedValue("org-1");
+  mocks.mayJoin = "ok";
 });
 
 describe("POST /api/firm-join", () => {
@@ -50,6 +56,21 @@ describe("POST /api/firm-join", () => {
     expect(await res.json()).toEqual({ ok: true, redirect: "/firm" });
     expect(mocks.claim).toHaveBeenCalledWith(USER);
     expect(mocks.mintOrg).not.toHaveBeenCalled();
+  });
+
+  it("refuses a company account: one account, one role", async () => {
+    mocks.mayJoin = "blocked";
+    const res = await call({ action: "join" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("company_account");
+    expect(mocks.claim).not.toHaveBeenCalled();
+  });
+
+  it("claims nothing when it can't tell whether the account has a company", async () => {
+    mocks.mayJoin = "error";
+    const res = await call({ action: "join" });
+    expect(res.status).toBe(500);
+    expect(mocks.claim).not.toHaveBeenCalled();
   });
 
   it("'Not me' removes the waiting seats and gives the user their own company", async () => {

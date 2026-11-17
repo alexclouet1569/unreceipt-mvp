@@ -233,10 +233,10 @@ async function newCompanyCountry(user: User): Promise<string | null> {
 export async function loadHome(
   user: User,
   sessionId: string | null,
-  // The website asks a user with a waiting firm seat whether to join before
-  // creating a company for them. The iPhone app (companies only; accountants
-  // use /firm on the web) doesn't: it goes on as a customer, and the seat
-  // stays offered as "Join <firm>" in the website's Settings.
+  // A user with a waiting firm seat and no company is asked whether to join
+  // before a company is created for them: a company account can't join a
+  // firm afterwards (one account, one role: src/lib/account-roles.ts). Both
+  // the website and the iPhone app (which says to join on the web) ask.
   { askAboutFirmSeat = false }: { askAboutFirmSeat?: boolean } = {}
 ): Promise<HomeLoad> {
   // Everything the screen reads, at once rather than one query after the

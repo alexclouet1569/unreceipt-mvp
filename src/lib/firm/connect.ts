@@ -16,6 +16,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { getDefaultOrganizationId, getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
+import { checkMayHaveCompany } from "@/lib/account-roles";
 import { sendLinkConfirmation } from "./link-emails";
 import type { JoinTarget } from "./join-link";
 
@@ -24,6 +25,7 @@ export type ConnectState =
   | { kind: "unconfirmed" }
   | { kind: "join_firm_first"; firmName: string }
   | { kind: "own_firm" }
+  | { kind: "firm_account" }
   | { kind: "already" }
   | { kind: "other_firm"; firmName: string };
 
@@ -73,6 +75,9 @@ async function blockedFor(user: User, target: JoinTarget): Promise<ConnectState 
   if (!(await getFirmMembership(user.id))) {
     const seat = await findPendingFirmSeat(user);
     if (seat) return { kind: "join_firm_first", firmName: seat.firmName };
+  } else if ((await checkMayHaveCompany(user.id)) === "blocked") {
+    // Staff of another firm: one account, one role (src/lib/account-roles.ts).
+    return { kind: "firm_account" };
   }
   return null;
 }
@@ -91,12 +96,17 @@ export async function connectState(user: User, target: JoinTarget): Promise<Conn
 
 export type ConnectResult =
   | { ok: true }
-  | { ok: false; reason: "unconfirmed" | "join_firm_first" | "own_firm" | "already" | "other_firm" | "failed" };
+  | {
+      ok: false;
+      reason: "unconfirmed" | "join_firm_first" | "own_firm" | "firm_account" | "already" | "other_firm" | "failed";
+    };
 
 /** "Yes, share": links the caller's company to the firm. */
 export async function connectToFirm(user: User, target: JoinTarget): Promise<ConnectResult> {
   const blocked = await blockedFor(user, target);
-  if (blocked) return { ok: false, reason: blocked.kind as "unconfirmed" | "join_firm_first" | "own_firm" };
+  if (blocked) {
+    return { ok: false, reason: blocked.kind as "unconfirmed" | "join_firm_first" | "own_firm" | "firm_account" };
+  }
   const organizationId = await getOrCreateDefaultOrganization(user.id);
   if (!organizationId) return { ok: false, reason: "failed" };
   const active = await activeLinkOf(organizationId);

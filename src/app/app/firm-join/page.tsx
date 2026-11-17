@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
+import { checkMayJoinFirm } from "@/lib/account-roles";
 import { JoinAnswer } from "./JoinAnswer";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,9 @@ export default async function FirmJoinPage() {
   if (await getFirmMembership(user.id)) redirect("/firm");
   const seat = await findPendingFirmSeat(user);
   if (!seat) redirect("/app");
+  // One account, one role (src/lib/account-roles.ts): a company account
+  // can't join. On a failed read the Join route checks again.
+  const canJoin = (await checkMayJoinFirm(user.id)) !== "blocked";
 
   return (
     <div className="min-h-screen bg-background">
@@ -33,13 +37,21 @@ export default async function FirmJoinPage() {
             <h1 className="font-display font-bold text-[var(--ink)]" style={H1}>
               {seat.firmName} added you to its team
             </h1>
-            <p className="text-[var(--ink-muted)]" style={P}>
-              Join to see the clients {seat.firmName} works with in the firm portal. If you don&apos;t work at{" "}
-              {seat.firmName}, choose Not me: you&apos;ll use UnReceipt for your own receipts, and{" "}
-              {seat.firmName} won&apos;t see them.
-            </p>
+            {canJoin ? (
+              <p className="text-[var(--ink-muted)]" style={P}>
+                Join to see the clients {seat.firmName} works with in the firm portal. If you don&apos;t work at{" "}
+                {seat.firmName}, choose Not me: you&apos;ll use UnReceipt for your own receipts, and{" "}
+                {seat.firmName} won&apos;t see them.
+              </p>
+            ) : (
+              <p className="text-[var(--ink-muted)]" style={P}>
+                This account is for your company&apos;s own receipts, so it can&apos;t also work for an accounting
+                firm. If you work at {seat.firmName}, ask them to add a different email address of yours and sign
+                in with that one. {seat.firmName} doesn&apos;t see your receipts.
+              </p>
+            )}
           </div>
-          <JoinAnswer firmName={seat.firmName} />
+          <JoinAnswer firmName={seat.firmName} canJoin={canJoin} />
         </div>
       </main>
     </div>

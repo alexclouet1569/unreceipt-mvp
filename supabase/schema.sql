@@ -2219,3 +2219,128 @@ DROP TRIGGER IF EXISTS receipts_keep_in_approval ON public.receipts;
 CREATE TRIGGER receipts_keep_in_approval
   BEFORE DELETE ON public.receipts
   FOR EACH ROW EXECUTE FUNCTION public.receipts_keep_in_approval();
+
+-- =============================================================================
+-- 2026-11-17 — One account, one role (src/lib/account-roles.ts)
+-- =============================================================================
+-- An account is either a company account (a row in memberships: owner,
+-- approver or employee) or an accounting-firm account (a claimed seat in
+-- firm_members), never both. A firm that also keeps its own receipts uses
+-- a second account with another email address. The app refuses first, with
+-- a reason on screen; these triggers refuse the same writes for any route
+-- that forgets. Rows that already exist are left alone.
+--
+-- account_role_exemptions: accounts allowed both roles (the founder's test
+-- account, added by the backfill below). Server-only (RLS on, no
+-- policies). Another one is added by hand:
+--   INSERT INTO public.account_role_exemptions (user_id, note)
+--   SELECT id, 'founder' FROM auth.users WHERE email = '<address>'
+--   ON CONFLICT (user_id) DO NOTHING;
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.account_role_exemptions (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  note TEXT CHECK (note IS NULL OR char_length(note) <= 200),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.account_role_exemptions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.account_role_exemptions FROM anon, authenticated;
+
+-- Accounts that already hold both roles keep them (on 2026-11-17 only the
+-- founder's). Safe to re-run: once the triggers below exist, no new
+-- account can hold both.
+INSERT INTO public.account_role_exemptions (user_id, note)
+SELECT DISTINCT f.user_id, 'held both roles on 2026-11-17'
+  FROM public.firm_members f
+  JOIN public.memberships m ON m.user_id = f.user_id
+ WHERE f.user_id IS NOT NULL
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Refuses giving `uid` the role named by `wanted` ('company' or 'firm')
+-- when it already has the other one. The advisory lock serialises the
+-- checks for one user, so a company and a firm seat added at the same
+-- moment can't both pass.
+CREATE OR REPLACE FUNCTION public.assert_single_account_role(uid UUID, wanted TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF uid IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('account-role:' || uid::text, 0));
+  IF EXISTS (SELECT 1 FROM public.account_role_exemptions e WHERE e.user_id = uid) THEN
+    RETURN;
+  END IF;
+  IF wanted = 'company' AND EXISTS (
+    SELECT 1 FROM public.firm_members f WHERE f.user_id = uid
+  ) THEN
+    RAISE EXCEPTION 'account_role_conflict: accounting-firm account can''t have a company'
+      USING ERRCODE = '23514';
+  END IF;
+  IF wanted = 'firm' AND EXISTS (
+    SELECT 1 FROM public.memberships m WHERE m.user_id = uid
+  ) THEN
+    RAISE EXCEPTION 'account_role_conflict: company account can''t join a firm'
+      USING ERRCODE = '23514';
+  END IF;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.assert_single_account_role(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.organizations_single_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.assert_single_account_role(NEW.default_for_user_id, 'company');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.organizations_single_role() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS organizations_single_role ON public.organizations;
+CREATE TRIGGER organizations_single_role
+  BEFORE INSERT OR UPDATE OF default_for_user_id ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION public.organizations_single_role();
+
+CREATE OR REPLACE FUNCTION public.memberships_single_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.assert_single_account_role(NEW.user_id, 'company');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.memberships_single_role() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS memberships_single_role ON public.memberships;
+CREATE TRIGGER memberships_single_role
+  BEFORE INSERT OR UPDATE OF user_id ON public.memberships
+  FOR EACH ROW EXECUTE FUNCTION public.memberships_single_role();
+
+CREATE OR REPLACE FUNCTION public.firm_members_single_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.assert_single_account_role(NEW.user_id, 'firm');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.firm_members_single_role() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS firm_members_single_role ON public.firm_members;
+CREATE TRIGGER firm_members_single_role
+  BEFORE INSERT OR UPDATE OF user_id ON public.firm_members
+  FOR EACH ROW EXECUTE FUNCTION public.firm_members_single_role();

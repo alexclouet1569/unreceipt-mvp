@@ -11,6 +11,7 @@
 
 import { getSupabaseAdmin } from "./supabase-admin";
 import { defaultCurrencyFor } from "./country";
+import { checkMayHaveCompany } from "./account-roles";
 
 const FALLBACK_NAME = "My company";
 
@@ -35,7 +36,9 @@ export async function getDefaultOrganizationId(
  * membership) on first call. Idempotent: two concurrent first calls race on
  * the unique default_for_user_id index and the loser re-reads the winner's
  * row. Returns null only when the database refuses; callers fall back to
- * the insert trigger, which fills organization_id from the same row.
+ * the insert trigger, which fills organization_id from the same row, and
+ * for an accounting-firm account, which never gets a company
+ * (src/lib/account-roles.ts).
  *
  * The owner membership is upserted on every call, the existing-company path
  * included: if it failed once after the company was created, the next call
@@ -56,6 +59,10 @@ export async function getOrCreateDefaultOrganization(
     await ensureOwnerMembership(existing, userId);
     return existing;
   }
+
+  // An accounting-firm account never gets a company (src/lib/account-roles.ts).
+  // On a failed read the database's own check decides.
+  if ((await checkMayHaveCompany(userId)) === "blocked") return null;
 
   const supabase = getSupabaseAdmin();
 

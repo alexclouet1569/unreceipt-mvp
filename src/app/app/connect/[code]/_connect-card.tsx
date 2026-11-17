@@ -131,6 +131,14 @@ export function ConnectCard({
       </Notice>
     );
   }
+  if (state.kind === "firm_account") {
+    return (
+      <Notice title="This is an accounting firm account">
+        It can&apos;t also share a company&apos;s receipts. Sign in with your company&apos;s email address, then open{" "}
+        {firmName}&apos;s link again.
+      </Notice>
+    );
+  }
   if (state.kind === "other_firm") {
     return (
       <Notice title={`You already share with ${state.firmName}`}>

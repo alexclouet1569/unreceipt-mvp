@@ -160,11 +160,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                   className="block text-[var(--ink)] [overflow-wrap:anywhere]"
                   style={{ fontSize: "15px", fontWeight: 600 }}
                 >
-                  {firm.pending ? `Join ${firm.firmName}` : `Open ${firm.firmName}`}
+                  {firm.pending ? `${firm.firmName} invited you` : `Open ${firm.firmName}`}
                 </span>
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
                   {firm.pending
-                    ? "This firm added your email to its portal. Join only if you work there."
+                    ? "This firm added your email to its team. This account is for your company, so firm work needs a different email address."
                     : "Your clients\u2019 receipts, bookkeeping exports and colleagues."}
                 </span>
               </span>
