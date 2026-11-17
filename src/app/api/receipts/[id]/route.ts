@@ -18,7 +18,8 @@
 // …) can only be set by server code. DELETE stays owner-only: it reads
 // through the anon-key client, so RLS enforces ownership. Storage deletes
 // use the service role (`receipt-originals` has no user DELETE policy), on
-// paths checked with isOwnedStoragePath first.
+// paths checked with isOwnedStoragePath first. The firm can't change the
+// approved fields of an employee's receipt (409 approved_by_company).
 
 import { isScanPath } from "@/lib/receipts/scans";
 import { NextResponse, type NextRequest } from "next/server";
@@ -45,7 +46,7 @@ import {
 } from "@/lib/receipts/receipt-fields";
 import type { Receipt } from "@/lib/types";
 import { homeCurrencyOf, round2 } from "@/lib/fx";
-import { ownerMayDelete, ownerMayEdit, statusAfterEdit } from "@/lib/team/rules";
+import { firmMayEdit, ownerMayDelete, ownerMayEdit, statusAfterEdit } from "@/lib/team/rules";
 import { logApproval } from "@/lib/team/decisions";
 import { getEmployment } from "@/lib/team/membership";
 
@@ -287,6 +288,13 @@ export async function PATCH(
   // the same amount again doesn't ask twice.
   const existingValues = existingRow as unknown as Record<string, unknown>;
   const changed = Object.keys(update).filter((k) => update[k] !== existingValues[k]);
+  // The accounting firm never changes what the company approved (amount,
+  // VAT, date, merchant, the amount paid back): it would be paid and booked
+  // without a new approval. The employee corrects it instead. Category,
+  // notes, items and the BAS account stay the firm's to set.
+  if (access.via === "firm" && !firmMayEdit(existingRow.approval_status, changed)) {
+    return NextResponse.json({ error: "approved_by_company" }, { status: 409 });
+  }
   const reopened = access.via === "owner" ? statusAfterEdit(existingRow.approval_status, changed) : null;
   if (reopened) {
     update.approval_status = reopened;

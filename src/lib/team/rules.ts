@@ -9,7 +9,10 @@
 //
 // What: draft → submitted → approved | sent_back | rejected. A sent-back
 // receipt is fixed and sent again. Changing what was approved (amount,
-// currency, date, merchant, paid by) sends it back to submitted.
+// currency, date, merchant, paid by) sends it back to submitted. The
+// accounting firm (which sees an employee's receipt only once approved)
+// never changes those fields: the employee corrects them (founder decision
+// 2026-11-17).
 
 import type { ApprovalStatus, MembershipRole, PaidBy } from "@/lib/types";
 
@@ -91,6 +94,17 @@ export function statusAfterEdit(
 ): ApprovalStatus | null {
   if (status !== "approved") return null;
   return changed.some((f) => (APPROVED_FIELDS as ReadonlyArray<string>).includes(f)) ? "submitted" : null;
+}
+
+/**
+ * May the accounting firm save this change? Not to a field the company
+ * approved, on any receipt that goes through approval: the employee
+ * corrects it, which asks for approval again. A receipt outside the flow
+ * (approval status null) is the firm's to correct as before.
+ */
+export function firmMayEdit(status: ApprovalStatus | null | undefined, changed: ReadonlyArray<string>): boolean {
+  if (status == null) return true;
+  return !changed.some((f) => (APPROVED_FIELDS as ReadonlyArray<string>).includes(f));
 }
 
 /** The employee may edit everything but a rejected receipt (the decision stands). */

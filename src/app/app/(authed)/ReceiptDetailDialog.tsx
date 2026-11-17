@@ -491,6 +491,10 @@ function deriveFormState(receipt: Receipt): EditFormState {
   };
 }
 
+// The accounting firm can't change what the company approved (PATCH 409).
+const APPROVED_BY_COMPANY_MESSAGE =
+  "The company has approved this receipt, so you can't change its amount, date, merchant or VAT. Ask your client to have the employee correct it: it then goes back for approval.";
+
 /**
  * The PATCH body: only the fields the user changed, so an untouched field
  * is never rewritten (or recorded as edited). Throws a readable message
@@ -632,6 +636,10 @@ function ReceiptEditForm({
           error?: string;
           issues?: Array<{ message?: string }>;
         };
+        // The accounting firm can't change what the company approved.
+        if (res.status === 409 && resBody.error === "approved_by_company") {
+          throw new Error(APPROVED_BY_COMPANY_MESSAGE);
+        }
         throw new Error(
           resBody.issues?.[0]?.message ??
             resBody.error ??

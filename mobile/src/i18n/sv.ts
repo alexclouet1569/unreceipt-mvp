@@ -178,6 +178,8 @@ export const sv: Strings = {
     merchantPlaceholder: "Butikens eller företagets namn",
     invalidAmount: "Skriv ett belopp, till exempel 245,50.",
     saveFailed: "Kunde inte spara. Kontrollera anslutningen och försök igen.",
+    approvedByCompany:
+      "Företaget har godkänt kvittot, så du kan inte ändra belopp, datum, butik eller moms. Be klienten låta den anställda rätta det: då skickas det för godkännande igen.",
     add: "Lägg till",
     restored: "Kvittot är tillbaka",
     amountPlaceholder: "0,00",

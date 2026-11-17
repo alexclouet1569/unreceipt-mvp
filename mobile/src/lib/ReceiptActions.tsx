@@ -73,12 +73,19 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
       if (!found) return false;
       const { receipt: before, mutate } = found;
       mutate((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, r.status) : r)));
+      // The accounting firm can't change what the company approved (amount,
+      // VAT, date, merchant): the server says so with this code.
+      let approvedByCompany = false;
       try {
         const res = await apiResponse(`/api/receipts/${encodeURIComponent(id)}`, {
           method: "PATCH",
           body: JSON.stringify(patch),
         });
-        const body = (await res.json().catch(() => null)) as { status?: MobileReceipt["status"] } | null;
+        const body = (await res.json().catch(() => null)) as {
+          status?: MobileReceipt["status"];
+          error?: string;
+        } | null;
+        approvedByCompany = res.status === 409 && body?.error === "approved_by_company";
         if (!res.ok || !body?.status) throw new ApiError("server");
         const status = body.status;
         mutate((rs) => rs.map((r) => (r.id === id ? applyPatch(r, patch, status) : r)));
@@ -88,7 +95,7 @@ export function ReceiptActionsProvider({ children }: { children: React.ReactNode
       } catch {
         mutate((rs) => rs.map((r) => (r.id === id ? before : r)));
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(s.edit.saveFailed);
+        Alert.alert(approvedByCompany ? s.edit.approvedByCompany : s.edit.saveFailed);
         return false;
       }
     },

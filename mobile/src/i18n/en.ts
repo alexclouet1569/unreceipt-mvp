@@ -180,6 +180,8 @@ export const en = {
     merchantPlaceholder: "Shop or company name",
     invalidAmount: "Enter an amount, like 245.50.",
     saveFailed: "Couldn't save. Check your connection and try again.",
+    approvedByCompany:
+      "The company has approved this receipt, so you can't change its amount, date, merchant or VAT. Ask your client to have the employee correct it: it then goes back for approval.",
     add: "Add",
     restored: "Receipt restored",
     amountPlaceholder: "0.00",

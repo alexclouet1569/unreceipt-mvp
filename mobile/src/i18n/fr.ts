@@ -178,6 +178,8 @@ export const fr: Strings = {
     merchantPlaceholder: "Nom du commerce ou de l’entreprise",
     invalidAmount: "Saisissez un montant, par exemple 245,50.",
     saveFailed: "Enregistrement impossible. Vérifiez votre connexion et réessayez.",
+    approvedByCompany:
+      "L’entreprise a validé ce reçu : vous ne pouvez pas en modifier le montant, la date, le commerçant ni la TVA. Demandez à votre client de le faire corriger par le salarié : il repartira ensuite en validation.",
     add: "Ajouter",
     restored: "Reçu restauré",
     amountPlaceholder: "0,00",

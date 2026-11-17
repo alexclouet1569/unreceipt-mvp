@@ -22,6 +22,22 @@ vi.mock("@/lib/usage", async (importOriginal) => ({
   recordReceiptUsage: usageMock,
 }));
 
+// The approval side of PATCH: whose employee the caller is, the approval
+// log, and the company's currency (for a typed home-currency amount).
+const teamMocks = vi.hoisted(() => ({
+  getEmployment: vi.fn(),
+  logApproval: vi.fn(async () => {}),
+}));
+vi.mock("@/lib/team/membership", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/team/membership")>()),
+  getEmployment: teamMocks.getEmployment,
+}));
+vi.mock("@/lib/team/decisions", () => ({ logApproval: teamMocks.logApproval }));
+vi.mock("@/lib/fx", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx")>()),
+  homeCurrencyOf: async () => "SEK",
+}));
+
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: () => ({
@@ -584,6 +600,125 @@ describe("PATCH /api/receipts/[id] by the client's accounting firm", () => {
     const res = await PATCH(req({ merchant: "ICA" }), params());
     expect(res.status).toBe(404);
     expect(mocks.updateEq).not.toHaveBeenCalled();
+  });
+});
+
+describe("PATCH /api/receipts/[id] on an employee's approved receipt", () => {
+  const STAFF_ID = "33333333-3333-4333-8333-333333333333";
+  const approved = {
+    id: RECEIPT_ID,
+    user_id: USER_ID,
+    organization_id: "org-1",
+    status: "verified",
+    merchant_name: "SJ",
+    purchased_at: "2026-11-03T12:00:00+00:00",
+    receipt_date: "2026-11-03",
+    total: 640,
+    currency: "SEK",
+    category: "travel",
+    notes: null,
+    tax_amount: 36.23,
+    tax_rate: 6,
+    vat_lines: null,
+    home_total: null,
+    home_currency: null,
+    bas_account: null,
+    source: "camera",
+    paid_by: "employee",
+    approval_status: "approved",
+    edited_fields: null,
+    edit_history: null,
+  };
+  const asFirm = () => mocks.getServerUser.mockResolvedValue({ id: STAFF_ID, email: "eva@byran.se" });
+
+  describe("by the client's accounting firm", () => {
+    it("refuses a new amount: it would be paid back without a new approval", async () => {
+      asFirm();
+      mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+      const res = await PATCH(req({ amount: 6400 }), params());
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "approved_by_company" });
+      expect(mocks.updateEq).not.toHaveBeenCalled();
+      expect(teamMocks.logApproval).not.toHaveBeenCalled();
+      expect(usageMock).not.toHaveBeenCalled();
+    });
+
+    it("refuses a change of VAT, date or merchant", async () => {
+      asFirm();
+      for (const body of [{ tax_amount: 30 }, { receipt_date: "2026-11-04" }, { merchant: "SJ AB" }]) {
+        mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+        const res = await PATCH(req(body), params());
+        expect(res.status).toBe(409);
+      }
+      expect(mocks.updateEq).not.toHaveBeenCalled();
+    });
+
+    it("refuses a typed amount in the company's currency on a foreign receipt", async () => {
+      asFirm();
+      mocks.maybeSingle.mockResolvedValueOnce({ data: { ...approved, currency: "EUR", total: 56 }, error: null });
+
+      const res = await PATCH(req({ home_total: 650 }), params());
+
+      expect(res.status).toBe(409);
+      expect(mocks.updateEq).not.toHaveBeenCalled();
+    });
+
+    it("saves the same amount sent again: nothing approved changed", async () => {
+      asFirm();
+      mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+      const res = await PATCH(req({ amount: 640 }), params());
+
+      expect(res.status).toBe(200);
+      const [payload] = mocks.updateEq.mock.calls[0];
+      expect(payload).not.toHaveProperty("approval_status");
+    });
+
+    it("saves category and notes, and the receipt stays approved", async () => {
+      asFirm();
+      mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+      const res = await PATCH(req({ category: "meals", notes: "Kundbesök" }), params());
+
+      expect(res.status).toBe(200);
+      const [payload] = mocks.updateEq.mock.calls[0];
+      expect(payload).toMatchObject({ category: "meals", notes: "Kundbesök" });
+      expect(payload).not.toHaveProperty("approval_status");
+      expect(payload).not.toHaveProperty("submitted_at");
+      expect(teamMocks.logApproval).not.toHaveBeenCalled();
+    });
+
+    it("saves the BAS account alone without touching any status", async () => {
+      asFirm();
+      mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+      const res = await PATCH(req({ bas_account: "5810" }), params());
+
+      expect(res.status).toBe(200);
+      const [payload] = mocks.updateEq.mock.calls[0];
+      expect(payload.bas_account).toBe("5810");
+      expect(payload).not.toHaveProperty("status");
+      expect(payload).not.toHaveProperty("approval_status");
+    });
+  });
+
+  it("the employee's own change of the amount sends it back for approval and is logged", async () => {
+    teamMocks.getEmployment.mockResolvedValueOnce({ organizationId: "org-1", role: "member" });
+    mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });
+
+    const res = await PATCH(req({ amount: 6400 }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload).toMatchObject({ total: 6400, approval_status: "submitted", decided_at: null, decided_by: null });
+    expect(teamMocks.logApproval).toHaveBeenCalledWith(
+      expect.objectContaining({ id: RECEIPT_ID }),
+      USER_ID,
+      "reopened",
+      null
+    );
   });
 });
 

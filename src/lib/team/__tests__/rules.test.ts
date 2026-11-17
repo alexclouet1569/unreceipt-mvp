@@ -4,6 +4,7 @@ import {
   canDecide,
   cleanComment,
   decisionTransition,
+  firmMayEdit,
   needsApproval,
   owedToEmployee,
   ownerMayDelete,
@@ -76,6 +77,21 @@ describe("what happens", () => {
     expect(statusAfterEdit("approved", ["vat_lines"])).toBe("submitted");
     expect(statusAfterEdit("approved", ["notes", "category"])).toBeNull();
     expect(statusAfterEdit("submitted", ["total"])).toBeNull();
+  });
+
+  it("the accounting firm never changes what the company approved", () => {
+    expect(firmMayEdit("approved", ["total"])).toBe(false);
+    expect(firmMayEdit("approved", ["home_total", "home_currency"])).toBe(false);
+    expect(firmMayEdit("approved", ["tax_amount"])).toBe(false);
+    expect(firmMayEdit("approved", ["receipt_date", "status"])).toBe(false);
+    // Its own bookkeeping and annotations stay its to set.
+    expect(firmMayEdit("approved", ["category", "notes", "items", "bas_account", "status"])).toBe(true);
+    expect(firmMayEdit("approved", [])).toBe(true);
+    // Defence in depth: any receipt in the approval flow, not only approved ones.
+    expect(firmMayEdit("submitted", ["total"])).toBe(false);
+    // A receipt outside the flow (an owner's) is the firm's to correct.
+    expect(firmMayEdit(null, ["total", "tax_amount"])).toBe(true);
+    expect(firmMayEdit(undefined, ["merchant_name"])).toBe(true);
   });
 
   it("a rejection stands; a pending or approved receipt can't be deleted by its owner", () => {
