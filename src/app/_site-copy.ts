@@ -32,6 +32,7 @@ export type SiteCopy = {
     guidePaper: string | null;
     company: string;
     about: string;
+    contact: string;
     privacy: string;
     rights: string;
     made: string;
@@ -66,6 +67,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guidePaper: null,
       company: "Company",
       about: "About UnReceipt",
+      contact: "Contact",
       privacy: "Privacy",
       rights: "All rights reserved.",
       made: "Made with precision in Europe.",
@@ -98,6 +100,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guidePaper: "Får man slänga papperskvitton?",
       company: "Om oss",
       about: "Om UnReceipt",
+      contact: "Kontakt",
       privacy: "Integritet",
       rights: "Alla rättigheter förbehållna.",
       made: "Utvecklat i Europa.",
@@ -130,6 +133,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guidePaper: "Peut-on jeter les tickets de caisse ?",
       company: "Entreprise",
       about: "À propos",
+      contact: "Contact",
       privacy: "Confidentialité",
       rights: "Tous droits réservés.",
       made: "Développé en Europe.",

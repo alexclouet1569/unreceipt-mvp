@@ -207,9 +207,10 @@ export const RATE_LIMITS = {
   demoRequestConfirm: [{ limit: 2, windowSeconds: 24 * 60 * 60 }],
   // Every demo request together (subject "all"): rotating IPs (an IPv6 /64,
   // a botnet) still can't flood the founder's inbox or the Resend quota.
-  // Far above a real day's requests while the funnel is young; raise it
-  // once real traffic gets near it.
-  demoRequestAll: [{ limit: 50, windowSeconds: 24 * 60 * 60 }],
+  // Far above a real day's requests while the funnel is young, and high
+  // enough that a few IPs at their own daily cap (20) can't close the form
+  // for real visitors; raise it once real traffic gets near it.
+  demoRequestAll: [{ limit: 200, windowSeconds: 24 * 60 * 60 }],
 } satisfies Record<string, RateLimitRule[]>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

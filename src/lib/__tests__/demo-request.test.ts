@@ -88,7 +88,8 @@ describe("demo request page", () => {
 
 describe("demo CTAs", () => {
   // Every "Book a demo" goes to the demo page: a mailto: link does nothing
-  // for webmail and phone users, and can't be measured.
+  // for webmail and phone users, and can't be measured. The footer's
+  // support "Contact" is not a demo CTA and comes from SUPPORT_MAILTO.
   const files = [
     "src/app/_audience-page.tsx",
     "src/app/_audience-copy.ts",

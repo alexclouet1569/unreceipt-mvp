@@ -11,6 +11,7 @@ import {
   type MarketingPageId,
 } from "@/lib/marketing-pages";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
+import { SUPPORT_MAILTO } from "@/lib/support-contact";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
 import { LightOnly } from "./_light-only";
@@ -201,6 +202,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         { label: t.footer.about, href: pagePath("about", locale) },
         // No hrefLang here: the footer's hreflang links are its language switch.
         { label: t.nav.bookDemo, href: demoRequestPath(locale) },
+        { label: t.footer.contact, href: SUPPORT_MAILTO },
         { label: t.footer.privacy, href: "/privacy" },
         ...others.map((l) => ({ label: LOCALE_NAME[l].label, href: LOCALE_HOME[l], lang: l })),
       ],
