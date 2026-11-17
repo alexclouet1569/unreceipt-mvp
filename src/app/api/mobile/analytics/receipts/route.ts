@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
 import {
   AnalyticsInputError,
+  AnalyticsNotReadyError,
   analyticsAccess,
   drillFilterFromParams,
   loadDrillReceipts,
@@ -57,6 +58,10 @@ export async function GET(request: Request) {
     }
     return NextResponse.json(result, { headers: NO_STORE });
   } catch (err) {
+    if (err instanceof AnalyticsNotReadyError) {
+      // No company yet (see /api/mobile/analytics): ask again shortly.
+      return NextResponse.json({ error: "not_ready" }, { status: 503, headers: { ...NO_STORE, "Retry-After": "2" } });
+    }
     console.error("[/api/mobile/analytics/receipts] failed", err);
     Sentry.captureException(err, { tags: { area: "analytics" } });
     return NextResponse.json({ error: "server_error" }, { status: 500, headers: NO_STORE });
