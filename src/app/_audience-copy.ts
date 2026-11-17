@@ -356,6 +356,7 @@ const accountantsSv: AudienceCopy = {
       { label: "UnReceipt för enskild firma", page: "freelancers" },
       { label: "Hur länge ska man spara kvitton?", page: "guideRetention" },
       { label: "Får man slänga papperskvitton?", page: "guidePaper" },
+      { label: "Utlägg för anställda: så hanterar du dem", page: "guideOutlays" },
     ],
   },
   faqTitle: "Frågor från redovisningsbyråer",

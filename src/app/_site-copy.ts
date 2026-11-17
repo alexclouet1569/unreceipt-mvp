@@ -29,6 +29,7 @@ export type SiteCopy = {
     guides: string;
     guideRetention: string;
     guidePaper: string | null;
+    guideOutlays: string | null;
     company: string;
     about: string;
     contact: string;
@@ -63,6 +64,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guides: "Guides",
       guideRetention: "How long to keep receipts",
       guidePaper: null,
+      guideOutlays: null,
       company: "Company",
       about: "About UnReceipt",
       contact: "Contact",
@@ -95,6 +97,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guides: "Guider",
       guideRetention: "Hur länge ska man spara kvitton?",
       guidePaper: "Får man slänga papperskvitton?",
+      guideOutlays: "Utlägg för anställda",
       company: "Om oss",
       about: "Om UnReceipt",
       contact: "Kontakt",
@@ -127,6 +130,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guides: "Guides",
       guideRetention: "Durée de conservation des justificatifs",
       guidePaper: "Peut-on jeter les tickets de caisse ?",
+      guideOutlays: null,
       company: "Entreprise",
       about: "À propos",
       contact: "Contact",

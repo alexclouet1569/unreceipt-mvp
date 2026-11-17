@@ -146,6 +146,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
   const home = LOCALE_HOME[locale];
   const others = LOCALES.filter((l) => l !== locale);
   const guidePaper = MARKETING_PAGES.guidePaper.paths[locale];
+  const guideOutlays = MARKETING_PAGES.guideOutlays.paths[locale];
   const columns: { title: string; links: { label: string; href: string; lang?: Locale }[] }[] = [
     {
       title: t.footer.product,
@@ -170,6 +171,9 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         { label: t.footer.guideRetention, href: pagePath("guideRetention", locale) },
         ...(guidePaper && t.footer.guidePaper
           ? [{ label: t.footer.guidePaper, href: guidePaper }]
+          : []),
+        ...(guideOutlays && t.footer.guideOutlays
+          ? [{ label: t.footer.guideOutlays, href: guideOutlays }]
           : []),
       ],
     },

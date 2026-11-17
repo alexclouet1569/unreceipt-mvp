@@ -125,7 +125,7 @@ export function GuidePage({
                 <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
               </a>
               <a
-                href={appUrl("/demo")}
+                href={appUrl(g.cta.secondaryPath ?? "/demo")}
                 className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11")}
               >
                 {g.cta.secondaryLabel}

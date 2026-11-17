@@ -138,7 +138,7 @@ describe("audience pages", () => {
 
 describe("guides", () => {
   it("exists for every registered guide path, once", () => {
-    for (const id of ["guideRetention", "guidePaper"] as const) {
+    for (const id of ["guideRetention", "guidePaper", "guideOutlays"] as const) {
       for (const locale of Object.keys(MARKETING_PAGES[id].paths)) {
         expect(GUIDES.filter((g) => g.page === id && g.locale === locale)).toHaveLength(1);
       }
@@ -184,6 +184,16 @@ describe("guides", () => {
     const paperSv = GUIDES.find((g) => g.page === "guidePaper" && g.locale === "sv")!;
     expect(paperSv.answer).toMatch(/^Ja/);
     expect(paperSv.sections.map((s) => s.body.join(" ")).join(" ")).toContain("Skatteverket");
+  });
+  it("keeps the outlays guide honest about what UnReceipt doesn't do", () => {
+    // Founder decision 2026-11-17: the limits stay on the page (AGENTS.md
+    // "Company team": no payout or payroll file; an employee's receipts go
+    // with their account).
+    const outlays = GUIDES.find((g) => g.page === "guideOutlays" && g.locale === "sv")!;
+    const text = outlays.sections.flatMap((s) => [...s.body, ...(s.list ?? [])]).join(" ");
+    expect(text).toContain("lönefil");
+    expect(text).toContain("Raderar en anställd sitt konto");
+    expect(outlays.cta.secondaryPath).toMatch(/^\/demo(\/|$)/);
   });
 });
 

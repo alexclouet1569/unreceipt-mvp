@@ -23,7 +23,8 @@ export type MarketingPageId =
   | "freelancers"
   | "about"
   | "guideRetention"
-  | "guidePaper";
+  | "guidePaper"
+  | "guideOutlays";
 
 export type MarketingPage = {
   paths: Partial<Record<Locale, string>>;
@@ -73,6 +74,12 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
       sv: "/sv/guider/fa-man-slanga-papperskvitton",
       fr: "/fr/guides/jeter-les-tickets-de-caisse-apres-numerisation",
     },
+    translated: false,
+    lastModified: "2026-11-17",
+    priority: 0.7,
+  },
+  guideOutlays: {
+    paths: { sv: "/sv/guider/utlagg-for-anstallda" },
     translated: false,
     lastModified: "2026-11-17",
     priority: 0.7,
