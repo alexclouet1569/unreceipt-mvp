@@ -90,6 +90,13 @@ export const RATE_LIMITS = {
     { limit: 300, windowSeconds: 60 * 60 },
     { limit: 2000, windowSeconds: 24 * 60 * 60 },
   ],
+  // Changing the company's currency converts every receipt of the company
+  // and may fetch ECB rates (src/lib/fx.ts reconvertOrganization): a few
+  // changes are all a person needs, a ceiling for a loop.
+  organizationCurrency: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
   // Connected mailboxes (2026-11-13). Each start of a Gmail/Outlook OAuth
   // flow writes a pending row and sends the user to the provider: a few
   // tries (wrong account, cancelled) is all a real person needs.

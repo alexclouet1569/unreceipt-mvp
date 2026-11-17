@@ -12,7 +12,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getDefaultOrganizationId, hasAnyMembership } from "@/lib/organizations";
 import { homeCurrencyOf } from "@/lib/fx";
-import { CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { loadAccountantLinks } from "@/lib/firm/client-links";
 import { planFirmExit, type FirmExitPlan } from "@/lib/firm/account-exit";
 import { loadFirstReceiptDate } from "@/lib/receipts/first-date";
@@ -75,7 +75,7 @@ export async function GET() {
     const body: MobileAccount = {
       email: user.email ?? "",
       hasCompany,
-      currency: currency ? { value: currency, options: [...CURRENCY_OPTIONS], canChange: owner } : null,
+      currency: currency ? { value: currency, options: [...HOME_CURRENCY_OPTIONS], canChange: owner } : null,
       accountant: hasCompany
         ? links.map((l) => ({
             id: l.id,

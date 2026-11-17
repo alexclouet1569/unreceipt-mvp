@@ -183,7 +183,7 @@ const accountantsEn: AudienceCopy = {
       {
         icon: "globe",
         title: "Foreign currencies handled",
-        desc: "A receipt in EUR, USD, GBP, NOK, DKK, CHF or PLN keeps its own amount and gets an estimated kronor amount from the ECB rate of the purchase day, or the amount from the bank statement.",
+        desc: "A receipt in EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON or TRY keeps its own amount and gets an estimated kronor amount from the ECB rate of the purchase day, or the amount from the bank statement.",
       },
       {
         icon: "layers",
@@ -341,7 +341,7 @@ const accountantsSv: AudienceCopy = {
       {
         icon: "globe",
         title: "Utländsk valuta klar",
-        desc: "Ett kvitto i EUR, USD, GBP, NOK, DKK, CHF eller PLN behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen, eller beloppet från kontoutdraget.",
+        desc: "Ett kvitto i EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON eller TRY behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen, eller beloppet från kontoutdraget.",
       },
       {
         icon: "layers",
@@ -494,7 +494,7 @@ const accountantsFr: AudienceCopy = {
       {
         icon: "globe",
         title: "Les devises gérées",
-        desc: "Un reçu en SEK, USD, GBP, NOK, DKK, CHF ou PLN garde son montant et reçoit un montant estimé en euros au taux de référence BCE du jour de l’achat, ou celui du relevé bancaire.",
+        desc: "Un reçu en SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON ou TRY garde son montant et reçoit un montant estimé en euros au taux de référence BCE du jour de l’achat, ou celui du relevé bancaire.",
       },
       {
         icon: "download",

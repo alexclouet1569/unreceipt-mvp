@@ -21,8 +21,8 @@ describe("scanFields", () => {
   });
 
   it("never turns a currency it can't handle into the company's: the amount is left to fill in", () => {
-    // 500 DKK must not become 500 SEK.
-    expect(scanFields({ merchant: "Netto", amount: 500, currency: "DKK", receipt_date: "2026-11-03" }, "SEK")).toMatchObject({
+    // 500 JPY must not become 500 SEK.
+    expect(scanFields({ merchant: "Netto", amount: 500, currency: "JPY", receipt_date: "2026-11-03" }, "SEK")).toMatchObject({
       total: null,
       currency: "SEK",
       tax_amount: null,

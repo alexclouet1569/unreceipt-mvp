@@ -37,7 +37,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
   entries.push({
     url: absoluteUrl("/privacy"),
-    lastModified: "2026-10-15",
+    lastModified: "2026-11-16",
     changeFrequency: "yearly",
     priority: 0.3,
   });

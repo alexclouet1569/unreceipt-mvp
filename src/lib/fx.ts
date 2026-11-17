@@ -19,14 +19,16 @@ import {
   FX_CONVERTED_CURRENCIES,
   FX_FIRST_RATE_DATE,
   FX_MAX_RATE_AGE_DAYS,
+  FX_RATE_GAPS,
 } from "./bookkeeping/rules";
 import type { Receipt } from "./types";
 
 const ECB_90D = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml";
 const ECB_ALL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml";
 // Only these are cached (FX_CONVERTED_CURRENCIES without the euro, which
-// is the base and always 1). Keeps a full-history fetch to a few tens of
-// thousands of rows.
+// is the base and always 1). A full-history fetch stores about 90,000
+// rows (13 currencies since 1999, fewer for ISK, TRY, RON and BGN; see
+// FX_RATE_GAPS), in batches.
 const CACHED_CURRENCIES = new Set<string>(FX_CONVERTED_CURRENCIES.filter((c) => c !== "EUR"));
 // The 90-day file covers recent dates; older ones need the full history.
 const RECENT_DAYS = 85;
@@ -141,6 +143,20 @@ function usable(c: Cached | null, date: string): c is Cached {
 export type FetchBudget = Set<"90d" | "all">;
 
 /**
+ * Whether the ECB publishes (or published) a rate for `currency` on
+ * `date`, as far as the calendar goes: a currency we cache, outside its
+ * known gaps (FX_RATE_GAPS). Without this, a BGN receipt dated 2026 missed
+ * the cache, downloaded the ECB history and missed again, on every load.
+ */
+export function ecbPublishes(currency: string, date: string): boolean {
+  if (currency === "EUR") return true;
+  if (!CACHED_CURRENCIES.has(currency)) return false;
+  return !(FX_RATE_GAPS[currency] ?? []).some(
+    ([from, to]) => (from == null || date >= from) && (to == null || date <= to)
+  );
+}
+
+/**
  * Rate from `from` to `to` on `date`: the ECB rate of that day, or of the
  * last banking day before it. Null when it isn't known (yet): dates before
  * the first ECB rate or in the future, or today before the ECB publishes.
@@ -156,7 +172,7 @@ export async function rateOn(
 ): Promise<{ rate: number; rateDate: string } | null> {
   if (date < FX_FIRST_RATE_DATE || date > today()) return null;
   const sides = [from, to].filter((c) => c !== "EUR");
-  if (sides.some((c) => !CACHED_CURRENCIES.has(c))) return null;
+  if (sides.some((c) => !ecbPublishes(c, date))) return null;
 
   const read = async () => {
     const found = await Promise.all(
@@ -381,6 +397,7 @@ export async function ensureHomeAmounts(rows: Receipt[], home: string): Promise<
       if (r.currency === home || !convertible(r.currency) || !needsConversion(r, home)) continue;
       const d = conversionDate(r);
       if (!d || d < FX_FIRST_RATE_DATE || d > latest) continue;
+      if (!ecbPublishes(r.currency, d) || !ecbPublishes(home, d)) continue;
       dates.push(d);
       currencies.add(r.currency);
     }
@@ -429,4 +446,75 @@ export async function homeCurrencyOf(organizationId: string | null): Promise<str
     .maybeSingle();
   const c = data?.currency;
   return typeof c === "string" && /^[A-Z]{3}$/.test(c) ? c : "SEK";
+}
+
+// Columns ensureHomeAmounts() reads and writes, and what the eager pass
+// leaves alone.
+const CONVERSION_COLUMNS =
+  "id, total, currency, purchased_at, receipt_date, home_currency, home_total, fx_rate, fx_date, fx_source, approval_status";
+const RECONVERT_PAGE = 500;
+
+/**
+ * Rows the eager pass never rewrites; they follow on read as before:
+ * an amount typed from the bank statement (only its owner can say what
+ * the bank charged in the new currency, and once replaced it is gone),
+ * and an approved employee outlay (its home amount is what gets paid
+ * back, part of what was approved: src/lib/team/rules.ts APPROVED_FIELDS).
+ */
+export function keptOnCurrencyChange(r: Pick<Receipt, "fx_source"> & { approval_status?: string | null }): boolean {
+  return r.fx_source === "manual" || r.approval_status === "approved";
+}
+
+/**
+ * After the company's currency changed: converts every receipt of the
+ * company into `home` now (2026-11-16), instead of waiting until each is
+ * read again, so the home screen's month totals, Insights and the export
+ * all show the new currency at once. Rows already in `home` are skipped,
+ * and so are keptOnCurrencyChange() rows. Keyset paging on id from
+ * `startAfter`, so a receipt that can't be converted (no ECB rate, no
+ * date) is passed once, not read again. Stops at `deadline` (ms since
+ * epoch), or as soon as the company's currency is no longer `home` (a
+ * second change is converting now): the rest is converted on read, as
+ * before. Returns the last id seen, for a later pass to carry on from.
+ */
+export async function reconvertOrganization(
+  organizationId: string,
+  home: string,
+  deadline: number,
+  {
+    startAfter = "",
+    convert = ensureHomeAmounts,
+    currencyNow = homeCurrencyOf,
+  }: {
+    startAfter?: string;
+    convert?: (rows: Receipt[], home: string) => Promise<Receipt[]>;
+    currencyNow?: (organizationId: string) => Promise<string>;
+  } = {}
+): Promise<{ done: boolean; seen: number; lastId: string }> {
+  let after = startAfter;
+  let seen = 0;
+  while (Date.now() < deadline) {
+    if ((await currencyNow(organizationId)) !== home) return { done: true, seen, lastId: after };
+    let query = getSupabaseAdmin()
+      .from("receipts")
+      .select(CONVERSION_COLUMNS)
+      .eq("organization_id", organizationId)
+      .not("total", "is", null)
+      .or(`home_currency.is.null,home_currency.neq.${home},home_total.is.null`)
+      .order("id", { ascending: true })
+      .limit(RECONVERT_PAGE);
+    if (after) query = query.gt("id", after);
+    const { data, error } = await query;
+    if (error) throw new Error(`reconvert read ${error.code}`);
+    const rows = (data ?? []) as unknown as Array<Receipt & { approval_status?: string | null }>;
+    if (rows.length === 0) return { done: true, seen, lastId: after };
+    await convert(
+      rows.filter((r) => !keptOnCurrencyChange(r)),
+      home
+    );
+    seen += rows.length;
+    after = rows[rows.length - 1].id;
+    if (rows.length < RECONVERT_PAGE) return { done: true, seen, lastId: after };
+  }
+  return { done: false, seen, lastId: after };
 }

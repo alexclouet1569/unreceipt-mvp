@@ -8,7 +8,9 @@
 // never gets a phantom company.
 
 import * as Sentry from "@sentry/nextjs";
+import { headers } from "next/headers";
 import type { User } from "@supabase/supabase-js";
+import { guessCountry } from "@/lib/country";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkSubscriptionGate } from "@/lib/subscription-gate";
 import { buildForwardingAddress, getOrCreateAliasForUser } from "@/lib/email-alias";
@@ -205,6 +207,26 @@ async function readDefaultOrganization(userId: string): Promise<{ id: string; cu
 }
 
 /**
+ * The country of a company created on this load: guessed from the user's
+ * own request (website or iPhone app; src/lib/country.ts). Most companies
+ * are created here; one made first by another flow (accepting an
+ * accountant's invite, a firm's join link, "Not me" on firm-join) starts
+ * Swedish as before. Null when nothing says.
+ */
+async function newCompanyCountry(user: User): Promise<string | null> {
+  try {
+    const h = await headers();
+    return guessCountry({
+      ipCountry: h.get("x-vercel-ip-country"),
+      acceptLanguage: h.get("accept-language"),
+      email: user.email,
+    });
+  } catch {
+    return guessCountry({ email: user.email });
+  }
+}
+
+/**
  * The signed-in user's home screen. `sessionId` is Stripe Checkout's
  * ?session_id on the website's return; the app passes null.
  */
@@ -276,7 +298,9 @@ export async function loadHome(
       ? homeCurrencyOf(employment.organizationId)
       : existingOrg
         ? existingOrg.currency
-        : getOrCreateDefaultOrganization(user.id).then((id) => homeCurrencyOf(id)),
+        : newCompanyCountry(user).then((country) =>
+            getOrCreateDefaultOrganization(user.id, { country }).then((id) => homeCurrencyOf(id))
+          ),
   ]);
 
   // Amounts in the company's currency next to foreign ones (src/lib/fx.ts).

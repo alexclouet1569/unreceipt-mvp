@@ -95,7 +95,7 @@ function en(pilot: boolean): About {
       { label: "Checking", value: "Each receipt is read automatically. Receipts that can't be read with confidence, and emails from senders that aren't trusted, wait in Review needed until you or your accountant confirm them. Receipts from a connected mailbox always wait there, and the accountant sees them only once you have confirmed them." },
       {
         label: "Foreign currencies",
-        value: "A receipt in EUR, USD, GBP, NOK, DKK, CHF, PLN or SEK keeps its own amount and gets an estimated home-currency amount from the ECB reference rate of the purchase day (or the last banking day before it). The amount from the bank statement can be entered and takes precedence.",
+        value: "A receipt in EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY or SEK keeps its own amount and gets an estimated home-currency amount from the ECB reference rate of the purchase day (or the last banking day before it). The amount from the bank statement can be entered and takes precedence.",
       },
       {
         label: "For accounting firms",
@@ -125,7 +125,7 @@ function en(pilot: boolean): About {
     limits: [
       "No direct integration with bookkeeping programs such as Fortnox, Visma or Pennylane; the export is CSV, PDFs and receipt files.",
       "One sign-in per company account for now: colleagues can't be added to a company yet (accounting firms can add colleagues to their portal).",
-      "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, CHF, PLN and SEK.",
+      "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY and SEK. Receipts in ALL, BAM, BYN, MDL, MKD, RSD, RUB or UAH keep their own amount with no estimate.",
       "No bank or card connection, and no company cards.",
       "It doesn't decide whether VAT is deductible: the VAT is recorded as read from the receipt (worth checking), the bookkeeping CSV only suggests accounts, and the accountant decides.",
       "In France it doesn't produce the compliant copy (LPF art. A102 B-2) needed to destroy a paper invoice, so French users keep their paper originals.",
@@ -165,7 +165,7 @@ function sv(pilot: boolean): About {
       { label: "Kontroll", value: "Varje kvitto läses av automatiskt. Kvitton som inte kan läsas säkert, och mejl från avsändare som inte är betrodda, väntar i Review needed tills du eller din redovisningskonsult bekräftar dem. Kvitton från en ansluten inkorg väntar alltid där, och redovisningskonsulten ser dem först när du har bekräftat dem." },
       {
         label: "Utländsk valuta",
-        value: "Ett kvitto i EUR, USD, GBP, NOK, DKK, CHF, PLN behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen (eller närmast föregående bankdag). Beloppet från kontoutdraget kan skrivas in och gäller då före.",
+        value: "Ett kvitto i EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON eller TRY behåller sitt belopp och får ett uppskattat belopp i kronor från ECB:s referenskurs för köpdagen (eller närmast föregående bankdag). Beloppet från kontoutdraget kan skrivas in och gäller då före.",
       },
       {
         label: "För redovisningsbyråer",
@@ -195,7 +195,7 @@ function sv(pilot: boolean): About {
     limits: [
       "Ingen direktintegration med bokföringsprogram som Fortnox eller Visma; exporten är CSV, PDF:er och kvittofiler.",
       "En inloggning per företagskonto än så länge: kollegor kan inte läggas till i ett företag ännu (redovisningsbyråer kan lägga till kollegor i sin portal).",
-      "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, CHF och PLN.",
+      "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON och TRY. Kvitton i ALL, BAM, BYN, MDL, MKD, RSD, RUB eller UAH behåller sitt belopp utan uppskattning.",
       "Ingen bank- eller kortkoppling, och inga företagskort.",
       "Tjänsten avgör inte om momsen är avdragsgill: momsen sparas som den lästs av från kvittot (värt att kontrollera), bokföringsfilen föreslår bara konton, och redovisningskonsulten avgör.",
       "Appen är bara på engelska.",
@@ -234,7 +234,7 @@ function fr(pilot: boolean): About {
       { label: "Vérification", value: "Chaque reçu est lu automatiquement. Les reçus qui ne peuvent pas être lus avec certitude, et les e-mails d’expéditeurs non reconnus, attendent dans « Review needed » que vous ou votre expert-comptable les confirmiez. Les reçus d’une boîte mail connectée y attendent toujours, et l’expert-comptable ne les voit qu’une fois que vous les avez confirmés." },
       {
         label: "Devises",
-        value: "Un reçu en SEK, USD, GBP, NOK, DKK, CHF ou PLN garde son montant et reçoit un montant estimé en euros au taux de référence de la BCE du jour de l’achat (ou du dernier jour ouvré). Le montant du relevé bancaire peut être saisi et prévaut.",
+        value: "Un reçu en SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON ou TRY garde son montant et reçoit un montant estimé en euros au taux de référence de la BCE du jour de l’achat (ou du dernier jour ouvré). Le montant du relevé bancaire peut être saisi et prévaut.",
       },
       {
         label: "Pour les cabinets",
@@ -264,7 +264,7 @@ function fr(pilot: boolean): About {
     limits: [
       "Pas d’intégration directe avec un logiciel comptable comme Pennylane ; l’export est un CSV, des PDF et les fichiers des reçus.",
       "Un seul accès par compte d’entreprise pour l’instant : on ne peut pas encore ajouter de collègues à une entreprise (les cabinets peuvent ajouter leurs collaborateurs à leur portail).",
-      "La conversion couvre SEK, USD, GBP, NOK, DKK, CHF et PLN.",
+      "La conversion couvre SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON et TRY. Les reçus en ALL, BAM, BYN, MDL, MKD, RSD, RUB ou UAH gardent leur montant, sans estimation.",
       "Pas de connexion bancaire ni de carte, et pas de cartes d’entreprise.",
       "Le service ne décide pas si la TVA est récupérable : elle est relevée telle que lue sur le justificatif (à vérifier), et l’expert-comptable décide.",
       "Pas de copie conforme au sens de l’article A102 B-2 du LPF : conservez vos originaux papier.",

@@ -10,8 +10,13 @@ import { CURRENCY_OPTIONS } from "@/lib/receipt-format";
 export const AMOUNT_PATTERN =
   String.raw`(?:\d{1,3}(?:[   .,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![.,]?\d)(?![ \t ]*%)`;
 
-// What may stand next to the amount: an ISO code, $, € or kr.
-export const CURRENCY_TOKEN = String.raw`[A-Z]{3}|\$|€|kr`;
+// What may stand next to the amount: an ISO code (a whole word: not the
+// "ALL" of "ALLOWANCE"), $, € or kr.
+export const CURRENCY_TOKEN = String.raw`[A-Z]{3}(?![A-Za-z])|\$|€|kr`;
+
+// Codes that are also English words ("ALL TAXES INCLUDED", "TRY AGAIN"):
+// trusted only before the amount, where a word doesn't stand.
+const WORD_CODES = new Set(["ALL", "TRY"]);
 
 export function parseAmount(raw: string): number | null {
   const s = raw.replace(/[   ]/g, "");
@@ -51,7 +56,8 @@ export function currencyFromSymbol(sym: string, context: string): string | undef
 
 // The currency written before the amount, or else the one after it.
 export function currencyAround(before: string | undefined, after: string | undefined, context: string) {
-  return currencyFromSymbol(before ?? "", context) ?? currencyFromSymbol(after ?? "", context);
+  const trailing = after != null && WORD_CODES.has(after) ? undefined : after;
+  return currencyFromSymbol(before ?? "", context) ?? currencyFromSymbol(trailing ?? "", context);
 }
 
 const ENTITIES: Record<string, string> = {

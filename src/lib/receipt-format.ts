@@ -77,10 +77,62 @@ export const CATEGORY_CONFIG: Record<CategoryKey, CategoryConfig> = {
 
 export const CATEGORY_KEYS = Object.keys(CATEGORY_CONFIG) as CategoryKey[];
 
-export const CURRENCY_OPTIONS = ["EUR", "SEK", "USD", "GBP"] as const;
+// A receipt's own currency (2026-11-16: the currencies in use in Europe,
+// Türkiye included, the Caucasus and Kazakhstan not; plus USD). The euro, the Swedish krona and the US dollar and pound come
+// first as before; the rest is alphabetical. Bulgaria joined the euro on
+// 2026-01-01: BGN stays for older receipts. Receipts in a currency the ECB
+// doesn't publish (FX_CONVERTED_CURRENCIES in bookkeeping/rules.ts) keep
+// their amount and get no estimate; the bank-statement amount can still be
+// typed in. The iPhone app keeps a copy (mobile/src/lib/edits.ts,
+// EDITABLE_CURRENCIES); a test keeps the two identical.
+export const CURRENCY_OPTIONS = [
+  "EUR",
+  "SEK",
+  "USD",
+  "GBP",
+  "ALL", // Albania
+  "BAM", // Bosnia and Herzegovina
+  "BGN", // Bulgaria, until 2025
+  "BYN", // Belarus
+  "CHF", // Switzerland, Liechtenstein
+  "CZK", // Czechia
+  "DKK", // Denmark, Faroe Islands, Greenland
+  "HUF", // Hungary
+  "ISK", // Iceland
+  "MDL", // Moldova
+  "MKD", // North Macedonia
+  "NOK", // Norway
+  "PLN", // Poland
+  "RON", // Romania
+  "RSD", // Serbia
+  "RUB", // Russia
+  "TRY", // Türkiye
+  "UAH", // Ukraine
+] as const;
 export type CurrencyCode = (typeof CURRENCY_OPTIONS)[number];
 
-export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
+// A company's own currency (organizations.currency): only currencies the
+// ECB publishes a rate for today, or no foreign receipt could ever be
+// converted into it. A test checks each is in FX_CONVERTED_CURRENCIES.
+export const HOME_CURRENCY_OPTIONS = [
+  "EUR",
+  "SEK",
+  "USD",
+  "GBP",
+  "CHF",
+  "CZK",
+  "DKK",
+  "HUF",
+  "ISK",
+  "NOK",
+  "PLN",
+  "RON",
+  "TRY",
+] as const satisfies readonly CurrencyCode[];
+
+// Only unambiguous signs. Everything else shows its ISO code ("NOK", not a
+// "kr" that reads as Swedish).
+export const CURRENCY_SYMBOLS: Partial<Record<CurrencyCode, string>> = {
   EUR: "€",
   SEK: "kr",
   USD: "$",

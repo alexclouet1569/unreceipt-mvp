@@ -17,6 +17,7 @@ import { locale, s } from "../../../../i18n";
 import {
   CATEGORIES,
   EDITABLE_CURRENCIES,
+  currencyChoices,
   parseAmount,
   toPlainDate,
   type EditableCurrency,
@@ -46,7 +47,10 @@ export default function EditField() {
     r?.total != null ? formatMoney(r.total, "XXX", locale).replace(/\s*XXX$/, "") : "",
   );
   const editableCurrency = (EDITABLE_CURRENCIES as readonly string[]).includes(r?.currency ?? "");
-  const [currency, setCurrency] = useState<string>(r?.currency ?? (home?.state === "ready" ? home.homeCurrency : "SEK"));
+  const homeCurrency = home?.state === "ready" ? home.homeCurrency : null;
+  const [currency, setCurrency] = useState<string>(r?.currency ?? homeCurrency ?? "SEK");
+  // Fixed when the screen opens: chips don't move under the finger.
+  const [currencyOrder] = useState(() => currencyChoices(r?.currency, homeCurrency));
   const initialDate = parseReceiptDate(r?.date ?? null);
   const [date, setDate] = useState<Date>(initialDate ?? new Date());
   const [dateTouched, setDateTouched] = useState(false);
@@ -187,8 +191,15 @@ export default function EditField() {
               </Text>
             ) : null}
             {editableCurrency || !r?.currency ? (
-              <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel={s.edit.currency}>
-                {EDITABLE_CURRENCIES.map((c) => {
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.chips}
+                accessibilityRole="radiogroup"
+                accessibilityLabel={s.edit.currency}
+              >
+                {currencyOrder.map((c) => {
                   const selected = currency === c;
                   return (
                     <PressableScale
@@ -209,7 +220,7 @@ export default function EditField() {
                     </PressableScale>
                   );
                 })}
-              </View>
+              </ScrollView>
             ) : (
               <Text variant="caption" color={colors.inkMuted}>
                 {`${s.edit.currency}: ${r?.currency}`}

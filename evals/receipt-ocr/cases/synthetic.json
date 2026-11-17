@@ -724,6 +724,353 @@
     }
   },
   {
+    "id": "no-rema-kr",
+    "tags": [
+      "currency",
+      "nordic-kr",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/no-rema-kr.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "rema"
+      ],
+      "amount": 272.8,
+      "currency": "NOK",
+      "receipt_date": "2026-10-12",
+      "tax_amount": 41.08,
+      "tax_rate": null,
+      "items_count": 4,
+      "category": "other"
+    }
+  },
+  {
+    "id": "dk-netto-kr",
+    "tags": [
+      "currency",
+      "nordic-kr",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/dk-netto-kr.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "netto"
+      ],
+      "amount": 91.95,
+      "currency": "DKK",
+      "receipt_date": "2026-10-09",
+      "tax_amount": 18.39,
+      "tax_rate": 25,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "is-bonus-kr",
+    "tags": [
+      "currency",
+      "nordic-kr",
+      "hard",
+      "photo"
+    ],
+    "image": "cases/images/is-bonus-kr.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "bonus",
+        "bónus"
+      ],
+      "amount": 2155,
+      "currency": "ISK",
+      "receipt_date": "2026-10-05",
+      "tax_amount": 213.56,
+      "tax_rate": 11,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "pl-zabka-zl",
+    "tags": [
+      "currency",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/pl-zabka-zl.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "zabka",
+        "żabka"
+      ],
+      "amount": 27.77,
+      "currency": "PLN",
+      "receipt_date": "2026-10-20",
+      "tax_amount": 3.13,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "cz-albert-kc",
+    "tags": [
+      "currency",
+      "easy",
+      "scan"
+    ],
+    "image": "cases/images/cz-albert-kc.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "albert"
+      ],
+      "amount": 96.7,
+      "currency": "CZK",
+      "receipt_date": "2026-09-30",
+      "tax_amount": 12.55,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "hu-spar-ft",
+    "tags": [
+      "currency",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/hu-spar-ft.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "spar"
+      ],
+      "amount": 3438,
+      "currency": "HUF",
+      "receipt_date": "2026-10-17",
+      "tax_amount": 661.97,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "ro-kaufland-lei",
+    "tags": [
+      "currency",
+      "lei",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/ro-kaufland-lei.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "kaufland"
+      ],
+      "amount": 52.47,
+      "currency": "RON",
+      "receipt_date": "2026-10-11",
+      "tax_amount": 8.18,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "md-linella-lei",
+    "tags": [
+      "currency",
+      "lei",
+      "hard",
+      "photo"
+    ],
+    "image": "cases/images/md-linella-lei.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "linella"
+      ],
+      "amount": 120.4,
+      "currency": "MDL",
+      "receipt_date": "2026-10-06",
+      "tax_amount": 17.16,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "ch-coop-fr",
+    "tags": [
+      "currency",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/ch-coop-fr.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "coop"
+      ],
+      "amount": 9,
+      "currency": "CHF",
+      "receipt_date": "2026-10-22",
+      "tax_amount": 0.23,
+      "tax_rate": 2.6,
+      "items_count": 3,
+      "category": "meals"
+    }
+  },
+  {
+    "id": "tr-migros-tl",
+    "tags": [
+      "currency",
+      "easy",
+      "photo"
+    ],
+    "image": "cases/images/tr-migros-tl.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "migros"
+      ],
+      "amount": 247.4,
+      "currency": "TRY",
+      "receipt_date": "2026-10-03",
+      "tax_amount": 32.22,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "ua-silpo-hrn",
+    "tags": [
+      "currency",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/ua-silpo-hrn.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "сільпо",
+        "silpo"
+      ],
+      "amount": 263.4,
+      "currency": "UAH",
+      "receipt_date": "2026-10-14",
+      "tax_amount": 43.9,
+      "tax_rate": 20,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "bg-billa-lv-2025",
+    "tags": [
+      "currency",
+      "bgn",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/bg-billa-lv-2025.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "billa"
+      ],
+      "amount": 17.67,
+      "currency": "BGN",
+      "receipt_date": "2025-11-14",
+      "tax_amount": 2.95,
+      "tax_rate": 20,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "bg-billa-eur-2026",
+    "tags": [
+      "currency",
+      "bgn",
+      "hard",
+      "photo"
+    ],
+    "image": "cases/images/bg-billa-eur-2026.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "billa"
+      ],
+      "amount": 9.04,
+      "currency": "EUR",
+      "receipt_date": "2026-03-10",
+      "tax_amount": 1.51,
+      "tax_rate": 20,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
+    "id": "jp-lawson-yen",
+    "tags": [
+      "currency",
+      "unsupported",
+      "medium",
+      "photo"
+    ],
+    "image": "cases/images/jp-lawson-yen.jpg",
+    "media_type": "image/jpeg",
+    "source": "synthetic",
+    "expected": {
+      "not_a_receipt": false,
+      "merchant_aliases": [
+        "lawson"
+      ],
+      "amount": 1220,
+      "currency": "JPY",
+      "receipt_date": "2026-10-26",
+      "tax_amount": 105.19,
+      "tax_rate": null,
+      "items_count": 3,
+      "category": "other"
+    }
+  },
+  {
     "id": "neg-menu",
     "tags": [
       "neg",

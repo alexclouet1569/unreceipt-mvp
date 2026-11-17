@@ -23,21 +23,26 @@ const MAX_EDGE = 2000;
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
+// English and Swiss receipts write 1,234.50 / 1'234.50; the rest 1 234,50.
+const dotDecimal = (locale) => locale.startsWith("en") || locale === "de-CH";
+
 function money(n, locale) {
   const neg = n < 0;
   const [int, dec] = Math.abs(n).toFixed(2).split(".");
-  const sep = locale.startsWith("en") ? "," : " ";
+  const sep = locale === "de-CH" ? "'" : dotDecimal(locale) ? "," : " ";
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-  const s = locale.startsWith("en") ? `${grouped}.${dec}` : `${grouped},${dec}`;
+  const s = dotDecimal(locale) ? `${grouped}.${dec}` : `${grouped},${dec}`;
   return neg ? `-${s}` : s;
 }
 
 const num = (n, locale, digits = 2) =>
-  locale.startsWith("en") ? n.toFixed(digits) : n.toFixed(digits).replace(".", ",");
+  dotDecimal(locale) ? n.toFixed(digits) : n.toFixed(digits).replace(".", ",");
 
 function dateText(r) {
   const [y, m, d] = r.date.split("-");
   if (r.dateFormat === "dd.mm.yy") return `${d}.${m}.${y.slice(2)} ${r.time}`;
+  if (r.dateFormat === "dd.mm.yyyy") return `${d}.${m}.${y} ${r.time}`;
+  if (r.dateFormat === "yyyy/mm/dd") return `${y}/${m}/${d} ${r.time}`;
   if (r.locale === "sv") return `${r.date} ${r.time}`;
   if (r.locale === "fr") return `${d}/${m}/${y} ${r.time}`;
   if (r.locale === "en-US") {
@@ -52,6 +57,20 @@ const L = {
   fr: { total: "TOTAL TTC", sum: "Sous-total", vat: "TVA", rate: "Taux", net: "HT", gross: "TTC", tip: "Pourboire", cash: "Espèces", change: "Rendu", rounding: "Arrondi", pay: "À PAYER", thanks: "Merci de votre visite", receipt: "TICKET", cur: "EUR" },
   "en-US": { total: "TOTAL", sum: "Subtotal", vat: "Tax", rate: "Rate", net: "Net", gross: "Gross", tip: "Tip", cash: "Cash", change: "Change", rounding: "Rounding", pay: "TOTAL DUE", thanks: "Thank you!", receipt: "RECEIPT", cur: "USD" },
   "en-GB": { total: "TOTAL", sum: "Subtotal", vat: "VAT", rate: "VAT%", net: "Net", gross: "Gross", tip: "Service", cash: "Cash", change: "Change", rounding: "Rounding", pay: "TOTAL DUE", thanks: "Thank you for visiting", receipt: "RECEIPT", cur: "GBP" },
+  // Currency recognition (2026-11-16): each prints only its local sign, as
+  // real receipts do; the country shows in the address and VAT wording.
+  nb: { total: "TOTALT", sum: "Sum", vat: "MVA", rate: "MVA%", net: "Grunnlag", gross: "Brutto", tip: "Tips", cash: "Kontant", change: "Tilbake", rounding: "Avrunding", pay: "Å BETALE", thanks: "Takk for handelen!", receipt: "KVITTERING", cur: "kr" },
+  da: { total: "TOTAL", sum: "Subtotal", vat: "Moms", rate: "Moms%", net: "Netto", gross: "Brutto", tip: "Drikkepenge", cash: "Kontant", change: "Byttepenge", rounding: "Afrunding", pay: "AT BETALE", thanks: "Tak for besøget!", receipt: "KVITTERING", cur: "kr." },
+  is: { total: "SAMTALS", sum: "Millisamtala", vat: "VSK", rate: "VSK%", net: "Án VSK", gross: "Með VSK", tip: "Þjórfé", cash: "Reiðufé", change: "Til baka", rounding: "Námundun", pay: "TIL GREIÐSLU", thanks: "Takk fyrir viðskiptin!", receipt: "KVITTUN", cur: "kr." },
+  pl: { total: "SUMA PLN", sum: "Sprzedaż", vat: "PTU", rate: "PTU%", net: "Netto", gross: "Brutto", tip: "Napiwek", cash: "Gotówka", change: "Reszta", rounding: "Zaokrąglenie", pay: "DO ZAPŁATY", thanks: "Dziękujemy za zakupy!", receipt: "PARAGON FISKALNY", cur: "zł" },
+  cs: { total: "CELKEM", sum: "Mezisoučet", vat: "DPH", rate: "DPH%", net: "Základ", gross: "Celkem", tip: "Spropitné", cash: "Hotově", change: "Vráceno", rounding: "Zaokrouhlení", pay: "K ÚHRADĚ", thanks: "Děkujeme za nákup!", receipt: "ÚČTENKA", cur: "Kč" },
+  hu: { total: "ÖSSZESEN", sum: "Részösszeg", vat: "ÁFA", rate: "ÁFA%", net: "Nettó", gross: "Bruttó", tip: "Borravaló", cash: "Készpénz", change: "Visszajáró", rounding: "Kerekítés", pay: "FIZETENDŐ", thanks: "Köszönjük a vásárlást!", receipt: "NYUGTA", cur: "Ft" },
+  ro: { total: "TOTAL", sum: "Subtotal", vat: "TVA", rate: "TVA%", net: "Fără TVA", gross: "Cu TVA", tip: "Bacșiș", cash: "Numerar", change: "Rest", rounding: "Rotunjire", pay: "DE PLATĂ", thanks: "Vă mulțumim!", receipt: "BON FISCAL", cur: "lei" },
+  "de-CH": { total: "TOTAL", sum: "Zwischensumme", vat: "MWST", rate: "MWST%", net: "Netto", gross: "Brutto", tip: "Trinkgeld", cash: "Bar", change: "Rückgeld", rounding: "Rundung", pay: "ZU BEZAHLEN", thanks: "Vielen Dank für Ihren Einkauf", receipt: "BELEG", cur: "Fr." },
+  tr: { total: "TOPLAM", sum: "Ara toplam", vat: "KDV", rate: "KDV%", net: "Matrah", gross: "Tutar", tip: "Bahşiş", cash: "Nakit", change: "Para üstü", rounding: "Yuvarlama", pay: "ÖDENECEK", thanks: "Bizi tercih ettiğiniz için teşekkürler", receipt: "FİŞ", cur: "₺" },
+  uk: { total: "СУМА", sum: "Проміжна сума", vat: "ПДВ", rate: "ПДВ%", net: "Без ПДВ", gross: "З ПДВ", tip: "Чайові", cash: "Готівка", change: "Решта", rounding: "Заокруглення", pay: "ДО СПЛАТИ", thanks: "Дякуємо за покупку!", receipt: "ФІСКАЛЬНИЙ ЧЕК", cur: "грн" },
+  bg: { total: "ОБЩО", sum: "Междинна сума", vat: "ДДС", rate: "ДДС%", net: "Без ДДС", gross: "С ДДС", tip: "Бакшиш", cash: "В брой", change: "Ресто", rounding: "Закръгляне", pay: "ЗА ПЛАЩАНЕ", thanks: "Благодарим Ви!", receipt: "КАСОВ БОН", cur: "лв" },
+  "en-JP": { total: "TOTAL", sum: "Subtotal", vat: "Tax", rate: "Tax%", net: "Net", gross: "Incl. tax", tip: "Tip", cash: "Cash", change: "Change", rounding: "Rounding", pay: "TOTAL DUE", thanks: "Thank you for shopping", receipt: "RECEIPT", cur: "¥" },
 };
 
 const row = (left, right, cls = "") => `<div class="row ${cls}"><span>${esc(left)}</span><span>${esc(right)}</span></div>`;
@@ -92,7 +111,12 @@ function thermalBody(r) {
     parts.push(row(t.cash, money(r.payment.cashGiven, lc)));
     parts.push(row(t.change, money(r.payment.cashGiven - exp.amount, lc)));
   } else {
-    parts.push(row(`${t.total} ${t.cur}`, money(exp.amount, lc), "big"));
+    parts.push(row(`${t.total} ${r.curLabel ?? t.cur}`, money(exp.amount, lc), "big"));
+    // Bulgaria 2026: the price in euro, the lev amount for information
+    // (fixed rate 1.95583) — the receipt is in euro.
+    if (r.dualDisplay) {
+      parts.push(row(`${t.total} ${r.dualDisplay.label}`, money(Math.round(exp.amount * r.dualDisplay.rate * 100) / 100, lc)));
+    }
   }
   if (r.payment.method === "card") {
     parts.push(row(r.payment.label, money(exp.amount, lc)));

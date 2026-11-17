@@ -59,16 +59,86 @@ export const FX_RATE_SOURCE = "ECB euro reference rate";
 // rate is missing, not a holiday (product choice, no legal source).
 export const FX_MAX_RATE_AGE_DAYS = 7;
 
-// Currencies we convert between: the euro (the ECB's base) plus the
-// receipt and company currencies we support and the neighbours a Nordic
-// company meets. Rates for the others are not cached, so a receipt in any
-// other currency gets no ECB estimate (product choice, no legal source).
-// The firm export README lists these by hand; a test keeps it in step.
-export const FX_CONVERTED_CURRENCIES = ["EUR", "SEK", "USD", "GBP", "NOK", "DKK", "CHF", "PLN"] as const;
+// Currencies we convert between: the euro (the ECB's base) plus every
+// receipt currency (CURRENCY_OPTIONS) the ECB publishes a reference rate
+// for (checked against eurofxref-daily.xml on 2026-11-16). BGN has rates
+// up to 2025-12-31 only (Bulgaria uses the euro since 2026-01-01). The
+// ECB publishes none for ALL, BAM, BYN, MDL, MKD, RSD, UAH, and none for
+// RUB after 2022-03-01: those receipts get no ECB estimate (product
+// choice, no legal source). The firm export README lists these by hand;
+// a test keeps it in step.
+export const FX_CONVERTED_CURRENCIES = [
+  "EUR",
+  "SEK",
+  "USD",
+  "GBP",
+  "NOK",
+  "DKK",
+  "CHF",
+  "PLN",
+  "CZK",
+  "HUF",
+  "ISK",
+  "RON",
+  "TRY",
+  "BGN",
+] as const;
+
+// Spans (inclusive, null = open-ended) in which the ECB published no rate
+// for a currency it otherwise has. A date inside one is never converted
+// and never makes us download the ECB files again: no download could fill
+// it. Checked against the ECB Data Portal (series EXR D.<CUR>.EUR.SP00.A)
+// on 2026-11-16 (BGN from 2000-07-19 to 2025-12-31), and for ISK the Central Bank of Iceland ("discontinued on
+// 3 December 2008", "resumed on 1 February 2018"). TRY and RON start at
+// their 2005 redenominations; the portal back-fills earlier days, but we
+// don't count on the XML file doing the same.
+export const FX_RATE_GAPS: Record<string, ReadonlyArray<readonly [string | null, string | null]>> = {
+  BGN: [
+    [null, "2000-07-18"],
+    ["2026-01-01", null],
+  ],
+  ISK: [["2008-12-04", "2018-01-31"]],
+  RON: [[null, "2005-06-30"]],
+  TRY: [[null, "2005-01-02"]],
+};
 
 // First day of ECB reference rates; nothing earlier can be converted.
 export const FX_FIRST_RATE_DATE = "1999-01-04";
 
-// Default company currency by country (organizations.currency); the
-// company can change it in Settings.
-export const DEFAULT_CURRENCY_BY_COUNTRY: Record<string, string> = { SE: "SEK", FR: "EUR" };
+// Default company currency by country (organizations.currency), set when
+// the company is created (src/lib/country.ts); the company can change it in
+// Settings. Only currencies the ECB still publishes (HOME_CURRENCY_OPTIONS
+// in receipt-format.ts; a test checks): a country whose own currency has no
+// ECB rate (RS, UA, MD, MK, AL, BA, BY, RU) and any country not listed get
+// FALLBACK_HOME_CURRENCY. Euro area as of 2026-01-01 (Bulgaria joined then,
+// Croatia 2023-01-01), plus the euro users AD, MC, SM, VA, ME, XK.
+export const DEFAULT_CURRENCY_BY_COUNTRY: Record<string, string> = {
+  SE: "SEK",
+  NO: "NOK",
+  DK: "DKK",
+  FO: "DKK",
+  GL: "DKK",
+  IS: "ISK",
+  GB: "GBP",
+  GG: "GBP",
+  JE: "GBP",
+  IM: "GBP",
+  CH: "CHF",
+  LI: "CHF",
+  PL: "PLN",
+  CZ: "CZK",
+  HU: "HUF",
+  RO: "RON",
+  TR: "TRY",
+  US: "USD",
+  ...Object.fromEntries(
+    [
+      "AT", "BE", "BG", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV",
+      "MT", "NL", "PT", "SI", "SK", "AD", "MC", "SM", "VA", "ME", "XK",
+    ].map((c) => [c, "EUR"])
+  ),
+};
+export const FALLBACK_HOME_CURRENCY = "EUR";
+
+// Without any sign of where a company is, it starts as before: Swedish.
+export const DEFAULT_COUNTRY = "SE";
