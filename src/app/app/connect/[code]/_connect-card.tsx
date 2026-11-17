@@ -249,7 +249,10 @@ export function SignedOutConnectCard({
         <Link href={signupHref} className={cn(buttonVariants(), "h-11")}>
           Create account
         </Link>
-        <Link href={signinHref} className="inline-flex min-h-11 items-center type-body text-[var(--ink)] underline">
+        <Link
+          href={signinHref}
+          className="inline-flex min-h-11 items-center rounded-[6px] type-body text-[var(--ink)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        >
           I already have an account
         </Link>
       </div>

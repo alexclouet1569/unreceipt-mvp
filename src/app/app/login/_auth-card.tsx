@@ -203,7 +203,12 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                     entryFocus={entryFocus}
                     next={next}
                     onCodeSent={(e, existingAccount) => setPendingCode({ email: e, purpose: "signup", existingAccount })}
-                    onSignIn={() => switchMode("signin")}
+                    onSignIn={() => {
+                      // The pressed link goes away with the form: focus the
+                      // sign-in email (already filled in) instead of <body>.
+                      switchMode("signin");
+                      setEntryFocus("email");
+                    }}
                   />
                 )}
               </div>

@@ -115,7 +115,7 @@ export function ClientsView({
       <div className="space-y-4">
         <AddClientDialog />
         {active.length === 0 ? <JoinLinkPanel link={joinLink} /> : null}
-        {active.length === 0 ? <RecommendPanel text={joinLink.recommend ?? null} linkOff={joinLink.off} /> : null}
+        {active.length === 0 && joinLink.recommend ? <RecommendPanel text={joinLink.recommend} /> : null}
       </div>
 
       {active.length === 0 ? (
@@ -157,7 +157,7 @@ export function ClientsView({
       ) : null}
 
       {active.length > 0 ? <JoinLinkPanel link={joinLink} /> : null}
-      {active.length > 0 ? <RecommendPanel text={joinLink.recommend ?? null} linkOff={joinLink.off} /> : null}
+      {active.length > 0 && joinLink.recommend ? <RecommendPanel text={joinLink.recommend} /> : null}
     </div>
   );
 }

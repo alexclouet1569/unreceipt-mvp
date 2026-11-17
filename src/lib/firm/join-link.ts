@@ -111,7 +111,8 @@ export async function loadJoinTarget(code: string): Promise<JoinTarget | null> {
 export async function loadJoinFirmName(code: string): Promise<string | null> {
   if (!isJoinCodeShape(code)) return null;
   const { data, error } = await getSupabaseAdmin().from("firms").select("name").eq("join_code", code).maybeSingle();
-  if (error) throw new JoinLinkError(error.message);
+  // The code only: the page logs this, and nothing else is needed to debug.
+  if (error) throw new JoinLinkError(`firm name unreadable (${error.code})`);
   return (data?.name as string | undefined) ?? null;
 }
 

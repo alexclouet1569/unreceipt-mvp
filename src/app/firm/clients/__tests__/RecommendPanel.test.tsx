@@ -18,7 +18,7 @@ describe("RecommendPanel", () => {
   it("shows the Swedish email, copies its text and offers the client guide", async () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<RecommendPanel text={text} linkOff={false} />);
+    render(<RecommendPanel text={text} />);
     expect(screen.getByRole("heading", { name: "Rekommendera UnReceipt till klienter" })).toBeInTheDocument();
     expect(screen.getByTestId("recommend-subject")).toHaveTextContent(text.subject);
     expect(screen.getByTestId("recommend-body").textContent).toBe(text.body);
@@ -28,11 +28,5 @@ describe("RecommendPanel", () => {
     const guide = screen.getByRole("link", { name: /Client guide \(PDF, English\)/ });
     expect(guide).toHaveAttribute("href", CLIENT_GUIDE_PATH);
     expect(guide).toHaveAttribute("download");
-  });
-
-  it("explains why there is no text while the firm's link is off", () => {
-    render(<RecommendPanel text={null} linkOff />);
-    expect(screen.getByText(/which is turned off. Turn the link on/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Copy text" })).toBeNull();
   });
 });
