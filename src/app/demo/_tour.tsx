@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { pageProps, trackEvent, trackedLink } from "@/lib/tracking/events";
 
 // Shared chrome for the public guided tours at /demo/company and
 // /demo/accountant: one short instruction per step, Back / Next, and a guard
@@ -108,20 +109,33 @@ export function DemoNotice({ notice, onClose }: { notice: string | null; onClose
   );
 }
 
-/** The last step: one sentence and the way into the real product. */
+/**
+ * The last step: one sentence and the way into the real product. Reaching it
+ * sends demo_tour_finished once per visit of the step (src/lib/tracking).
+ */
 export function TourEnd({
+  tour,
   title,
   text,
   cta,
   ctaHref,
   other,
 }: {
+  tour: "company" | "accountant";
   title: string;
   text: string;
   cta: string;
   ctaHref: string;
   other: { label: string; href: string };
 }) {
+  useEffect(() => {
+    trackEvent("demo_tour_finished", { ...pageProps(window.location.pathname), tour });
+  }, [tour]);
+  // A mailto: is the demo request (until Step 1's demo page exists); any
+  // other link is the sign-up, which carries the visit's source.
+  const ctaTrack = ctaHref.startsWith("mailto:")
+    ? trackedLink("cta_demo_page")
+    : trackedLink("cta_signup", { attribution: true });
   return (
     <main className="max-w-[540px] mx-auto px-4 pt-16 pb-24 space-y-5">
       <div className="space-y-2">
@@ -138,6 +152,7 @@ export function TourEnd({
       <div className="flex flex-wrap items-center gap-3">
         <a
           href={ctaHref}
+          {...ctaTrack}
           className="inline-flex items-center justify-center h-11 px-5 rounded-[10px] bg-[var(--primary)] text-primary-foreground font-semibold hover:bg-[var(--brand-action-deep)]"
           style={{ fontSize: "15px" }}
         >

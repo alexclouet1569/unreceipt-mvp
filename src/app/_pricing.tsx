@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink } from "@/lib/tracking/events";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/locale";
 import { PLANS, overagePriceLabel, planForReceipts, planPriceLabel } from "@/lib/plans";
@@ -150,6 +151,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
               </p>
               <a
                 href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
                 className={cn(buttonVariants({
                   className: `mt-auto w-full rounded-full font-semibold h-12 ${
                     active

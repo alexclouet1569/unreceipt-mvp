@@ -2219,3 +2219,32 @@ DROP TRIGGER IF EXISTS receipts_keep_in_approval ON public.receipts;
 CREATE TRIGGER receipts_keep_in_approval
   BEFORE DELETE ON public.receipts
   FOR EACH ROW EXECUTE FUNCTION public.receipts_keep_in_approval();
+
+-- =============================================================================
+-- 2026-11-17 — Where a signup came from (src/lib/attribution.ts)
+--
+-- First-touch attribution for the founder's signup digest: the campaign tags
+-- (utm_source, utm_medium, utm_campaign), the referring site's host (ref)
+-- and the marketing page the sign-up link was clicked on (landing). The
+-- login page saves them in user_metadata.signup_source on a new account;
+-- syncProfile() copies them here once (only while this is NULL), after
+-- checking them again with sanitizeSignupSource(), because user_metadata is
+-- writable by the user. NULL for accounts from the iPhone app, invites and
+-- before this date.
+--
+-- Not writable by users: UPDATE on profiles is granted to authenticated for
+-- (full_name, company_name) only (2026-10-14 "trust fields are server-only"
+-- block). INSERT was still granted, with the "Users can insert own profile"
+-- policy, so a user without a profile row could have created one holding any
+-- signup_source (or onboarded_at, welcome_email_sent_at, email_alias_hash).
+-- Nothing inserts profiles with a user's session: the signup trigger is
+-- SECURITY DEFINER and the app writes them with the service role
+-- (profile-sync.ts, email-alias.ts, welcome-email.ts). So INSERT is revoked
+-- and the policy dropped. Users can still read their own row.
+-- =============================================================================
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS signup_source JSONB;
+
+REVOKE INSERT ON public.profiles FROM anon, authenticated;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;

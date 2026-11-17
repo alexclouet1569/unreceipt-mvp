@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink, type TrackedLinkAttrs } from "@/lib/tracking/events";
 import type { Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
@@ -83,6 +84,20 @@ export function AudiencePage({
         return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
     }
   };
+  // Funnel event for each button (src/lib/tracking/events.ts). Sign-up and
+  // demo-tour links carry the visit's source; "Book a demo" is the demo
+  // request (a mailto: until the demo page of Step 1 exists).
+  const track = (cta: Cta): TrackedLinkAttrs => {
+    switch (cta) {
+      case "signup":
+        return trackedLink("cta_signup", { attribution: true });
+      case "demoCompany":
+      case "demoAccountant":
+        return trackedLink("demo_tour_start", { attribution: true });
+      case "contactFirm":
+        return trackedLink("cta_demo_page");
+    }
+  };
   const label = (cta: Cta, own?: string) => (cta === "signup" ? signupLabel : own ?? signupLabel);
 
   const jsonLd = audienceJsonLd({
@@ -128,6 +143,7 @@ export function AudiencePage({
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={href(t.hero.primary)}
+                  {...track(t.hero.primary)}
                   className={cn(BTN, "bg-white text-[#1F9D63] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
                 >
                   {label(t.hero.primary, t.hero.primaryLabel)}
@@ -135,6 +151,7 @@ export function AudiencePage({
                 </a>
                 <a
                   href={href(t.hero.secondary)}
+                  {...track(t.hero.secondary)}
                   className={cn(BTN, "border-2 border-white text-white hover:bg-white hover:text-[#1F9D63] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
                 >
                   {t.hero.secondaryLabel}
@@ -309,6 +326,7 @@ export function AudiencePage({
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
                 href={href(t.ending.primary)}
+                  {...track(t.ending.primary)}
                 className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-7 text-base font-semibold h-12")}
               >
                 {label(t.ending.primary, t.ending.primaryLabel)}
@@ -316,6 +334,7 @@ export function AudiencePage({
               </a>
               <a
                 href={href(t.ending.secondary)}
+                  {...track(t.ending.secondary)}
                 className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
               >
                 {t.ending.secondaryLabel}

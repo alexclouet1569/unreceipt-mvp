@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Globe, Menu } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink, type TrackedLinkAttrs } from "@/lib/tracking/events";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
 import { MARKETING_PAGES, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
@@ -88,6 +89,7 @@ export function SiteHeader({
           </a>
           <a
             href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
             className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-10")}
           >
             {cta}
@@ -130,6 +132,7 @@ export function SiteHeader({
             ))}
             <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               className={cn(BTN, "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full h-11")}
             >
               {cta}
@@ -146,13 +149,13 @@ export function SiteFooter({ locale }: { locale: Locale }) {
   const home = LOCALE_HOME[locale];
   const others = LOCALES.filter((l) => l !== locale);
   const guidePaper = MARKETING_PAGES.guidePaper.paths[locale];
-  const columns: { title: string; links: { label: string; href: string; lang?: Locale }[] }[] = [
+  const columns: { title: string; links: { label: string; href: string; lang?: Locale; track?: TrackedLinkAttrs }[] }[] = [
     {
       title: t.footer.product,
       links: [
         { label: t.nav.how, href: `${home}#how` },
         ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: `${home}#pricing` }] : []),
-        { label: t.footer.demo, href: appUrl("/demo") },
+        { label: t.footer.demo, href: appUrl("/demo"), track: trackedLink("demo_tour_start", { attribution: true }) },
         { label: t.footer.faq, href: `${home}#faq` },
       ],
     },
@@ -209,6 +212,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
                     <a
                       href={link.href}
                       {...(link.lang ? { hrefLang: link.lang, lang: link.lang } : {})}
+                      {...link.track}
                       className="block text-sm text-white/50 hover:text-white transition-colors py-2"
                     >
                       {link.label}

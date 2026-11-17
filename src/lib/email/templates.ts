@@ -702,7 +702,17 @@ export type DigestSignup = {
   photoReceipts: number;
   emailReceipts: number;
   ownAddresses: number;
+  /**
+   * Where they came from, "source / campaign / landing page"
+   * (formatSignupSource(), src/lib/attribution.ts); null when unknown.
+   */
+  source?: string | null;
 };
+
+/** The source line of a signup in the digest. */
+function sourceLine(s: DigestSignup): string {
+  return `Source: ${s.source ?? "unknown"}`;
+}
 
 export type DigestWaitlistEntry = { email: string; source: string | null; signedUpAt: Date };
 
@@ -810,7 +820,8 @@ export function signupDigestEmail(opts: {
     <p style="margin:0 0 4px;font-family:${FONT};font-size:16px;font-weight:700;color:${C.ink};">${esc(name)}</p>
     <p style="margin:0 0 8px;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.inkMuted};">
       <a href="mailto:${esc(encodeURIComponent(s.email))}" style="color:${C.ink};">${esc(s.email)}</a>${site ? ` · <a href="${esc(site)}" style="color:${C.ink};">${esc(site.replace("https://", ""))}</a>` : ""}<br>
-      Signed up ${esc(stockholm(s.signedUpAt))} via ${esc(s.provider)}${s.lastSignInAt ? ` · last seen ${esc(stockholm(s.lastSignInAt))}` : ""}
+      Signed up ${esc(stockholm(s.signedUpAt))} via ${esc(s.provider)}${s.lastSignInAt ? ` · last seen ${esc(stockholm(s.lastSignInAt))}` : ""}<br>
+      ${esc(sourceLine(s))}
     </p>
     <p style="margin:0 0 12px;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.inkMuted};">${esc(line)}</p>
     ${s.confirmed
@@ -860,6 +871,7 @@ export function signupDigestEmail(opts: {
         [s.fullName, s.companyName].filter(Boolean).join(" · ") || s.email,
         `${s.email}${site ? ` · ${site}` : ""}`,
         `Signed up ${stockholm(s.signedUpAt)} via ${s.provider}${s.lastSignInAt ? ` · last seen ${stockholm(s.lastSignInAt)}` : ""}`,
+        sourceLine(s),
         progressOf(s).line,
         ...(s.confirmed ? [] : [UNCONFIRMED_NOTE]),
         "",

@@ -6,6 +6,8 @@
  * call site rather than maintaining a parallel Insert/Update tree.
  */
 
+import type { SignupSource } from "./attribution";
+
 // Canonical intake source — every receipt that lands in the app comes
 // from one of these four paths. See plan step 3 + supabase/schema.sql
 // "digital-receipt canonicalization" section.
@@ -253,6 +255,9 @@ export interface Profile {
   welcome_email_sent_at: string | null;
   // Set when the first-run onboarding on /app is finished or skipped.
   onboarded_at: string | null;
+  // Where the sign-up came from (src/lib/attribution.ts), written once by
+  // syncProfile(); null when unknown (iPhone app, invites, older accounts).
+  signup_source: SignupSource | null;
   created_at: string;
   updated_at: string;
 }

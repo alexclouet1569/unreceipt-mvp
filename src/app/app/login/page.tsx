@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { isPilotMode } from "@/lib/pilot";
 import { getNativeApp } from "@/lib/native-app-server";
 import { safeNext } from "@/app/auth/callback/safe-next";
+import { sanitizeSignupSource } from "@/lib/attribution";
 import { AuthCard, type AuthMode } from "./_auth-card";
 
 export const metadata: Metadata = {
@@ -18,6 +19,12 @@ type LoginPageProps = {
     account?: string;
     reauth?: string;
     next?: string | string[];
+    // First-touch attribution from a marketing sign-up link (src/lib/attribution.ts).
+    utm_source?: string | string[];
+    utm_medium?: string | string[];
+    utm_campaign?: string | string[];
+    ref?: string | string[];
+    landing?: string | string[];
   }>;
 };
 
@@ -45,6 +52,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       notice={notice}
       inStoreApp={Boolean(await getNativeApp())}
       next={next}
+      signupSource={sanitizeSignupSource(params)}
     />
   );
 }

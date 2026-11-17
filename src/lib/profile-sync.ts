@@ -8,10 +8,12 @@
 // — it does NOT block the user from reaching /app.
 
 import { getSupabaseAdmin } from "./supabase-admin";
+import { sanitizeSignupSource } from "./attribution";
 
 type SignUpMetadata = {
   full_name?: unknown;
   company_name?: unknown;
+  signup_source?: unknown;
 };
 
 function asTrimmedString(value: unknown): string | null {
@@ -47,5 +49,24 @@ export async function syncProfile(
 
   if (error) {
     console.error("[profile-sync] upsert failed", error);
+    return;
+  }
+
+  // Where the sign-up came from (src/lib/attribution.ts): checked again here
+  // because user_metadata is writable by the user, and written only while
+  // the column is empty, so the first source stays and a re-run is a no-op.
+  const rawSource = metadata?.signup_source;
+  const source =
+    rawSource && typeof rawSource === "object" && !Array.isArray(rawSource)
+      ? sanitizeSignupSource(rawSource as Record<string, unknown>)
+      : null;
+  if (!source) return;
+  const { error: sourceError } = await getSupabaseAdmin()
+    .from("profiles")
+    .update({ signup_source: source })
+    .eq("user_id", userId)
+    .is("signup_source", null);
+  if (sourceError) {
+    console.error("[profile-sync] signup_source update failed", sourceError.code);
   }
 }

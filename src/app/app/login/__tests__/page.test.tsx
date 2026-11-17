@@ -26,6 +26,7 @@ vi.mock("@/lib/supabase-client", () => ({
 }));
 
 import { AuthCard, type AuthMode } from "@/app/app/login/_auth-card";
+import type { SignupSource } from "@/lib/attribution";
 
 const originalLocation = window.location;
 const CALLBACK = "http://localhost:3000/auth/callback?next=/app";
@@ -38,6 +39,7 @@ const renderCard = (
     notice: string | null;
     inStoreApp: boolean;
     next: string;
+    signupSource: SignupSource | null;
   }> = {}
 ) =>
   render(
@@ -48,6 +50,7 @@ const renderCard = (
       notice={props.notice ?? null}
       inStoreApp={props.inStoreApp ?? false}
       {...(props.next ? { next: props.next } : {})}
+      {...(props.signupSource ? { signupSource: props.signupSource } : {})}
     />
   );
 
@@ -506,5 +509,42 @@ describe("/app/login — ?next= (invite links, /firm)", () => {
     const url = replaceState.mock.calls[0][2] as URL;
     expect(url.searchParams.get("next")).toBe("/firm");
     expect(url.searchParams.get("mode")).toBe("signup");
+  });
+});
+
+describe("/app/login — where the sign-up came from", () => {
+  const SOURCE = { utm_source: "test", utm_campaign: "x", landing: "/sv" };
+
+  it("saves the source with a new account", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup", signupSource: SOURCE });
+
+    await fillSignUp(user);
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+
+    expect(mocks.signUp).toHaveBeenCalledWith({
+      email: "alex@example.se",
+      password: "supersecret",
+      options: {
+        emailRedirectTo: CALLBACK,
+        data: { full_name: "Alex Andersson", company_name: null, country: "SE", signup_source: SOURCE },
+      },
+    });
+  });
+
+  it("offers it to a code sign-in too, which creates an account for a new address", async () => {
+    mocks.signInWithOtp.mockResolvedValue({ error: null });
+    const user = userEvent.setup();
+    renderCard({ signupSource: SOURCE });
+
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@gmail.com");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    expect(mocks.signInWithOtp).toHaveBeenCalledWith({
+      email: "alex@gmail.com",
+      options: { emailRedirectTo: CALLBACK, data: { signup_source: SOURCE } },
+    });
   });
 });

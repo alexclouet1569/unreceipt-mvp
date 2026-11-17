@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Manrope, Figtree, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL, TITLE } from "@/lib/seo";
 import { MARKETING_PATHS } from "@/lib/marketing-pages";
 import "./globals.css";
 import { NativeAppBridge } from "./_native-app-bridge";
+import { VercelAnalytics } from "./_vercel-analytics";
+import { FunnelTracking } from "./_funnel-tracking";
 
 const APP_HOST = "app.unreceipt.com";
 
@@ -154,8 +154,9 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <TooltipProvider>{children}</TooltipProvider>
         <NativeAppBridge />
-        <Analytics />
-        <SpeedInsights />
+        <VercelAnalytics />
+        {/* Funnel links everywhere; Plausible only where src/lib/tracking/where.ts allows. */}
+        <FunnelTracking plausibleDomain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN?.trim() || null} />
       </body>
     </html>
   );

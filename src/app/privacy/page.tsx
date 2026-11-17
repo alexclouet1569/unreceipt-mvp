@@ -108,6 +108,16 @@ export default function PrivacyPage() {
               (not your IP address itself), and store only the country and its
               currency. You can change the currency in Settings.
             </li>
+            <li>
+              <strong>How you found us.</strong> When you create an account
+              from a link on our website, the link carries the campaign tag
+              of the page you came from (for example &ldquo;linkedin&rdquo;),
+              the name of the website that sent you there (for example
+              linkedin.com, never the full address) and which of our pages
+              you were on. We save these with your account, once, to learn
+              which channels bring people to UnReceipt. Nothing is stored in
+              your browser for this.
+            </li>
           </ul>
         </Section>
 
@@ -155,6 +165,12 @@ export default function PrivacyPage() {
             <li>
               <strong>To prevent abuse and meet our security obligations</strong>{" "}
               — minimal request logs. Legal basis: legitimate interest.
+            </li>
+            <li>
+              <strong>To know which channels work</strong> — how you found us
+              (see above) and anonymous visit counts on our website. Legal
+              basis: legitimate interest in understanding where our customers
+              come from, without tracking anyone across sites.
             </li>
           </ul>
         </Section>
@@ -230,6 +246,12 @@ export default function PrivacyPage() {
               delivers Gmail&apos;s &ldquo;new email arrived&rdquo;
               notifications to us (your address and a change number, never
               the email itself).
+            </li>
+            <li>
+              <strong>Plausible Analytics</strong> — anonymous visit counts
+              on our public website and demo, hosted in the EU. Only the
+              page address (without its parameters, apart from campaign tags)
+              and the referring website are sent: see Cookies below.
             </li>
             <li>
               <strong>Sentry</strong> — error monitoring, EU region. Error
@@ -330,7 +352,12 @@ export default function PrivacyPage() {
             signed in and to remember a couple of UI preferences. We do not
             use advertising or cross-site tracking cookies. Anonymous,
             aggregated traffic measurement is provided by Vercel Web Analytics
-            and Speed Insights.
+            and Speed Insights (on every page, with addresses stripped of
+            their parameters inside the app) and, on our public website and
+            the demo only, by Plausible Analytics: it sets no cookie, stores
+            nothing in your browser and keeps no personal data or IP address.
+            It counts visits, the website that sent you and clicks on a few
+            buttons (create an account, book a demo, start or finish the demo).
           </p>
         </Section>
 

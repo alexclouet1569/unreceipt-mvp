@@ -26,6 +26,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { ExplainerVideo } from "./_explainer-video";
 import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink } from "@/lib/tracking/events";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
@@ -291,6 +292,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             </a>
             <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               className={cn(buttonVariants({
                 size: "sm",
                 className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
@@ -339,6 +341,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             ))}
             <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               onClick={() => setMobileMenuOpen(false)}
               className={cn(buttonVariants({
                 className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
@@ -375,6 +378,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
                   href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
                   className={cn(buttonVariants({
                     size: "lg",
                     className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
@@ -385,6 +389,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 </a>
                 <a
                   href={appUrl("/demo")}
+                  {...trackedLink("demo_tour_start", { attribution: true })}
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
@@ -760,6 +765,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               </p>
               <a
                 href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
                 className={cn(buttonVariants({
                   size: "lg",
                   className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
@@ -806,7 +812,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               ) : null}
               <p className="text-xs text-white/40 mt-5">
                 {t.ending.skipPrefix}{" "}
-                <a href={appUrl(SIGNUP_PATH)} className="underline hover:text-white">
+                <a href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })} className="underline hover:text-white">
                   {heroCta.toLowerCase()}
                 </a>
                 .

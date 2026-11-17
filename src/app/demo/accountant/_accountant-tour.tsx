@@ -84,6 +84,7 @@ export function AccountantTour({
         <FirmApp params={params} hrefFor={(p) => hrefFor(step, p)} screenKey={String(step)} joinLink={joinLink} />
       ) : (
         <TourEnd
+          tour="accountant"
           title="That's the accountant side"
           text="Clients share their receipts with one tap. You check, export and book them in one place."
           cta="Talk to us"

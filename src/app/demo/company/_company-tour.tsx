@@ -378,6 +378,7 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
         </main>
       ) : (
         <TourEnd
+          tour="company"
           title="That's the company side"
           text="Your receipts are read for you, and your accountant gets every one. No more chasing paper."
           cta="Start free"
