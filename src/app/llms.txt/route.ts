@@ -47,7 +47,7 @@ UnReceipt is a receipt service for small businesses, freelancers and sole trader
 
 Accounting firms get a portal with every linked client company: which receipts need a check, completing and correcting receipts, and a monthly export per client (ZIP with a bookkeeping CSV — one line per receipt and VAT rate with a suggested BAS account and input-VAT account 2640 — plus a PDF and the file of every receipt). Clients invite their accountant, or the firm invites the client; the firm itself needs no plan.
 
-Companies can add employees (since November 2026, in pilot): an employee's receipts go to the company and are sent for approval, saying whether the employee paid with their own money or the company's card. An owner, or the approver assigned to that person, approves, sends back with a note or rejects; nobody approves their own receipt. Approved outlays paid by an employee are listed per person to pay back and marked paid by hand (no payout or payroll file). The accounting firm sees an employee's receipt only once it is approved. One price per company, no per-user fees.
+Companies can add employees (since November 2026, in pilot): an employee's receipts go to the company and are sent for approval, saying whether the employee paid with their own money or the company's card. The owner, or the approver assigned to that person, approves, sends back with a note or rejects; nobody approves their own receipt. Approved outlays paid by an employee are listed per person to pay back and marked paid by hand (no payout or payroll file). The accounting firm sees an employee's receipt only once it is approved. One price per company, no per-user fees.
 
 ## What UnReceipt doesn't do (yet)
 ${about.limits.map((l) => `- ${l}`).join("\n")}

@@ -46,7 +46,7 @@ export default async function TeamPage() {
         <div className="space-y-1">
           <h1 className="type-display-lg text-[var(--ink)]">Team</h1>
           {team && team.ok ? (
-            <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
+            <p className="type-body text-[var(--ink-muted)]">
               {team.value.companyName}
             </p>
           ) : null}

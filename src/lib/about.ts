@@ -125,7 +125,7 @@ function en(pilot: boolean): About {
     limitsTitle: "What UnReceipt doesn't do (yet)",
     limits: [
       "No direct integration with bookkeeping programs such as Fortnox, Visma or Pennylane; the export is CSV, PDFs and receipt files.",
-      "Employees (added since November 2026, in pilot) send receipts for approval, but there is no payout and no payroll file: approved outlays are listed per person and marked paid by hand. Each person has one approver, with no amount limits or stand-in. If an employee deletes their own account, their receipts are deleted too, approved ones included.",
+      "Employees (added since November 2026, in pilot) send receipts for approval, but there is no payout and no payroll file: approved outlays are listed per person and marked paid by hand. Each person has one approver, with no amount limits or stand-in, and a company has one owner (no co-owner yet). Only the accounting firm's export includes employees' receipts; the owner's own export doesn't. If an employee deletes their own account, their receipts are deleted too, approved ones included.",
       "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY and SEK. Receipts in ALL, BAM, BYN, MDL, MKD, RSD, RUB or UAH keep their own amount with no estimate.",
       "No bank or card connection, and no company cards.",
       "It doesn't decide whether VAT is deductible: the VAT is recorded as read from the receipt (worth checking), the bookkeeping CSV only suggests accounts, and the accountant decides.",
@@ -196,7 +196,7 @@ function sv(pilot: boolean): About {
     limitsTitle: "Det här gör UnReceipt inte (än)",
     limits: [
       "Ingen direktintegration med bokföringsprogram som Fortnox eller Visma; exporten är CSV, PDF:er och kvittofiler.",
-      "Anställda (sedan november 2026, i pilot) skickar kvitton för godkännande, men det finns ingen utbetalning och ingen lönefil: godkända utlägg listas per person och markeras som betalda för hand. Varje person har en godkännare, utan beloppsgränser eller ersättare. Om en anställd raderar sitt eget konto raderas hens kvitton också, även de godkända.",
+      "Anställda (sedan november 2026, i pilot) skickar kvitton för godkännande, men det finns ingen utbetalning och ingen lönefil: godkända utlägg listas per person och markeras som betalda för hand. Varje person har en godkännare, utan beloppsgränser eller ersättare, och ett företag har en ägare (ingen delägare än). Bara redovisningsbyråns export innehåller de anställdas kvitton; ägarens egen export gör det inte. Om en anställd raderar sitt eget konto raderas hens kvitton också, även de godkända.",
       "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON och TRY. Kvitton i ALL, BAM, BYN, MDL, MKD, RSD, RUB eller UAH behåller sitt belopp utan uppskattning.",
       "Ingen bank- eller kortkoppling, och inga företagskort.",
       "Tjänsten avgör inte om momsen är avdragsgill: momsen sparas som den lästs av från kvittot (värt att kontrollera), bokföringsfilen föreslår bara konton, och redovisningskonsulten avgör.",
@@ -266,7 +266,7 @@ function fr(pilot: boolean): About {
     limitsTitle: "Ce qu’UnReceipt ne fait pas (encore)",
     limits: [
       "Pas d’intégration directe avec un logiciel comptable comme Pennylane ; l’export est un CSV, des PDF et les fichiers des reçus.",
-      "Les salariés (depuis novembre 2026, en phase pilote) envoient leurs reçus pour validation, mais il n’y a ni virement ni fichier de paie : les frais validés sont listés par personne et marqués payés à la main. Chaque personne a un valideur, sans seuil de montant ni remplaçant. Si un salarié supprime son propre compte, ses reçus sont supprimés aussi, même validés.",
+      "Les salariés (depuis novembre 2026, en phase pilote) envoient leurs reçus pour validation, mais il n’y a ni virement ni fichier de paie : les frais validés sont listés par personne et marqués payés à la main. Chaque personne a un valideur, sans seuil de montant ni remplaçant, et une entreprise a un seul dirigeant (pas encore de co-dirigeant). Seul l’export du cabinet contient les reçus des salariés ; l’export du dirigeant ne les contient pas. Si un salarié supprime son propre compte, ses reçus sont supprimés aussi, même validés.",
       "La conversion couvre SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON et TRY. Les reçus en ALL, BAM, BYN, MDL, MKD, RSD, RUB ou UAH gardent leur montant, sans estimation.",
       "Pas de connexion bancaire ni de carte, et pas de cartes d’entreprise.",
       "Le service ne décide pas si la TVA est récupérable : elle est relevée telle que lue sur le justificatif (à vérifier), et l’expert-comptable décide.",

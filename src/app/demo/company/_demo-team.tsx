@@ -115,10 +115,10 @@ export function addToPayBack(groups: ReimbursementGroup[], item: ApprovalQueueIt
 
 export function DemoTeam({ queue, payBack }: { queue: ApprovalQueueItem[]; payBack: ReimbursementGroup[] }) {
   return (
-    <div className="mx-auto max-w-[640px] space-y-8 px-4 py-6 pb-16">
+    <main className="mx-auto max-w-[640px] space-y-8 px-4 py-6 pb-16">
       <div className="space-y-1">
         <h1 className="type-display-lg text-[var(--ink)]">Team</h1>
-        <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
+        <p className="type-body text-[var(--ink-muted)]">
           Nordljus Design AB
         </p>
       </div>
@@ -132,6 +132,6 @@ export function DemoTeam({ queue, payBack }: { queue: ApprovalQueueItem[]; payBa
         <SectionLabel id="payback-heading">To pay back</SectionLabel>
         <PayBackList groups={payBack} />
       </section>
-    </div>
+    </main>
   );
 }

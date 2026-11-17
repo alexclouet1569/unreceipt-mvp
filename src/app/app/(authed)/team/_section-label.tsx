@@ -4,12 +4,7 @@
 
 export function SectionLabel({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2
-      id={id}
-      tabIndex={-1}
-      className="uppercase text-[var(--ink-muted)]"
-      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", outline: "none" }}
-    >
+    <h2 id={id} tabIndex={-1} className="type-micro text-[var(--ink-muted)] outline-none">
       {children}
     </h2>
   );

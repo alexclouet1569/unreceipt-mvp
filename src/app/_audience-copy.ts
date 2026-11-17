@@ -1030,7 +1030,7 @@ const smallBusinessEn: AudienceCopy = {
   meta: {
     title: "Employee Receipts and Expense Approval for Small Businesses | UnReceipt",
     description:
-      "Employees snap or forward their receipts and send them for approval. You approve, see what to pay back to whom, and your accountant gets approved receipts only.",
+      "Employees snap or forward their receipts and send them for approval. You approve, see what to pay back to whom, and your accountant sees them once approved.",
     shareTitle: "UnReceipt for small businesses — your team's receipts, approved and ready",
     keywords: [
       "employee expense approval",
@@ -1047,9 +1047,9 @@ const smallBusinessEn: AudienceCopy = {
     eyebrow: "For small businesses with employees",
     title: "Your team's receipts,",
     accent: "approved and ready.",
-    lead: "Stop chasing receipts and expense forms at month-end. Employees snap or forward their receipts and send them for approval. You approve with one tap, see who is owed what, and your accountant only gets what you approved.",
+    lead: "Stop chasing receipts and expense forms at month-end. Employees snap or forward their receipts and send them for approval. You approve with one tap, see who is owed what, and your accountant sees your team's receipts only once you've approved them.",
     primary: "bookDemo",
-    primaryLabel: "Book a 20-minute demo",
+    primaryLabel: "Ask for a 20-minute demo",
     secondary: "demoCompany",
     secondaryLabel: "Try the demo",
     notePilot: "Free during the pilot. The team feature is new.",
@@ -1062,7 +1062,7 @@ const smallBusinessEn: AudienceCopy = {
       { label: "Erik · Circle K", value: "812 kr · to approve", done: false },
       { label: "Sara · Taxi Stockholm", value: "Approved", done: true },
       { label: "To pay back", value: "2 people", done: false },
-      { label: "Sent to your accountant", value: "14 approved", done: true },
+      { label: "Ready for your accountant", value: "14 approved", done: true },
     ],
   },
   compare: {
@@ -1109,12 +1109,12 @@ const smallBusinessEn: AudienceCopy = {
       {
         icon: "camera",
         title: "Read by AI, original kept",
-        desc: "Merchant, date, amount and VAT read from the photo or email in seconds. The photo or email is kept with every receipt.",
+        desc: "Merchant, date, amount and VAT read from the photo or email in seconds. The photo or forwarded email is kept with each receipt.",
       },
       {
         icon: "users",
         title: "An approver per person",
-        desc: "Owners approve anyone. Make a team lead an approver for the people you assign. Nobody approves their own receipt.",
+        desc: "The owner approves anyone. Make a team lead an approver for the people you assign. Nobody approves their own receipt.",
       },
       {
         icon: "check",
@@ -1154,7 +1154,7 @@ const smallBusinessEn: AudienceCopy = {
     },
     {
       q: "How does approving an outlay work?",
-      a: "An owner can decide on anyone's receipts; an approver decides for the people assigned to them. They approve, send back with a note (the employee fixes it and sends it again) or reject with a reason. Nobody approves their own receipt, and every step is logged with who did it and when. If the amount, currency, date, merchant or who paid changes after approval, the receipt goes back for approval.",
+      a: "The owner can decide on anyone's receipts; an approver decides for the people assigned to them. They approve, send back with a note (the employee fixes it and sends it again) or reject with a reason. Nobody approves their own receipt, and every step is logged with who did it and when. If what was approved changes afterwards (amount, VAT, currency, date, merchant or who paid), the receipt goes back for approval.",
     },
     {
       q: "We already use Fortnox Kvitto & Utlägg or Pleo. Why switch?",
@@ -1166,22 +1166,22 @@ const smallBusinessEn: AudienceCopy = {
     },
     {
       q: "Who sees an employee's receipts?",
-      a: "The employee sees only their own. The owners, and the approver assigned to that person, see a receipt once it's sent for approval. The accounting firm sees it once it's approved. Receipts are stored in the EU, in Frankfurt.",
+      a: "The employee sees only their own. The owner, and the approver assigned to that person, see a receipt once it's sent for approval. The accounting firm sees it once it's approved. Receipts are stored in the EU, in Frankfurt.",
     },
     {
       q: "What happens when someone leaves?",
-      a: "Remove them from the team: their receipts stay with the company, and they can no longer change them. But if an employee deletes their own UnReceipt account, their receipts are deleted with it, approved ones too: the company keeps no copy yet. So have your accountant book or export the approved receipts every month.",
+      a: "Remove them from the team: their receipts stay with the company, and they can no longer change approved ones. But if an employee deletes their own UnReceipt account, even after leaving, their receipts are deleted with it, approved ones too: the company keeps no copy yet. Today only your accountant's export includes employees' receipts, so have your accountant export the approved receipts every month and keep the ZIP: it holds the original files.",
     },
     {
       q: "Is the team feature ready?",
-      a: "It's new (November 2026) and part of the pilot. Today each person has one approver (or the owners), with no amount limits, no stand-in while someone is away and no second approver. The app is in English. Tell us what your team needs.",
+      a: "It's new (November 2026) and part of the pilot. Today each person has one approver (or the owner), with no amount limits, no stand-in while someone is away and no second approver. The app is in English. Tell us what your team needs.",
     },
   ],
   ending: {
     title: "See it with your own team",
     lead: "20 minutes on a call, or two minutes in the demo, where you approve an employee's receipt.",
     primary: "bookDemo",
-    primaryLabel: "Book a demo",
+    primaryLabel: "Ask for a demo",
     secondary: "demoCompany",
     secondaryLabel: "Try the demo",
   },
@@ -1192,7 +1192,7 @@ const smallBusinessSv: AudienceCopy = {
   meta: {
     title: "Utlägg och kvitton för anställda – godkänn i appen | UnReceipt",
     description:
-      "De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner, ser vem som ska ha tillbaka vad, och redovisningsbyrån får bara godkända kvitton.",
+      "De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner, ser vem som ska ha tillbaka vad, och redovisningsbyrån ser dem när de är godkända.",
     shareTitle: "UnReceipt för småföretag — de anställdas utlägg, godkända och klara",
     keywords: [
       "utlägg anställda",
@@ -1210,9 +1210,9 @@ const smallBusinessSv: AudienceCopy = {
     eyebrow: "För småföretag med anställda",
     title: "De anställdas kvitton,",
     accent: "godkända och klara.",
-    lead: "Sluta jaga kvitton och utläggsblanketter i slutet av månaden. De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner med ett tryck, ser vem som ska ha tillbaka vad, och redovisningsbyrån får bara det du har godkänt.",
+    lead: "Sluta jaga kvitton och utläggsblanketter i slutet av månaden. De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner med ett tryck, ser vem som ska ha tillbaka vad, och redovisningsbyrån ser de anställdas kvitton först när du har godkänt dem.",
     primary: "bookDemo",
-    primaryLabel: "Boka en demo på 20 minuter",
+    primaryLabel: "Be om en demo på 20 minuter",
     secondary: "demoCompany",
     secondaryLabel: "Testa demon",
     notePilot: "Gratis under piloten. Teamfunktionen är ny.",
@@ -1225,7 +1225,7 @@ const smallBusinessSv: AudienceCopy = {
       { label: "Erik · Circle K", value: "812 kr · att godkänna", done: false },
       { label: "Sara · Taxi Stockholm", value: "Godkänt", done: true },
       { label: "Att betala tillbaka", value: "2 personer", done: false },
-      { label: "Till redovisningsbyrån", value: "14 godkända", done: true },
+      { label: "Klara för redovisningsbyrån", value: "14 godkända", done: true },
     ],
   },
   compare: {
@@ -1272,12 +1272,12 @@ const smallBusinessSv: AudienceCopy = {
       {
         icon: "camera",
         title: "Avläst av AI, originalet sparat",
-        desc: "Säljare, datum, belopp och moms läses av från fotot eller mejlet på några sekunder. Fotot eller mejlet sparas med varje kvitto.",
+        desc: "Säljare, datum, belopp och moms läses av från fotot eller mejlet på några sekunder. Fotot eller det vidarebefordrade mejlet sparas med kvittot.",
       },
       {
         icon: "users",
         title: "En godkännare per person",
-        desc: "Ägare kan godkänna allas kvitton. Gör en arbetsledare till godkännare för de personer du väljer. Ingen godkänner sitt eget kvitto.",
+        desc: "Ägaren kan godkänna allas kvitton. Gör en arbetsledare till godkännare för de personer du väljer. Ingen godkänner sitt eget kvitto.",
       },
       {
         icon: "check",
@@ -1318,7 +1318,7 @@ const smallBusinessSv: AudienceCopy = {
     },
     {
       q: "Kan vi attestera utlägg i UnReceipt?",
-      a: "Ja. En ägare kan godkänna allas kvitton, och en godkännare de personer som är kopplade till hen. Kvittot godkänns, skickas tillbaka med en kommentar (den anställda rättar och skickar igen) eller avvisas med en motivering. Ingen godkänner sitt eget kvitto, och varje steg loggas med vem som gjorde det och när. Ändras belopp, valuta, datum, säljare eller vem som betalade efter godkännandet går kvittot tillbaka för ett nytt godkännande.",
+      a: "Ja. Ägaren kan godkänna allas kvitton, och en godkännare de personer som är kopplade till hen. Kvittot godkänns, skickas tillbaka med en kommentar (den anställda rättar och skickar igen) eller avvisas med en motivering. Ingen godkänner sitt eget kvitto, och varje steg loggas med vem som gjorde det och när. Ändras det som godkändes (belopp, moms, valuta, datum, säljare eller vem som betalade) går kvittot tillbaka för ett nytt godkännande.",
     },
     {
       q: "Vi använder redan Fortnox Kvitto & Utlägg eller Pleo. Varför byta?",
@@ -1330,22 +1330,22 @@ const smallBusinessSv: AudienceCopy = {
     },
     {
       q: "Vem ser de anställdas kvitton?",
-      a: "Den anställda ser bara sina egna. Ägarna, och den godkännare som är kopplad till personen, ser ett kvitto när det har skickats för godkännande. Redovisningsbyrån ser det när det är godkänt. Kvittona lagras inom EU, i Frankfurt.",
+      a: "Den anställda ser bara sina egna. Ägaren, och den godkännare som är kopplad till personen, ser ett kvitto när det har skickats för godkännande. Redovisningsbyrån ser det när det är godkänt. Kvittona lagras inom EU, i Frankfurt.",
     },
     {
       q: "Vad händer när någon slutar?",
-      a: "Ta bort personen ur teamet: hens kvitton stannar hos företaget, och hen kan inte längre ändra dem. Men om en anställd raderar sitt eget UnReceipt-konto raderas hens kvitton också, även de godkända: företaget behåller ingen kopia än. Låt därför byrån bokföra eller exportera de godkända kvittona varje månad.",
+      a: "Ta bort personen ur teamet: hens kvitton stannar hos företaget, och hen kan inte längre ändra de godkända. Men om en anställd raderar sitt eget UnReceipt-konto, även efter att ha slutat, raderas hens kvitton också, även de godkända: företaget behåller ingen kopia än. I dag är det bara byråns export som innehåller de anställdas kvitton, så låt byrån exportera de godkända kvittona varje månad och spara ZIP-filen: den innehåller originalfilerna.",
     },
     {
       q: "Är teamfunktionen klar att använda?",
-      a: "Den är ny (november 2026) och ingår i piloten. I dag har varje person en godkännare (eller ägarna), utan beloppsgränser, utan ersättare när någon är borta och utan ett andra godkännande. Appen är på engelska; knapparna heter Approve, Send back och Reject. Berätta vad ert team behöver.",
+      a: "Den är ny (november 2026) och ingår i piloten. I dag har varje person en godkännare (eller ägaren), utan beloppsgränser, utan ersättare när någon är borta och utan ett andra godkännande. Appen är på engelska; knapparna heter Approve, Send back och Reject. Berätta vad ert team behöver.",
     },
   ],
   ending: {
     title: "Se hur det fungerar med ert team",
     lead: "20 minuter i ett samtal, eller två minuter i demon där du godkänner en anställds kvitto.",
     primary: "bookDemo",
-    primaryLabel: "Boka en demo",
+    primaryLabel: "Be om en demo",
     secondary: "demoCompany",
     secondaryLabel: "Testa demon",
   },
@@ -1356,7 +1356,7 @@ const smallBusinessFr: AudienceCopy = {
   meta: {
     title: "Notes de frais des salariés : validation et justificatifs | UnReceipt",
     description:
-      "Vos salariés photographient ou transfèrent leurs reçus et les envoient pour validation. Vous validez, voyez qui rembourser, et votre expert-comptable ne reçoit que les reçus validés.",
+      "Vos salariés photographient ou transfèrent leurs reçus et les envoient pour validation. Vous validez, voyez qui rembourser, et votre expert-comptable les voit une fois validés.",
     shareTitle: "UnReceipt pour les TPE — les notes de frais de vos salariés, validées et prêtes",
     keywords: [
       "notes de frais salariés",
@@ -1373,9 +1373,9 @@ const smallBusinessFr: AudienceCopy = {
     eyebrow: "Pour les TPE avec salariés",
     title: "Les notes de frais de vos salariés,",
     accent: "validées et prêtes.",
-    lead: "Fini les tickets et les notes de frais à rassembler en fin de mois. Vos salariés photographient ou transfèrent leurs reçus et les envoient pour validation. Vous validez d’un geste, voyez qui rembourser, et votre expert-comptable ne reçoit que ce que vous avez validé.",
+    lead: "Fini les tickets et les notes de frais à rassembler en fin de mois. Vos salariés photographient ou transfèrent leurs reçus et les envoient pour validation. Vous validez d’un geste, voyez qui rembourser, et votre expert-comptable ne voit les reçus de vos salariés qu’une fois validés.",
     primary: "bookDemo",
-    primaryLabel: "Réserver une démo de 20 minutes",
+    primaryLabel: "Demander une démo de 20 minutes",
     secondary: "demoCompany",
     secondaryLabel: "Essayer la démo",
     notePilot: "Gratuit pendant la phase pilote. La gestion d’équipe est nouvelle.",
@@ -1388,7 +1388,7 @@ const smallBusinessFr: AudienceCopy = {
       { label: "Lucas · TotalEnergies", value: "64,90 € · à valider", done: false },
       { label: "Camille · Taxi G7", value: "Validé", done: true },
       { label: "À rembourser", value: "2 personnes", done: false },
-      { label: "Pour l’expert-comptable", value: "14 validés", done: true },
+      { label: "Prêts pour l’expert-comptable", value: "14 validés", done: true },
     ],
   },
   compare: {
@@ -1435,12 +1435,12 @@ const smallBusinessFr: AudienceCopy = {
       {
         icon: "camera",
         title: "Lu par l’IA, original conservé",
-        desc: "Fournisseur, date, montant et TVA lus sur la photo ou l’e-mail en quelques secondes. La photo ou l’e-mail est conservé avec chaque reçu.",
+        desc: "Fournisseur, date, montant et TVA lus sur la photo ou l’e-mail en quelques secondes. La photo ou l’e-mail transféré est conservé avec le reçu.",
       },
       {
         icon: "users",
         title: "Un valideur par personne",
-        desc: "Les dirigeants valident les frais de tous. Désignez un responsable pour valider ceux des personnes de votre choix. Personne ne valide ses propres frais.",
+        desc: "Le dirigeant valide les frais de tous. Désignez un responsable pour valider ceux des personnes de votre choix. Personne ne valide ses propres frais.",
       },
       {
         icon: "check",
@@ -1480,7 +1480,7 @@ const smallBusinessFr: AudienceCopy = {
     },
     {
       q: "Comment se passe la validation ?",
-      a: "Un dirigeant peut décider pour tous ; un valideur décide pour les personnes qui lui sont rattachées. Il valide, renvoie avec un commentaire (le salarié corrige et renvoie) ou refuse avec un motif. Personne ne valide ses propres frais, et chaque étape est enregistrée avec son auteur et sa date. Si le montant, la devise, la date, le fournisseur ou le payeur change après validation, le reçu repart en validation.",
+      a: "Le dirigeant peut décider pour tous ; un valideur décide pour les personnes qui lui sont rattachées. Il valide, renvoie avec un commentaire (le salarié corrige et renvoie) ou refuse avec un motif. Personne ne valide ses propres frais, et chaque étape est enregistrée avec son auteur et sa date. Si ce qui a été validé change (montant, TVA, devise, date, fournisseur ou payeur), le reçu repart en validation.",
     },
     {
       q: "Nous utilisons déjà Pleo, Spendesk ou N2F. Pourquoi changer ?",
@@ -1492,22 +1492,22 @@ const smallBusinessFr: AudienceCopy = {
     },
     {
       q: "Qui voit les reçus d’un salarié ?",
-      a: "Le salarié ne voit que les siens. Les dirigeants, et le valideur rattaché à cette personne, voient un reçu une fois envoyé pour validation. L’expert-comptable le voit une fois validé. Les reçus sont stockés dans l’UE, à Francfort.",
+      a: "Le salarié ne voit que les siens. Le dirigeant, et le valideur rattaché à cette personne, voient un reçu une fois envoyé pour validation. L’expert-comptable le voit une fois validé. Les reçus sont stockés dans l’UE, à Francfort.",
     },
     {
       q: "Que se passe-t-il quand un salarié part ?",
-      a: "Retirez-le de l’équipe : ses reçus restent à l’entreprise, et il ne peut plus les modifier. En revanche, si un salarié supprime son propre compte UnReceipt, ses reçus sont supprimés avec, même validés : l’entreprise n’en garde pas encore de copie. Faites donc saisir ou exporter les reçus validés chaque mois. Les tickets papier, eux, sont à conserver : UnReceipt ne produit pas la copie conforme qui permettrait de les jeter.",
+      a: "Retirez-le de l’équipe : ses reçus restent à l’entreprise, et il ne peut plus modifier ceux qui sont validés. En revanche, si un salarié supprime son propre compte UnReceipt, même après son départ, ses reçus sont supprimés avec, même validés : l’entreprise n’en garde pas encore de copie. Aujourd’hui, seul l’export de votre expert-comptable contient les reçus des salariés : faites-lui exporter les reçus validés chaque mois et conservez le ZIP, qui contient les fichiers d’origine. Gardez aussi les factures et tickets papier : UnReceipt ne produit pas la copie conforme (art. A102 B-2 du LPF) qui permettrait de détruire une facture papier.",
     },
     {
       q: "La gestion d’équipe est-elle prête ?",
-      a: "Elle est nouvelle (novembre 2026) et fait partie de la phase pilote. Aujourd’hui, chaque personne a un valideur (ou les dirigeants), sans seuil de montant, sans remplaçant en cas d’absence et sans double validation. L’application est en anglais. Dites-nous ce dont votre équipe a besoin.",
+      a: "Elle est nouvelle (novembre 2026) et fait partie de la phase pilote. Aujourd’hui, chaque personne a un valideur (ou le dirigeant), sans seuil de montant, sans remplaçant en cas d’absence et sans double validation. L’application est en anglais. Dites-nous ce dont votre équipe a besoin.",
     },
   ],
   ending: {
     title: "Voyez-le avec votre équipe",
     lead: "20 minutes en appel, ou deux minutes dans la démo, où vous validez le reçu d’un salarié.",
     primary: "bookDemo",
-    primaryLabel: "Réserver une démo",
+    primaryLabel: "Demander une démo",
     secondary: "demoCompany",
     secondaryLabel: "Essayer la démo",
   },

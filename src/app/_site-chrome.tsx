@@ -56,7 +56,7 @@ export function SiteHeader({
         <a href={home} aria-label={`UnReceipt — ${t.home}`} className="py-1">
           <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[24px]" />
         </a>
-        <nav aria-label="Main" className="hidden lg:flex items-center gap-6">
+        <nav aria-label="Main" className="hidden lg:flex items-center gap-5 xl:gap-6">
           {links.map((link) => (
             <a
               key={link.href}
