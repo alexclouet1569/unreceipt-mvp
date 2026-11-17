@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { getServerUser } from "@/lib/supabase-server";
 import {
   AnalyticsInputError,
+  AnalyticsNotReadyError,
   drillFilterFromParams,
   loadDrillRows,
   periodFromParams,
@@ -75,6 +76,8 @@ export default async function InsightsReceiptsPage({ searchParams }: Props) {
     try {
       result = await loadDrillRows(user, period, filter);
     } catch (err) {
+      // No company yet: /app creates it on its first load.
+      if (err instanceof AnalyticsNotReadyError) redirect("/app");
       console.error("[/app/insights/receipts] load failed", err);
       Sentry.captureException(err, { tags: { area: "analytics" } });
       throw err;

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { getServerUser } from "@/lib/supabase-server";
-import { AnalyticsInputError, loadAnalytics, periodFromParams, todayInStockholm } from "@/lib/analytics/load";
+import { AnalyticsInputError, AnalyticsNotReadyError, loadAnalytics, periodFromParams, todayInStockholm } from "@/lib/analytics/load";
 import { periodSearch, shownPeriod } from "@/lib/analytics/display";
 import { rateLimit } from "@/lib/rate-limit";
 import { InsightsBody, type DrillHref } from "./InsightsView";
@@ -56,6 +56,8 @@ export default async function InsightsPage({ searchParams }: Props) {
   try {
     analytics = await loadAnalytics(user, period, today);
   } catch (err) {
+    // No company yet: /app creates it on its first load.
+    if (err instanceof AnalyticsNotReadyError) redirect("/app");
     // A failed read (the company's currency included) is an error, never a
     // guess: error.tsx offers to try again.
     console.error("[/app/insights] load failed", err);

@@ -7,7 +7,14 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/supabase-server";
-import { AnalyticsInputError, analyticsAccess, loadAnalytics, periodFromParams, todayInStockholm } from "@/lib/analytics/load";
+import {
+  AnalyticsInputError,
+  AnalyticsNotReadyError,
+  analyticsAccess,
+  loadAnalytics,
+  periodFromParams,
+  todayInStockholm,
+} from "@/lib/analytics/load";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -44,8 +51,17 @@ export async function GET(request: Request) {
     const body = await loadAnalytics(user, period, today, await accessing);
     return NextResponse.json(body, { headers: NO_STORE });
   } catch (err) {
+    if (err instanceof AnalyticsNotReadyError) return notReady();
     console.error("[/api/mobile/analytics] failed", err);
     Sentry.captureException(err, { tags: { area: "analytics" } });
     return NextResponse.json({ error: "server_error" }, { status: 500, headers: NO_STORE });
   }
+}
+
+/**
+ * A new account whose company the home screen hasn't created yet (it does
+ * on its first load, a second or so after sign-in): ask again shortly.
+ */
+function notReady() {
+  return NextResponse.json({ error: "not_ready" }, { status: 503, headers: { ...NO_STORE, "Retry-After": "2" } });
 }
