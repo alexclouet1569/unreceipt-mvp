@@ -14,7 +14,7 @@ import { resolvePeriod, type PeriodInput } from "@/lib/analytics/periods";
 import { InsightsBody } from "@/app/app/(authed)/insights/InsightsView";
 import { PeriodHeader } from "@/app/app/(authed)/insights/PeriodHeader";
 import { PendingBody, PeriodScope } from "@/app/app/(authed)/insights/PeriodPending";
-import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
+import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, useDemoRequestHref, type TourStep } from "../_tour";
 
 // Public guided tour for a client company: the real receipts screen and
 // capture sheet with sample receipts, then the accountant's invite.
@@ -246,6 +246,7 @@ function DemoInsights({ receipts, period }: { receipts: Receipt[]; period: Perio
 
 export function CompanyTour({ step, period = { kind: "month" } }: { step: number; period?: PeriodInput }) {
   const [notice, closeNotice] = useDemoLinkGuard();
+  const demoHref = useDemoRequestHref();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
   const scans = useRef(0);
@@ -382,6 +383,7 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
           text="Your receipts are read for you, and your accountant gets every one. No more chasing paper."
           cta="Start free"
           ctaHref={appUrl(SIGNUP_PATH)}
+          secondaryCta={{ label: "Book a demo", href: demoHref }}
           other={{ label: "See the accountant side", href: "/demo/accountant?step=1" }}
         />
       )}

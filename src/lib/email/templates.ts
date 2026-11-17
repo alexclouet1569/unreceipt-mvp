@@ -63,9 +63,9 @@ function step(n: number, title: string, bodyHtml: string): string {
 </tr>`;
 }
 
-function layout(opts: { preheader: string; bodyHtml: string; footerHtml: string }): string {
+function layout(opts: { preheader: string; bodyHtml: string; footerHtml: string; lang?: string }): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${opts.lang ?? "en"}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -959,5 +959,142 @@ export function approvalDecisionEmail(opts: {
     subject: title,
     html: layout({ preheader: said ?? next, bodyHtml, footerHtml: esc(footer) }),
     text: [title, "", ...(said ? [said, ""] : []), next, "", `Open receipt: ${opts.url}`, "", footer].join("\n"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Demo requests (2026-11-17, /book-demo + /sv/boka-demo → /api/demo-request)
+// ---------------------------------------------------------------------------
+
+export type DemoRequestDetails = {
+  name: string;
+  company: string;
+  email: string;
+  phone: string | null;
+  employees: string;
+  bookkeeping: string;
+  hasAccountant: boolean;
+  message: string | null;
+  locale: "en" | "sv";
+};
+
+/** One line, capped: typed text in a subject must not break the header. */
+function subjectPart(value: string, max: number): string {
+  const line = value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/**
+ * To the founder, at once: everything the visitor typed (escaped), with
+ * Reply-To set to the visitor by the route so "Reply" answers them.
+ */
+export function demoRequestFounderEmail(r: DemoRequestDetails): EmailContent {
+  const subject = `Demo request: ${subjectPart(r.company, 60)} (${r.employees} employees)`;
+  const rows: [string, string][] = [
+    ["Name", r.name],
+    ["Company", r.company],
+    ["Email", r.email],
+    ["Phone", r.phone ?? "—"],
+    ["Employees", r.employees],
+    ["Bookkeeping", r.bookkeeping],
+    ["Has an accountant", r.hasAccountant ? "Yes" : "No"],
+    ["Page", r.locale === "sv" ? "/sv/boka-demo (Swedish)" : "/book-demo (English)"],
+  ];
+  const table = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+${rows
+  .map(
+    ([k, v]) => `  <tr>
+    <td valign="top" width="150" style="padding:6px 12px 6px 0;font-family:${FONT};font-size:14px;color:${C.inkFaint};">${esc(k)}</td>
+    <td valign="top" style="padding:6px 0;font-family:${FONT};font-size:14px;color:${C.ink};">${esc(v)}</td>
+  </tr>`
+  )
+  .join("\n")}
+</table>`;
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">New demo request</h1>`,
+    table,
+    ...(r.message
+      ? [
+          `<p style="margin:0 0 6px;font-family:${FONT};font-size:14px;color:${C.inkFaint};">Message</p>`,
+          `<p style="margin:0 0 20px;font-family:${FONT};font-size:15px;line-height:1.6;color:${C.ink};white-space:pre-wrap;">${esc(r.message)}</p>`,
+        ]
+      : []),
+    paragraph("Reply to this email to answer them. They got a short confirmation with your booking link, when one is set."),
+  ].join("\n");
+  return {
+    subject,
+    html: layout({
+      preheader: `${r.name} · ${r.employees} employees · ${r.bookkeeping}`,
+      bodyHtml,
+      footerHtml: "Sent when someone sends the demo form on unreceipt.com. Only you receive this.",
+    }),
+    text: [
+      "New demo request",
+      "",
+      ...rows.map(([k, v]) => `${k}: ${v}`),
+      ...(r.message ? ["", "Message:", r.message] : []),
+      "",
+      "Reply to this email to answer them.",
+    ].join("\n"),
+  };
+}
+
+const DEMO_CONFIRMATION_COPY = {
+  en: {
+    subject: "We got your demo request",
+    title: "Thanks, we got your request",
+    lead: "I'll email you within one working day to find a time for a 20-minute demo.",
+    book: "Prefer to pick a time now?",
+    button: "Choose a time",
+    reply: "Questions in the meantime? Just reply to this email: it comes straight to me.",
+    role: "Founder, UnReceipt",
+    footer:
+      "You're receiving this because this address was entered in the demo form on unreceipt.com. If that wasn't you, ignore this email: you won't hear from us.",
+  },
+  sv: {
+    subject: "Vi har fått din demoförfrågan",
+    title: "Tack, vi har fått din förfrågan",
+    lead: "Jag mejlar dig inom en arbetsdag för att hitta en tid för en demo på 20 minuter.",
+    book: "Vill du hellre välja en tid direkt?",
+    button: "Välj en tid",
+    reply: "Frågor under tiden? Svara bara på det här mejlet, så kommer det direkt till mig.",
+    role: "Grundare, UnReceipt",
+    footer:
+      "Du får det här mejlet eftersom adressen skrevs in i demoformuläret på unreceipt.com. Var det inte du? Ignorera mejlet, så hör vi inte av oss.",
+  },
+} as const;
+
+/**
+ * To the visitor. Fixed words only: never their name, company or message,
+ * so the form can't be used to send someone else text from our domain.
+ */
+export function demoRequestConfirmationEmail(opts: {
+  locale: "en" | "sv";
+  bookingUrl: string | null;
+  canReply: boolean;
+}): EmailContent {
+  const t = DEMO_CONFIRMATION_COPY[opts.locale];
+  const bodyHtml = [
+    `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:22px;line-height:1.3;color:${C.ink};">${esc(t.title)}</h1>`,
+    paragraph(esc(t.lead)),
+    ...(opts.bookingUrl ? [paragraph(esc(t.book)), button(t.button, opts.bookingUrl)] : []),
+    ...(opts.canReply ? [paragraph(esc(t.reply))] : []),
+    `<p style="margin:0;font-family:${FONT};font-size:15px;line-height:1.5;color:${C.ink};">Alexandre<br><span style="color:${C.inkFaint};font-size:13px;">${esc(t.role)}</span></p>`,
+  ].join("\n");
+  return {
+    subject: t.subject,
+    html: layout({ preheader: t.lead, bodyHtml, footerHtml: esc(t.footer), lang: opts.locale }),
+    text: [
+      t.title,
+      "",
+      t.lead,
+      ...(opts.bookingUrl ? ["", `${t.book} ${opts.bookingUrl}`] : []),
+      ...(opts.canReply ? ["", t.reply] : []),
+      "",
+      `Alexandre\n${t.role}`,
+      "",
+      "—",
+      t.footer,
+    ].join("\n"),
   };
 }

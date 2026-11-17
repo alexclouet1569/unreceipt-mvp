@@ -124,7 +124,7 @@ function en(pilot: boolean): About {
     limitsTitle: "What UnReceipt doesn't do (yet)",
     limits: [
       "No direct integration with bookkeeping programs such as Fortnox, Visma or Pennylane; the export is CSV, PDFs and receipt files.",
-      "One sign-in per company account for now: colleagues can't be added to a company yet (accounting firms can add colleagues to their portal).",
+      "Colleagues can be added to a company as employees or approvers who send receipts for approval, but this is in pilot: there is one owner per company, no payroll or payout file for paying back outlays, and an employee's receipts are deleted with their account. Joining a team happens on the website, not in the iPhone app.",
       "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY and SEK. Receipts in ALL, BAM, BYN, MDL, MKD, RSD, RUB or UAH keep their own amount with no estimate.",
       "No bank or card connection, and no company cards.",
       "It doesn't decide whether VAT is deductible: the VAT is recorded as read from the receipt (worth checking), the bookkeeping CSV only suggests accounts, and the accountant decides.",
@@ -132,7 +132,7 @@ function en(pilot: boolean): About {
       "The app is in English only.",
     ],
     contactTitle: "Contact",
-    contact: "Questions, partnerships or a demo for your accounting firm: support@unreceipt.com.",
+    contact: "Want to see it with your own receipts? Book a 20-minute demo. Questions or partnerships: support@unreceipt.com.",
   };
 }
 
@@ -194,14 +194,14 @@ function sv(pilot: boolean): About {
     limitsTitle: "Det här gör UnReceipt inte (än)",
     limits: [
       "Ingen direktintegration med bokföringsprogram som Fortnox eller Visma; exporten är CSV, PDF:er och kvittofiler.",
-      "En inloggning per företagskonto än så länge: kollegor kan inte läggas till i ett företag ännu (redovisningsbyråer kan lägga till kollegor i sin portal).",
+      "Kollegor kan läggas till i ett företag som anställda eller attestanter som skickar kvitton för attest, men det är i pilot: en ägare per företag, ingen löne- eller utbetalningsfil för utlägg, och en anställds kvitton raderas med hens konto. Man går med i ett team på webben, inte i iPhone-appen.",
       "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON och TRY. Kvitton i ALL, BAM, BYN, MDL, MKD, RSD, RUB eller UAH behåller sitt belopp utan uppskattning.",
       "Ingen bank- eller kortkoppling, och inga företagskort.",
       "Tjänsten avgör inte om momsen är avdragsgill: momsen sparas som den lästs av från kvittot (värt att kontrollera), bokföringsfilen föreslår bara konton, och redovisningskonsulten avgör.",
       "Appen är bara på engelska.",
     ],
     contactTitle: "Kontakt",
-    contact: "Frågor, samarbeten eller en demo för din redovisningsbyrå: support@unreceipt.com.",
+    contact: "Vill du se hur det fungerar med dina egna kvitton? Boka en demo på 20 minuter. Frågor eller samarbeten: support@unreceipt.com.",
   };
 }
 
@@ -263,7 +263,7 @@ function fr(pilot: boolean): About {
     limitsTitle: "Ce qu’UnReceipt ne fait pas (encore)",
     limits: [
       "Pas d’intégration directe avec un logiciel comptable comme Pennylane ; l’export est un CSV, des PDF et les fichiers des reçus.",
-      "Un seul accès par compte d’entreprise pour l’instant : on ne peut pas encore ajouter de collègues à une entreprise (les cabinets peuvent ajouter leurs collaborateurs à leur portail).",
+      "On peut ajouter des collègues à une entreprise, comme salariés ou valideurs qui envoient leurs justificatifs pour validation, mais c’est en pilote : un seul propriétaire par entreprise, pas de fichier de paie ou de virement pour rembourser les notes de frais, et les justificatifs d’un salarié sont supprimés avec son compte. On rejoint une équipe sur le site web, pas dans l’app iPhone.",
       "La conversion couvre SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON et TRY. Les reçus en ALL, BAM, BYN, MDL, MKD, RSD, RUB ou UAH gardent leur montant, sans estimation.",
       "Pas de connexion bancaire ni de carte, et pas de cartes d’entreprise.",
       "Le service ne décide pas si la TVA est récupérable : elle est relevée telle que lue sur le justificatif (à vérifier), et l’expert-comptable décide.",
@@ -271,7 +271,7 @@ function fr(pilot: boolean): About {
       "L’application est en anglais uniquement.",
     ],
     contactTitle: "Contact",
-    contact: "Questions, partenariats ou démo pour votre cabinet : support@unreceipt.com.",
+    contact: "Envie de le voir avec vos propres justificatifs ? Demandez une démo de 20 minutes (en anglais ou en suédois). Questions ou partenariats : support@unreceipt.com.",
   };
 }
 

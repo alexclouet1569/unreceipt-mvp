@@ -19,7 +19,7 @@ import type { MarketingPageId } from "@/lib/marketing-pages";
 export type AudienceId = "accountants" | "freelancers";
 
 /** Where a button goes; resolved to a URL in _audience-page.tsx. */
-export type Cta = "signup" | "demoCompany" | "demoAccountant" | "contactFirm";
+export type Cta = "signup" | "demoCompany" | "demoAccountant" | "bookDemo";
 
 export type IconName =
   | "mail"
@@ -75,7 +75,6 @@ export type AudienceCopy = {
     secondary: Cta;
     secondaryLabel: string;
   };
-  contactSubject: string;
 };
 
 // ─── Accounting firms ────────────────────────────────────────────────
@@ -102,7 +101,7 @@ const accountantsEn: AudienceCopy = {
     title: "Your clients' receipts,",
     accent: "ready to book.",
     lead: "Stop chasing photos, forwarded PDFs and paper bags at month-end. Your clients snap or forward their receipts to UnReceipt; you get every one read by AI, confirmed by the client and VAT-split in one portal, with one export per client and month.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Book a 20-minute demo",
     secondary: "demoAccountant",
     secondaryLabel: "Try the accountant demo",
@@ -229,12 +228,11 @@ const accountantsEn: AudienceCopy = {
   ending: {
     title: "See it with your own clients' receipts",
     lead: "20 minutes on a call, or two minutes in the demo with sample data.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Book a demo",
     secondary: "demoAccountant",
     secondaryLabel: "Try the accountant demo",
   },
-  contactSubject: "UnReceipt for our accounting firm",
 };
 
 const accountantsSv: AudienceCopy = {
@@ -260,7 +258,7 @@ const accountantsSv: AudienceCopy = {
     title: "Klienternas kvitton,",
     accent: "klara att bokföra.",
     lead: "Sluta jaga foton, vidarebefordrade PDF:er och kvittopåsar vid månadsskiftet. Dina klienter fotar eller vidarebefordrar sina kvitton till UnReceipt, och du får varje kvitto avläst av AI, bekräftat av klienten och med momsen uppdelad i en portal, med en export per klient och månad.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Boka en demo på 20 minuter",
     secondary: "demoAccountant",
     secondaryLabel: "Testa byrådemon",
@@ -388,12 +386,11 @@ const accountantsSv: AudienceCopy = {
   ending: {
     title: "Se det med dina egna klienters kvitton",
     lead: "20 minuter i ett samtal, eller två minuter i demon med exempeldata.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Boka en demo",
     secondary: "demoAccountant",
     secondaryLabel: "Testa byrådemon",
   },
-  contactSubject: "UnReceipt för vår redovisningsbyrå",
 };
 
 const accountantsFr: AudienceCopy = {
@@ -418,7 +415,7 @@ const accountantsFr: AudienceCopy = {
     title: "Les justificatifs de vos clients,",
     accent: "prêts à saisir.",
     lead: "Fini les relances, les photos floues et les sacs de tickets en fin de mois. Vos clients photographient ou transfèrent leurs reçus à UnReceipt ; vous les retrouvez lus par l’IA, confirmés par le client et avec la TVA relevée dans un seul portail, avec un export par client et par mois.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Réserver une démo de 20 minutes",
     secondary: "demoAccountant",
     secondaryLabel: "Essayer la démo cabinet",
@@ -546,12 +543,11 @@ const accountantsFr: AudienceCopy = {
   ending: {
     title: "Voyez-le avec les reçus de vos propres clients",
     lead: "20 minutes en visio, ou deux minutes dans la démo avec des données d’exemple.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Réserver une démo",
     secondary: "demoAccountant",
     secondaryLabel: "Essayer la démo cabinet",
   },
-  contactSubject: "UnReceipt pour notre cabinet",
 };
 
 // ─── Freelancers and sole traders ────────────────────────────────────
@@ -706,7 +702,6 @@ const freelancersEn: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "See the demo",
   },
-  contactSubject: "UnReceipt question",
 };
 
 const freelancersSv: AudienceCopy = {
@@ -861,7 +856,6 @@ const freelancersSv: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Se demon",
   },
-  contactSubject: "Fråga om UnReceipt",
 };
 
 const freelancersFr: AudienceCopy = {
@@ -1015,7 +1009,6 @@ const freelancersFr: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Voir la démo",
   },
-  contactSubject: "Question sur UnReceipt",
 };
 
 export const AUDIENCE_COPY: Record<AudienceId, Record<Locale, AudienceCopy>> = {

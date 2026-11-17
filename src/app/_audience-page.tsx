@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { audienceJsonLd, jsonLdHtml } from "@/lib/seo";
@@ -79,8 +79,8 @@ export function AudiencePage({
         return appUrl("/demo/company?step=1");
       case "demoAccountant":
         return appUrl("/demo/accountant?step=1");
-      case "contactFirm":
-        return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
+      case "bookDemo":
+        return demoRequestPath(locale);
     }
   };
   const label = (cta: Cta, own?: string) => (cta === "signup" ? signupLabel : own ?? signupLabel);

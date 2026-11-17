@@ -13,6 +13,7 @@ export type SiteCopy = {
     pricing: string;
     accountants: string;
     freelancers: string;
+    bookDemo: string;
     signIn: string;
     ctaPilot: string;
     ctaPaid: string;
@@ -31,7 +32,6 @@ export type SiteCopy = {
     guidePaper: string | null;
     company: string;
     about: string;
-    contact: string;
     privacy: string;
     rights: string;
     made: string;
@@ -46,6 +46,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Pricing",
       accountants: "For accountants",
       freelancers: "For freelancers",
+      bookDemo: "Book a demo",
       signIn: "Sign in",
       ctaPilot: "Join the pilot",
       ctaPaid: "Start free",
@@ -65,7 +66,6 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guidePaper: null,
       company: "Company",
       about: "About UnReceipt",
-      contact: "Contact",
       privacy: "Privacy",
       rights: "All rights reserved.",
       made: "Made with precision in Europe.",
@@ -78,6 +78,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Priser",
       accountants: "För redovisningsbyråer",
       freelancers: "För enskild firma",
+      bookDemo: "Boka demo",
       signIn: "Logga in",
       ctaPilot: "Gå med i piloten",
       ctaPaid: "Kom igång gratis",
@@ -97,7 +98,6 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guidePaper: "Får man slänga papperskvitton?",
       company: "Om oss",
       about: "Om UnReceipt",
-      contact: "Kontakt",
       privacy: "Integritet",
       rights: "Alla rättigheter förbehållna.",
       made: "Utvecklat i Europa.",
@@ -110,6 +110,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Tarifs",
       accountants: "Experts-comptables",
       freelancers: "Indépendants",
+      bookDemo: "Démo (en anglais)",
       signIn: "Se connecter",
       ctaPilot: "Je participe",
       ctaPaid: "Essai gratuit",
@@ -129,7 +130,6 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       guidePaper: "Peut-on jeter les tickets de caisse ?",
       company: "Entreprise",
       about: "À propos",
-      contact: "Contact",
       privacy: "Confidentialité",
       rights: "Tous droits réservés.",
       made: "Développé en Europe.",

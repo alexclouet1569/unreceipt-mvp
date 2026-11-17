@@ -81,7 +81,7 @@ export function GET() {
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.accountants[l], "accountants", l)),
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.freelancers[l], "freelancers", l)),
     ...GUIDES.map(guideMd),
-    "## Contact\n\nsupport@unreceipt.com — https://unreceipt.com",
+    `## Contact\n\nBook a 20-minute demo: ${absoluteUrl(pagePath("bookDemo", "en"))} (Swedish: ${absoluteUrl(pagePath("bookDemo", "sv"))}). Questions: support@unreceipt.com — https://unreceipt.com`,
   ].join("\n\n");
 
   return new Response(body + "\n", {
