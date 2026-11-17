@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "ios/**",
     // The native iPhone app has its own config (mobile/: npm run lint there).
     "mobile/**",
+    // The promo video (Remotion) has its own package: video/README.md.
+    "video/**",
   ]),
 ]);
 
