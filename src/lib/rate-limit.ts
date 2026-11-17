@@ -205,6 +205,11 @@ export const RATE_LIMITS = {
   // The demo request's confirmation email, per typed address (hashed):
   // spread over many IPs, the form still can't flood one inbox.
   demoRequestConfirm: [{ limit: 2, windowSeconds: 24 * 60 * 60 }],
+  // Every confirmation email together (subject "all"): +tags and other
+  // domains make new inboxes for free, so this bounds what the form can send
+  // to third parties and to the shared Resend quota. Past it the request is
+  // still saved and the founder still emailed; only the confirmation is skipped.
+  demoRequestConfirmAll: [{ limit: 30, windowSeconds: 24 * 60 * 60 }],
   // Every demo request together (subject "all"): rotating IPs (an IPv6 /64,
   // a botnet) still can't flood the founder's inbox or the Resend quota.
   // Far above a real day's requests while the funnel is young, and high

@@ -270,6 +270,29 @@ describe("POST /api/demo-request", () => {
     expect(confirmCall[1]).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it("still saves the request and emails the founder once all confirmations for the day are used", async () => {
+    rateLimitMock.mockImplementation(async (name: string): Promise<Limited> =>
+      name === "demoRequestConfirmAll" ? { ok: false, retryAfterSeconds: 3600 } : { ok: true }
+    );
+
+    const res = await post(VALID);
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).confirmation).toBe(false);
+    expect(mocks.insert).toHaveBeenCalledTimes(1);
+    expect(sentEmails().map((e) => e.to)).toEqual(["founder@example.com"]);
+    expect(rateLimitMock).toHaveBeenCalledWith("demoRequestConfirmAll", "all");
+  });
+
+  it("refuses control characters other than line breaks in the message", async () => {
+    const res = await post({ ...VALID, message: "a\u0000b" });
+
+    expect(res.status).toBe(400);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    const ok = await post({ ...VALID, message: "line one\nline two\tend" });
+    expect(ok.status).toBe(201);
+  });
+
   it("leaves the booking link out of the confirmation when none is set", async () => {
     delete process.env.NEXT_PUBLIC_DEMO_BOOKING_URL;
 

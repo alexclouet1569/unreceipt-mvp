@@ -50,6 +50,7 @@ export type DemoRequestCopy = {
     text: string;
     bookLead: string;
     book: string;
+    newTab: string;
     noBooking: string;
   };
 };
@@ -140,6 +141,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       text: "You'll get a confirmation by email.",
       bookLead: "Want to pick a time right away?",
       book: "Choose a time",
+      newTab: "opens in a new tab",
       noBooking: "We'll email you within one working day to find a time.",
     },
   },
@@ -228,6 +230,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       text: "Du får en bekräftelse via e-post.",
       bookLead: "Vill du välja en tid direkt?",
       book: "Välj en tid",
+      newTab: "öppnas i en ny flik",
       noBooking: "Vi mejlar dig inom en arbetsdag för att hitta en tid.",
     },
   },

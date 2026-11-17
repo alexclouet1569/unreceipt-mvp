@@ -68,7 +68,7 @@ export function DemoRequestPage({
               <ol className="space-y-3 max-w-xl">
                 {t.steps.items.map((item, i) => (
                   <li key={item} className="flex items-start gap-3 text-white">
-                    <span className="w-7 h-7 shrink-0 rounded-full bg-white text-[#1F9D63] text-sm font-bold flex items-center justify-center">
+                    <span className="w-7 h-7 shrink-0 rounded-full bg-white text-[#1A7F52] text-sm font-bold flex items-center justify-center">
                       {i + 1}
                     </span>
                     <span className="pt-0.5 leading-relaxed">{item}</span>
@@ -103,7 +103,7 @@ export function DemoRequestPage({
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={appUrl("/demo/company?step=1")}
-                  className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
+                  className={cn(BTN, "bg-[#1A7F52] text-white hover:bg-[#176E47] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
                 >
                   {t.notes.selfServe.tour}
                   <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />

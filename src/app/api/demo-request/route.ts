@@ -92,10 +92,13 @@ export async function POST(request: NextRequest) {
   // Per inbox (Gmail dots and +tags folded, as for firm seats), hashed: the
   // counter table never holds the address itself.
   const inbox = normalizeAddress(r.email) ?? r.email;
-  const confirmAllowed = await rateLimit(
+  const perInbox = await rateLimit(
     "demoRequestConfirm",
     createHash("sha256").update(inbox).digest("hex")
   );
+  const confirmAllowed = perInbox.ok
+    ? await rateLimit("demoRequestConfirmAll", "all")
+    : perInbox;
 
   const sends: Promise<unknown>[] = [];
   if (founder) {

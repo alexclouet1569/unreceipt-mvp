@@ -140,10 +140,11 @@ export function DemoRequestForm({
               href={booking}
               target="_blank"
               rel="noopener"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#27BE7B] hover:bg-[#1F9D63] text-white font-semibold px-7 h-12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1A7F52] hover:bg-[#176E47] text-white font-semibold px-7 h-12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]"
             >
               <CalendarDays className="w-4 h-4" aria-hidden="true" />
               {sentCopy.book}
+              <span className="sr-only"> ({sentCopy.newTab})</span>
             </a>
           </>
         ) : (
@@ -219,7 +220,7 @@ export function DemoRequestForm({
                 border("hasAccountant")
               )}
             >
-              <input type="radio" name="hasAccountant" value={v} required className="accent-[#1F9D63] w-4 h-4" />
+              <input type="radio" name="hasAccountant" value={v} required className="accent-[#1F9D63] w-4 h-4" {...a11y("hasAccountant")} />
               {v === "yes" ? t.yes : t.no}
             </label>
           ))}
@@ -246,7 +247,7 @@ export function DemoRequestForm({
         type="submit"
         aria-disabled={sending}
         className={cn(
-          "w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#27BE7B] hover:bg-[#1F9D63] text-white text-base font-semibold h-12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]",
+          "w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#1A7F52] hover:bg-[#176E47] text-white text-base font-semibold h-12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]",
           sending && "opacity-60 cursor-wait"
         )}
       >

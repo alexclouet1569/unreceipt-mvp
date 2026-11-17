@@ -32,7 +32,12 @@ export const demoRequestSchema = z.object({
   employees: z.enum(EMPLOYEE_BANDS),
   bookkeeping: z.enum(BOOKKEEPING_OPTIONS),
   hasAccountant: z.boolean(),
-  message: optional(L.message),
+  // Free text keeps line breaks and tabs; other control characters (NUL
+  // can't be stored in Postgres text) are refused before any write.
+  message: optional(L.message).refine(
+    (v) => v === null || !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(v),
+    { message: "message" }
+  ),
   locale: z.enum(DEMO_REQUEST_LOCALES),
   // Honeypot: a field people never see. Anything in it means a bot.
   website: z.string().max(500).optional(),
