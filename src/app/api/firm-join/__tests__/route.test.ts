@@ -56,7 +56,7 @@ describe("POST /api/firm-join", () => {
     const res = await call({ action: "decline" });
     expect(await res.json()).toEqual({ ok: true, redirect: "/app" });
     expect(mocks.decline).toHaveBeenCalledWith(USER);
-    expect(mocks.mintOrg).toHaveBeenCalledWith("u1");
+    expect(mocks.mintOrg).toHaveBeenCalledWith("u1", { country: null });
     expect(mocks.claim).not.toHaveBeenCalled();
   });
 

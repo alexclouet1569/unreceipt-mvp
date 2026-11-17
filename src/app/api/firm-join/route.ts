@@ -23,6 +23,7 @@ import {
   getFirmMembership,
 } from "@/lib/require-firm";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { chosenCountry } from "@/lib/country";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,6 @@ export async function POST(request: NextRequest) {
   }
   // Their own company now, so /app shows the dashboard instead of asking
   // again (a failed mint is retried by /app itself).
-  await getOrCreateDefaultOrganization(user.id);
+  await getOrCreateDefaultOrganization(user.id, { country: chosenCountry(user) });
   return NextResponse.json({ ok: true, redirect: "/app" });
 }

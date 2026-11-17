@@ -14,6 +14,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { chosenCountry } from "@/lib/country";
 import { isInviteExpired } from "@/lib/firm/invites";
 import { sendLinkConfirmation } from "@/lib/firm/link-emails";
 import { isUuid } from "@/lib/require-firm";
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, status: "revoked" });
   }
 
-  const organizationId = await getOrCreateDefaultOrganization(user.id);
+  const organizationId = await getOrCreateDefaultOrganization(user.id, { country: chosenCountry(user) });
   if (!organizationId) {
     return NextResponse.json({ error: "Couldn't set up your company. Try again." }, { status: 500 });
   }

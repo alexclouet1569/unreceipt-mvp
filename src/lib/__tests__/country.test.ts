@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countryForCurrency, defaultCurrencyFor, guessCountry } from "@/lib/country";
+import { chosenCountry, defaultCurrencyFor, guessCountry, isCountryCode, SIGNUP_COUNTRIES } from "@/lib/country";
 import { DEFAULT_CURRENCY_BY_COUNTRY, FALLBACK_HOME_CURRENCY } from "@/lib/bookkeeping/rules";
 import { HOME_CURRENCY_OPTIONS } from "@/lib/receipt-format";
 
@@ -72,18 +72,30 @@ describe("defaultCurrencyFor", () => {
   });
 });
 
-describe("countryForCurrency", () => {
-  it("moves a company to the one country that uses its new currency", () => {
-    // A Swede guessed as Spanish picks SEK.
-    expect(countryForCurrency("SEK", "ES")).toBe("SE");
-    expect(countryForCurrency("PLN", "SE")).toBe("PL");
+describe("sign-up countries", () => {
+  it("are real codes, each with a currency a company can have", () => {
+    expect(new Set(SIGNUP_COUNTRIES).size).toBe(SIGNUP_COUNTRIES.length);
+    for (const c of SIGNUP_COUNTRIES) {
+      expect(isCountryCode(c), c).toBe(true);
+      expect(HOME_CURRENCY_OPTIONS as readonly string[]).toContain(defaultCurrencyFor(c));
+    }
   });
 
-  it("leaves the country when it already uses that currency, or the currency says nothing", () => {
-    expect(countryForCurrency("SEK", "SE")).toBeNull();
-    expect(countryForCurrency("CHF", "LI")).toBeNull();
-    expect(countryForCurrency("DKK", "FO")).toBeNull();
-    expect(countryForCurrency("EUR", "SE")).toBeNull();
-    expect(countryForCurrency("USD", "SE")).toBeNull();
+  it("offer every country that has its own default currency", () => {
+    for (const c of Object.keys(DEFAULT_CURRENCY_BY_COUNTRY)) {
+      if (["GG", "JE", "IM"].includes(c)) continue; // Crown dependencies: pick the UK
+      expect(SIGNUP_COUNTRIES, c).toContain(c);
+    }
+  });
+
+  it("chosenCountry reads only a real code from the sign-up metadata", () => {
+    expect(chosenCountry({ user_metadata: { country: "NO" } })).toBe("NO");
+    expect(chosenCountry({ user_metadata: { country: "ZZ" } })).toBeNull();
+    expect(chosenCountry({ user_metadata: {} })).toBeNull();
+    expect(chosenCountry({})).toBeNull();
+  });
+
+  it("isCountryCode refuses anything else", () => {
+    for (const v of ["ZZ", "se", "", null, 7, "SWE"]) expect(isCountryCode(v)).toBe(false);
   });
 });

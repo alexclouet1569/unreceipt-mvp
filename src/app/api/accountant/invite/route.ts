@@ -11,6 +11,7 @@ import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { chosenCountry } from "@/lib/country";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
 import { sendEmail, founderReplyTo } from "@/lib/email/send";
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
   const limited = await rateLimit("accountantInvite", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
-  const organizationId = await getOrCreateDefaultOrganization(user.id);
+  const organizationId = await getOrCreateDefaultOrganization(user.id, { country: chosenCountry(user) });
   if (!organizationId) {
     return NextResponse.json({ error: "Couldn't set up your company. Try again." }, { status: 500 });
   }
