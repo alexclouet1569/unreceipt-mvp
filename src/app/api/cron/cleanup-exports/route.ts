@@ -7,11 +7,13 @@
 // and "Connect Gmail/Outlook" flows that were started but never finished
 // (mailbox_oauth_pending rows past their 10-minute expiry), and iPhone app
 // grants nobody claimed (mailbox_oauth_parked past its 10 minutes, revoked
-// at the provider, src/lib/mailboxes/parked.ts).
+// at the provider, src/lib/mailboxes/parked.ts), and demo requests older
+// than 12 months (src/lib/demo-request-cleanup.ts, as the privacy page says).
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron-auth";
+import { cleanupDemoRequests } from "@/lib/demo-request-cleanup";
 import { cleanupExports } from "@/lib/export/cleanup";
 import { cleanupForwardingConfirmations } from "@/lib/forwarding-confirmation-cleanup";
 import { cleanupStagedPhotos } from "@/lib/receipts/staging";
@@ -72,7 +74,19 @@ export async function GET(request: Request) {
     console.error("[cron/cleanup-exports] parked mailbox cleanup failed", err instanceof Error ? err.message : "unknown");
     Sentry.captureException(err, { tags: { area: "mailbox-parked-cleanup" } });
   }
+  let demoRequestsDeleted: number | null = null;
+  try {
+    demoRequestsDeleted = (await cleanupDemoRequests()).deleted;
+  } catch (err) {
+    console.error("[cron/cleanup-exports] demo request cleanup failed", err instanceof Error ? err.message : "unknown");
+    Sentry.captureException(err, { tags: { area: "demo-request-cleanup" } });
+  }
   if (!exportResult) return NextResponse.json({ error: "failed" }, { status: 500 });
+  // The privacy page promises demo requests are gone after 12 months: a run
+  // that couldn't delete them shows as failed in Vercel.
+  if (demoRequestsDeleted === null) {
+    return NextResponse.json({ ...exportResult, error: "demo_request_cleanup_failed" }, { status: 500 });
+  }
   return NextResponse.json({
     ...exportResult,
     forwardingConfirmationsDeleted,
@@ -80,5 +94,6 @@ export async function GET(request: Request) {
     orphanScansDeleted,
     mailboxFlowsDeleted,
     mailboxGrantsDeleted,
+    demoRequestsDeleted,
   });
 }

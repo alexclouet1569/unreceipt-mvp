@@ -151,7 +151,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
               </p>
               <a
                 href={appUrl(SIGNUP_PATH)}
-              {...trackedLink("cta_signup", { attribution: true })}
+                {...trackedLink("cta_signup", { attribution: true })}
                 className={cn(buttonVariants({
                   className: `mt-auto w-full rounded-full font-semibold h-12 ${
                     active

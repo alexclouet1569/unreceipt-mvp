@@ -1,6 +1,6 @@
 "use client";
 
-import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
+import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, useDemoRequestHref, type TourStep } from "../_tour";
 import { FirmApp, ORG_HB, type DemoParams } from "./_firm-app";
 import type { JoinLinkView } from "@/app/firm/clients/JoinLinkPanel";
 
@@ -68,6 +68,7 @@ export function AccountantTour({
   joinLink: JoinLinkView;
 }) {
   const [notice, closeNotice] = useDemoLinkGuard();
+  const demoHref = useDemoRequestHref();
   // Each step opens on its own screen; links inside the portal keep the step.
   const params: DemoParams =
     view !== null
@@ -87,8 +88,8 @@ export function AccountantTour({
           tour="accountant"
           title="That's the accountant side"
           text="Clients share their receipts with one tap. You check, export and book them in one place."
-          cta="Talk to us"
-          ctaHref="mailto:support@unreceipt.com?subject=UnReceipt%20for%20our%20firm"
+          cta="Book a demo"
+          ctaHref={demoHref}
           other={{ label: "See the company side", href: "/demo/company?step=1" }}
         />
       )}

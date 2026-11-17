@@ -120,7 +120,7 @@ export function GuidePage({
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={appUrl(SIGNUP_PATH)}
-              {...trackedLink("cta_signup", { attribution: true })}
+                {...trackedLink("cta_signup", { attribution: true })}
                 className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11")}
               >
                 {pilotMode ? nav.ctaPilot : nav.ctaPaid}

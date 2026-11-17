@@ -109,6 +109,12 @@ export default function PrivacyPage() {
               currency. You can change the currency in Settings.
             </li>
             <li>
+              <strong>A demo request, if you send one.</strong> On the
+              &ldquo;Book a demo&rdquo; page: your name, company, email, phone
+              (optional), number of employees, bookkeeping software, whether
+              you have an accountant, and your message.
+            </li>
+            <li>
               <strong>How you found us.</strong> When you create an account
               from a link on our website, the link carries the campaign tag
               of the page you came from (for example &ldquo;linkedin&rdquo;),
@@ -161,6 +167,13 @@ export default function PrivacyPage() {
               <strong>To bill you</strong> — Stripe handles the actual
               cardholder data; we only see the subscription state. Legal
               basis: contract performance.
+            </li>
+            <li>
+              <strong>To answer a demo request</strong> — we email you a
+              confirmation and get back to you to arrange the demo; nothing
+              else, no newsletter. Legal basis: steps you asked for before a
+              possible contract; when you ask on behalf of your company, our
+              legitimate interest in answering the request you sent us.
             </li>
             <li>
               <strong>To prevent abuse and meet our security obligations</strong>{" "}
@@ -234,7 +247,9 @@ export default function PrivacyPage() {
             <li>
               <strong>Resend</strong> — sending our emails (welcome emails,
               sign-in links, and the reminders your accounting firm sends
-              you: payments without a receipt and receipts to complete) and receiving the receipts you forward to your
+              you: payments without a receipt and receipts to complete; demo
+              request confirmations, and the notification of a demo request
+              to us) and receiving the receipts you forward to your
               UnReceipt address.
             </li>
             <li>
@@ -246,6 +261,11 @@ export default function PrivacyPage() {
               delivers Gmail&apos;s &ldquo;new email arrived&rdquo;
               notifications to us (your address and a change number, never
               the email itself).
+            </li>
+            <li>
+              <strong>Cal.com</strong> — only if you choose a time after a
+              demo request: books the call. Your name and email are filled in
+              on its page for you; you decide whether to book.
             </li>
             <li>
               <strong>Plausible Analytics</strong> — anonymous visit counts
@@ -264,8 +284,8 @@ export default function PrivacyPage() {
             them on your instruction.
           </p>
           <p className="mt-3">
-            Some of these providers are US companies (Anthropic, Google,
-            Resend, Stripe, Vercel). Where personal data is transferred outside the
+            Some of these providers are US companies (Anthropic, Cal.com,
+            Google, Resend, Stripe, Vercel). Where personal data is transferred outside the
             EU/EEA, the transfer relies on the EU–US Data Privacy Framework
             for certified providers, or on the European Commission&apos;s
             Standard Contractual Clauses.
@@ -307,6 +327,13 @@ export default function PrivacyPage() {
               account.
             </li>
             <li>
+              <strong>Demo requests:</strong> 12 months from the day you sent
+              the form, then deleted automatically from our database; the
+              email that told us about it is deleted from our mailbox within
+              the same 12 months. Ask us to delete it sooner at{" "}
+              <Mailto>{SUPPORT_EMAIL}</Mailto>.
+            </li>
+            <li>
               <strong>Your bookkeeping obligation:</strong> under Swedish
               bookkeeping law (bokföringslagen), a business must keep its
               receipts until the end of the seventh year after the financial
@@ -329,7 +356,8 @@ export default function PrivacyPage() {
             Under GDPR you have the right to access, correct, export, restrict,
             object to processing of, or delete your personal data. To exercise
             any of these, email <Mailto>{SUPPORT_EMAIL}</Mailto> from your
-            account email. We respond within 30 days.
+            account email (or, for a demo request, from the address you
+            used on the form). We respond within 30 days.
           </p>
           <p>
             You can also lodge a complaint with the Swedish Authority for

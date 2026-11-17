@@ -20,7 +20,7 @@ export const FUNNEL_EVENTS = [
   "cta_signup",
   "cta_demo_page",
   "demo_tour_start",
-  // No caller yet: the demo request form is Step 1 of the strategy.
+  // Sent by the demo request form once the request is saved.
   "demo_request_sent",
   "demo_tour_finished",
 ] as const;

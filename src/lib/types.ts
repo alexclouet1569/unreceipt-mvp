@@ -496,3 +496,19 @@ export interface MailboxOAuthParked {
   created_at: string;
   expires_at: string;
 }
+
+// One demo form sent on /book-demo or /sv/boka-demo (2026-11-17 block).
+// Service role only; deleted after 12 months by the cleanup cron.
+export interface DemoRequestRow {
+  id: string;
+  created_at: string;
+  locale: "en" | "sv";
+  name: string;
+  company: string;
+  email: string;
+  phone: string | null;
+  employees: "1" | "2-5" | "6-15" | "16-50" | "50+";
+  bookkeeping: "fortnox" | "visma" | "bokio" | "other" | "none";
+  has_accountant: boolean;
+  message: string | null;
+}
