@@ -194,9 +194,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
     { label: SITE_COPY[locale].nav.accountants, href: accountantsPath },
     { label: t.nav.faq, href: "#faq" },
   ];
-  // "Who it's for" cards link to each audience's own page; small
-  // businesses are this page, so theirs goes to how it works.
-  const audienceLinks = ["#how", pagePath("freelancers", locale), accountantsPath];
+  // "Who it's for" cards link to each audience's own page.
+  const audienceLinks = [pagePath("smallBusiness", locale), pagePath("freelancers", locale), accountantsPath];
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);

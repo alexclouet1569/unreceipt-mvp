@@ -89,7 +89,7 @@ describe("marketingMetadata", () => {
 });
 
 describe("audience pages", () => {
-  const audiences: AudienceId[] = ["accountants", "freelancers"];
+  const audiences: AudienceId[] = ["accountants", "freelancers", "smallBusiness"];
 
   it("mirrors the visible FAQ in the FAQPage structured data", () => {
     for (const audience of audiences) {
@@ -133,6 +133,24 @@ describe("audience pages", () => {
         expect(description.length, description).toBeLessThanOrEqual(220);
       }
     }
+  });
+});
+
+describe("small business page", () => {
+  it("states the team feature's limits in every language", () => {
+    // AGENTS.md "Company team and approvals": no payout or payroll file, and
+    // an employee who deletes their account takes their receipts with them.
+    for (const locale of LOCALES) {
+      const faq = AUDIENCE_COPY.smallBusiness[locale].faq.map((i) => i.a).join(" ");
+      expect(faq, locale).toMatch(/Fortnox|Pennylane/);
+      expect(faq, locale).toMatch(/payroll|lönesystem|paie/);
+      expect(faq, locale).toMatch(/deletes their own|raderar sitt eget|supprime son propre/);
+    }
+  });
+
+  it("is linked from every language's about card and footer", async () => {
+    const { SITE_COPY } = await import("@/app/_site-copy");
+    for (const locale of LOCALES) expect(SITE_COPY[locale].nav.smallBusiness.length).toBeGreaterThan(0);
   });
 });
 
@@ -223,6 +241,7 @@ describe("AI search visibility", () => {
     for (const locale of LOCALES) {
       expect(text).toContain(getAbout(locale, false).summary);
       expect(text).toContain(AUDIENCE_COPY.accountants[locale].faq[0].a);
+      expect(text).toContain(AUDIENCE_COPY.smallBusiness[locale].faq[0].a);
     }
     for (const g of GUIDES) expect(text).toContain(g.answer);
     expect(text).not.toMatch(/undefined|\{\w+\}/);
@@ -255,6 +274,7 @@ describe("AI search visibility", () => {
         texts.push(JSON.stringify(getFaq(pilot, locale)));
         texts.push(JSON.stringify(landingJsonLd(pilot, locale)));
         texts.push(JSON.stringify(AUDIENCE_COPY.freelancers[locale]).replace(/"note(Pilot|Paid)":"[^"]*"/g, ""));
+        texts.push(JSON.stringify(AUDIENCE_COPY.smallBusiness[locale]));
       }
     }
     // Whole amounts only: "29,99 €" inside a sample receipt's "129,99 €" is not a plan price.

@@ -36,7 +36,8 @@ import { SiteFooter, SiteHeader } from "./_site-chrome";
 const BTN =
   "inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]";
 /**
- * One audience page (accounting firms or freelancers) in one language.
+ * One audience page (accounting firms, freelancers, or small businesses
+ * with employees) in one language.
  * Server component: every word, link and FAQ answer is in the HTML.
  * Same visual language as the landing page (green hero, cream body,
  * navy ink); out of DESIGN.md scope like the landing.
@@ -80,6 +81,10 @@ export function AudiencePage({
       case "demoAccountant":
         return appUrl("/demo/accountant?step=1");
       case "contactFirm":
+        return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
+      case "bookDemo":
+        // TODO(demo funnel Step 1): pagePath("bookDemo", locale) once the
+        // demo request page (/sv/boka-demo, /book-demo) ships.
         return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
     }
   };

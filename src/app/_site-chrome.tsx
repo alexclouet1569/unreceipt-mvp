@@ -42,6 +42,7 @@ export function SiteHeader({
   const links = [
     { label: t.how, href: `${home}#how` },
     ...(SHOW_PRICES ? [{ label: t.pricing, href: `${home}#pricing` }] : []),
+    { label: t.smallBusiness, href: pagePath("smallBusiness", locale) },
     { label: t.accountants, href: pagePath("accountants", locale) },
     { label: t.freelancers, href: pagePath("freelancers", locale) },
   ];
@@ -159,7 +160,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
     {
       title: t.footer.whoFor,
       links: [
-        { label: t.footer.smallBusiness, href: home },
+        { label: t.footer.smallBusiness, href: pagePath("smallBusiness", locale) },
         { label: t.nav.freelancers, href: pagePath("freelancers", locale) },
         { label: t.nav.accountants, href: pagePath("accountants", locale) },
       ],

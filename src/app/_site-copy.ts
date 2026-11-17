@@ -13,6 +13,7 @@ export type SiteCopy = {
     pricing: string;
     accountants: string;
     freelancers: string;
+    smallBusiness: string;
     signIn: string;
     ctaPilot: string;
     ctaPaid: string;
@@ -46,6 +47,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Pricing",
       accountants: "For accountants",
       freelancers: "For freelancers",
+      smallBusiness: "For small businesses",
       signIn: "Sign in",
       ctaPilot: "Join the pilot",
       ctaPaid: "Start free",
@@ -76,8 +78,9 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       home: "Start",
       how: "Så funkar det",
       pricing: "Priser",
-      accountants: "För redovisningsbyråer",
-      freelancers: "För enskild firma",
+      accountants: "Redovisningsbyråer",
+      freelancers: "Enskild firma",
+      smallBusiness: "Småföretag",
       signIn: "Logga in",
       ctaPilot: "Gå med i piloten",
       ctaPaid: "Kom igång gratis",
@@ -110,6 +113,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Tarifs",
       accountants: "Experts-comptables",
       freelancers: "Indépendants",
+      smallBusiness: "TPE",
       signIn: "Se connecter",
       ctaPilot: "Je participe",
       ctaPaid: "Essai gratuit",

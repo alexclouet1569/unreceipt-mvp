@@ -21,6 +21,7 @@ export type MarketingPageId =
   | "home"
   | "accountants"
   | "freelancers"
+  | "smallBusiness"
   | "about"
   | "guideRetention"
   | "guidePaper";
@@ -48,6 +49,12 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
   },
   freelancers: {
     paths: { en: "/freelancers", sv: "/sv/enskild-firma", fr: "/fr/independants" },
+    translated: true,
+    lastModified: "2026-11-17",
+    priority: 0.9,
+  },
+  smallBusiness: {
+    paths: { en: "/small-business", sv: "/sv/smaforetag", fr: "/fr/tpe" },
     translated: true,
     lastModified: "2026-11-17",
     priority: 0.9,
