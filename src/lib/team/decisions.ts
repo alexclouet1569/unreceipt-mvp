@@ -251,14 +251,14 @@ export async function loadReimbursements(userId: string): Promise<TeamResult<Rei
   if (!context || context.role !== "owner") return fail(403, "owners_only");
   const { data, error } = await getSupabaseAdmin()
     .from("receipts")
-    .select("id, user_id, total, currency, home_total, home_currency, approval_status, paid_by, reimbursed_at")
+    .select("id, user_id, total, currency, home_total, home_currency, approval_status, paid_by, reimbursed_at, updated_at")
     .eq("organization_id", context.organizationId)
     .eq("approval_status", "approved")
     .eq("paid_by", "employee")
     .is("reimbursed_at", null)
     .limit(2000);
   if (error) return fail(500, "lookup_failed");
-  const rows = (data ?? []) as Array<Pick<Receipt, "id" | "user_id" | "total" | "currency" | "home_total" | "home_currency" | "approval_status" | "paid_by" | "reimbursed_at">>;
+  const rows = (data ?? []) as Array<Pick<Receipt, "id" | "user_id" | "total" | "currency" | "home_total" | "home_currency" | "approval_status" | "paid_by" | "reimbursed_at" | "updated_at">>;
   const people = await peopleById(rows.map((r) => r.user_id));
   // One group per employee and currency: amounts in different currencies are never added together.
   const groups = new Map<string, ReimbursementGroup>();
@@ -272,31 +272,48 @@ export async function loadReimbursements(userId: string): Promise<TeamResult<Rei
       currency,
       total: 0,
       count: 0,
-      receiptIds: [],
+      receipts: [],
     };
     g.total = Math.round((g.total + amount) * 100) / 100;
     g.count += 1;
-    g.receiptIds.push(r.id);
+    // updated_at as PostgREST sent it (microseconds included), never
+    // through Date: markReimbursed() compares it exactly.
+    g.receipts.push({ id: r.id, updatedAt: r.updated_at ?? null });
     groups.set(key, g);
   }
   return { ok: true, value: [...groups.values()].sort((a, b) => a.employee.localeCompare(b.employee)) };
 }
 
-/** Marks approved outlays as paid back. Owners only; only this company's owed receipts move. */
-export async function markReimbursed(userId: string, receiptIds: string[]): Promise<TeamResult<{ count: number }>> {
+/** One receipt of a "To pay back" group, as the owner's list read it. */
+export type SeenOutlay = { id: string; updatedAt: string | null };
+
+/**
+ * Marks approved outlays as paid back. Owners only; only this company's
+ * owed receipts move. Compare-and-set on what the owner saw: the group is
+ * marked only if every receipt is still owed and unchanged since the list
+ * was read (same updated_at, which every write moves: the firm's edits and
+ * ensureHomeAmounts() re-converting the home amount included). Otherwise
+ * nothing moves and the answer is 409 "changed", so a payment is never
+ * recorded against an amount the owner didn't see. All or nothing, in one
+ * transaction: public.mark_outlays_reimbursed() (2026-11-17 schema block).
+ */
+export async function markReimbursed(userId: string, receipts: SeenOutlay[]): Promise<TeamResult<{ count: number }>> {
   const context = await teamContextFor(userId);
   if (!context || context.role !== "owner") return fail(403, "owners_only");
-  const { data, error } = await getSupabaseAdmin()
-    .from("receipts")
-    .update({ reimbursed_at: new Date().toISOString(), reimbursed_by: userId })
-    .in("id", receiptIds)
-    .eq("organization_id", context.organizationId)
-    .eq("approval_status", "approved")
-    .eq("paid_by", "employee")
-    .is("reimbursed_at", null)
-    .select("id, organization_id");
-  if (error) return fail(500, "update_failed");
-  const moved = (data ?? []) as Array<Pick<Receipt, "id" | "organization_id">>;
-  for (const r of moved) await logApproval(r, userId, "reimbursed", null);
+  const { data, error } = await getSupabaseAdmin().rpc("mark_outlays_reimbursed", {
+    p_organization_id: context.organizationId,
+    p_by: userId,
+    p_receipts: receipts.map((r) => ({ id: r.id, updated_at: r.updatedAt })),
+  });
+  if (error) {
+    Sentry.captureMessage("mark reimbursed failed", { level: "error", tags: { area: "team", code: error.code } });
+    console.error("[team] mark reimbursed failed", error.code);
+    return fail(500, "update_failed");
+  }
+  const moved = ((data ?? []) as Array<{ receipt_id?: unknown }>)
+    .map((row) => row.receipt_id)
+    .filter((id): id is string => typeof id === "string");
+  if (moved.length === 0) return fail(409, "changed");
+  for (const id of moved) await logApproval({ id, organization_id: context.organizationId }, userId, "reimbursed", null);
   return { ok: true, value: { count: moved.length } };
 }

@@ -12,9 +12,34 @@ const mocks = vi.hoisted(() => ({
   inviteMail: vi.fn(),
 }));
 
+// Mirrors public.mark_outlays_reimbursed() (supabase/schema.sql, 2026-11-17
+// block): every listed receipt still this company's, owed and unchanged, or
+// nothing moves. Checks the TypeScript around it; the SQL was run by hand.
+function markOutlaysReimbursed(args: { p_organization_id: string; p_by: string; p_receipts: Array<{ id: string; updated_at: string | null }> }) {
+  const rows = mocks.db.tables.receipts;
+  const matched = args.p_receipts.filter((e) =>
+    rows.some(
+      (r) =>
+        r.id === e.id &&
+        r.organization_id === args.p_organization_id &&
+        r.approval_status === "approved" &&
+        r.paid_by === "employee" &&
+        !r.reimbursed_at &&
+        (r.updated_at ?? null) === e.updated_at
+    )
+  );
+  if (matched.length === 0 || matched.length !== args.p_receipts.length) return { data: [], error: null };
+  const ids = new Set(args.p_receipts.map((e) => e.id));
+  const moved = rows.filter((r) => ids.has(r.id as string) && r.organization_id === args.p_organization_id);
+  for (const r of moved) Object.assign(r, { reimbursed_at: "2026-11-17T12:00:00.000000+00:00", reimbursed_by: args.p_by });
+  return { data: moved.map((r) => ({ receipt_id: r.id })), error: null };
+}
+
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     ...(mocks.db.client as object),
+    rpc: async (fn: string, args: never) =>
+      fn === "mark_outlays_reimbursed" ? markOutlaysReimbursed(args) : { data: null, error: { code: "42883" } },
     auth: {
       admin: {
         getUserById: async (id: string) => ({ data: { user: mocks.users[id] ? { id, ...mocks.users[id] } : null }, error: null }),
@@ -57,10 +82,18 @@ const receipt = (over: Record<string, unknown> = {}) => ({
   status: "pending_review",
   source: "paper",
   approval_status: "draft",
+  updated_at: "2026-11-14T12:00:00.000001+00:00",
   ...over,
 });
 
 const r1 = () => mocks.db.tables.receipts.find((r) => r.id === "r1")!;
+const row = (id: string) => mocks.db.tables.receipts.find((r) => r.id === id)!;
+
+// A write the way the database makes it: receipts_set_updated_at moves
+// updated_at on every UPDATE, whoever writes.
+let clock = 0;
+const touch = (id: string, fields: Record<string, unknown>) =>
+  Object.assign(row(id), fields, { updated_at: `2026-11-17T13:00:00.${String(++clock).padStart(6, "0")}+00:00` });
 
 beforeEach(() => {
   mocks.users = {
@@ -107,8 +140,12 @@ describe("send, then decide", () => {
     expect(isFirmVisible(r1() as never)).toBe(true);
     const owed = await loadReimbursements(BOSS);
     expect(owed).toMatchObject({ ok: true, value: [{ userId: ANNA, total: 49, currency: "SEK", count: 1 }] });
-    expect(await markReimbursed(BOSS, ["r1"])).toEqual({ ok: true, value: { count: 1 } });
+    if (!owed.ok) throw new Error("not loaded");
+    expect(owed.value[0].receipts).toEqual([{ id: "r1", updatedAt: r1().updated_at }]);
+    expect(await markReimbursed(BOSS, owed.value[0].receipts)).toEqual({ ok: true, value: { count: 1 } });
+    expect(r1()).toMatchObject({ reimbursed_by: BOSS });
     expect(r1().reimbursed_at).toBeTruthy();
+    expect(mocks.db.tables.receipt_approvals.map((a) => a.action)).toContain("reimbursed");
   });
 
   it("decides once: a second answer finds it already decided", async () => {
@@ -140,7 +177,78 @@ describe("send, then decide", () => {
 
   it("only the owner sees and pays back outlays", async () => {
     expect(await loadReimbursements(ANNA)).toMatchObject({ ok: false, status: 403 });
-    expect(await markReimbursed(ANNA, ["r1"])).toMatchObject({ ok: false, status: 403 });
+    expect(await markReimbursed(ANNA, [{ id: "r1", updatedAt: r1().updated_at as string }])).toMatchObject({
+      ok: false,
+      status: 403,
+    });
+  });
+});
+
+describe("paying back marks only what the owner saw", () => {
+  const approved = (over: Record<string, unknown>) =>
+    receipt({ approval_status: "approved", paid_by: "employee", status: "verified", ...over });
+
+  beforeEach(() => {
+    mocks.db.tables.receipts = [approved({ id: "r1", total: 49 }), approved({ id: "r2", total: 120 })];
+  });
+
+  const group = async () => {
+    const owed = await loadReimbursements(BOSS);
+    if (!owed.ok) throw new Error("not loaded");
+    expect(owed.value).toHaveLength(1);
+    return owed.value[0];
+  };
+  const paid = () => mocks.db.tables.receipts.filter((r) => r.reimbursed_at).map((r) => r.id);
+  const logged = () => mocks.db.tables.receipt_approvals.filter((a) => a.action === "reimbursed").length;
+
+  it("the accountant changes an amount after the list was read: nothing is marked, and the reload shows it", async () => {
+    const seen = await group();
+    expect(seen.total).toBe(169);
+    touch("r2", { total: 150 }); // the firm's PATCH: approval stays, the amount moves
+    expect(await markReimbursed(BOSS, seen.receipts)).toEqual({ ok: false, status: 409, error: "changed" });
+    expect(paid()).toEqual([]);
+    expect(logged()).toBe(0);
+
+    const again = await group();
+    expect(again.total).toBe(199);
+    expect(await markReimbursed(BOSS, again.receipts)).toEqual({ ok: true, value: { count: 2 } });
+    expect(paid()).toEqual(["r1", "r2"]);
+    expect(logged()).toBe(2);
+  });
+
+  it("a currency change re-converts the home amount after the list was read: nothing is marked", async () => {
+    const seen = await group();
+    touch("r1", { home_total: 4.3, home_currency: "EUR", fx_source: "ecb" }); // ensureHomeAmounts() on read
+    expect(await markReimbursed(BOSS, seen.receipts)).toMatchObject({ ok: false, status: 409 });
+    expect(paid()).toEqual([]);
+  });
+
+  it("all or nothing: one changed receipt keeps the whole group owed", async () => {
+    const seen = await group();
+    touch("r1", { notes: "taxi to the client" });
+    expect(await markReimbursed(BOSS, seen.receipts)).toMatchObject({ ok: false, status: 409 });
+    expect(paid()).toEqual([]);
+  });
+
+  it("a receipt already paid back, or another company's, moves nothing", async () => {
+    const seen = await group();
+    expect(await markReimbursed(BOSS, seen.receipts)).toMatchObject({ ok: true });
+    expect(await markReimbursed(BOSS, seen.receipts)).toMatchObject({ ok: false, status: 409 });
+
+    mocks.db.tables.receipts.push(approved({ id: "x1", organization_id: "org-other" }));
+    mocks.db.tables.receipts.push(approved({ id: "r3", total: 10 }));
+    const r3 = { id: "r3", updatedAt: row("r3").updated_at as string };
+    const x1 = { id: "x1", updatedAt: row("x1").updated_at as string };
+    expect(await markReimbursed(BOSS, [r3, x1])).toMatchObject({ ok: false, status: 409 });
+    expect(row("r3").reimbursed_at).toBeUndefined();
+    expect(row("x1").reimbursed_at).toBeUndefined();
+  });
+
+  it("a receipt sent back in the meantime is no longer marked", async () => {
+    const seen = await group();
+    touch("r2", { approval_status: "submitted" }); // the employee changed what was approved
+    expect(await markReimbursed(BOSS, seen.receipts)).toMatchObject({ ok: false, status: 409 });
+    expect(paid()).toEqual([]);
   });
 });
 

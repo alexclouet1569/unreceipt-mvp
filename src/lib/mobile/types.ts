@@ -96,7 +96,12 @@ export type ReimbursementGroup = {
   currency: string;
   total: number;
   count: number;
-  receiptIds: string[];
+  /**
+   * The receipts in the group, each with the updated_at the list was read
+   * at. "Mark paid" sends them back unchanged: the server marks the group
+   * only if none of them changed since (409 "changed" otherwise).
+   */
+  receipts: { id: string; updatedAt: string | null }[];
 };
 
 /**

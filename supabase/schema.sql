@@ -2219,3 +2219,72 @@ DROP TRIGGER IF EXISTS receipts_keep_in_approval ON public.receipts;
 CREATE TRIGGER receipts_keep_in_approval
   BEFORE DELETE ON public.receipts
   FOR EACH ROW EXECUTE FUNCTION public.receipts_keep_in_approval();
+
+-- =============================================================================
+-- 2026-11-17 — Paying back marks only what the owner saw
+--              (src/lib/team/decisions.ts markReimbursed)
+-- =============================================================================
+-- "Mark paid" on /app/team records that the owner paid an employee the
+-- amount the "To pay back" list showed. Two writers can change an approved
+-- outlay's amount after the list was read without reopening approval: the
+-- accounting firm's edit, and ensureHomeAmounts() re-converting the home
+-- amount after a currency change. So the screen sends each receipt's
+-- updated_at (receipts_set_updated_at moves it on every write) and this
+-- function marks the whole group only if every receipt is still this
+-- company's, approved, paid by the employee, not yet paid back and
+-- unchanged. Otherwise nothing moves (an empty answer: the route says 409
+-- "changed" and the list reloads). All or nothing, because a group is one
+-- transfer: marking only the unchanged receipts would leave the changed one
+-- owed and get it paid twice. The rows are locked first, so no write lands
+-- between the check and the mark. The owner check is the caller's
+-- (teamContextFor); service role only.
+CREATE OR REPLACE FUNCTION public.mark_outlays_reimbursed(
+  p_organization_id UUID,
+  p_by UUID,
+  p_receipts JSONB
+)
+RETURNS TABLE (receipt_id UUID)
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  wanted INT;
+  matched INT;
+BEGIN
+  IF p_receipts IS NULL OR jsonb_typeof(p_receipts) <> 'array' THEN
+    RETURN;
+  END IF;
+  wanted := jsonb_array_length(p_receipts);
+  IF wanted = 0 THEN
+    RETURN;
+  END IF;
+
+  PERFORM 1
+     FROM public.receipts r
+    WHERE r.organization_id = p_organization_id
+      AND r.id IN (SELECT (e->>'id')::UUID FROM jsonb_array_elements(p_receipts) e)
+      FOR UPDATE;
+
+  SELECT count(*) INTO matched
+    FROM public.receipts r
+    JOIN jsonb_array_elements(p_receipts) e ON r.id = (e->>'id')::UUID
+   WHERE r.organization_id = p_organization_id
+     AND r.approval_status = 'approved'
+     AND r.paid_by = 'employee'
+     AND r.reimbursed_at IS NULL
+     AND r.updated_at IS NOT DISTINCT FROM (e->>'updated_at')::TIMESTAMPTZ;
+
+  IF matched <> wanted THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  UPDATE public.receipts r
+     SET reimbursed_at = now(), reimbursed_by = p_by
+   WHERE r.organization_id = p_organization_id
+     AND r.id IN (SELECT (e->>'id')::UUID FROM jsonb_array_elements(p_receipts) e)
+  RETURNING r.id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.mark_outlays_reimbursed(UUID, UUID, JSONB) FROM PUBLIC, anon, authenticated;

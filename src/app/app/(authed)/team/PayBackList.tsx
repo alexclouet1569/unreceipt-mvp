@@ -2,7 +2,9 @@
 
 // Approved outlays still owed, per employee and currency (owners). Mark
 // paid once the money went out, e.g. with the salary
-// (POST /api/team/reimbursements).
+// (POST /api/team/reimbursements). The receipts go back exactly as listed:
+// if one changed since (the accountant's edit, a currency conversion), the
+// server marks nothing (409) and the list reloads with the new amount.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -16,11 +18,22 @@ export function PayBackList({ groups }: { groups: ReimbursementGroup[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Kept outside the list: after a 409 the refreshed list can be empty
+  // (another owner just marked it), and the message must stay.
+  const alert = error ? (
+    <p role="alert" className="text-sm font-semibold text-[var(--attention-deep)] bg-[var(--attention-tint)] rounded-md px-3 py-2">
+      {error}
+    </p>
+  ) : null;
+
   if (groups.length === 0) {
     return (
-      <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
-        Nothing to pay back. Approved receipts paid with an employee&apos;s own money show up here.
-      </p>
+      <div className="space-y-2">
+        <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
+          Nothing to pay back. Approved receipts paid with an employee&apos;s own money show up here.
+        </p>
+        {alert}
+      </div>
     );
   }
 
@@ -34,10 +47,17 @@ export function PayBackList({ groups }: { groups: ReimbursementGroup[] }) {
       const res = await fetch("/api/team/reimbursements", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ receiptIds: g.receiptIds }),
+        body: JSON.stringify({ receipts: g.receipts }),
       });
       if (res.ok) router.refresh();
-      else setError("Couldn't save. Try again.");
+      else if (res.status === 409) {
+        // Nothing moved (all or nothing): something in the group changed, was
+        // paid back elsewhere or left approval since the list was read.
+        setError(
+          `Nothing was marked paid: ${g.employee}'s receipts changed since you opened this list. The list now shows what is still owed. Check it, then press Mark paid.`
+        );
+        router.refresh();
+      } else setError("Couldn't save. Try again.");
     } catch {
       setError("Couldn't save. Check your connection and try again.");
     }
@@ -76,11 +96,7 @@ export function PayBackList({ groups }: { groups: ReimbursementGroup[] }) {
           );
         })}
       </ul>
-      {error ? (
-        <p role="alert" className="text-sm font-semibold text-[var(--attention-deep)] bg-[var(--attention-tint)] rounded-md px-3 py-2">
-          {error}
-        </p>
-      ) : null}
+      {alert}
     </div>
   );
 }
