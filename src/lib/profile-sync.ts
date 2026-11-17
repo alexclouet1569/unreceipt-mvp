@@ -16,15 +16,32 @@ type SignUpMetadata = {
   signup_source?: unknown;
 };
 
+// The source is copied only onto a new account: an older one (from before
+// 2026-11-17, the iPhone app or an invite) has none, and its owner could
+// otherwise add one to their own metadata and have it copied on the next
+// sign-in. A week covers a confirmation link asked for again days later.
+const SOURCE_COPY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isNewAccount(createdAt: string | null | undefined, now: number): boolean {
+  const t = Date.parse(createdAt ?? "");
+  return Number.isFinite(t) && now - t >= 0 && now - t <= SOURCE_COPY_WINDOW_MS;
+}
+
 function asTrimmedString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
 }
 
+/**
+ * `createdAt` is the account's creation time from the server's own read of
+ * the user (auth.users.created_at); without it no signup source is copied.
+ */
 export async function syncProfile(
   userId: string,
-  metadata: SignUpMetadata | null | undefined
+  metadata: SignUpMetadata | null | undefined,
+  createdAt?: string | null,
+  now: number = Date.now()
 ): Promise<void> {
   const fullName = asTrimmedString(metadata?.full_name);
   const companyName = asTrimmedString(metadata?.company_name);
@@ -60,7 +77,7 @@ export async function syncProfile(
     rawSource && typeof rawSource === "object" && !Array.isArray(rawSource)
       ? sanitizeSignupSource(rawSource as Record<string, unknown>)
       : null;
-  if (!source) return;
+  if (!source || !isNewAccount(createdAt, now)) return;
   const { error: sourceError } = await getSupabaseAdmin()
     .from("profiles")
     .update({ signup_source: source })

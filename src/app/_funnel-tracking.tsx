@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { setEventSender } from "@/lib/tracking/events";
 import { handleFunnelClick, type FirstVisit } from "@/lib/tracking/links";
-import { plausibleAllowed, plausibleUrl } from "@/lib/tracking/where";
+import { cleanPlausiblePayload, plausibleAllowed, plausibleUrl } from "@/lib/tracking/where";
 
 // Mounted once in the root layout (demo-funnel strategy, Step 2).
 //
@@ -11,35 +12,39 @@ import { plausibleAllowed, plausibleUrl } from "@/lib/tracking/where";
 //    (trackedLink(), src/lib/tracking/events.ts). It adds the visit's source
 //    to sign-up links and sends the event. It runs with or without Plausible:
 //    the source must reach the sign-up either way.
-// 2. Plausible (cookieless, EU-hosted): loaded only when
+// 2. Plausible (cookieless, EU-hosted): started only when
 //    NEXT_PUBLIC_PLAUSIBLE_DOMAIN is set and plausibleAllowed() says this
 //    host and path may use it (the marketing site and the /demo tours).
-//    script.manual.js sends nothing by itself; each pageview is sent here
-//    with plausibleUrl(), so no query param but utm_* ever leaves the page.
-
-const PLAUSIBLE_SRC = "https://plausible.io/js/script.manual.js";
-const SCRIPT_ID = "plausible-script";
+//    The tracker is Plausible's npm package, bundled and pinned: no script is
+//    fetched from plausible.io, because /demo shares its origin with the
+//    product's session cookies, which page scripts can read. It only POSTs
+//    events to plausible.io. Pageviews are sent here; every request (the
+//    tracker's own engagement pings too) goes through transformRequest,
+//    which keeps the path and utm_* only.
 
 // Where this document was first opened, kept in memory (no storage): the
 // demo tours change step without a page load, and the source their sign-up
 // link carries is the one their first URL brought from the marketing site.
 let firstVisit: FirstVisit | null = null;
 
-function loadPlausible(domain: string): void {
-  if (!window.plausible) {
-    const queue: unknown[] = [];
-    const stub = (...args: unknown[]) => {
-      queue.push(args);
-    };
-    window.plausible = Object.assign(stub, { q: queue });
-  }
-  if (document.getElementById(SCRIPT_ID)) return;
-  const script = document.createElement("script");
-  script.id = SCRIPT_ID;
-  script.defer = true;
-  script.src = PLAUSIBLE_SRC;
-  script.setAttribute("data-domain", domain);
-  document.head.appendChild(script);
+type Tracker = typeof import("@plausible-analytics/tracker");
+let tracker: Promise<Tracker | null> | null = null;
+
+function startPlausible(domain: string): Promise<Tracker | null> {
+  tracker ??= import("@plausible-analytics/tracker")
+    .then((t) => {
+      t.init({
+        domain,
+        autoCapturePageviews: false,
+        bindToWindow: false,
+        logging: false,
+        transformRequest: cleanPlausiblePayload,
+      });
+      setEventSender((event, options) => t.track(event, options));
+      return t;
+    })
+    .catch(() => null);
+  return tracker;
 }
 
 export function FunnelTracking({ plausibleDomain }: { plausibleDomain: string | null }) {
@@ -64,9 +69,12 @@ export function FunnelTracking({ plausibleDomain }: { plausibleDomain: string | 
   useEffect(() => {
     if (!plausibleDomain) return;
     if (!plausibleAllowed(window.location.host, window.location.pathname)) return;
-    loadPlausible(plausibleDomain);
-    const u = plausibleUrl(window.location.href);
-    if (u) window.plausible?.("pageview", { u });
+    const url = plausibleUrl(window.location.href);
+    if (!url) return;
+    void startPlausible(plausibleDomain).then((t) => {
+      // Still on an allowed page once the tracker has loaded.
+      if (t && plausibleAllowed(window.location.host, window.location.pathname)) t.track("pageview", { url });
+    });
   }, [plausibleDomain, pathname]);
 
   return null;

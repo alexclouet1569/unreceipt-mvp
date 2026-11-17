@@ -1,5 +1,5 @@
 // The click handler behind trackedLink() (src/lib/tracking/events.ts),
-// installed once by src/app/_funnel-links.tsx. Client-safe.
+// installed once by src/app/_funnel-tracking.tsx. Client-safe.
 //
 // On a click (or middle-click) of an <a data-track>, before the browser
 // follows it: with data-attribution, the link's href gets the visit's source

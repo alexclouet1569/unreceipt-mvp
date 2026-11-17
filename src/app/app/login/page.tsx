@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "Sign in",
   // A login form has nothing for search engines; the marketing pages do.
   robots: { index: false, follow: true },
+  // Invite tokens and join codes travel in this page's URL (or its ?next=):
+  // links and requests from it send only our origin as referrer, so the
+  // token never reaches analytics or another page (src/lib/tracking/scrub.ts).
+  referrer: "strict-origin",
 };
 
 type LoginPageProps = {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { localeOfPath, trackEvent, trackedLink } from "@/lib/tracking/events";
+import { localeOfPath, setEventSender, trackEvent, trackedLink } from "@/lib/tracking/events";
 import { handleFunnelClick } from "@/lib/tracking/links";
-import { plausibleAllowed, plausibleUrl } from "@/lib/tracking/where";
+import { cleanPlausiblePayload, plausibleAllowed, plausibleUrl } from "@/lib/tracking/where";
 
 // jsdom's location can't be assigned; replace it for the test.
 function setLocation(href: string) {
@@ -23,18 +23,18 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete window.plausible;
+  setEventSender(null);
   Object.defineProperty(window, "location", { configurable: true, value: realLocation });
 });
 
 describe("trackEvent", () => {
-  it("calls window.plausible with the event, the page's URL and props", () => {
+  it("calls Plausible's track() with the event, the page's URL and props", () => {
     setLocation("https://unreceipt.com/sv?utm_source=test&utm_campaign=x&fbclid=abc");
     const plausible = vi.fn();
-    window.plausible = plausible;
+    setEventSender(plausible);
     trackEvent("cta_signup", { page: "/sv", locale: "sv" });
     expect(plausible).toHaveBeenCalledWith("cta_signup", {
-      u: "https://unreceipt.com/sv?utm_source=test&utm_campaign=x",
+      url: "https://unreceipt.com/sv?utm_source=test&utm_campaign=x",
       props: { page: "/sv", locale: "sv" },
     });
   });
@@ -47,16 +47,16 @@ describe("trackEvent", () => {
   it("does nothing on a page where Plausible isn't allowed", () => {
     setLocation("https://app.unreceipt.com/app/settings");
     const plausible = vi.fn();
-    window.plausible = plausible;
+    setEventSender(plausible);
     trackEvent("cta_signup");
     expect(plausible).not.toHaveBeenCalled();
   });
 
   it("never throws when Plausible does", () => {
     setLocation("https://unreceipt.com/");
-    window.plausible = () => {
+    setEventSender(() => {
       throw new Error("blocked");
-    };
+    });
     expect(() => trackEvent("demo_tour_start")).not.toThrow();
   });
 });
@@ -93,7 +93,7 @@ describe("handleFunnelClick", () => {
   it("adds the source to a sign-up link and sends cta_signup, from /sv?utm_source=test&utm_campaign=x", () => {
     setLocation("https://unreceipt.com/sv?utm_source=test&utm_campaign=x");
     const plausible = vi.fn();
-    window.plausible = plausible;
+    setEventSender(plausible);
     const a = link("https://app.unreceipt.com/app/login?mode=signup", trackedLink("cta_signup", { attribution: true }));
     const span = a.querySelector("span")!;
     span.addEventListener("click", (e) =>
@@ -107,7 +107,7 @@ describe("handleFunnelClick", () => {
     expect(url.searchParams.get("utm_campaign")).toBe("x");
     expect(url.searchParams.get("landing")).toBe("/sv");
     expect(plausible).toHaveBeenCalledWith("cta_signup", {
-      u: "https://unreceipt.com/sv?utm_source=test&utm_campaign=x",
+      url: "https://unreceipt.com/sv?utm_source=test&utm_campaign=x",
       props: { page: "/sv", locale: "sv" },
     });
   });
@@ -115,7 +115,7 @@ describe("handleFunnelClick", () => {
   it("sends the event without touching a link that carries no source", () => {
     setLocation("https://unreceipt.com/accountants");
     const plausible = vi.fn();
-    window.plausible = plausible;
+    setEventSender(plausible);
     const a = link("mailto:support@unreceipt.com", trackedLink("cta_demo_page"));
     a.addEventListener("click", (e) => handleFunnelClick(e, { href: window.location.href, referrer: "" }, "/accountants"));
     click(a);
@@ -134,7 +134,7 @@ describe("handleFunnelClick", () => {
   it("ignores untracked links and clicks another handler cancelled", () => {
     setLocation("https://unreceipt.com/");
     const plausible = vi.fn();
-    window.plausible = plausible;
+    setEventSender(plausible);
     const plain = link("/sv", {});
     plain.addEventListener("click", (e) => handleFunnelClick(e, { href: window.location.href, referrer: "" }, "/"));
     click(plain);
@@ -187,5 +187,14 @@ describe("plausibleUrl", () => {
     );
     expect(plausibleUrl("https://app.unreceipt.com/demo/company?step=3")).toBe("https://app.unreceipt.com/demo/company");
     expect(plausibleUrl("nope")).toBeNull();
+  });
+});
+
+describe("cleanPlausiblePayload", () => {
+  it("cleans the URL of every request the tracker sends", () => {
+    expect(
+      cleanPlausiblePayload({ n: "engagement", u: "https://app.unreceipt.com/demo/company?step=4&token=x#y", d: "unreceipt.com" })
+    ).toEqual({ n: "engagement", u: "https://app.unreceipt.com/demo/company", d: "unreceipt.com" });
+    expect(cleanPlausiblePayload({ n: "pageview", u: "", d: "unreceipt.com" })).toBeNull();
   });
 });

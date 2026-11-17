@@ -18,8 +18,8 @@ import type { NextConfig } from "next";
 // with Sentry) — then it moves into the enforced header.
 // Allowed origins: Supabase (API, realtime, signed storage URLs for the
 // photo/PDF original), Vercel Analytics / Speed Insights, Sentry ingest and
-// Plausible (script and events; marketing site and /demo only,
-// src/lib/tracking/where.ts).
+// Plausible's event endpoint (connect only: its tracker is bundled from npm,
+// no script is loaded from plausible.io; src/app/_funnel-tracking.tsx).
 // Checked in Chromium against /, /app/login, /privacy, /subscribe: the only
 // report is zod v4 probing `Function("")` for JIT support, which it catches
 // and falls back from — no 'unsafe-eval' needed.
@@ -32,7 +32,7 @@ const CSP_ENFORCED = [
 
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://plausible.io",
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https://*.supabase.co",
   "font-src 'self' data:",

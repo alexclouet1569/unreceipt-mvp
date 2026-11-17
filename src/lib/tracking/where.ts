@@ -54,3 +54,13 @@ export function plausibleUrl(href: string): string | null {
   const query = kept.toString();
   return `${url.origin}${url.pathname}${query ? `?${query}` : ""}`;
 }
+
+/**
+ * Plausible's transformRequest: every request the tracker sends (pageviews,
+ * events, its own engagement pings) reports plausibleUrl(), or is dropped
+ * when the URL can't be read.
+ */
+export function cleanPlausiblePayload<P extends { u: string }>(payload: P): P | null {
+  const url = plausibleUrl(payload.u);
+  return url ? { ...payload, u: url } : null;
+}

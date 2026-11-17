@@ -255,7 +255,12 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
     const realFetch = window.fetch;
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const path = new URL(url, window.location.origin).pathname;
+      const target = new URL(url, window.location.origin);
+      // Only our own API is answered here. Another origin (Plausible's
+      // event endpoint, src/app/_funnel-tracking.tsx) shares path shapes
+      // like /api/event and must go out untouched.
+      if (target.origin !== window.location.origin) return realFetch(input, init);
+      const path = target.pathname;
       if (path === "/api/ocr") {
         await new Promise((resolve) => setTimeout(resolve, 1800));
         return json(DEMO_OCR);

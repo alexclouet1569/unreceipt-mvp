@@ -1,12 +1,15 @@
 // Funnel events sent to Plausible (demo-funnel strategy, Step 2). Client-safe.
 //
-// Plausible is loaded only where src/app/_plausible.tsx allows it (the
-// marketing site and the public /demo tours). Everywhere else, and whenever
-// NEXT_PUBLIC_PLAUSIBLE_DOMAIN is unset or the script is blocked,
-// trackEvent() does nothing.
+// Plausible's tracker is bundled from npm (@plausible-analytics/tracker,
+// pinned) and started by src/app/_funnel-tracking.tsx only where
+// plausibleAllowed() says so (the marketing site and the public /demo tours):
+// no script is loaded from plausible.io, so nothing remote runs on our
+// origins, where the product's session cookies live. Until it is started,
+// and whenever NEXT_PUBLIC_PLAUSIBLE_DOMAIN is unset, trackEvent() does
+// nothing.
 //
 // Links are marked with trackedLink() (data attributes, so server components
-// can use it too) and handled by one listener, src/app/_funnel-links.tsx.
+// can use it too) and handled by one listener in src/app/_funnel-tracking.tsx.
 // Event props are the page's path and language only: never an email, a name
 // or anything typed by the visitor.
 
@@ -25,13 +28,14 @@ export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
 
 export type EventProps = Record<string, string>;
 
-// The options of Plausible's script.manual.js: `u` is the page URL to report.
-type PlausibleFn = (event: string, options?: { u?: string; props?: EventProps }) => void;
+/** Plausible's `track()`, once the tracker has been started (setEventSender()). */
+export type EventSender = (event: string, options: { url: string; props: EventProps }) => void;
 
-declare global {
-  interface Window {
-    plausible?: PlausibleFn & { q?: unknown[] };
-  }
+let sender: EventSender | null = null;
+
+/** Called by the loader once Plausible's tracker is initialised; null stops sending. */
+export function setEventSender(next: EventSender | null): void {
+  sender = next;
 }
 
 export function isFunnelEvent(value: unknown): value is FunnelEvent {
@@ -51,14 +55,12 @@ export function localeOfPath(pathname: string): Locale {
  * utm_*). Never throws.
  */
 export function trackEvent(name: FunnelEvent, props: EventProps = {}): void {
-  if (typeof window === "undefined") return;
-  const plausible = window.plausible;
-  if (typeof plausible !== "function") return;
+  if (typeof window === "undefined" || !sender) return;
   if (!plausibleAllowed(window.location.host, window.location.pathname)) return;
-  const u = plausibleUrl(window.location.href);
-  if (!u) return;
+  const url = plausibleUrl(window.location.href);
+  if (!url) return;
   try {
-    plausible(name, { u, props });
+    sender(name, { url, props });
   } catch {
     // Analytics must never break a click.
   }
