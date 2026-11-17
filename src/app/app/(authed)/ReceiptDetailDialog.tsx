@@ -32,7 +32,7 @@ import {
 import type { Receipt, ReceiptItem, ReceiptStatus } from "@/lib/types";
 import type { ReceiptChange } from "@/lib/receipts/optimistic";
 import { ApprovalPanel, canSendForApproval } from "./_approval-panel";
-import { ownerMayDelete, ownerMayEdit } from "@/lib/team/rules";
+import { ownerMayDelete, ownerMayEdit, ownerMayReprocess } from "@/lib/team/rules";
 import {
   missingFieldsText,
   missingRequiredFields,
@@ -121,6 +121,7 @@ export function ReceiptDetailDialog({
   const couldReprocess =
     !isFirm &&
     receipt != null &&
+    ownerMayReprocess(receipt.approval_status) &&
     isOcrEligibleArtifact &&
     ((receipt.items == null || receipt.items.length === 0) ||
       (receipt.parse_confidence != null && receipt.parse_confidence < 0.75) ||

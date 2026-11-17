@@ -127,6 +127,16 @@ export function ownerMayDelete(status: ApprovalStatus | null | undefined): boole
   return status !== "submitted" && status !== "approved";
 }
 
+/**
+ * "Re-run extraction" may rewrite amount, date, merchant and VAT, and can
+ * put a receipt back in Review needed: only before it is sent for approval,
+ * or when it is sent back. Once sent, approved or rejected, what was
+ * decided on stays (and a paid-back outlay keeps the amount it was paid).
+ */
+export function ownerMayReprocess(status: ApprovalStatus | null | undefined): boolean {
+  return status == null || status === "draft" || status === "sent_back";
+}
+
 /** An approved outlay the company still owes the employee. */
 export function owedToEmployee(r: {
   approval_status?: ApprovalStatus | null;

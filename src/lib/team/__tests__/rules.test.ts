@@ -8,6 +8,7 @@ import {
   owedToEmployee,
   ownerMayDelete,
   ownerMayEdit,
+  ownerMayReprocess,
   lockedAfterPayback,
   statusAfterEdit,
   touchesApproved,
@@ -99,6 +100,15 @@ describe("what happens", () => {
     expect(lockedAfterPayback({ approval_status: "approved" }, ["total"])).toBe(false);
     expect(lockedAfterPayback({ approval_status: "submitted", reimbursed_at: paid.reimbursed_at }, ["total"])).toBe(false);
     expect(lockedAfterPayback({ approval_status: null, reimbursed_at: null }, ["total"])).toBe(false);
+  });
+
+  it("re-runs extraction only before a receipt is sent, or once sent back", () => {
+    expect(ownerMayReprocess(null)).toBe(true);
+    expect(ownerMayReprocess("draft")).toBe(true);
+    expect(ownerMayReprocess("sent_back")).toBe(true);
+    expect(ownerMayReprocess("submitted")).toBe(false);
+    expect(ownerMayReprocess("approved")).toBe(false);
+    expect(ownerMayReprocess("rejected")).toBe(false);
   });
 
   it("a rejection stands; a pending or approved receipt can't be deleted by its owner", () => {

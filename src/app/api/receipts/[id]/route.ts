@@ -202,7 +202,12 @@ export async function PATCH(
   if (patch.currency != null) {
     update.currency = patch.currency;
   }
-  if (patch.receipt_date != null) {
+  // The same day saved again is no change: the date sheet sends it every
+  // time, and rewriting purchased_at (its own clock time, or "…+00:00" as
+  // the database returns it) would drop the conversion here and in the
+  // receipts_clear_stale_fx trigger, reopening an approval or hitting the
+  // paid-back lock for nothing.
+  if (patch.receipt_date != null && patch.receipt_date !== existingRow.receipt_date) {
     update.receipt_date = patch.receipt_date;
     const purchasedAt = `${patch.receipt_date}T12:00:00.000Z`;
     update.purchased_at = purchasedAt;

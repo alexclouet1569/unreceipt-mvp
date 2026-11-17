@@ -725,6 +725,22 @@ describe("PATCH /api/receipts/[id] — an employee's outlay already paid back", 
     expect(payload).not.toHaveProperty("approval_status");
   });
 
+  it("treats the same day sent again by the date sheet as no change", async () => {
+    // Stored with the database's "+00:00" and its own clock time.
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: { ...approved, purchased_at: "2026-11-03T14:23:00+00:00" },
+      error: null,
+    });
+
+    const res = await PATCH(req({ receipt_date: "2026-11-03" }), params());
+
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload).not.toHaveProperty("purchased_at");
+    expect(payload).not.toHaveProperty("home_total");
+    expect(payload).not.toHaveProperty("approval_status");
+  });
+
   it("lets the accounting firm correct it (founder decision 2026-11-17)", async () => {
     mocks.getServerUser.mockResolvedValueOnce({ id: FIRM_USER, email: "a@firm.se" });
     mocks.maybeSingle.mockResolvedValueOnce({ data: approved, error: null });

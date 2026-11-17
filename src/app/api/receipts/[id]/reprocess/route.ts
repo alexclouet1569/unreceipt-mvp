@@ -24,6 +24,7 @@ import { usableVatLines } from "@/lib/receipts/receipt-fields";
 import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { Receipt, ReceiptItem } from "@/lib/types";
+import { ownerMayReprocess } from "@/lib/team/rules";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +90,13 @@ export async function POST(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
+  // An employee's receipt sent for approval, decided on or paid back is
+  // not rewritten by a new reading (src/lib/team/rules.ts). Checked before
+  // the Claude call, so it costs nothing.
+  if (!ownerMayReprocess(row.approval_status)) {
+    return NextResponse.json({ error: "in_approval" }, { status: 409 });
+  }
+
   const artifact = resolveArtifact(row);
   if (!artifact || !isOwnedStoragePath(artifact.path, user.id)) {
     return NextResponse.json(
@@ -145,16 +153,23 @@ export async function POST(
 
   const merged = mergeExtraction(row, extracted);
 
-  const { data: updated, error: updErr } = await admin
+  // Compare-and-set on the approval state checked above: a receipt sent
+  // for approval while Claude was reading is left as it was sent.
+  let write = admin
     .from("receipts")
     .update(merged.patch)
     .eq("id", id)
-    .eq("user_id", user.id)
-    .select("*")
-    .maybeSingle<Receipt>();
-  if (updErr || !updated) {
+    .eq("user_id", user.id);
+  write = row.approval_status
+    ? write.eq("approval_status", row.approval_status)
+    : write.is("approval_status", null);
+  const { data: updated, error: updErr } = await write.select("*").maybeSingle<Receipt>();
+  if (updErr) {
     console.error("[/api/receipts/reprocess] update failed:", updErr);
     return NextResponse.json({ error: "update failed" }, { status: 500 });
+  }
+  if (!updated) {
+    return NextResponse.json({ error: "changed" }, { status: 409 });
   }
 
   return NextResponse.json({ ok: true, receipt: updated, changed: merged.changed });
