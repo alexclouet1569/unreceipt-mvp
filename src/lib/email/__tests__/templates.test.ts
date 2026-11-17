@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   companySiteFor,
+  demoRequestConfirmationEmail,
+  demoRequestFounderEmail,
   firmClosedEmail,
   firmInviteEmail,
   firstNameFrom,
@@ -225,5 +227,47 @@ describe("missingReceiptsEmail", () => {
     const mail = missingReceiptsEmail({ ...base, lines });
     expect(mail.text).toContain("…and 3 more in UnReceipt.");
     expect(mail.text).not.toContain(`L${MISSING_EMAIL_LINES} `);
+  });
+});
+
+describe("demo request emails", () => {
+  const request = {
+    name: "Maja\nBerg",
+    company: "Nordljus\r\nBcc: x@example.com AB",
+    email: "maja@example.se",
+    phone: null,
+    employees: "16-50",
+    bookkeeping: "Visma",
+    hasAccountant: false,
+    message: null,
+    locale: "en" as const,
+  };
+
+  it("keeps the founder email's subject on one line", () => {
+    const email = demoRequestFounderEmail(request);
+    expect(email.subject).toBe("Demo request: Nordljus Bcc: x@example.com AB (16-50 employees)");
+    expect(email.subject).not.toMatch(/[\r\n]/);
+    expect(email.text).toContain("Phone: —");
+    expect(email.text).toContain("Has an accountant: No");
+    expect(email.text).not.toContain("Message:");
+  });
+
+  it("caps a long company name in the subject", () => {
+    const email = demoRequestFounderEmail({ ...request, company: "A".repeat(200) });
+    expect(email.subject.length).toBeLessThan(100);
+  });
+
+  it("writes the confirmation in the page's language, with the booking link when set", () => {
+    const sv = demoRequestConfirmationEmail({ locale: "sv", bookingUrl: "https://cal.eu/x", canReply: true });
+    expect(sv.subject).toBe("Vi har fått din demoförfrågan");
+    expect(sv.html).toContain('<html lang="sv">');
+    expect(sv.html).toContain("Välj en tid");
+    expect(sv.text).toContain("https://cal.eu/x");
+
+    const en = demoRequestConfirmationEmail({ locale: "en", bookingUrl: null, canReply: false });
+    expect(en.subject).toBe("We got your demo request");
+    expect(en.html).toContain('<html lang="en">');
+    expect(en.html).not.toContain("Choose a time");
+    expect(en.text).not.toContain("reply to this email");
   });
 });

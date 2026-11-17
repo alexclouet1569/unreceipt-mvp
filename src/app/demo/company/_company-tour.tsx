@@ -15,7 +15,7 @@ import { InsightsBody } from "@/app/app/(authed)/insights/InsightsView";
 import { PeriodHeader } from "@/app/app/(authed)/insights/PeriodHeader";
 import { PendingBody, PeriodScope } from "@/app/app/(authed)/insights/PeriodPending";
 import type { ApprovalQueueItem, ReimbursementGroup } from "@/lib/mobile/types";
-import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
+import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, useDemoRequestHref, type TourStep } from "../_tour";
 import { addToPayBack, DEMO_APPROVAL_QUEUE, DEMO_PAY_BACK, DemoTeam } from "./_demo-team";
 
 // Public guided tour for a client company: the real receipts screen and
@@ -262,6 +262,7 @@ function DemoInsights({ receipts, period }: { receipts: Receipt[]; period: Perio
 
 export function CompanyTour({ step, period = { kind: "month" } }: { step: number; period?: PeriodInput }) {
   const [notice, closeNotice] = useDemoLinkGuard();
+  const demoHref = useDemoRequestHref();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
   const scans = useRef(0);
@@ -431,6 +432,7 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
           text="Your receipts are read for you, your team's are approved in one place, and your accountant gets them. No more chasing paper."
           cta="Start free"
           ctaHref={appUrl(SIGNUP_PATH)}
+          secondaryCta={{ label: "Book a demo", href: demoHref }}
           other={{ label: "See the accountant side", href: "/demo/accountant?step=1" }}
         />
       )}

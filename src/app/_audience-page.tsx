@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import type { Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { audienceJsonLd, jsonLdHtml } from "@/lib/seo";
@@ -80,14 +80,14 @@ export function AudiencePage({
         return appUrl("/demo/company?step=1");
       case "demoAccountant":
         return appUrl("/demo/accountant?step=1");
-      case "contactFirm":
-        return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
       case "bookDemo":
-        // TODO(demo funnel Step 1): pagePath("bookDemo", locale) once the
-        // demo request page (/sv/boka-demo, /book-demo) ships.
-        return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
+        return demoRequestPath(locale);
     }
   };
+  // The demo request page exists in English and Swedish only: a French
+  // button says so to browsers and assistive tech.
+  const langOf = (cta: Cta) =>
+    cta === "bookDemo" && demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {};
   const label = (cta: Cta, own?: string) => (cta === "signup" ? signupLabel : own ?? signupLabel);
 
   const jsonLd = audienceJsonLd({
@@ -133,6 +133,7 @@ export function AudiencePage({
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={href(t.hero.primary)}
+                  {...langOf(t.hero.primary)}
                   className={cn(BTN, "bg-white text-[#1F9D63] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
                 >
                   {label(t.hero.primary, t.hero.primaryLabel)}
@@ -140,6 +141,7 @@ export function AudiencePage({
                 </a>
                 <a
                   href={href(t.hero.secondary)}
+                  {...langOf(t.hero.secondary)}
                   className={cn(BTN, "border-2 border-white text-white hover:bg-white hover:text-[#1F9D63] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
                 >
                   {t.hero.secondaryLabel}
@@ -314,6 +316,7 @@ export function AudiencePage({
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
                 href={href(t.ending.primary)}
+                {...langOf(t.ending.primary)}
                 className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-7 text-base font-semibold h-12")}
               >
                 {label(t.ending.primary, t.ending.primaryLabel)}
@@ -321,6 +324,7 @@ export function AudiencePage({
               </a>
               <a
                 href={href(t.ending.secondary)}
+                {...langOf(t.ending.secondary)}
                 className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
               >
                 {t.ending.secondaryLabel}

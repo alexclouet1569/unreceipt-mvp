@@ -306,6 +306,36 @@ export function audienceJsonLd(opts: {
   };
 }
 
+/** JSON-LD for the demo request page: a ContactPage with its breadcrumb. */
+export function demoPageJsonLd(opts: {
+  locale: Locale;
+  name: string;
+  description: string;
+  breadcrumb: string;
+}) {
+  const path = pagePath("bookDemo", opts.locale);
+  const url = absoluteUrl(path);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationNode(),
+      websiteNode(),
+      {
+        "@type": "ContactPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: opts.name,
+        description: opts.description,
+        inLanguage: opts.locale,
+        isPartOf: { "@id": WEBSITE_ID },
+        about: { "@id": SOFTWARE_ID },
+        dateModified: MARKETING_PAGES.bookDemo.lastModified,
+      },
+      breadcrumbNode(opts.locale, [{ name: opts.breadcrumb, path }]),
+    ],
+  };
+}
+
 /**
  * JSON-LD for the "About UnReceipt" fact sheet: an AboutPage whose main
  * entity is the organisation, with the product and the facts as Q&A.

@@ -71,6 +71,7 @@ ${SHOW_PRICES ? `- [Pricing](${SITE_URL}/#pricing)\n` : ""}- [How it works](${SI
 - [Interactive demo, company and accountant side](https://app.unreceipt.com/demo)
 - [FAQ](${SITE_URL}/#faq)
 - [Privacy & data](${SITE_URL}/privacy)
+- [Book a 20-minute demo](${page("bookDemo", "en")}) — Swedish: [Boka demo](${page("bookDemo", "sv")})
 - Contact: support@unreceipt.com
 
 ## FAQ

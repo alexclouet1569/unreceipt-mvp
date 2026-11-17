@@ -20,7 +20,7 @@ import type { MarketingPageId } from "@/lib/marketing-pages";
 export type AudienceId = "accountants" | "freelancers" | "smallBusiness";
 
 /** Where a button goes; resolved to a URL in _audience-page.tsx. */
-export type Cta = "signup" | "demoCompany" | "demoAccountant" | "contactFirm" | "bookDemo";
+export type Cta = "signup" | "demoCompany" | "demoAccountant" | "bookDemo";
 
 export type IconName =
   | "mail"
@@ -76,7 +76,6 @@ export type AudienceCopy = {
     secondary: Cta;
     secondaryLabel: string;
   };
-  contactSubject: string;
 };
 
 // ─── Accounting firms ────────────────────────────────────────────────
@@ -103,7 +102,7 @@ const accountantsEn: AudienceCopy = {
     title: "Your clients' receipts,",
     accent: "ready to book.",
     lead: "Stop chasing photos, forwarded PDFs and paper bags at month-end. Your clients snap or forward their receipts to UnReceipt; you get every one read by AI, confirmed by the client and VAT-split in one portal, with one export per client and month.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Book a 20-minute demo",
     secondary: "demoAccountant",
     secondaryLabel: "Try the accountant demo",
@@ -230,12 +229,11 @@ const accountantsEn: AudienceCopy = {
   ending: {
     title: "See it with your own clients' receipts",
     lead: "20 minutes on a call, or two minutes in the demo with sample data.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Book a demo",
     secondary: "demoAccountant",
     secondaryLabel: "Try the accountant demo",
   },
-  contactSubject: "UnReceipt for our accounting firm",
 };
 
 const accountantsSv: AudienceCopy = {
@@ -261,7 +259,7 @@ const accountantsSv: AudienceCopy = {
     title: "Klienternas kvitton,",
     accent: "klara att bokföra.",
     lead: "Sluta jaga foton, vidarebefordrade PDF:er och kvittopåsar vid månadsskiftet. Dina klienter fotar eller vidarebefordrar sina kvitton till UnReceipt, och du får varje kvitto avläst av AI, bekräftat av klienten och med momsen uppdelad i en portal, med en export per klient och månad.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Boka en demo på 20 minuter",
     secondary: "demoAccountant",
     secondaryLabel: "Testa byrådemon",
@@ -389,12 +387,11 @@ const accountantsSv: AudienceCopy = {
   ending: {
     title: "Se det med dina egna klienters kvitton",
     lead: "20 minuter i ett samtal, eller två minuter i demon med exempeldata.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Boka en demo",
     secondary: "demoAccountant",
     secondaryLabel: "Testa byrådemon",
   },
-  contactSubject: "UnReceipt för vår redovisningsbyrå",
 };
 
 const accountantsFr: AudienceCopy = {
@@ -419,7 +416,7 @@ const accountantsFr: AudienceCopy = {
     title: "Les justificatifs de vos clients,",
     accent: "prêts à saisir.",
     lead: "Fini les relances, les photos floues et les sacs de tickets en fin de mois. Vos clients photographient ou transfèrent leurs reçus à UnReceipt ; vous les retrouvez lus par l’IA, confirmés par le client et avec la TVA relevée dans un seul portail, avec un export par client et par mois.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Réserver une démo de 20 minutes",
     secondary: "demoAccountant",
     secondaryLabel: "Essayer la démo cabinet",
@@ -547,12 +544,11 @@ const accountantsFr: AudienceCopy = {
   ending: {
     title: "Voyez-le avec les reçus de vos propres clients",
     lead: "20 minutes en visio, ou deux minutes dans la démo avec des données d’exemple.",
-    primary: "contactFirm",
+    primary: "bookDemo",
     primaryLabel: "Réserver une démo",
     secondary: "demoAccountant",
     secondaryLabel: "Essayer la démo cabinet",
   },
-  contactSubject: "UnReceipt pour notre cabinet",
 };
 
 // ─── Freelancers and sole traders ────────────────────────────────────
@@ -707,7 +703,6 @@ const freelancersEn: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "See the demo",
   },
-  contactSubject: "UnReceipt question",
 };
 
 const freelancersSv: AudienceCopy = {
@@ -862,7 +857,6 @@ const freelancersSv: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Se demon",
   },
-  contactSubject: "Fråga om UnReceipt",
 };
 
 const freelancersFr: AudienceCopy = {
@@ -1016,7 +1010,6 @@ const freelancersFr: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Voir la démo",
   },
-  contactSubject: "Question sur UnReceipt",
 };
 
 // ─── Small businesses with employees ─────────────────────────────────
@@ -1047,7 +1040,7 @@ const smallBusinessEn: AudienceCopy = {
     eyebrow: "For small businesses with employees",
     title: "Your team's receipts,",
     accent: "approved and ready.",
-    lead: "Stop chasing receipts and expense forms at month-end. Employees snap or forward their receipts and send them for approval. You approve with one tap, see who is owed what, and your accountant sees your team's receipts only once you've approved them.",
+    lead: "Stop chasing receipts and expense forms at month-end. Employees snap or forward their receipts and send them for approval. You approve with one tap, see who is owed what, and your accountant sees your team's receipts only once they're approved.",
     primary: "bookDemo",
     primaryLabel: "Ask for a 20-minute demo",
     secondary: "demoCompany",
@@ -1185,7 +1178,6 @@ const smallBusinessEn: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Try the demo",
   },
-  contactSubject: "UnReceipt demo for our company",
 };
 
 const smallBusinessSv: AudienceCopy = {
@@ -1210,7 +1202,7 @@ const smallBusinessSv: AudienceCopy = {
     eyebrow: "För småföretag med anställda",
     title: "De anställdas kvitton,",
     accent: "godkända och klara.",
-    lead: "Sluta jaga kvitton och utläggsblanketter i slutet av månaden. De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner med ett tryck, ser vem som ska ha tillbaka vad, och redovisningsbyrån ser de anställdas kvitton först när du har godkänt dem.",
+    lead: "Sluta jaga kvitton och utläggsblanketter i slutet av månaden. De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner med ett tryck, ser vem som ska ha tillbaka vad, och redovisningsbyrån ser de anställdas kvitton först när de har godkänts.",
     primary: "bookDemo",
     primaryLabel: "Be om en demo på 20 minuter",
     secondary: "demoCompany",
@@ -1349,7 +1341,6 @@ const smallBusinessSv: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Testa demon",
   },
-  contactSubject: "Demo av UnReceipt för vårt företag",
 };
 
 const smallBusinessFr: AudienceCopy = {
@@ -1511,7 +1502,6 @@ const smallBusinessFr: AudienceCopy = {
     secondary: "demoCompany",
     secondaryLabel: "Essayer la démo",
   },
-  contactSubject: "Démo UnReceipt pour notre entreprise",
 };
 
 export const AUDIENCE_COPY: Record<AudienceId, Record<Locale, AudienceCopy>> = {

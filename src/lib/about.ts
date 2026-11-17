@@ -133,7 +133,7 @@ function en(pilot: boolean): About {
       "The app is in English only.",
     ],
     contactTitle: "Contact",
-    contact: "Questions, partnerships or a demo for your accounting firm: support@unreceipt.com.",
+    contact: "Want to see it with your own receipts? Book a 20-minute demo. Questions or partnerships: support@unreceipt.com.",
   };
 }
 
@@ -203,7 +203,7 @@ function sv(pilot: boolean): About {
       "Appen är bara på engelska.",
     ],
     contactTitle: "Kontakt",
-    contact: "Frågor, samarbeten eller en demo för din redovisningsbyrå: support@unreceipt.com.",
+    contact: "Vill du se hur det fungerar med dina egna kvitton? Boka en demo på 20 minuter. Frågor eller samarbeten: support@unreceipt.com.",
   };
 }
 
@@ -274,7 +274,7 @@ function fr(pilot: boolean): About {
       "L’application est en anglais uniquement.",
     ],
     contactTitle: "Contact",
-    contact: "Questions, partenariats ou démo pour votre cabinet : support@unreceipt.com.",
+    contact: "Envie de le voir avec vos propres justificatifs ? Demandez une démo de 20 minutes (en anglais ou en suédois). Questions ou partenariats : support@unreceipt.com.",
   };
 }
 

@@ -29,7 +29,7 @@ import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
@@ -187,6 +187,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
   const accountantsPath = pagePath("accountants", locale);
+  const demoPath = demoRequestPath(locale);
+  const demoLangProps = demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {};
   const navLinks = [
     { label: t.nav.how, href: "#how" },
     ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
@@ -257,7 +259,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           <a href="#top" aria-label={t.nav.backToTop} className="py-1">
             <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
           </a>
-          <div className="hidden lg:flex items-center gap-6 xl:gap-8">
+          <div className="hidden xl:flex items-center gap-6">
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -289,6 +291,17 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               {t.nav.signIn}
             </a>
             <a
+              href={demoPath}
+              {...demoLangProps}
+              className={cn(buttonVariants({
+                size: "sm",
+                variant: "outline",
+                className: "border-2 border-[#303568]/20 bg-transparent text-[#303568] hover:border-[#303568] hover:bg-transparent font-semibold rounded-full px-5 h-11",
+              }))}
+            >
+              {SITE_COPY[locale].nav.bookDemo}
+            </a>
+            <a
               href={appUrl(SIGNUP_PATH)}
               className={cn(buttonVariants({
                 size: "sm",
@@ -303,19 +316,27 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             aria-label={mobileMenuOpen ? t.nav.closeMenu : t.nav.openMenu}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
-            className={`lg:hidden p-3 -mr-1 text-[#303568]`}
+            className={`xl:hidden p-3 -mr-1 text-[#303568]`}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
         {mobileMenuOpen && (
-          <div id="mobile-menu" className="lg:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
+          <div id="mobile-menu" className="xl:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
             {navLinks.map((link) => (
               <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}
               </a>
             ))}
+            <a
+              href={demoPath}
+              {...demoLangProps}
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center"
+            >
+              {SITE_COPY[locale].nav.bookDemo}
+            </a>
             <a
               href={appUrl("/app/login")}
               onClick={() => setMobileMenuOpen(false)}

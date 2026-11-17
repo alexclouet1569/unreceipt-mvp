@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 
 // Shared chrome for the public guided tours at /demo/company and
@@ -108,18 +108,39 @@ export function DemoNotice({ notice, onClose }: { notice: string | null; onClose
   );
 }
 
+/**
+ * Where "Book a demo" leads from the tours: the tours are in English and
+ * don't know which marketing page the visitor came from, so a browser set
+ * to Swedish gets /sv/boka-demo after mount, everyone else /book-demo. A
+ * relative path: on app.unreceipt.com the proxy sends it to the apex, in
+ * dev and on previews it stays on the same origin. Just a link: the tours
+ * never call a real API route.
+ */
+export function useDemoRequestHref(): string {
+  return useSyncExternalStore(noSubscribe, browserDemoRequestHref, () => "/book-demo");
+}
+
+const noSubscribe = () => () => {};
+
+function browserDemoRequestHref(): string {
+  const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return langs.some((l) => /^sv\b/i.test(l ?? "")) ? "/sv/boka-demo" : "/book-demo";
+}
+
 /** The last step: one sentence and the way into the real product. */
 export function TourEnd({
   title,
   text,
   cta,
   ctaHref,
+  secondaryCta,
   other,
 }: {
   title: string;
   text: string;
   cta: string;
   ctaHref: string;
+  secondaryCta?: { label: string; href: string };
   other: { label: string; href: string };
 }) {
   return (
@@ -143,6 +164,14 @@ export function TourEnd({
         >
           {cta}
         </a>
+        {secondaryCta ? (
+          <a
+            href={secondaryCta.href}
+            className="type-body inline-flex items-center justify-center h-11 px-5 rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink)] font-semibold hover:bg-[var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+          >
+            {secondaryCta.label}
+          </a>
+        ) : null}
         <Link href={other.href} className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
           {other.label}
         </Link>

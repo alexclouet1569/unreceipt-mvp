@@ -36,7 +36,9 @@ export type OutgoingEmail = {
     | "firm_welcome"
     | "team_invite"
     | "approval_request"
-    | "approval_decision";
+    | "approval_decision"
+    | "demo_request"
+    | "demo_request_confirmation";
 };
 
 export type SendResult =

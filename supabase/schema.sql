@@ -2219,3 +2219,31 @@ DROP TRIGGER IF EXISTS receipts_keep_in_approval ON public.receipts;
 CREATE TRIGGER receipts_keep_in_approval
   BEFORE DELETE ON public.receipts
   FOR EACH ROW EXECUTE FUNCTION public.receipts_keep_in_approval();
+
+-- =============================================================================
+-- 2026-11-17 — Demo requests (src/app/api/demo-request)
+-- =============================================================================
+-- One row per demo form sent on /book-demo or /sv/boka-demo: who asked and
+-- the answers that qualify the call. A visitor, not a user: no user id.
+-- Written and read only by server code (service role): RLS on, no policies.
+-- Rows older than 12 months are deleted by /api/cron/cleanup-exports, as
+-- the privacy page says.
+
+CREATE TABLE IF NOT EXISTS public.demo_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  locale TEXT NOT NULL CHECK (locale IN ('en', 'sv')),
+  name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
+  company TEXT NOT NULL CHECK (char_length(company) BETWEEN 1 AND 120),
+  email TEXT NOT NULL CHECK (char_length(email) BETWEEN 3 AND 254),
+  phone TEXT CHECK (phone IS NULL OR char_length(phone) <= 40),
+  employees TEXT NOT NULL CHECK (employees IN ('1', '2-5', '6-15', '16-50', '50+')),
+  bookkeeping TEXT NOT NULL CHECK (bookkeeping IN ('fortnox', 'visma', 'bokio', 'other', 'none')),
+  has_accountant BOOLEAN NOT NULL,
+  message TEXT CHECK (message IS NULL OR char_length(message) <= 2000)
+);
+
+CREATE INDEX IF NOT EXISTS demo_requests_created_idx ON public.demo_requests(created_at);
+
+ALTER TABLE public.demo_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.demo_requests FROM anon, authenticated;
