@@ -16,6 +16,9 @@ import type { MarketingPageId } from "@/lib/marketing-pages";
  * and bump `updated` (and MARKETING_PAGES.lastModified) when a rule
  * changes. Known upcoming change: LPF L102 B goes from 6 to 10 years on
  * 2027-01-01 (loi 2026-534, art. 36); the French copy already says so.
+ * Also: Skatteverket's e-service "Momsåterbetalning inom EU" closes
+ * temporarily on 2026-12-31 (the outlays guide says so); re-check it in
+ * January 2027 and update the guide.
  *
  * What UnReceipt does must match AGENTS.md: receipts stored in Frankfurt,
  * no certified copy (copie conforme) for France, 90 days to download after
@@ -142,6 +145,10 @@ const S = {
   skvInvoice: {
     label: "Skatteverket, rättslig vägledning: Innehållet i en faktura (förenklad faktura)",
     url: "https://www4.skatteverket.se/rattsligvagledning/edition/2026.14/394342.html",
+  },
+  skvRepresentation: {
+    label: "Skatteverket: Avdrag för moms vid representation",
+    url: "https://www.skatteverket.se/foretag/moms/kopavarorochtjanster/avdragformomsvidrepresentation.4.15532c7b1442f256baec84b.html",
   },
   skvForeignVat: {
     label: "Skatteverket: Återbetalning av utländsk moms",
@@ -426,13 +433,13 @@ const outlaysSv: Guide = {
   updated: "2026-11-17",
   answerLabel: "Kort svar",
   answer:
-    "Ett utlägg är när en anställd betalar något åt företaget med egna pengar. Kvittot är företagets verifikation, utlägget bokförs som företagets kostnad och den anställde får tillbaka beloppet utan skatteavdrag och utan arbetsgivaravgifter. Momsen får dras av om företaget har avdragsrätt för inköpet och kvittot uppfyller momslagens krav, till exempel en förenklad faktura när beloppet är högst 4 000 kronor inklusive moms.",
+    "Ett utlägg är när en anställd betalar något åt företaget med egna pengar. Kvittot är företagets verifikation, utlägget bokförs som företagets kostnad och den anställde får tillbaka beloppet utan skatteavdrag och utan arbetsgivaravgifter. Momsen får dras av om företaget har avdragsrätt för inköpet (för till exempel representation är avdraget begränsat) och kvittot uppfyller momslagens krav, till exempel en förenklad faktura när beloppet är högst 4 000 kronor inklusive moms.",
   sections: [
     {
       heading: "Vad är ett utlägg?",
       body: [
         "När en anställd köper något åt företaget, till exempel material, en tågbiljett till ett kundmöte eller en programvara, och betalar med egna pengar eller ett eget kort, är det ett utlägg. Köpet är företagets: enligt Bokföringsnämnden (BFN) är det en affärshändelse i företaget redan när den anställde betalar, oavsett om betalningen skett med företagets kort eller den anställdes egna pengar.",
-        "Ett utlägg är inte samma sak som en kostnadsersättning. En kostnadsersättning, till exempel traktamente eller bilersättning för egen bil, ska täcka den anställdes egna utgifter i arbetet och följer andra regler för skatt, arbetsgivaravgifter och moms. Vid ett utlägg är det i stället företaget som har köpt varan eller tjänsten, och utlägget bokförs direkt som företagets kostnad (Skatteverket).",
+        "Ett utlägg är inte samma sak som en kostnadsersättning. En kostnadsersättning, till exempel traktamente, ska täcka den anställdes egna utgifter i arbetet och följer andra regler för skatt, arbetsgivaravgifter och moms. Vid ett utlägg är det i stället företaget som har köpt varan eller tjänsten, och utlägget bokförs direkt som företagets kostnad (Skatteverket).",
       ],
     },
     {
@@ -444,6 +451,7 @@ const outlaysSv: Guide = {
         "när den har sammanställts och när köpet gjordes;",
         "vad köpet avser och vilket belopp det gäller;",
         "vem motparten är, alltså säljaren;",
+        "i förekommande fall vilka handlingar köpet bygger på och var de finns;",
         "ett verifikationsnummer eller annat identifieringstecken, som ni sätter när ni bokför.",
       ],
     },
@@ -464,9 +472,9 @@ const outlaysSv: Guide = {
     {
       heading: "Moms på utlägg",
       body: [
-        "Företaget får dra av den ingående momsen på ett utlägg om inköpet hör till en verksamhet som ger rätt till avdrag och det är ett utlägg för företagets räkning, inte en kostnadsersättning. Avdraget ska normalt styrkas med en faktura (mervärdesskattelagen 13 kap. 32 §), och ett vanligt kvitto från en butik är ofta en förenklad faktura.",
+        "Företaget får dra av den ingående momsen på ett utlägg om inköpet hör till en verksamhet som ger rätt till avdrag och det är ett utlägg för företagets räkning, inte en kostnadsersättning. Avdraget ska normalt styrkas med en faktura (mervärdesskattelagen 13 kap. 32 §), och ett vanligt kvitto från en butik är ofta en förenklad faktura. För vissa inköp är avdraget begränsat, till exempel representation som en kundlunch (Skatteverket, Avdrag för moms vid representation).",
         "Kvittot behöver inte ha företagets namn. Skatteverket godtar att kvittot för ett utlägg saknar köparens namn eller har den anställdes namn i stället för företagets, om den anställde har köpt för företagets räkning och får tillbaka pengarna mot kvittot.",
-        "När avdraget görs beror på redovisningsmetoden: med faktureringsmetoden i den period då den anställde fick kvittot, med bokslutsmetoden normalt i den period då företaget betalar tillbaka utlägget (Skatteverket). Momsen i en kostnadsersättning får företaget i regel inte dra av, eftersom den anställde inte tar ut moms av företaget (Skatteverket).",
+        "När avdraget görs beror på redovisningsmetoden: med faktureringsmetoden i den period då den anställde fick kvittot, med bokslutsmetoden normalt i den period då företaget betalar tillbaka utlägget (Skatteverket). Momsen i en kostnadsersättning får företaget i regel inte dra av, eftersom den anställde inte tar ut moms av företaget (Skatteverket, Hur avdraget ska styrkas). Särskilda regler gäller drivmedel när en anställd kör egen bil i tjänsten.",
       ],
     },
     {
@@ -478,7 +486,7 @@ const outlaysSv: Guide = {
         "datum när den utfärdades;",
         "uppgift som identifierar säljaren, enligt Skatteverket säljarens momsregistreringsnummer eller organisations- eller personnummer;",
         "vilken typ av varor eller tjänster köpet gäller;",
-        "momsbeloppet, eller beskattningsunderlaget och momssatsen så att momsen kan räknas fram. Bara totalbeloppet inklusive moms räcker inte.",
+        "momsbeloppet eller uppgifter som gör det möjligt att räkna fram det, enligt Skatteverket beskattningsunderlaget och momssatsen. Bara totalbeloppet inklusive moms räcker inte (Skatteverket).",
       ],
     },
     {
@@ -490,8 +498,8 @@ const outlaysSv: Guide = {
     {
       heading: "Kvitton i utländsk valuta",
       body: [
-        "Företagets redovisningsvaluta är svenska kronor; ett aktiebolag får i stället ha euro (bokföringslagen 4 kap. 6 §). Ett kvitto i euro eller dollar bokförs därför i kronor. Ett praktiskt sätt är att betala tillbaka det belopp i kronor som den anställde faktiskt betalade enligt sitt kort- eller kontoutdrag, och spara utdraget med kvittot.",
-        "Utländsk moms får aldrig dras av i den svenska momsdeklarationen (Skatteverket). Företaget kan i vissa fall få tillbaka momsen från landet där den betalades. Inom EU ansöker ett momsregistrerat svenskt företag i Skatteverkets e-tjänst Momsåterbetalning inom EU, senast den 30 september året efter inköpen och med ett minsta belopp (50 euro för ett helt kalenderår). E-tjänsten stänger tillfälligt den 31 december 2026; läs Skatteverkets sida innan du ansöker. Utanför EU gäller varje lands egna regler.",
+        "Företagets redovisningsvaluta är svenska kronor; aktiebolag och vissa andra företag, till exempel ekonomiska föreningar, får i stället ha euro (bokföringslagen 4 kap. 6 §). Ett kvitto i euro eller dollar bokförs därför i kronor. Ett praktiskt sätt är att betala tillbaka det belopp i kronor som den anställde faktiskt betalade enligt sitt kort- eller kontoutdrag, och spara utdraget med kvittot.",
+        "Utländsk moms får aldrig dras av i den svenska momsdeklarationen (Skatteverket). Företaget kan i vissa fall få tillbaka momsen från landet där den betalades. Inom EU ansöker ett momsregistrerat svenskt företag i Skatteverkets e-tjänst Momsåterbetalning inom EU, senast den 30 september året efter inköpen och med ett minsta belopp (50 euro för ett helt kalenderår). För inköp under 2026 ska ansökan ha kommit in senast den 30 september 2027. E-tjänsten stänger tillfälligt den 31 december 2026; läs Skatteverkets sida innan du ansöker. Utanför EU gäller varje lands egna regler.",
       ],
     },
     {
@@ -504,15 +512,15 @@ const outlaysSv: Guide = {
     {
       heading: "Så gör du med UnReceipt",
       body: [
-        "Den anställde fotar kvittot i appen eller vidarebefordrar kvittomejlet och skickar det för godkännande, med uppgift om vem som betalade: den anställde själv eller företaget. Du som ägare, eller den attestant du har gett den anställde, godkänner kvittot, skickar tillbaka det för rättning eller avslår det; de två sista med en kommentar. Ändras belopp, moms, datum, säljare eller vem som betalade efter godkännandet ska kvittot godkännas igen, och varje steg loggas.",
-        "Godkända utlägg som den anställde betalade listas per person och valuta som att betala tillbaka, och du markerar dem som betalda. Är ni kopplade till en redovisningsbyrå ser byrån en anställds kvitton först när de är godkända. Ett kvitto i utländsk valuta behåller sitt belopp och visas också i företagets valuta: som uppskattning med Europeiska centralbankens referenskurs när den finns, eller med beloppet från kontoutdraget om du skriver in det.",
+        "Den anställde fotar kvittot i appen eller vidarebefordrar kvittomejlet och skickar det för godkännande, med uppgift om vem som betalade: den anställde själv eller företaget. Du som ägare, eller den attestant du har gett den anställde, godkänner kvittot, skickar tillbaka det för rättning eller avslår det; de två sista med en kommentar. Ändrar den anställde belopp, moms, datum, säljare eller vem som betalade efter godkännandet ska kvittot godkännas igen, och varje steg loggas.",
+        "Godkända utlägg som den anställde betalade listas per person och valuta som att betala tillbaka, och du markerar dem som betalda. Är ni kopplade till en redovisningsbyrå ser byrån en anställds kvitton först när de är godkända. Ett kvitto i utländsk valuta behåller sitt belopp och visas också i företagets valuta: som uppskattning med Europeiska centralbankens referenskurs när den finns, eller med beloppet från kontoutdraget om den anställde skriver in det. Listan över vad som ska betalas tillbaka visar uppskattningen tills kontoutdragets belopp är inskrivet.",
         "Det här gör UnReceipt inte (än):",
       ],
       list: [
         "Ingen utbetalning och ingen lönefil: ni betalar tillbaka via banken eller lönen som vanligt.",
         "Funktionen för anställda och godkännande är ny (pilot).",
-        "Appen är bara på engelska.",
-        "Raderar en anställd sitt konto raderas hens kvitton också. Ladda ner godkända kvitton innan, eftersom företaget ska spara verifikationerna under hela bevarandetiden.",
+        "Webbappen är bara på engelska; iPhone-appen finns även på svenska.",
+        "Raderar en anställd sitt konto raderas hens kvitton också, och företaget behåller ingen kopia. Din egen export innehåller bara dina egna kvitton. Be därför den anställde ladda ner sina kvitton innan kontot raderas (exporten i appen); är ni kopplade till en redovisningsbyrå får byrån godkända kvitton i sin export. Företaget ska spara verifikationerna under hela bevarandetiden.",
       ],
     },
   ],
@@ -532,7 +540,7 @@ const outlaysSv: Guide = {
     },
     {
       q: "Vad gäller för ett kvitto i euro?",
-      a: "Det bokförs i kronor, företagets redovisningsvaluta (ett aktiebolag får ha euro). Momsen på kvittot är utländsk och får inte dras av i den svenska momsdeklarationen, men inom EU kan företaget ansöka om att få tillbaka den från landet där den betalades.",
+      a: "Det bokförs i kronor, företagets redovisningsvaluta (ett aktiebolag får i stället ha euro). Momsen på kvittot är utländsk och får inte dras av i den svenska momsdeklarationen, men inom EU kan företaget ansöka om att få tillbaka den från landet där den betalades.",
     },
   ],
   sourcesTitle: "Källor",
@@ -546,6 +554,7 @@ const outlaysSv: Guide = {
     S.ml,
     S.skvVatProof,
     S.skvInvoice,
+    S.skvRepresentation,
     S.skvForeignVat,
   ],
   updatedLabel: "Senast granskad",
