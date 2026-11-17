@@ -23,7 +23,7 @@ import {
   Globe,
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { HeroVideo } from "./_hero-video";
+import { ExplainerVideo } from "./_explainer-video";
 import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
@@ -401,92 +401,83 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                     ? t.hero.notePilotNoPrice
                     : t.hero.notePaidNoPrice}
               </p>
-              {/* Phones see the loop under the buttons (the right column is desktop only). */}
-              {locale === "en" ? <HeroVideo className="mt-10 lg:hidden" /> : null}
             </div>
 
-            {/* Right — the explainer loop on the English page; the phone
-                mockup on the others until their loops exist. */}
-            {locale === "en" ? (
-              <div className="hidden lg:flex justify-center">
-                <HeroVideo className="max-w-[520px]" />
-              </div>
-            ) : (
-              <div className="hidden lg:flex justify-center">
-                <div className="relative">
-                  {/* Phone frame */}
-                  <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
-                    <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
-                      {/* Status bar */}
-                      <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
-                        <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        {/* Latest receipt, confirmed by its owner */}
-                        <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
-                            <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">{t.phone.verified}</span>
-                          </div>
-                          <p className="text-sm font-bold text-[#303568]">{s.latest.merchant}</p>
-                          <p className="text-xs text-[#303568]/60 mt-1">{t.phone.latestMeta}</p>
-                          <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">{s.latest.amount}</p>
+            {/* Right — Phone mockup */}
+            <div className="hidden lg:flex justify-center">
+              <div className="relative">
+                {/* Phone frame */}
+                <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
+                  <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
+                    {/* Status bar */}
+                    <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
+                      <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {/* Latest receipt, confirmed by its owner */}
+                      <div className="bg-[#ECF7E7] rounded-2xl p-4 border border-[#27BE7B]/20 animate-[pulseGlow_3s_ease-in-out_infinite]">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#27BE7B]" />
+                          <span className="text-[10px] font-semibold text-[#303568]/60 uppercase tracking-wider">{t.phone.verified}</span>
                         </div>
-                        <div className="bg-gray-50 rounded-2xl p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-semibold text-[#303568]/60">{t.phone.today}</span>
-                            <span className="text-xs font-bold text-[#27BE7B]">{t.phone.todayCount}</span>
-                          </div>
-                          <div className="space-y-2">
-                            {s.today.map((item) => (
-                              <div key={item.merchant} className="flex items-center justify-between py-1.5">
-                                <div>
-                                  <p className="text-xs font-semibold text-[#303568]">{item.merchant}</p>
-                                  <p className="text-[10px] text-[#303568]/40">{item.time}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-[#303568]">{item.amount}</span>
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-[#27BE7B]" />
-                                </div>
+                        <p className="text-sm font-bold text-[#303568]">{s.latest.merchant}</p>
+                        <p className="text-xs text-[#303568]/60 mt-1">{t.phone.latestMeta}</p>
+                        <p className="text-2xl font-extrabold text-[#27BE7B] mt-2">{s.latest.amount}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-semibold text-[#303568]/60">{t.phone.today}</span>
+                          <span className="text-xs font-bold text-[#27BE7B]">{t.phone.todayCount}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {s.today.map((item) => (
+                            <div key={item.merchant} className="flex items-center justify-between py-1.5">
+                              <div>
+                                <p className="text-xs font-semibold text-[#303568]">{item.merchant}</p>
+                                <p className="text-[10px] text-[#303568]/40">{item.time}</p>
                               </div>
-                            ))}
-                          </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#303568]">{item.amount}</span>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#27BE7B]" />
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
-                          <Camera className="w-3.5 h-3.5 mr-1.5" />
-                          {t.phone.snap}
-                        </Button>
                       </div>
+                      <Button className="w-full bg-[#27BE7B] text-white rounded-xl text-xs font-bold h-10 hover:bg-[#1fa568]">
+                        <Camera className="w-3.5 h-3.5 mr-1.5" />
+                        {t.phone.snap}
+                      </Button>
                     </div>
-                    {/* Notch */}
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#303568] rounded-b-2xl" />
                   </div>
+                  {/* Notch */}
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#303568] rounded-b-2xl" />
+                </div>
 
-                  {/* Floating receipt cards */}
-                  <div className="absolute -left-16 top-20 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-36 rotate-[-6deg] animate-[float_6s_ease-in-out_infinite]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
-                        <CheckCircle2 className="w-3 h-3 text-[#27BE7B]" />
-                      </div>
-                      <span className="text-[10px] font-bold text-[#303568]">{t.phone.verified}</span>
+                {/* Floating receipt cards */}
+                <div className="absolute -left-16 top-20 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-36 rotate-[-6deg] animate-[float_6s_ease-in-out_infinite]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
+                      <CheckCircle2 className="w-3 h-3 text-[#27BE7B]" />
                     </div>
-                    <p className="text-xs text-[#303568]/60">{s.photoCard.merchant}</p>
-                    <p className="text-sm font-extrabold text-[#303568]">{s.photoCard.amount}</p>
+                    <span className="text-[10px] font-bold text-[#303568]">{t.phone.verified}</span>
                   </div>
+                  <p className="text-xs text-[#303568]/60">{s.photoCard.merchant}</p>
+                  <p className="text-sm font-extrabold text-[#303568]">{s.photoCard.amount}</p>
+                </div>
 
-                  <div className="absolute -right-12 bottom-28 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-32 rotate-[4deg] animate-[float_5s_ease-in-out_infinite_1s]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
-                        <Mail className="w-3 h-3 text-[#27BE7B]" />
-                      </div>
-                      <span className="text-[10px] font-bold text-[#303568]">{t.phone.forwarded}</span>
+                <div className="absolute -right-12 bottom-28 bg-white rounded-xl shadow-lg shadow-black/10 p-3 w-32 rotate-[4deg] animate-[float_5s_ease-in-out_infinite_1s]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-full bg-[#27BE7B]/10 flex items-center justify-center">
+                      <Mail className="w-3 h-3 text-[#27BE7B]" />
                     </div>
-                    <p className="text-xs text-[#303568]/60">{s.emailCard.merchant}</p>
-                    <p className="text-sm font-extrabold text-[#303568]">{s.emailCard.amount}</p>
+                    <span className="text-[10px] font-bold text-[#303568]">{t.phone.forwarded}</span>
                   </div>
+                  <p className="text-xs text-[#303568]/60">{s.emailCard.merchant}</p>
+                  <p className="text-sm font-extrabold text-[#303568]">{s.emailCard.amount}</p>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -727,6 +718,18 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           </div>
         </div>
       </Section>
+
+      {/* ─── EXPLAINER VIDEO ─── (languages with their own loop) */}
+      {t.video ? (
+        <Section className="pt-4 pb-10 px-4 sm:px-6">
+          <div className="max-w-xl mx-auto text-center">
+            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.video.eyebrow}</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568] mb-4">{t.video.title}</h2>
+            <p className="text-[#303568]/50 text-lg mb-10">{t.video.lead}</p>
+            <ExplainerVideo className="border border-[#E8E5DD]" />
+          </div>
+        </Section>
+      ) : null}
 
       <ReceiptRows locale={locale} rows={RECEIPT[locale].end} />
       </div>

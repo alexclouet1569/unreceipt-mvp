@@ -176,6 +176,12 @@ export type LandingCopy = {
   about: { eyebrow: string; title: string; more: string; items: Three<Item> };
   faq: { eyebrow: string; title: string };
   badges: Four<string>;
+  /**
+   * The 20 s explainer loop near the end of the page (public/video/,
+   * built in video/ as HeroLoop). Only languages with their own loop set it;
+   * its text is burnt into the video.
+   */
+  video?: { eyebrow: string; title: string; lead: string };
   ending: Ending;
 };
 
@@ -340,6 +346,11 @@ const en: LandingCopy = {
     "PDF for Every Receipt",
     "Cancel Anytime",
   ],
+  video: {
+    eyebrow: "In 20 seconds",
+    title: "See How It Works",
+    lead: "One receipt, from your pocket to your accountant.",
+  },
   ending: {
     kind: "waitlist",
     badge: "Not in Sweden yet?",
