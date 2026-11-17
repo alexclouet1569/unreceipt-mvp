@@ -14,7 +14,7 @@ function errorText(code: string | undefined): string {
   if (code === "join_firm_first")
     return "A firm added you to its team. Open the firm portal to join it, then accept this request there.";
   if (code === "company_account")
-    return "This address already has a company account, so it can't also be an accounting firm. Ask your client to invite another email address of yours.";
+    return "This account is for a company's receipts, so it can't also be an accounting firm. Ask your client to invite another email address of yours.";
   if (!code || code === "bad_request" || code === "forbidden") return "Couldn't save. Try again.";
   return code;
 }

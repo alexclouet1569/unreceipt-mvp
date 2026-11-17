@@ -26,6 +26,7 @@ import { firmExitNotice, planFirmExit } from "@/lib/firm/account-exit";
 import { getNativeApp } from "@/lib/native-app-server";
 import { loadFirstReceiptDate } from "@/lib/receipts/first-date";
 import { findFirmForUser } from "@/lib/require-firm";
+import { checkMayJoinFirm } from "@/lib/account-roles";
 import { ForwardingUnavailable } from "../_forwarding-unavailable";
 import { MailboxesSection } from "./mailboxes/MailboxesSection";
 import { MailboxResultBanner } from "./mailboxes/MailboxResultBanner";
@@ -127,6 +128,9 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   // Owners run their team from /app/team; an approver decides there; an
   // employee sees whose team they are in.
   const employment = await getEmployment(user.id).catch(() => null);
+  // One account, one role (src/lib/account-roles.ts): a company account
+  // can only remove a firm's waiting invitation.
+  const firmCanJoin = firm?.pending ? (await checkMayJoinFirm(user.id)) !== "blocked" : true;
   const forwardingEmail = aliasHash ? buildForwardingAddress(aliasHash) : null;
   const intakeSmsNumber = process.env.NEXT_PUBLIC_INTAKE_SMS_NUMBER || null;
   // The Capacitor shell can't finish an OAuth flow (Google's screen opens
@@ -160,11 +164,17 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                   className="block text-[var(--ink)] [overflow-wrap:anywhere]"
                   style={{ fontSize: "15px", fontWeight: 600 }}
                 >
-                  {firm.pending ? `${firm.firmName} invited you` : `Open ${firm.firmName}`}
+                  {firm.pending
+                    ? firmCanJoin
+                      ? `Join ${firm.firmName}`
+                      : `${firm.firmName} invited you`
+                    : `Open ${firm.firmName}`}
                 </span>
                 <span className="block text-[var(--ink-muted)]" style={{ fontSize: "13px", lineHeight: 1.5 }}>
                   {firm.pending
-                    ? "This firm added your email to its team. This account is for your company, so firm work needs a different email address."
+                    ? firmCanJoin
+                      ? "This firm added your email to its portal. Join only if you work there."
+                      : "This account is for a company\u2019s receipts, so it can\u2019t also work for a firm. Open to remove the invitation."
                     : "Your clients\u2019 receipts, bookkeeping exports and colleagues."}
                 </span>
               </span>

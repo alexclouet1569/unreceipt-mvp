@@ -10,7 +10,7 @@ export type InviteView = {
   id: string;
   firmName: string;
   clientName: string;
-  state: "open" | "expired" | "used" | "missing" | "wrong_account";
+  state: "open" | "expired" | "used" | "missing" | "wrong_account" | "firm_account";
   // For "wrong_account": the invited address with most of it hidden.
   maskedEmail?: string;
 };
@@ -47,6 +47,14 @@ export function InviteCard({
         </Notice>
         <SignOutButton />
       </div>
+    );
+  }
+  if (invite.state === "firm_account") {
+    return (
+      <Notice title="This is an accounting firm account" home={false}>
+        This account is for an accounting firm, so it can&apos;t also have a company. Ask {invite.firmName} to
+        invite another email address of yours.
+      </Notice>
     );
   }
   if (invite.state === "used") {

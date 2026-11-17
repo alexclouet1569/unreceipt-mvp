@@ -12,7 +12,7 @@ function errorText(code: string | undefined): string {
   if (code === "unauthorized") return "You were signed out. Sign in again and try once more.";
   if (code === "wrong_account") return "This invite was sent to another address. Sign in with that address to answer it.";
   if (code === "firm_account")
-    return "This account is for an accounting firm, so it can't also keep a company's own receipts. Ask your accountant to invite another email address of yours.";
+    return "This account is for an accounting firm, so it can't also have a company. Ask your accountant to invite another email address of yours.";
   if (!code || code === "bad_request" || code === "forbidden") return "Couldn't save. Try again.";
   return code;
 }

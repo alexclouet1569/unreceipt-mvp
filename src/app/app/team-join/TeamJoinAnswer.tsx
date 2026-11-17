@@ -5,7 +5,17 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** Join / Not me for a waiting team invite (POST /api/team-join). */
-export function TeamJoinAnswer({ inviteId, companyName }: { inviteId: string; companyName: string }) {
+// An accounting-firm account can't join (`canJoin` false, one account, one
+// role): it can only remove the invitation.
+export function TeamJoinAnswer({
+  inviteId,
+  companyName,
+  canJoin = true,
+}: {
+  inviteId: string;
+  companyName: string;
+  canJoin?: boolean;
+}) {
   const [busy, setBusy] = useState<"join" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,12 +43,12 @@ export function TeamJoinAnswer({ inviteId, companyName }: { inviteId: string; co
             : body.error === "already_in_a_team"
               ? "You're already in another company's team. Ask its owner to remove you first."
               : body.error === "firm_account"
-                ? "This account is for an accounting firm, so it can't also join a company's team. Ask to be invited at another email address."
-              : body.error === "own_company"
-                ? "This is your own company: you're already its owner."
-                : body.error === "email_not_confirmed"
-                  ? "Confirm your email address first, then try again."
-                  : "Couldn't save. Try again."
+                ? "This account is for an accounting firm, so it can't also join a company. Ask to be invited at another email address of yours."
+                : body.error === "own_company"
+                  ? "This is your own company: you're already its owner."
+                  : body.error === "email_not_confirmed"
+                    ? "Confirm your email address first, then try again."
+                    : "Couldn't save. Try again."
       );
     } catch {
       setError("Couldn't save. Check your connection and try again.");
@@ -49,13 +59,15 @@ export function TeamJoinAnswer({ inviteId, companyName }: { inviteId: string; co
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" className="h-auto min-h-11 whitespace-normal text-left" onClick={() => answer("join")} disabled={busy !== null}>
-          {busy === "join" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
-          Join {companyName}
-        </Button>
+        {canJoin ? (
+          <Button type="button" className="h-auto min-h-11 whitespace-normal text-left" onClick={() => answer("join")} disabled={busy !== null}>
+            {busy === "join" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
+            Join {companyName}
+          </Button>
+        ) : null}
         <Button type="button" variant="outline" className="h-11" onClick={() => answer("decline")} disabled={busy !== null}>
           {busy === "decline" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
-          Not me
+          {canJoin ? "Not me" : "Remove invitation"}
         </Button>
       </div>
       {error ? (

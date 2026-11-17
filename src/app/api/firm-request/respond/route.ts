@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         {
           error: COMPANY_ACCOUNT,
           message:
-            "This address already has a company account, so it can't also be an accounting firm. Ask your client to invite another email address of yours.",
+            "This account is for a company's receipts, so it can't also be an accounting firm. Ask your client to invite another email address of yours.",
         },
         { status: 409 }
       );

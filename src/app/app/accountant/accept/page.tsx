@@ -6,6 +6,7 @@ import { normalizedSessionEmail } from "@/lib/email-address";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
 import type { User } from "@supabase/supabase-js";
+import { checkMayHaveCompany } from "@/lib/account-roles";
 import { InviteCard, maskEmail, type InviteView } from "./_invite-card";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ async function loadInvite(token: string | undefined, user: User): Promise<Invite
   const invitedEmail = data.invited_email as string;
   // Normalised like the stored invite address (Gmail dots, googlemail.com).
   const signedInAs = normalizedSessionEmail(user);
-  const state: InviteView["state"] =
+  let state: InviteView["state"] =
     data.status !== "invited"
       ? "used"
       : isInviteExpired(data.invite_expires_at as string | null)
@@ -35,6 +36,9 @@ async function loadInvite(token: string | undefined, user: User): Promise<Invite
         : signedInAs !== invitedEmail
           ? "wrong_account"
           : "open";
+  // One account, one role (src/lib/account-roles.ts). On a failed read the
+  // answer route checks again.
+  if (state === "open" && (await checkMayHaveCompany(user.id)) === "blocked") state = "firm_account";
   return {
     id: data.id as string,
     firmName,

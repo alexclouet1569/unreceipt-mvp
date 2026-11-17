@@ -24,10 +24,12 @@ export const COMPANY_ACCOUNT = "company_account";
 /** Error code a route answers when a firm account tries to get a company. */
 export const FIRM_ACCOUNT = "firm_account";
 
+// Every screen words the rule the same way: "This account is for …, so it
+// can't also …", then what to do, ending "another email address of yours".
 export const COMPANY_ACCOUNT_MESSAGE =
-  "This account is for a company's own receipts, so it can't also work for an accounting firm. Use a different email address for your firm work.";
+  "This account is for a company's receipts, so it can't also work for an accounting firm. Use another email address of yours for firm work.";
 export const FIRM_ACCOUNT_MESSAGE =
-  "This account is for an accounting firm, so it can't also keep a company's own receipts. Use a different email address for your company.";
+  "This account is for an accounting firm, so it can't also have a company. Use another email address of yours for your company.";
 
 async function exists(table: string, userId: string): Promise<boolean | null> {
   const { count, error } = await getSupabaseAdmin()

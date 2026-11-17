@@ -25,13 +25,21 @@ function Title({ children, focusRef }: { children: React.ReactNode; focusRef?: R
   );
 }
 
-function Notice({ title, children }: { title: string; children: React.ReactNode }) {
+function Notice({
+  title,
+  children,
+  back = { href: "/app", label: "Go to your receipts" },
+}: {
+  title: string;
+  children: React.ReactNode;
+  back?: { href: string; label: string };
+}) {
   return (
     <div className="space-y-2">
       <Title>{title}</Title>
       <p className="type-body text-[var(--ink-muted)]">{children}</p>
-      <Link href="/app" className="inline-flex min-h-11 items-center type-body text-[var(--ink)] underline">
-        Go to your receipts
+      <Link href={back.href} className="inline-flex min-h-11 items-center type-body text-[var(--ink)] underline">
+        {back.label}
       </Link>
     </div>
   );
@@ -133,9 +141,9 @@ export function ConnectCard({
   }
   if (state.kind === "firm_account") {
     return (
-      <Notice title="This is an accounting firm account">
-        It can&apos;t also share a company&apos;s receipts. Sign in with your company&apos;s email address, then open{" "}
-        {firmName}&apos;s link again.
+      <Notice title="This is an accounting firm account" back={{ href: "/firm", label: "Go to your clients" }}>
+        This account is for an accounting firm, so it can&apos;t also have a company. Sign in with another email
+        address of yours, then open {firmName}&apos;s link again.
       </Notice>
     );
   }

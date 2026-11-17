@@ -31,7 +31,7 @@ const REFUSALS = {
   firm_account: {
     status: 409,
     message:
-      "This account is for an accounting firm, so it can't also share a company's receipts. Sign in with your company's email address.",
+      "This account is for an accounting firm, so it can't also have a company. Sign in with another email address of yours.",
   },
   already: { status: 409, message: "Your company already shares its receipts with this firm." },
   other_firm: {

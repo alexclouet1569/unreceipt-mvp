@@ -9,6 +9,7 @@ import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm
 import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { maskEmail } from "@/app/app/accountant/accept/_invite-card";
+import { checkMayJoinFirm } from "@/lib/account-roles";
 import { RequestAnswer } from "./RequestAnswer";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ type View =
   | { state: "missing" | "expired" | "used" }
   | { state: "wrong_account"; masked: string }
   | { state: "join_firm"; clientName: string; firmName: string }
+  | { state: "company_account"; clientName: string }
   | { state: "open"; id: string; clientName: string; firmName: string | null };
 
 async function load(token: string | undefined, user: User): Promise<View> {
@@ -45,6 +47,11 @@ async function load(token: string | undefined, user: User): Promise<View> {
   if (!membership) {
     const seat = await findPendingFirmSeat(user);
     if (seat) return { state: "join_firm", clientName: data.client_name as string, firmName: seat.firmName };
+    // One account, one role (src/lib/account-roles.ts). On a failed read the
+    // answer route checks again.
+    if ((await checkMayJoinFirm(user.id)) === "blocked") {
+      return { state: "company_account", clientName: data.client_name as string };
+    }
   }
   return {
     state: "open",
@@ -98,6 +105,19 @@ export default async function FirmRequestPage({
         </p>
         <Link href="/firm" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={P}>
           Open the firm portal
+        </Link>
+      </div>
+    );
+  } else if (view.state === "company_account") {
+    body = (
+      <div className="space-y-3">
+        <h1 className="type-display-lg text-[var(--ink)]">{view.clientName} wants to share their receipts with you</h1>
+        <p className="type-body text-[var(--ink-muted)]">
+          This account is for a company&apos;s receipts, so it can&apos;t also be an accounting firm. Ask{" "}
+          {view.clientName} to invite another email address of yours.
+        </p>
+        <Link href="/app" className="inline-flex min-h-11 items-center type-body text-[var(--ink)] underline">
+          Go to your receipts
         </Link>
       </div>
     );
