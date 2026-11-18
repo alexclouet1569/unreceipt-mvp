@@ -248,6 +248,10 @@ Rules:
 
 Sentry (`@sentry/nextjs`) loads from `src/instrumentation.ts` (server/edge) and `src/instrumentation-client.ts` (browser), with options in `src/lib/sentry-options.ts`. It is a no-op unless `NEXT_PUBLIC_SENTRY_DSN` is set. Events are scrubbed of request bodies, cookies, headers, query strings and user details; session replay is off because it would record receipt contents. Report unexpected failures with `Sentry.captureException(err, { tags: { area } })` next to the `console.error`, and never put receipt contents, emails or names in `extra`. Every failed `sendEmail()` (`src/lib/email/send.ts`: rejected, unreachable, or `RESEND_API_KEY` missing) is reported with `captureMessage` and tags `area: "email"`, `tag` (the flow) and `reason`, plus Resend's status code; never the recipient, subject, body or Resend's reply. A cron route whose job didn't do its work answers 500 so Vercel shows the run as failed (`/api/cron/signup-digest` when the digest wasn't sent).
 
+# CI checks
+
+`.github/workflows/checks.yml` has two independent jobs, so a red audit never hides the others: `checks` (tsc, lint, unit tests) and `audit` (`node scripts/audit-prod.mjs`: `npm audit --omit=dev`, fails on high/critical). A high advisory with no fix can be accepted only in `scripts/audit-allowlist.mjs`: one GHSA id, the exact install paths where it is today (anywhere else fails), a reason, and an `until` at most 45 days after `added` (tested); on that date CI fails again. A real upgrade always comes first. Current entry: picomatch GHSA-fc5q-39xc-vjpf (no patched release; through `@sentry/nextjs`'s pinned `@rollup/plugin-commonjs` and the `vite` optional peer), re-check by 2026-12-18. `vite` is a direct devDependency only to keep vitest's copy past its own advisories.
+
 # Review agents
 
 `.claude/agents/` holds three read-only reviewers. Run the matching one on a diff before committing:

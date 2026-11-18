@@ -22,7 +22,7 @@
     "@capacitor/splash-screen": "8.0.2",
     "@napi-rs/canvas": "1.1.1",
     "@react-pdf/renderer": "^4.5.1",
-    "@sentry/nextjs": "^11.7.0",
+    "@sentry/nextjs": "^11.14.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.101.1",
     "@vercel/analytics": "^2.0.1",
@@ -61,6 +61,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
+    "vite": "^8.3.8",
     "vitest": "^4.1.5"
   }
 }
