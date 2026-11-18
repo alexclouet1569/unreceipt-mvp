@@ -15,9 +15,10 @@ export type SiteCopy = {
     pricing: string;
     accountants: string;
     freelancers: string;
+    smallBusiness: string;
+    bookDemo: string;
     faq: string;
     about: string;
-    demo: string;
     signIn: string;
     ctaPilot: string;
     ctaPaid: string;
@@ -26,8 +27,8 @@ export type SiteCopy = {
   };
   /**
    * The tabs at the top of the hero on the home and audience pages, and the
- * list in the mobile menu: small
-   * businesses (the home page), freelancers, accounting firms, in that order.
+   * list in the mobile menu: small businesses, freelancers, accounting firms,
+   * in that order.
    */
   audiences: {
     label: string;
@@ -36,13 +37,14 @@ export type SiteCopy = {
   footer: {
     tagline: string;
     product: string;
-    demo: string;
     faq: string;
     whoFor: string;
     smallBusiness: string;
     guides: string;
+    allGuides: string;
     guideRetention: string;
     guidePaper: string | null;
+    guideOutlays: string | null;
     company: string;
     about: string;
     contact: string;
@@ -60,9 +62,10 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Pricing",
       accountants: "For accountants",
       freelancers: "For freelancers",
+      smallBusiness: "For small businesses",
+      bookDemo: "Book a demo",
       faq: "FAQ",
       about: "About",
-      demo: "See the demo",
       signIn: "Sign in",
       ctaPilot: "Get started free",
       ctaPaid: "Start free",
@@ -81,13 +84,14 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       tagline:
         "VAT-ready receipts for small businesses, freelancers and their accountants. Paper is Past.",
       product: "Product",
-      demo: "Live demo",
       faq: "FAQ",
       whoFor: "Who it's for",
       smallBusiness: "Small businesses",
       guides: "Guides",
+      allGuides: "All guides",
       guideRetention: "How long to keep receipts",
       guidePaper: null,
+      guideOutlays: null,
       company: "Company",
       about: "About UnReceipt",
       contact: "Contact",
@@ -101,11 +105,12 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       home: "Start",
       how: "Så funkar det",
       pricing: "Priser",
-      accountants: "För redovisningsbyråer",
-      freelancers: "För enskild firma",
+      accountants: "Redovisningsbyråer",
+      freelancers: "Enskild firma",
+      smallBusiness: "Småföretag",
+      bookDemo: "Boka demo",
       faq: "Vanliga frågor",
       about: "Om oss",
-      demo: "Se demon",
       signIn: "Logga in",
       ctaPilot: "Kom igång gratis",
       ctaPaid: "Kom igång gratis",
@@ -124,13 +129,14 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       tagline:
         "Kvitton med momsen klar för småföretag, enskilda firmor och deras redovisningsbyråer. Paper is Past.",
       product: "Produkt",
-      demo: "Demo",
       faq: "Vanliga frågor",
       whoFor: "För vem",
       smallBusiness: "Småföretag",
       guides: "Guider",
+      allGuides: "Alla guider",
       guideRetention: "Hur länge ska man spara kvitton?",
       guidePaper: "Får man slänga papperskvitton?",
+      guideOutlays: "Utlägg för anställda",
       company: "Om oss",
       about: "Om UnReceipt",
       contact: "Kontakt",
@@ -146,9 +152,10 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       pricing: "Tarifs",
       accountants: "Experts-comptables",
       freelancers: "Indépendants",
+      smallBusiness: "TPE",
+      bookDemo: "Demander une démo",
       faq: "FAQ",
       about: "À propos",
-      demo: "Voir la démo",
       signIn: "Se connecter",
       ctaPilot: "Commencer",
       ctaPaid: "Essai gratuit",
@@ -167,13 +174,14 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       tagline:
         "Des justificatifs avec la TVA relevée pour les TPE, les indépendants et leurs experts-comptables. Le papier, c’est du passé.",
       product: "Produit",
-      demo: "Démo",
       faq: "FAQ",
       whoFor: "Pour qui",
       smallBusiness: "TPE",
       guides: "Guides",
+      allGuides: "Tous les guides",
       guideRetention: "Durée de conservation des justificatifs",
       guidePaper: "Peut-on jeter les tickets de caisse ?",
+      guideOutlays: null,
       company: "Entreprise",
       about: "À propos",
       contact: "Contact",

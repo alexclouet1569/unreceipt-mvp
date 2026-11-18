@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, Download, Link2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { RecommendText } from "@/lib/firm/recommend";
 
 // "Your firm's link" on /firm/clients (src/lib/firm/join-link.ts): the link
 // and its QR code to put on the firm's website, email signature or
@@ -19,6 +20,8 @@ export type JoinLinkView = {
   /** An admin turned the link off. */
   off: boolean;
   isAdmin: boolean;
+  /** The ready Swedish email for clients (src/lib/firm/recommend.ts); null without a link. */
+  recommend?: RecommendText | null;
 };
 
 export function JoinLinkPanel({ link }: { link: JoinLinkView }) {

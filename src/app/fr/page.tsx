@@ -8,11 +8,9 @@ import {
   landingJsonLd,
   marketingMetadata,
 } from "@/lib/seo";
-import { HtmlLang } from "../_html-lang";
-import { LandingPage } from "../_landing";
+import { LandingPage } from "@/app/_landing-page";
 
 // French landing page. Same layout as `/`, French copy, prices in EUR.
-export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = marketingMetadata({
   page: "home",
@@ -41,7 +39,6 @@ export default function Page() {
         // Same structured data as `/`, in French.
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(landingJsonLd(pilotMode, "fr")) }}
       />
-      <HtmlLang lang="fr" />
       <LandingPage pilotMode={pilotMode} locale="fr" />
     </>
   );

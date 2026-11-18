@@ -2,7 +2,8 @@
 // Naver), so new and changed marketing pages are recrawled within hours.
 // Bing's index feeds ChatGPT search and Copilot.
 //
-// Run after a production deploy that changed marketing pages:
+// Runs by itself after a production deploy that changed the marketing site
+// (.github/workflows/indexnow.yml). By hand:
 //   node scripts/indexnow.mjs
 // Optional: node scripts/indexnow.mjs https://unreceipt.com/accountants ...
 // to submit only some URLs.

@@ -6,6 +6,10 @@
 // back to paid by unsetting the env var (or setting it to "false") and
 // redeploying.
 //
+// The marketing pages, /llms.txt and /llms-full.txt are prerendered, so
+// they read this when the deployment is built: a change takes effect with
+// the redeploy that every env var change on Vercel needs anyway.
+//
 // Strict string compare — anything except literal "true" is paid mode,
 // so a typo or empty value defaults safely to charging customers.
 

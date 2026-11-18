@@ -15,6 +15,7 @@ import { dayLabel, receiptDay } from "@/lib/bank/month";
 import { formatAmount } from "@/lib/receipt-format";
 import { sendEmail } from "@/lib/email/send";
 import { weeklyReminderEmail } from "@/lib/email/templates";
+import { emailSiteLocale } from "@/lib/email/site-link";
 import { absoluteAppUrl } from "@/lib/app-url";
 import { collectClientNeeds } from "./weekly";
 
@@ -25,6 +26,8 @@ export type ReminderNowResult =
 export async function sendReminderNow(opts: {
   firmId: string;
   firmName: string;
+  /** The firm's country: which site the email's footer links to. */
+  firmCountry?: string | null;
   firmClientId: string;
   organizationId: string;
   clientName: string;
@@ -61,6 +64,8 @@ export async function sendReminderNow(opts: {
   if (ownersError) throw new Error(`owners unreadable (${ownersError.code})`);
 
   const content = weeklyReminderEmail({
+    campaign: "manual_reminder",
+    site: emailSiteLocale({ country: opts.firmCountry ?? null }),
     firmName: opts.firmName,
     clientName: opts.clientName,
     payments: needs.payments.map((l) => ({

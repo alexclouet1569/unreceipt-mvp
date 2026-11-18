@@ -16,7 +16,8 @@
 //      requireAdmin() inside each admin server action / route handler
 //      is the real authorization (plan decision A2 — defense in depth);
 //      the proxy keeps non-admins from even reaching those routes.
-//   3. Supabase session refresh on every non-static request (below).
+//   3. Supabase session refresh on every non-static request outside the
+//      apex (below).
 //
 // Local dev (host = localhost / 127.* / a vercel.app preview) is
 // neither apex nor app, so the host-routing redirects no-op and both
@@ -27,7 +28,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { isAdminEmail } from "@/lib/auth-admin";
 import { INDEXNOW_KEY } from "@/lib/indexnow";
-import { MARKETING_PATHS } from "@/lib/marketing-pages";
+import { MARKETING_PATHS, demoRequestPath } from "@/lib/marketing-pages";
 
 const APEX_HOSTS = new Set(["unreceipt.com", "www.unreceipt.com"]);
 const APP_HOST = "app.unreceipt.com";
@@ -37,7 +38,7 @@ const APP_HOST = "app.unreceipt.com";
 // wherever the request landed. Every marketing page (landing pages,
 // audience pages, guides) comes from MARKETING_PAGES.
 const APEX_ONLY_EXACT = new Set([...MARKETING_PATHS, "/privacy"]);
-const APEX_ONLY_PREFIX = ["/api/waitlist"];
+const APEX_ONLY_PREFIX = ["/api/waitlist", "/api/demo-request"];
 
 // Paths that belong on the product host: checkout, auth callback, admin and
 // the firm portal, so signups, payments, magic links and operator tools all
@@ -91,6 +92,8 @@ const STATIC_EXT_RE = /\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?|css|js|map)$/i;
 
 function isStaticAsset(path: string): boolean {
   if (path.startsWith("/_next") || path.startsWith("/icons")) return true;
+  // Share images of the marketing pages, drawn at build time.
+  if (path.startsWith("/og/")) return true;
   // Public, CDN-cached store logos: no session to refresh, and a list of
   // receipts would otherwise cost one auth round-trip per logo.
   if (path.startsWith("/api/merchant-logo/")) return true;
@@ -132,6 +135,18 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // The interactive demo tour (/demo, /demo/*) is closed to the public
+  // (founder decision 2026-11-18: visitors book a demo and leave their
+  // email instead). Everyone is sent to the demo request page in their
+  // browser's language: 307, because the tour may come back. Local dev
+  // keeps it, because docs/onboarding/scripts/capture.mjs takes the guides'
+  // screenshots from it.
+  if ((path === "/demo" || path.startsWith("/demo/")) && !isLocalDev(host)) {
+    const target = demoRequestPath(demoLocaleFor(request.headers.get("accept-language")));
+    const origin = onApex || onApp ? `https://${[...APEX_HOSTS][0]}` : request.nextUrl.origin;
+    return NextResponse.redirect(new URL(target, origin), 307);
+  }
+
   // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
   // Official Supabase + Next.js App Router pattern: read the auth cookies
   // off the request, call getUser() (which silently rotates an expiring
@@ -147,11 +162,17 @@ export async function proxy(request: NextRequest) {
   // Skipped for /admin + /api/admin: adminGate() already runs getUser() and
   // forwards refreshed cookies the same way, so refreshing here too would
   // be a redundant second token rotation on the same request.
+  //
+  // Skipped on the apex (unreceipt.com) too: nobody signs in there (/app,
+  // /auth and every other product path leave for the app host), so a
+  // refresh only costs a Supabase round-trip, and the no-cache headers it
+  // adds when it rotates a cookie would stop the prerendered marketing
+  // pages from being cached. Local dev and previews serve the product from
+  // the same origin, so they keep refreshing on every path.
   const isAdminPath =
     path.startsWith("/admin") || path.startsWith("/api/admin");
-  const refreshed = isAdminPath
-    ? NO_REFRESH
-    : await refreshSession(request);
+  const refreshed =
+    isAdminPath || onApex ? NO_REFRESH : await refreshSession(request);
   const withRefreshedCookies = (res: NextResponse): NextResponse =>
     applyRefresh(res, refreshed);
   // ─── END session refresh ───
@@ -302,3 +323,16 @@ function forbid(request: NextRequest, isApiPath: boolean) {
 // written literally in `src/proxy.ts`, so that file repeats this string; a
 // test keeps the two equal.
 export const HOST_PROXY_MATCHER = "/((?!_next/static|_next/image|favicon.ico).*)";
+
+/** localhost and 127.* (not previews, which anyone with the link can open). */
+function isLocalDev(host: string): boolean {
+  return host.startsWith("localhost") || host.startsWith("127.");
+}
+
+/** The demo request page's language for a browser: Swedish, French, else English. */
+export function demoLocaleFor(acceptLanguage: string | null): "sv" | "fr" | "en" {
+  const first = (acceptLanguage ?? "").split(",")[0]?.trim().toLowerCase() ?? "";
+  if (first.startsWith("sv")) return "sv";
+  if (first.startsWith("fr")) return "fr";
+  return "en";
+}

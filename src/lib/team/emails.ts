@@ -8,11 +8,20 @@ import { getSupabaseAdmin } from "../supabase-admin";
 import { sendEmail, founderReplyTo } from "../email/send";
 import { approvalDecisionEmail, approvalRequestEmail, teamInviteEmail } from "../email/templates";
 import { absoluteAppUrl, iosAppUrl } from "../app-url";
+import { emailSiteLocale } from "../email/site-link";
+import { chosenCountry } from "../country";
 import { canDecide, type TeamMember } from "./rules";
 
-export async function sendTeamInvite(opts: { to: string; companyName: string; inviterName: string }): Promise<boolean> {
+export async function sendTeamInvite(opts: {
+  to: string;
+  companyName: string;
+  inviterName: string;
+  /** The company's country: which site the footer links to. */
+  country?: string | null;
+}): Promise<boolean> {
   try {
     const content = teamInviteEmail({
+      site: emailSiteLocale({ country: opts.country ?? null, email: opts.to }),
       companyName: opts.companyName,
       inviterName: opts.inviterName,
       url: absoluteAppUrl("/app/team-join"),
@@ -52,7 +61,11 @@ export async function notifyApprovers(opts: {
       const { data } = await db.auth.admin.getUserById(approverId);
       const to = data?.user?.email;
       if (!to || !data?.user?.email_confirmed_at) continue;
-      const content = approvalRequestEmail({ employee: opts.employee, url: absoluteAppUrl("/app/team") });
+      const content = approvalRequestEmail({
+        employee: opts.employee,
+        url: absoluteAppUrl("/app/team"),
+        site: emailSiteLocale({ country: chosenCountry(data.user), email: to }),
+      });
       await sendEmail({ to, ...content, tag: "approval_request" });
     } catch (err) {
       console.error("[team] approver email failed", err instanceof Error ? err.message : "unknown");
@@ -72,6 +85,7 @@ export async function notifyDecision(opts: {
     const to = data?.user?.email;
     if (!to || !data?.user?.email_confirmed_at) return;
     const content = approvalDecisionEmail({
+      site: emailSiteLocale({ country: chosenCountry(data.user), email: to }),
       decision: opts.decision,
       merchant: opts.merchant,
       comment: opts.comment,

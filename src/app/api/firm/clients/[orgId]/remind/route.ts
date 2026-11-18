@@ -51,6 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const result = await sendReminderNow({
       firmId: ctx.firmId,
       firmName: ctx.firmName,
+      firmCountry: ctx.firmCountry ?? null,
       firmClientId: access.firmClientId,
       organizationId: access.organizationId,
       clientName: access.clientName,

@@ -14,6 +14,7 @@ import { getOrCreateDefaultOrganization } from "@/lib/organizations";
 import { chosenCountry } from "@/lib/country";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
+import { emailSiteLocale } from "@/lib/email/site-link";
 import { sendEmail, founderReplyTo } from "@/lib/email/send";
 import { clientRequestEmail } from "@/lib/email/templates";
 import { absoluteAppUrl } from "@/lib/app-url";
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   const db = getSupabaseAdmin();
   const [{ data: org }, { data: active, error: activeError }] = await Promise.all([
-    db.from("organizations").select("name, org_number").eq("id", organizationId).maybeSingle(),
+    db.from("organizations").select("name, org_number, country").eq("id", organizationId).maybeSingle(),
     db.from("firm_clients").select("id").eq("organization_id", organizationId).eq("status", "active").maybeSingle(),
   ]);
   if (activeError) {
@@ -112,7 +113,12 @@ export async function POST(request: NextRequest) {
 
   const sent = await sendEmail({
     to: email,
-    ...clientRequestEmail({ clientName, url: absoluteAppUrl(requestAcceptPath(token)) }),
+    ...clientRequestEmail({
+      clientName,
+      url: absoluteAppUrl(requestAcceptPath(token)),
+      // The accountant has no account yet: the client company's country.
+      site: emailSiteLocale({ country: (org?.country as string | undefined) ?? chosenCountry(user), email }),
+    }),
     replyTo: founderReplyTo(),
     tag: "client_request",
   });

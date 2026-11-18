@@ -7,6 +7,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { defaultCurrencyFor, guessCountry, SIGNUP_COUNTRIES } from "@/lib/country";
 import { cn } from "@/lib/utils";
+import type { SignupSource } from "@/lib/attribution";
 import {
   CODE_LENGTH,
   callAuth,
@@ -59,6 +60,13 @@ type AuthCardProps = {
    * form and the code. Default /app.
    */
   next?: string;
+  /**
+   * Where the visitor came from (campaign tags, referring site, first page),
+   * from this page's URL, already checked by sanitizeSignupSource(). Saved
+   * on a new account only (user_metadata.signup_source), never changed on an
+   * existing one: src/lib/attribution.ts.
+   */
+  signupSource?: SignupSource | null;
 };
 
 // existingAccount: a sign-up for an address that already has an account.
@@ -72,7 +80,15 @@ type EntryFocus = "first" | "email" | null;
 type SignUpDetails = { fullName: string; companyName: string; country: string; password: string };
 const OTHER_COUNTRY = "other";
 
-export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = false, next = "/app" }: AuthCardProps) {
+export function AuthCard({
+  initialMode,
+  pilot,
+  linkError,
+  notice,
+  inStoreApp = false,
+  next = "/app",
+  signupSource = null,
+}: AuthCardProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showLinkError, setShowLinkError] = useState(linkError);
   // Where focus goes when a form appears: its first field on page load, the
@@ -191,6 +207,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                     setEmail={setEmail}
                     entryFocus={entryFocus}
                     next={next}
+                    signupSource={signupSource}
                     onCodeSent={(e) => setPendingCode({ email: e, purpose: "signin" })}
                   />
                 ) : (
@@ -202,8 +219,14 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
                     setDetails={setDetails}
                     entryFocus={entryFocus}
                     next={next}
+                    signupSource={signupSource}
                     onCodeSent={(e, existingAccount) => setPendingCode({ email: e, purpose: "signup", existingAccount })}
-                    onSignIn={() => switchMode("signin")}
+                    onSignIn={() => {
+                      // The pressed link goes away with the form: focus the
+                      // sign-in email (already filled in) instead of <body>.
+                      switchMode("signin");
+                      setEntryFocus("email");
+                    }}
                   />
                 )}
               </div>
@@ -361,12 +384,14 @@ function SignInPanel({
   entryFocus,
   onCodeSent,
   next,
+  signupSource,
 }: {
   email: string;
   setEmail: (v: string) => void;
   entryFocus: EntryFocus;
   onCodeSent: (email: string) => void;
   next: string;
+  signupSource: SignupSource | null;
 }) {
   const ids = useId();
   const [view, setView] = useState<"password" | "code">("password");
@@ -422,7 +447,10 @@ function SignInPanel({
     const { error } = await callAuth("signInWithOtp", () =>
       getSupabaseClient().auth.signInWithOtp({
         email: parsed.data,
-        options: { emailRedirectTo: callbackUrl(next) },
+        // A code sign-in creates the account when the address has none:
+        // Supabase saves `data` only then, so an existing account keeps
+        // its first source.
+        options: { emailRedirectTo: callbackUrl(next), ...(signupSource ? { data: { signup_source: signupSource } } : {}) },
       })
     );
     setSubmit("idle");
@@ -565,6 +593,7 @@ function SignUpPanel({
   onCodeSent,
   onSignIn,
   next,
+  signupSource,
 }: {
   email: string;
   setEmail: (v: string) => void;
@@ -574,6 +603,7 @@ function SignUpPanel({
   onCodeSent: (email: string, existingAccount?: boolean) => void;
   onSignIn: () => void;
   next: string;
+  signupSource: SignupSource | null;
 }) {
   const ids = useId();
   const { fullName, companyName, country, password } = details;
@@ -646,6 +676,9 @@ function SignUpPanel({
             company_name: parsed.data.company_name || null,
             // The business's country and so its currency (loadHome()).
             country: parsed.data.country === OTHER_COUNTRY ? null : parsed.data.country,
+            // Where the visitor came from (src/lib/attribution.ts), for the
+            // founder's signup digest. Copied once to profiles.signup_source.
+            ...(signupSource ? { signup_source: signupSource } : {}),
           },
         },
       });
@@ -845,6 +878,13 @@ function SignUpPanel({
         <SubmitButton state={submit} loadingLabel="Creating your account…" doneLabel="Account created">
           Create account
         </SubmitButton>
+        {/* Invite and join links open here (Create account) for people
+            who most likely have no account; anyone who has one switches. */}
+        {alreadyRegistered ? null : (
+          <div className="flex justify-center -mt-2">
+            <TextLink onClick={onSignIn}>I already have an account</TextLink>
+          </div>
+        )}
         <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] text-center">
           We&apos;ll email you a code to confirm it&apos;s you. How we handle
           your data:{" "}

@@ -108,7 +108,6 @@ export type LandingCopy = {
     lead: string;
     ctaPilot: string;
     ctaPaid: string;
-    secondary: string;
     /** `{price}` is replaced with the cheapest plan's price. */
     notePilot: string;
     notePaid: string;
@@ -182,7 +181,6 @@ const en: LandingCopy = {
     lead: "Built for small businesses and freelancers who hate chasing receipts — and for the accountants who chase them. Snap a receipt and AI reads it in seconds; email receipts arrive on their own. You check, confirm, and the VAT is ready.",
     ctaPilot: "Get started free",
     ctaPaid: "Start your free week",
-    secondary: "See the demo",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
     notePilotNoPrice: "Free during the pilot. No card needed.",
@@ -303,7 +301,7 @@ const en: LandingCopy = {
     items: [
       {
         title: "Small Businesses",
-        desc: "Forward email receipts and snap paper ones. Whoever does the books finds them in one place, with merchant, category and VAT ready.",
+        desc: "Forward email receipts and snap paper ones. Employees send theirs for your approval, and whoever does the books finds them in one place, with merchant, category and VAT ready.",
       },
       {
         title: "Freelancers & Sole Traders",
@@ -351,7 +349,6 @@ const sv: LandingCopy = {
     lead: "Byggt för småföretag och enskilda firmor som är trötta på att jaga kvitton — och för redovisningsbyråerna som jagar dem. Fota kvittot så läser AI av det på några sekunder, och e-postkvittona kommer av sig själva. Du bekräftar, och momsen är klar.",
     ctaPilot: "Kom igång gratis",
     ctaPaid: "Prova gratis i en vecka",
-    secondary: "Se demon",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
     notePilotNoPrice: "Gratis under piloten. Inget kort behövs.",
@@ -475,7 +472,7 @@ const sv: LandingCopy = {
     items: [
       {
         title: "Småföretag",
-        desc: "Vidarebefordra e-postkvitton och fota papperskvitton. Den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
+        desc: "Vidarebefordra e-postkvitton och fota papperskvitton. De anställda skickar sina för ditt godkännande, och den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
       },
       {
         title: "Enskild firma och frilansare",
@@ -512,7 +509,6 @@ const fr: LandingCopy = {
     lead: "Conçu pour les TPE et les indépendants qui en ont assez de courir après les justificatifs — et pour les experts-comptables qui les réclament. Photographiez un ticket, l’IA le lit en quelques secondes\u00a0; vos reçus par e-mail arrivent tout seuls. Vous confirmez, la TVA est relevée.",
     ctaPilot: "Commencer gratuitement",
     ctaPaid: "Essayer gratuitement une semaine",
-    secondary: "Voir la démo",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price}\u00a0HT par mois.",
     notePaid: "À partir de {price}\u00a0HT par mois après la semaine gratuite. Sans engagement.",
     notePilotNoPrice: "Gratuit pendant la phase pilote. Sans carte bancaire.",
@@ -636,7 +632,7 @@ const fr: LandingCopy = {
     items: [
       {
         title: "TPE",
-        desc: "Transférez vos reçus par e-mail, photographiez vos tickets. Celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
+        desc: "Transférez vos reçus par e-mail, photographiez vos tickets. Vos salariés envoient les leurs pour validation, et celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
       },
       {
         title: "Indépendants",
@@ -666,9 +662,4 @@ const fr: LandingCopy = {
 
 export const LANDING_COPY: Record<Locale, LandingCopy> = { en, sv, fr };
 
-/** Fills `{name}` placeholders in a copy string. */
-export function fill(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
-    key in values ? String(values[key]) : match
-  );
-}
+export { fill } from "@/lib/fill";

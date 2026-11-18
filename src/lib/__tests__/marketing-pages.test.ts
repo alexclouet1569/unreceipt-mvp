@@ -12,14 +12,27 @@ import {
   pageLanguages,
   type MarketingPageId,
 } from "@/lib/marketing-pages";
-import { absoluteUrl, audienceJsonLd, guideJsonLd, jsonLdHtml, marketingMetadata } from "@/lib/seo";
+import { GUIDES_INDEX, guidesFor } from "@/lib/guides";
+import { SHARE_CARDS } from "@/app/og/_cards";
+import {
+  SAME_AS,
+  absoluteUrl,
+  audienceJsonLd,
+  guideJsonLd,
+  guidesIndexJsonLd,
+  jsonLdHtml,
+  marketingMetadata,
+  organizationNode,
+} from "@/lib/seo";
 
 const ids = Object.keys(MARKETING_PAGES) as MarketingPageId[];
 
 describe("marketing page registry", () => {
   it("has a page file for every registered path", () => {
     for (const path of MARKETING_PATHS) {
-      const file = join(process.cwd(), "src/app", path === "/" ? "" : path, "page.tsx");
+      // English pages live in the (en) route group (their own root layout).
+      const dir = /^\/(sv|fr)(\/|$)/.test(path) ? "src/app" : "src/app/(en)";
+      const file = join(process.cwd(), dir, path === "/" ? "" : path, "page.tsx");
       expect(existsSync(file), `${path} → ${file}`).toBe(true);
     }
   });
@@ -81,7 +94,7 @@ describe("marketingMetadata", () => {
         const meta = marketingMetadata({ page: id, locale, title: "T", description: "D" });
         expect(meta.alternates?.canonical).toBe(MARKETING_PAGES[id].paths[locale]);
         const images = (meta.openGraph as { images: { url: string }[] }).images;
-        expect(images[0].url).toBe("/opengraph-image");
+        expect(images[0].url).toBe(`/og/${id}-${locale}.png`);
         expect(meta.title).toEqual({ absolute: "T" });
       }
     }
@@ -89,7 +102,7 @@ describe("marketingMetadata", () => {
 });
 
 describe("audience pages", () => {
-  const audiences: AudienceId[] = ["accountants", "freelancers"];
+  const audiences: AudienceId[] = ["accountants", "freelancers", "smallBusiness"];
 
   it("mirrors the visible FAQ in the FAQPage structured data", () => {
     for (const audience of audiences) {
@@ -136,9 +149,27 @@ describe("audience pages", () => {
   });
 });
 
+describe("small business page", () => {
+  it("states the team feature's limits in every language", () => {
+    // AGENTS.md "Company team and approvals": no payout or payroll file, and
+    // an employee who deletes their account takes their receipts with them.
+    for (const locale of LOCALES) {
+      const faq = AUDIENCE_COPY.smallBusiness[locale].faq.map((i) => i.a).join(" ");
+      expect(faq, locale).toMatch(/Fortnox|Pennylane/);
+      expect(faq, locale).toMatch(/payroll|lönesystem|paie/);
+      expect(faq, locale).toMatch(/deletes their own|raderar sitt eget|supprime son propre/);
+    }
+  });
+
+  it("is linked from every language's about card and footer", async () => {
+    const { SITE_COPY } = await import("@/app/_site-copy");
+    for (const locale of LOCALES) expect(SITE_COPY[locale].nav.smallBusiness.length).toBeGreaterThan(0);
+  });
+});
+
 describe("guides", () => {
   it("exists for every registered guide path, once", () => {
-    for (const id of ["guideRetention", "guidePaper"] as const) {
+    for (const id of ["guideRetention", "guidePaper", "guideOutlays"] as const) {
       for (const locale of Object.keys(MARKETING_PAGES[id].paths)) {
         expect(GUIDES.filter((g) => g.page === id && g.locale === locale)).toHaveLength(1);
       }
@@ -185,6 +216,92 @@ describe("guides", () => {
     expect(paperSv.answer).toMatch(/^Ja/);
     expect(paperSv.sections.map((s) => s.body.join(" ")).join(" ")).toContain("Skatteverket");
   });
+  it("keeps the outlays guide honest about what UnReceipt doesn't do", () => {
+    // Founder decision 2026-11-17: the limits stay on the page (AGENTS.md
+    // "Company team": no payout or payroll file; an employee's receipts go
+    // with their account).
+    const outlays = GUIDES.find((g) => g.page === "guideOutlays" && g.locale === "sv")!;
+    const text = outlays.sections.flatMap((s) => [...s.body, ...(s.list ?? [])]).join(" ");
+    expect(text).toContain("lönefil");
+    expect(text).toContain("Raderar en anställd sitt konto");
+    // Its second button asks for a demo (every guide's does since the tour
+    // closed, 2026-11-18).
+    expect(outlays.cta.secondaryLabel).toMatch(/demo/i);
+  });
+});
+
+describe("guides index", () => {
+  it("exists in every language that has a guide, and lists only that language's guides", () => {
+    for (const locale of LOCALES) {
+      const own = GUIDES.filter((g) => g.locale === locale);
+      if (own.length === 0) continue;
+      expect(MARKETING_PAGES.guides.paths[locale], locale).toBeDefined();
+      expect(guidesFor(locale)).toHaveLength(own.length);
+      const graph = guidesIndexJsonLd(locale)["@graph"];
+      const page = graph.find((n) => n["@type"] === "CollectionPage") as {
+        mainEntity: { itemListElement: { url: string }[] };
+      };
+      expect(page.mainEntity.itemListElement.map((i) => i.url).sort()).toEqual(
+        own.map((g) => absoluteUrl(MARKETING_PAGES[g.page].paths[locale]!)).sort()
+      );
+    }
+    expect(MARKETING_PAGES.guides.paths.sv).toBe("/sv/guider");
+  });
+
+  it("puts the index between home and every guide in the breadcrumbs", () => {
+    for (const g of GUIDES) {
+      const graph = guideJsonLd({
+        page: g.page,
+        locale: g.locale,
+        headline: g.title,
+        description: g.description,
+        breadcrumb: g.breadcrumb,
+        published: g.published,
+        updated: g.updated,
+        faq: g.faq,
+      })["@graph"];
+      const crumbs = graph.find((n) => n["@type"] === "BreadcrumbList") as {
+        itemListElement: { name: string; item: string }[];
+      };
+      expect(crumbs.itemListElement.map((i) => i.name)).toEqual([
+        "UnReceipt",
+        GUIDES_INDEX[g.locale].breadcrumb,
+        g.breadcrumb,
+      ]);
+      expect(crumbs.itemListElement[1].item).toBe(absoluteUrl(MARKETING_PAGES.guides.paths[g.locale]!));
+    }
+  });
+});
+
+describe("share images", () => {
+  it("has one card per page and language, matching the image marketingMetadata links", () => {
+    const expected = ids.flatMap((id) => Object.keys(MARKETING_PAGES[id].paths).map((l) => `${id}-${l}.png`));
+    expect(SHARE_CARDS.map((c) => c.file).sort()).toEqual(expected.sort());
+    for (const c of SHARE_CARDS) {
+      expect(c.file).toMatch(/^[a-zA-Z]+-(en|sv|fr)\.png$/);
+      expect(c.eyebrow.trim(), c.file).not.toBe("");
+      expect(c.title.trim(), c.file).not.toBe("");
+      expect(`${c.eyebrow} ${c.title}`, c.file).not.toMatch(/undefined|\{\w+\}/);
+    }
+  });
+
+  it("writes each card in its page's language", () => {
+    const card = (file: string) => SHARE_CARDS.find((c) => c.file === file)!;
+    expect(card("accountants-sv.png").eyebrow).toBe(AUDIENCE_COPY.accountants.sv.hero.eyebrow);
+    expect(card("guides-fr.png").title).toBe(GUIDES_INDEX.fr.title);
+  });
+});
+
+describe("Organization sameAs", () => {
+  it("is left out while there is no profile, and lists only https profile URLs", () => {
+    const org = organizationNode() as { sameAs?: string[] };
+    if (SAME_AS.length === 0) {
+      expect(org.sameAs).toBeUndefined();
+    } else {
+      expect(org.sameAs).toEqual([...SAME_AS]);
+      for (const url of SAME_AS) expect(url).toMatch(/^https:\/\/[^\s]+$/);
+    }
+  });
 });
 
 describe("jsonLdHtml", () => {
@@ -223,6 +340,7 @@ describe("AI search visibility", () => {
     for (const locale of LOCALES) {
       expect(text).toContain(getAbout(locale, false).summary);
       expect(text).toContain(AUDIENCE_COPY.accountants[locale].faq[0].a);
+      expect(text).toContain(AUDIENCE_COPY.smallBusiness[locale].faq[0].a);
     }
     for (const g of GUIDES) expect(text).toContain(g.answer);
     expect(text).not.toMatch(/undefined|\{\w+\}/);
@@ -248,13 +366,16 @@ describe("AI search visibility", () => {
       formatEurFr(OVERAGE_PRICE),
       formatSek(OVERAGE_PRICE_SEK),
     ];
-    const texts = [await llms().text(), await llmsFull().text()];
+    const { SHARE_CARDS } = await import("@/app/og/_cards");
+    const texts = [await llms().text(), await llmsFull().text(), JSON.stringify(SHARE_CARDS)];
     for (const locale of LOCALES) {
       for (const pilot of [true, false]) {
         texts.push(JSON.stringify(getAbout(locale, pilot)));
         texts.push(JSON.stringify(getFaq(pilot, locale)));
         texts.push(JSON.stringify(landingJsonLd(pilot, locale)));
         texts.push(JSON.stringify(AUDIENCE_COPY.freelancers[locale]).replace(/"note(Pilot|Paid)":"[^"]*"/g, ""));
+        texts.push(JSON.stringify(guidesIndexJsonLd(locale)));
+        texts.push(JSON.stringify(AUDIENCE_COPY.smallBusiness[locale]));
       }
     }
     // Whole amounts only: "29,99 €" inside a sample receipt's "129,99 €" is not a plan price.

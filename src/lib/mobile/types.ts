@@ -532,7 +532,11 @@ export type MobileFirmHome = {
   month: string;
   clients: MobileFirmClient[];
   pending: { id: string; name: string; email: string; invitedAt: string; expired: boolean }[];
-  joinLink: { url: string; qr: string | null } | null;
+  /**
+   * `recommend`: a ready Swedish email for the firm's clients with this link
+   * (src/lib/firm/recommend.ts), shared as is whatever the app's language.
+   */
+  joinLink: { url: string; qr: string | null; recommend?: { subject: string; body: string } } | null;
 };
 
 /**

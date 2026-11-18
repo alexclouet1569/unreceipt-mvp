@@ -21,6 +21,7 @@ import { formatAmount } from "@/lib/receipt-format";
 import { sendEmail } from "@/lib/email/send";
 import { missingReceiptsEmail } from "@/lib/email/templates";
 import { absoluteAppUrl } from "@/lib/app-url";
+import { emailSiteLocale } from "@/lib/email/site-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,6 +97,8 @@ export async function POST(
     })),
     total: view.missingTotals.map((t) => formatAmount(t.amount, t.currency)).join(" + "),
     appUrl: absoluteAppUrl("/app"),
+    // Built once for every owner: the firm's country stands for the client's.
+    site: emailSiteLocale({ country: ctx.firmCountry ?? null }),
   });
   const replyTo = ctx.user.email && ctx.user.email_confirmed_at ? ctx.user.email : null;
 

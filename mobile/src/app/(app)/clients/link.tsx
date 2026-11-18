@@ -3,7 +3,9 @@
 // client opens it, signs in and says yes (/app/connect/<code>; see the
 // website's src/lib/firm/join-link.ts). The QR code is a picture drawn by
 // the server (no QR library on the phone); white like paper in dark mode
-// too. Making a new link or turning it off stays on the website (admins).
+// too. "Recommend to clients" shares the ready Swedish email the server
+// builds with the link (src/lib/firm/recommend.ts). Making a new link or
+// turning it off stays on the website (admins).
 
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, Platform, ScrollView, Share, View } from "react-native";
@@ -70,6 +72,17 @@ export default function FirmLink() {
             onPress={() => void Share.share(Platform.OS === "ios" ? { url: link.url } : { message: link.url }).catch(() => {})}
           />
           <Button label={copied ? s.firm.copied : s.firm.copy} kind="outline" onPress={() => void copy()} />
+          {link.recommend ? (
+            <Button
+              label={s.firm.recommend}
+              kind="outline"
+              // A ready Swedish email with the link (the server builds it):
+              // Mail, Messages or Notes from the share sheet.
+              onPress={() =>
+                void Share.share({ message: link.recommend!.body, title: link.recommend!.subject }, { subject: link.recommend!.subject }).catch(() => {})
+              }
+            />
+          ) : null}
         </>
       ) : firm ? (
         <Text variant="body" color={colors.ink}>

@@ -48,6 +48,11 @@ export interface FirmContext {
   memberId: string;
   firmId: string;
   firmName: string;
+  /**
+   * The firm's country (firms.country), for which site the footer of the
+   * firm's emails links to. Display only: never a check.
+   */
+  firmCountry?: string | null;
   role: FirmMemberRole;
 }
 
@@ -55,7 +60,7 @@ type MemberRow = {
   id: string;
   firm_id: string;
   role: FirmMemberRole;
-  firms: { name: string } | { name: string }[] | null;
+  firms: { name: string; country?: string | null } | { name: string; country?: string | null }[] | null;
 };
 
 function firmName(row: MemberRow): string {
@@ -63,7 +68,12 @@ function firmName(row: MemberRow): string {
   return f?.name ?? "Your firm";
 }
 
-const MEMBER_SELECT = "id, firm_id, role, firms(name)";
+function firmCountry(row: MemberRow): string | null {
+  const f = Array.isArray(row.firms) ? row.firms[0] : row.firms;
+  return f?.country ?? null;
+}
+
+const MEMBER_SELECT = "id, firm_id, role, firms(name, country)";
 
 /**
  * The signed-in user's firm membership, or null. Cheap: one indexed read.
@@ -87,6 +97,7 @@ export async function getFirmMembership(
     memberId: row.id,
     firmId: row.firm_id,
     firmName: firmName(row),
+    firmCountry: firmCountry(row),
     role: row.role,
   };
 }
@@ -159,6 +170,7 @@ export async function claimPendingFirmSeat(
     memberId: row.id,
     firmId: row.firm_id,
     firmName: firmName(row),
+    firmCountry: firmCountry(row),
     role: row.role,
   };
 }

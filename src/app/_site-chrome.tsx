@@ -2,12 +2,19 @@ import Image from "next/image";
 import { Building2, Calculator, Check, ChevronDown, Globe, Menu, UserRound } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink, type TrackedLinkAttrs } from "@/lib/tracking/events";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
-import { MARKETING_PAGES, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
+import {
+  MARKETING_PAGES,
+  demoRequestLang,
+  demoRequestPath,
+  pagePath,
+  type MarketingPageId,
+} from "@/lib/marketing-pages";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
+import { SUPPORT_MAILTO } from "@/lib/support-contact";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
-import { LightOnly } from "./_light-only";
 import { HeaderShell } from "./_header-shell";
 
 
@@ -31,7 +38,7 @@ function languageHref(page: MarketingPageId, locale: Locale): string {
 }
 
 /** The pages the audience tabs point at, in their order. */
-const AUDIENCE_PAGES = ["home", "freelancers", "accountants"] as const;
+const AUDIENCE_PAGES = ["smallBusiness", "freelancers", "accountants"] as const;
 export type AudiencePageId = (typeof AUDIENCE_PAGES)[number];
 const AUDIENCE_ICONS = [Building2, UserRound, Calculator] as const;
 
@@ -61,6 +68,8 @@ export function SiteHeader({
     { label: t.faq, href: `${home}#faq` },
     { label: t.about, href: pagePath("about", locale) },
   ];
+  const demo = { href: demoRequestPath(locale), lang: demoRequestLang(locale) };
+  const demoLangProps = demo.lang !== locale ? { hrefLang: demo.lang } : {};
 
   const ink = "text-[#303568]/75 hover:text-[#303568]";
   const quiet = "border border-[#303568]/20 text-[#303568] hover:bg-[#303568]/5";
@@ -68,8 +77,6 @@ export function SiteHeader({
 
   return (
     <>
-      {/* The marketing site has no dark design: keep it light on shared hosts. */}
-      <LightOnly />
       <HeaderShell>
         <div className="px-4 sm:px-6">
         <div className="max-w-6xl mx-auto h-[72px] flex items-center gap-4 lg:gap-10">
@@ -129,6 +136,7 @@ export function SiteHeader({
             </a>
             <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               className={cn(BTN, "hidden min-[420px]:inline-flex rounded-full px-4 lg:px-6 h-11 font-semibold lg:text-[15px]", filled)}
             >
               {cta}
@@ -151,6 +159,14 @@ export function SiteHeader({
                       {link.label}
                     </a>
                   ))}
+                  <a
+                    href={demo.href}
+                    {...demoLangProps}
+                    {...trackedLink("cta_demo_page")}
+                    className="text-lg text-[#303568] font-semibold min-h-[52px] flex items-center border-b border-[#E8E5DD]"
+                  >
+                    {t.bookDemo}
+                  </a>
                   <p className="mt-5 mb-1 text-xs font-semibold uppercase tracking-widest text-[#303568]/70">
                     {audiences.label}
                   </p>
@@ -197,7 +213,11 @@ export function SiteHeader({
                     >
                       {t.signIn}
                     </a>
-                    <a href={appUrl(SIGNUP_PATH)} className={cn(BTN, "rounded-full h-12 font-semibold text-base", filled)}>
+                    <a
+                      href={appUrl(SIGNUP_PATH)}
+                      {...trackedLink("cta_signup", { attribution: true })}
+                      className={cn(BTN, "rounded-full h-12 font-semibold text-base", filled)}
+                    >
                       {cta}
                     </a>
                   </div>
@@ -215,7 +235,7 @@ export function SiteHeader({
 
 /**
  * Tabs at the top of the green hero: one per audience page, the current
- * one underlined in ink (the product's own tab style, DESIGN.md "Header and
+ * one underlined in ink (none on the home page, which is for everyone) (the product's own tab style, DESIGN.md "Header and
  * tabs"). Plain links, one page each.
  */
 export function AudienceTabs({
@@ -224,7 +244,7 @@ export function AudienceTabs({
   className,
 }: {
   locale: Locale;
-  active: AudiencePageId;
+  active?: AudiencePageId;
   className?: string;
 }) {
   const a = SITE_COPY[locale].audiences;
@@ -263,20 +283,20 @@ export function SiteFooter({ locale }: { locale: Locale }) {
   const home = LOCALE_HOME[locale];
   const others = LOCALES.filter((l) => l !== locale);
   const guidePaper = MARKETING_PAGES.guidePaper.paths[locale];
-  const columns: { title: string; links: { label: string; href: string; lang?: Locale }[] }[] = [
+  const guideOutlays = MARKETING_PAGES.guideOutlays.paths[locale];
+  const columns: { title: string; links: { label: string; href: string; lang?: Locale; track?: TrackedLinkAttrs }[] }[] = [
     {
       title: t.footer.product,
       links: [
         { label: t.nav.how, href: `${home}#how` },
         ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: `${home}#pricing` }] : []),
-        { label: t.footer.demo, href: appUrl("/demo") },
         { label: t.footer.faq, href: `${home}#faq` },
       ],
     },
     {
       title: t.footer.whoFor,
       links: [
-        { label: t.footer.smallBusiness, href: home },
+        { label: t.footer.smallBusiness, href: pagePath("smallBusiness", locale) },
         { label: t.nav.freelancers, href: pagePath("freelancers", locale) },
         { label: t.nav.accountants, href: pagePath("accountants", locale) },
       ],
@@ -288,13 +308,19 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         ...(guidePaper && t.footer.guidePaper
           ? [{ label: t.footer.guidePaper, href: guidePaper }]
           : []),
+        ...(guideOutlays && t.footer.guideOutlays
+          ? [{ label: t.footer.guideOutlays, href: guideOutlays }]
+          : []),
+        { label: t.footer.allGuides, href: pagePath("guides", locale) },
       ],
     },
     {
       title: t.footer.company,
       links: [
         { label: t.footer.about, href: pagePath("about", locale) },
-        { label: t.footer.contact, href: "mailto:support@unreceipt.com" },
+        // No hrefLang here: the footer's hreflang links are its language switch.
+        { label: t.nav.bookDemo, href: demoRequestPath(locale), track: trackedLink("cta_demo_page") },
+        { label: t.footer.contact, href: SUPPORT_MAILTO },
         { label: t.footer.privacy, href: "/privacy" },
         ...others.map((l) => ({ label: LOCALE_NAME[l].label, href: LOCALE_HOME[l], lang: l })),
       ],
@@ -326,6 +352,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
                     <a
                       href={link.href}
                       {...(link.lang ? { hrefLang: link.lang, lang: link.lang } : {})}
+                      {...link.track}
                       className="block text-sm text-white/50 hover:text-white transition-colors py-2"
                     >
                       {link.label}

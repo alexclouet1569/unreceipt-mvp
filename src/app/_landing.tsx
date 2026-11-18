@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
   CheckCircle2,
@@ -22,16 +21,18 @@ import {
 } from "lucide-react";
 import { ExplainerVideo } from "./_explainer-video";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink } from "@/lib/tracking/events";
 import { cn } from "@/lib/utils";
-import { getFaq } from "@/lib/faq";
+import type { FaqItem } from "@/lib/faq";
+import { fill } from "@/lib/fill";
 import { type Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
-import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
+import type { LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
-import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
-import { AudienceTabs, SiteFooter, SiteHeader } from "./_site-chrome";
+import { ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
+import type { LandingReceipt } from "./_receipt-text";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -169,53 +170,53 @@ function FloatingReceipts() {
   );
 }
 
-type LandingPageProps = {
+/**
+ * One language of the landing page. Everything language-specific arrives as
+ * props from the server (`_landing-page.tsx`), so the browser downloads only
+ * this page's language, never the copy of all three.
+ */
+export type LandingViewProps = {
   pilotMode: boolean;
-  locale?: Locale;
+  locale: Locale;
+  copy: LandingCopy;
+  /** "Book a demo" (SITE_COPY), passed from the server. */
+  bookDemoLabel: string;
+  faq: FaqItem[];
+  receipt: LandingReceipt;
+  /** The site header, rendered on the server. */
+  header: React.ReactNode;
+  /** The audience tabs at the top of the hero, rendered on the server. */
+  audienceTabs: React.ReactNode;
+  /** The site footer, rendered on the server. */
+  footer: React.ReactNode;
+  /** The contact block at the end of the page (form and its copy, this language only). */
+  contact: React.ReactNode;
 };
 
-export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
-  const t = LANDING_COPY[locale];
+export function LandingView({
+  pilotMode,
+  locale,
+  copy: t,
+  bookDemoLabel,
+  faq,
+  receipt,
+  header,
+  audienceTabs,
+  footer,
+  contact,
+}: LandingViewProps) {
   const s = t.samples;
   const fromPrice = planPriceLabel(PLANS[0], locale);
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
   const accountantsPath = pagePath("accountants", locale);
-  // "Who it's for" cards link to each audience's own page; small
-  // businesses are this page, so theirs goes to how it works.
-  const audienceLinks = ["#how", pagePath("freelancers", locale), accountantsPath];
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [waitlistError, setWaitlistError] = useState("");
-  const handleWaitlist = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || t.ending.kind !== "waitlist") return;
-    const copy = t.ending;
-    setSubmitting(true);
-    setWaitlistError("");
-    try {
-      const res = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (res.ok) {
-        setSubmitted(true);
-        setEmail("");
-      } else {
-        const body = await res.json().catch(() => ({}));
-        setWaitlistError(body.error ?? copy.errorGeneric);
-      }
-    } catch {
-      setWaitlistError(copy.errorNetwork);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const demoPath = demoRequestPath(locale);
+  const demoLangProps = demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {};
+  // "Who it's for" cards link to each audience's own page.
+  const audienceLinks = [pagePath("smallBusiness", locale), pagePath("freelancers", locale), accountantsPath];
 
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
-      <SiteHeader locale={locale} page="home" pilotMode={pilotMode} />
+      {header}
 
       {/* ─── HERO ─── */}
       <section className="relative bg-[#27BE7B] pt-8 pb-20 sm:pt-12 sm:pb-28 px-4 sm:px-6 overflow-hidden">
@@ -223,7 +224,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
-          <AudienceTabs locale={locale} active="home" className="mb-12 sm:mb-16" />
+          <div className="mb-12 sm:mb-16">{audienceTabs}</div>
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left — Copy */}
             <div>
@@ -243,6 +244,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
                   href={appUrl(SIGNUP_PATH)}
+                  {...trackedLink("cta_signup", { attribution: true })}
                   className={cn(buttonVariants({
                     size: "lg",
                     className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
@@ -252,14 +254,16 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </a>
                 <a
-                  href={appUrl("/demo")}
+                  href={demoPath}
+                  {...demoLangProps}
+                  {...trackedLink("cta_demo_page")}
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
                     className: "border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12",
                   }))}
                 >
-                  {t.hero.secondary}
+                  {bookDemoLabel}
                 </a>
               </div>
               <p className="text-white/80 text-sm mt-4">
@@ -359,8 +363,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           surface with the printing receipt behind it, so these sections
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
-      <ReceiptBackdrop locale={locale} />
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].top} />
+      <ReceiptBackdrop currency={receipt.text.currency} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.top} />
 
       {/* ─── SOCIAL PROOF BAR ─── */}
       <Section className="py-10 px-4 sm:px-6">
@@ -381,7 +385,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         <ReceiptTicker t={t.ticker} samples={t.samples} />
       </section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].features} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.features} />
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
       <Section id="features" className="py-20 px-4 sm:px-6">
@@ -410,7 +414,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].how} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.how} />
 
       {/* ─── HOW IT WORKS ─── */}
       <Section id="how" className="py-20 px-4 sm:px-6">
@@ -445,7 +449,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].difference} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.difference} />
 
       {/* ─── COMPARISON ─── */}
       <Section id="difference" className="py-20 px-4 sm:px-6">
@@ -497,14 +501,19 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       {/* ─── PRICING ─── (hidden while SHOW_PRICES is off) */}
       {SHOW_PRICES ? (
         <>
-          <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
+          <ReceiptRows text={receipt.text} rows={receipt.rows.pricing} />
           <Section id="pricing" className="py-20 px-4 sm:px-6">
-            <Pricing pilotMode={pilotMode} locale={locale} />
+            <Pricing
+              locale={locale}
+              copy={t.pricing}
+              cta={heroCta}
+              note={pilotMode ? t.pricing.notePilot : t.pricing.notePaid}
+            />
           </Section>
         </>
       ) : null}
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].about} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.about} />
 
       {/* ─── BUILT FOR TEAMS ─── */}
       <Section id="about" className="py-20 px-4 sm:px-6">
@@ -551,7 +560,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           {/* Native <details>: every answer is in the HTML, so search
               engines and AI assistants read it without running JS. */}
           <div className="space-y-3">
-            {getFaq(pilotMode, locale).map((item) => (
+            {faq.map((item) => (
               <details
                 key={item.q}
                 className="group bg-white border border-[#E8E5DD] rounded-2xl px-5 sm:px-6 open:pb-5"
@@ -569,7 +578,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].badges} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.badges} />
 
       {/* ─── TRUST BADGES ─── */}
       <Section className="py-16 px-4 sm:px-6">
@@ -599,93 +608,14 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </Section>
       ) : null}
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].end} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.end} />
       </div>
 
-      {/* ─── WAITLIST CTA ─── */}
-      <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 overflow-hidden">
-        <div className="absolute top-0 left-0 right-0">
-          <ReceiptEdge color="#303568" flip />
-        </div>
-        {/* Background accents */}
-        <div className="absolute inset-0 opacity-[0.05]">
-          <div className="absolute top-10 right-20 w-40 h-40 rounded-full border-2 border-white" />
-          <div className="absolute bottom-10 left-10 w-32 h-32 rounded-full border-2 border-white" />
-        </div>
-
-        <div className="max-w-xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[#27BE7B]/20 rounded-full px-4 py-1.5 mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-[#27BE7B]" />
-            <span className="text-[#27BE7B] text-xs font-semibold tracking-wide uppercase">{t.ending.badge}</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 text-white">
-            {t.ending.title}
-          </h2>
-          {t.ending.kind === "cta" ? (
-            <>
-              <p className="text-white/70 text-base mb-10">
-                {pilotMode ? t.ending.leadPilot : t.ending.leadPaid}
-              </p>
-              <a
-                href={appUrl(SIGNUP_PATH)}
-                className={cn(buttonVariants({
-                  size: "lg",
-                  className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
-                }))}
-              >
-                {heroCta}
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </a>
-            </>
-          ) : (
-            <>
-              <p className="text-white/70 text-base mb-10">
-                {t.ending.lead}
-              </p>
-              {submitted ? (
-                <div className="flex items-center justify-center gap-2 text-[#27BE7B] font-semibold text-lg">
-                  <CheckCircle2 className="w-5 h-5" />
-                  {t.ending.success}
-                </div>
-              ) : (
-                <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                  <Input
-                    type="email"
-                    placeholder={t.ending.placeholder}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="flex-1 bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-full px-6 h-12 focus:bg-white/15"
-                  />
-                  <Button
-                    type="submit"
-                    className="bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
-                    disabled={submitting}
-                  >
-                    {submitting ? t.ending.submitting : t.ending.submit}
-                    {!submitting && <ArrowRight className="w-4 h-4 ml-1.5" />}
-                  </Button>
-                </form>
-              )}
-              {waitlistError ? (
-                <p role="alert" className="text-sm text-[#FFB4A8] mt-3">
-                  {waitlistError}
-                </p>
-              ) : null}
-              <p className="text-xs text-white/40 mt-5">
-                {t.ending.skipPrefix}{" "}
-                <a href={appUrl(SIGNUP_PATH)} className="underline hover:text-white">
-                  {heroCta.toLowerCase()}
-                </a>
-                .
-              </p>
-            </>
-          )}
-        </div>
-      </section>
+      {/* ─── CONTACT: book a demo or send a request (the form, from the server) ─── */}
+      {contact}
 
       {/* ─── FOOTER ─── */}
-      <SiteFooter locale={locale} />
+      {footer}
 
       {/* ─── ANIMATIONS ─── */}
       <style jsx>{`
