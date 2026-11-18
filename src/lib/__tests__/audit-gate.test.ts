@@ -23,11 +23,16 @@ const MINIMATCH = {
   range: ">=7.0.0 <11.0.1",
 };
 
+const PICOMATCH_NODES = [
+  "node_modules/@rollup/plugin-commonjs/node_modules/picomatch",
+  "node_modules/@rollup/pluginutils/node_modules/picomatch",
+];
+
 function report(extra: Record<string, unknown> = {}) {
   return {
     auditReportVersion: 2,
     vulnerabilities: {
-      picomatch: { name: "picomatch", severity: "high", via: [PICOMATCH] },
+      picomatch: { name: "picomatch", severity: "high", via: [PICOMATCH], nodes: PICOMATCH_NODES },
       fdir: { name: "fdir", severity: "high", via: ["picomatch"] },
       "@rollup/pluginutils": { name: "@rollup/pluginutils", severity: "high", via: ["picomatch"] },
       "@sentry/nextjs": { name: "@sentry/nextjs", severity: "high", via: ["@rollup/plugin-commonjs"] },
@@ -40,6 +45,7 @@ function report(extra: Record<string, unknown> = {}) {
 const EXCEPTION = {
   id: "GHSA-fc5q-39xc-vjpf",
   package: "picomatch",
+  nodes: PICOMATCH_NODES,
   severity: "high",
   reason: "Build-time only, no fixed release published yet.",
   added: "2026-11-18",
@@ -72,8 +78,32 @@ describe("audit gate", () => {
   });
 
   it("fails when the advisory is raised above the accepted severity", () => {
-    const critical = report({ picomatch: { name: "picomatch", severity: "critical", via: [{ ...PICOMATCH, severity: "critical" }] } });
+    const critical = report({
+      picomatch: { name: "picomatch", severity: "critical", via: [{ ...PICOMATCH, severity: "critical" }], nodes: PICOMATCH_NODES },
+    });
     expect(evaluateAudit(critical, [EXCEPTION], "2026-11-18").failures[0]).toContain("raised above");
+  });
+
+  it("fails when the package turns up at an install path the exception doesn't list", () => {
+    const moved = report({
+      picomatch: { name: "picomatch", severity: "high", via: [PICOMATCH], nodes: [...PICOMATCH_NODES, "node_modules/picomatch"] },
+    });
+    const result = evaluateAudit(moved, [EXCEPTION], "2026-11-18");
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0]).toContain("installed at node_modules/picomatch,");
+  });
+
+  it("refuses a severity name inherited from Object, which would never compare", () => {
+    expect(invalidExceptions([{ ...EXCEPTION, severity: "toString" }])).toHaveLength(1);
+    expect(invalidExceptions([{ ...EXCEPTION, severity: "__proto__" }])).toHaveLength(1);
+    const critical = report({
+      picomatch: { name: "picomatch", severity: "critical", via: [{ ...PICOMATCH, severity: "critical" }], nodes: PICOMATCH_NODES },
+    });
+    expect(evaluateAudit(critical, [{ ...EXCEPTION, severity: "toString" }], "2026-11-18").failures.length).toBeGreaterThan(0);
+  });
+
+  it("refuses an exception without install paths", () => {
+    expect(invalidExceptions([{ ...EXCEPTION, nodes: [] }])).toHaveLength(1);
   });
 
   it("does not let an exception cover the same advisory in another package", () => {
@@ -109,7 +139,7 @@ describe("audit gate", () => {
   });
 
   it("refuses an exception without a reason or a review date", () => {
-    const bare = { id: EXCEPTION.id, package: EXCEPTION.package, severity: EXCEPTION.severity, added: EXCEPTION.added };
+    const bare = { id: EXCEPTION.id, package: EXCEPTION.package, nodes: EXCEPTION.nodes, severity: EXCEPTION.severity, added: EXCEPTION.added };
     expect(invalidExceptions([bare]).length).toBeGreaterThanOrEqual(2);
     expect(evaluateAudit(report(), [bare], "2026-11-18").failures.length).toBeGreaterThan(0);
   });

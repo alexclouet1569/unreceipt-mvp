@@ -3,8 +3,9 @@
 // Runs `npm audit --omit=dev --json` and fails on any high or critical
 // advisory in what ships to production, like `npm audit --audit-level=high`,
 // except the advisories listed in scripts/audit-exceptions.json. An exception
-// names one advisory (GHSA id) in one package, the highest severity accepted,
-// why, and a review date: after that date, or if the advisory is raised above
+// names one advisory (GHSA id) in one package, the install paths it covers
+// (`nodes`, as npm audit reports them: a vulnerable copy anywhere else still
+// fails), the highest severity accepted, why, and a review date: after that date, or if the advisory is raised above
 // the accepted severity, the gate fails again until someone re-checks it.
 // Accepted advisories are printed in every run (and in the job summary), so
 // nothing is hidden. An exception that no longer matches anything is reported
@@ -18,6 +19,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const SEVERITY_RANK = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
+const isSeverity = (value) => typeof value === "string" && Object.hasOwn(SEVERITY_RANK, value);
 const FAIL_AT = SEVERITY_RANK.high;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -32,8 +34,9 @@ function advisoryId(url) {
  * chain leading to a source advisory and are not counted on their own.
  */
 export function sourceAdvisories(report) {
+  const vulnerabilities = report.vulnerabilities ?? {};
   const seen = new Map();
-  for (const vuln of Object.values(report.vulnerabilities ?? {})) {
+  for (const vuln of Object.values(vulnerabilities)) {
     for (const via of vuln.via ?? []) {
       if (typeof via !== "object" || via === null) continue;
       const id = advisoryId(via.url ?? via.source);
@@ -46,6 +49,8 @@ export function sourceAdvisories(report) {
         title: via.title,
         url: via.url,
         range: via.range,
+        // Where the vulnerable package is installed (its own entry's nodes).
+        nodes: Array.isArray(vulnerabilities[via.name]?.nodes) ? vulnerabilities[via.name].nodes : [],
       });
     }
   }
@@ -61,7 +66,9 @@ export function invalidExceptions(exceptions) {
     if (!e || typeof e !== "object") return problems.push(`${where} is not an object`);
     if (typeof e.id !== "string" || !/^GHSA-[\w-]+$/.test(e.id)) problems.push(`${where}: id must be a GHSA id`);
     if (typeof e.package !== "string" || !e.package) problems.push(`${where}: package is required`);
-    if (!(e.severity in SEVERITY_RANK)) problems.push(`${where}: severity must be one of ${Object.keys(SEVERITY_RANK).join(", ")}`);
+    if (!Array.isArray(e.nodes) || e.nodes.length === 0 || !e.nodes.every((n) => typeof n === "string" && n.startsWith("node_modules/")))
+      problems.push(`${where}: nodes must list the node_modules/... paths the exception covers`);
+    if (!isSeverity(e.severity)) problems.push(`${where}: severity must be one of ${Object.keys(SEVERITY_RANK).join(", ")}`);
     if (typeof e.reason !== "string" || e.reason.trim().length < 20) problems.push(`${where}: reason must explain why (20+ characters)`);
     if (typeof e.added !== "string" || !DATE.test(e.added)) problems.push(`${where}: added must be YYYY-MM-DD`);
     if (typeof e.reviewBy !== "string" || !DATE.test(e.reviewBy)) problems.push(`${where}: reviewBy must be YYYY-MM-DD`);
@@ -88,7 +95,7 @@ export function evaluateAudit(report, exceptions, today) {
 
   const used = new Set();
   for (const adv of sourceAdvisories(report)) {
-    const rank = SEVERITY_RANK[adv.severity] ?? SEVERITY_RANK.critical;
+    const rank = isSeverity(adv.severity) ? SEVERITY_RANK[adv.severity] : SEVERITY_RANK.critical;
     if (rank < FAIL_AT) {
       below.push(adv);
       continue;
@@ -100,10 +107,13 @@ export function evaluateAudit(report, exceptions, today) {
       continue;
     }
     used.add(exceptions.indexOf(exception));
+    const uncovered = adv.nodes.filter((n) => !exception.nodes.includes(n));
     if (today > exception.reviewBy) {
       failures.push(`${label}: exception expired on ${exception.reviewBy}; re-check the advisory and renew or remove it`);
     } else if (rank > SEVERITY_RANK[exception.severity]) {
       failures.push(`${label}: raised above the accepted severity "${exception.severity}"; re-check it`);
+    } else if (uncovered.length > 0) {
+      failures.push(`${label}: installed at ${uncovered.join(", ")}, which the exception doesn't cover; check that path before adding it`);
     } else {
       accepted.push({ ...adv, reviewBy: exception.reviewBy, reason: exception.reason });
     }
