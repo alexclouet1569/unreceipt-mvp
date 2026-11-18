@@ -31,7 +31,7 @@ import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
-import { AudienceSwitch, SiteFooter, SiteHeader } from "./_site-chrome";
+import { AudienceTabs, SiteFooter, SiteHeader } from "./_site-chrome";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -223,7 +223,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
-          <AudienceSwitch locale={locale} active="home" className="mb-12 sm:mb-16" />
+          <AudienceTabs locale={locale} active="home" className="mb-12 sm:mb-16" />
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left — Copy */}
             <div>

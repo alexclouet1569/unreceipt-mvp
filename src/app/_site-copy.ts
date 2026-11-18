@@ -6,8 +6,7 @@ import type { Locale } from "@/lib/locale";
  * Pure data, safe to import from client components.
  */
 
-/** `short` replaces the title below 640px when the title is one long word. */
-type AudienceItem = { title: string; sub: string; short?: string };
+type AudienceItem = { title: string; sub: string };
 
 export type SiteCopy = {
   nav: {
@@ -26,7 +25,8 @@ export type SiteCopy = {
     languages: string;
   };
   /**
-   * The pill under the header on the home and audience pages: small
+   * The tabs at the top of the hero on the home and audience pages, and the
+ * list in the mobile menu: small
    * businesses (the home page), freelancers, accounting firms, in that order.
    */
   audiences: {
@@ -117,7 +117,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       items: [
         { title: "Småföretag", sub: "Ägare och anställda" },
         { title: "Enskild firma", sub: "Frilansare och konsulter" },
-        { title: "Redovisningsbyråer", short: "Byråer", sub: "Alla kunders kvitton" },
+        { title: "Redovisningsbyråer", sub: "Alla kunders kvitton" },
       ],
     },
     footer: {

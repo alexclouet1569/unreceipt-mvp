@@ -9,9 +9,9 @@ import { useEffect, useRef, useState } from "react";
  * - `overHero`: the page starts with the green hero, so the bar is clear on
  *   top of it and turns cream once the page scrolls (or the menu opens).
  *   Otherwise it is cream from the first pixel.
- * - Closes the mobile menu (a native <details>) after a link in it is
- *   followed, on Escape, and on a click outside it, since in-page links
- *   (#how, #faq) don't leave the page.
+ * - Closes the mobile menu and the language menu (native <details>) after a
+ *   link in one is followed (in-page links like #how don't leave the page),
+ *   on Escape, on a tap outside and when focus tabs out.
  */
 export function HeaderShell({
   overHero,
@@ -34,43 +34,54 @@ export function HeaderShell({
 
   useEffect(() => {
     const header = ref.current;
-    const menu = header?.querySelector("details");
-    if (!header || !menu) return;
-    const close = () => menu.removeAttribute("open");
-    const onToggle = () => setMenuOpen(menu.open);
+    if (!header) return;
+    // The mobile menu ([data-menu]) and the language menu ([data-popover]).
+    const all = () => [...header.querySelectorAll<HTMLDetailsElement>("details")];
+    const menu = header.querySelector<HTMLDetailsElement>("details[data-menu]");
+    const close = (d: HTMLDetailsElement) => d.removeAttribute("open");
+    const onToggle = (e: Event) => {
+      const d = e.target as HTMLDetailsElement;
+      // One open at a time.
+      if (d.open) all().forEach((o) => o !== d && close(o));
+      if (d === menu) setMenuOpen(d.open);
+    };
     const onClick = (e: MouseEvent) => {
-      if ((e.target as Element).closest("details a")) close();
+      const d = (e.target as Element).closest("a")?.closest("details");
+      if (d) close(d as HTMLDetailsElement);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && menu.open) {
-        close();
-        menu.querySelector("summary")?.focus();
+      if (e.key !== "Escape") return;
+      for (const d of all()) {
+        if (d.open) {
+          close(d);
+          d.querySelector("summary")?.focus();
+        }
       }
     };
     // pointerdown, not click: iOS Safari sends no click for a tap on
     // something that isn't clickable.
     const onOutside = (e: PointerEvent) => {
-      if (menu.open && !menu.contains(e.target as Node)) close();
+      for (const d of all()) if (d.open && !d.contains(e.target as Node)) close(d);
     };
-    // Tabbing out of the menu closes it, so focus never goes under it.
+    // Tabbing out of a menu closes it, so focus never goes under it.
     const onFocusOut = (e: FocusEvent) => {
+      const d = (e.target as Element).closest("details");
       const next = e.relatedTarget as Node | null;
-      if (menu.open && next && !menu.contains(next)) close();
+      if (d?.open && next && !d.contains(next)) close(d);
     };
-    // The menu is hidden from 1024px up: close it so the bar doesn't stay cream.
+    // The mobile menu is hidden from 1024px up, the language menu below:
+    // close both so the bar doesn't stay cream.
     const wide = window.matchMedia("(min-width: 1024px)");
-    const onWide = () => {
-      if (wide.matches) close();
-    };
-    menu.addEventListener("toggle", onToggle);
-    menu.addEventListener("focusout", onFocusOut);
+    const onWide = () => all().forEach(close);
+    header.addEventListener("toggle", onToggle, true);
+    header.addEventListener("focusout", onFocusOut);
     header.addEventListener("click", onClick);
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onOutside);
     wide.addEventListener("change", onWide);
     return () => {
-      menu.removeEventListener("toggle", onToggle);
-      menu.removeEventListener("focusout", onFocusOut);
+      header.removeEventListener("toggle", onToggle, true);
+      header.removeEventListener("focusout", onFocusOut);
       header.removeEventListener("click", onClick);
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onOutside);

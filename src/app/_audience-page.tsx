@@ -28,7 +28,7 @@ import { AUDIENCE_COPY, type AudienceId, type Cta, type IconName } from "./_audi
 import { HtmlLang } from "./_html-lang";
 import { fill } from "./_landing-copy";
 import { SITE_COPY } from "./_site-copy";
-import { AudienceSwitch, SiteFooter, SiteHeader } from "./_site-chrome";
+import { AudienceTabs, SiteFooter, SiteHeader } from "./_site-chrome";
 
 
 // Same look as the shared Button, without importing that client module
@@ -107,7 +107,7 @@ export function AudiencePage({
       <main>
         {/* ─── HERO ─── */}
         <section className="bg-[#27BE7B] px-4 sm:px-6 pt-[88px] pb-16 sm:pt-24 sm:pb-24">
-          <AudienceSwitch locale={locale} active={audience} className="mb-10 sm:mb-14" />
+          <AudienceTabs locale={locale} active={audience} className="mb-10 sm:mb-14" />
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.15fr_1fr] gap-12 items-center">
             <div>
               <nav aria-label="Breadcrumb" className="mb-6 text-sm text-white/80">
