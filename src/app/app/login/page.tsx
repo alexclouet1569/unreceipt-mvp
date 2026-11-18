@@ -23,7 +23,7 @@ type LoginPageProps = {
 
 // Server shell: reads the query and the pilot flag so the form renders in the
 // right mode on first paint (no flash from Sign in to Create account).
-// "Join the pilot" links land here with ?mode=signup. ?next= (an invite
+// "Get started free" links land here with ?mode=signup. ?next= (an invite
 // link, /firm) is where every way of signing in continues to, checked by
 // the same rule as /auth/callback (same-origin paths only, else /app).
 export default async function LoginPage({ searchParams }: LoginPageProps) {

@@ -16,12 +16,12 @@ const pilotEnabled = process.env.PILOT_MODE === "true";
 test.describe("pilot mode landing copy", () => {
   test.skip(!pilotEnabled, "PILOT_MODE not set — pilot-mode e2e skipped");
 
-  test("hero CTA reads 'Join the pilot' instead of 'Start your free week'", async ({
+  test("hero CTA reads 'Get started free' instead of 'Start your free week'", async ({
     page,
   }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("link", { name: /Join the pilot/i }).first()
+      page.getByRole("link", { name: /Get started free/i }).first()
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: /Start your free week/i })

@@ -11,7 +11,6 @@ import {
   Building2,
   Camera,
   Calculator,
-  Menu,
   X,
   Mail,
   FileText,
@@ -20,23 +19,19 @@ import {
   ReceiptText,
   Sparkles,
   ChevronDown,
-  Globe,
 } from "lucide-react";
-import { Wordmark } from "@/components/brand/Wordmark";
 import { ExplainerVideo } from "./_explainer-video";
-import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { cn } from "@/lib/utils";
 import { getFaq } from "@/lib/faq";
-import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
+import { type Locale } from "@/lib/locale";
 import { pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
 import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
-import { SiteFooter } from "./_site-chrome";
-import { SITE_COPY } from "./_site-copy";
+import { AudienceSwitch, SiteFooter, SiteHeader } from "./_site-chrome";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -181,19 +176,10 @@ type LandingPageProps = {
 
 export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   const t = LANDING_COPY[locale];
-  const otherLocales = LOCALES.filter((l) => l !== locale);
   const s = t.samples;
   const fromPrice = planPriceLabel(PLANS[0], locale);
-  const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
   const accountantsPath = pagePath("accountants", locale);
-  const navLinks = [
-    { label: t.nav.how, href: "#how" },
-    ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
-    { label: t.nav.about, href: "#about" },
-    { label: SITE_COPY[locale].nav.accountants, href: accountantsPath },
-    { label: t.nav.faq, href: "#faq" },
-  ];
   // "Who it's for" cards link to each audience's own page; small
   // businesses are this page, so theirs goes to how it works.
   const audienceLinks = ["#how", pagePath("freelancers", locale), accountantsPath];
@@ -201,24 +187,6 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [waitlistError, setWaitlistError] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mobileMenuOpen]);
-
   const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || t.ending.kind !== "waitlist") return;
@@ -247,115 +215,15 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
 
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
-      {/* The marketing site has no dark design: keep it light on shared hosts. */}
-      <LightOnly />
-      {/* ─── NAV ─── */}
-      {/* Solid cream bar from the first pixel so the full-color primary
-          lockup never has to swap variants mid-scroll. Only the hairline
-          appears once the page moves. */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#FAFAF7] border-b transition-colors duration-300 ${scrolled ? "border-[#E8E5DD]" : "border-transparent"}`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-6 py-3">
-          <a href="#top" aria-label={t.nav.backToTop} className="py-1">
-            <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
-          </a>
-          <div className="hidden lg:flex items-center gap-6 xl:gap-8">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-sm font-medium whitespace-nowrap transition-colors text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
-              >
-                {link.label}
-              </a>
-            ))}
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#303568]/70">
-              <Globe className="w-4 h-4" aria-hidden="true" />
-              {otherLocales.map((l) => (
-                <a
-                  key={l}
-                  href={LOCALE_HOME[l]}
-                  hrefLang={l}
-                  lang={l}
-                  aria-label={LOCALE_NAME[l].label}
-                  className="hover:text-[#303568] py-3 -my-3 px-0.5"
-                >
-                  {LOCALE_NAME[l].short}
-                </a>
-              ))}
-            </span>
-            <a
-              href={appUrl("/app/login")}
-              className="text-sm font-medium whitespace-nowrap text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
-            >
-              {t.nav.signIn}
-            </a>
-            <a
-              href={appUrl(SIGNUP_PATH)}
-              className={cn(buttonVariants({
-                size: "sm",
-                className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
-              }))}
-            >
-              {navCta}
-            </a>
-          </div>
-          <button
-            type="button"
-            aria-label={mobileMenuOpen ? t.nav.closeMenu : t.nav.openMenu}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-menu"
-            className={`lg:hidden p-3 -mr-1 text-[#303568]`}
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-        {mobileMenuOpen && (
-          <div id="mobile-menu" className="lg:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
-            {navLinks.map((link) => (
-              <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
-                {link.label}
-              </a>
-            ))}
-            <a
-              href={appUrl("/app/login")}
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center border-t border-gray-100 mt-2 pt-2"
-            >
-              {t.nav.signIn}
-            </a>
-            {otherLocales.map((l) => (
-              <a
-                key={l}
-                href={LOCALE_HOME[l]}
-                hrefLang={l}
-                lang={l}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base text-[#303568] font-medium min-h-[44px] flex items-center gap-2"
-              >
-                <Globe className="w-4 h-4" aria-hidden="true" />
-                {LOCALE_NAME[l].label}
-              </a>
-            ))}
-            <a
-              href={appUrl(SIGNUP_PATH)}
-              onClick={() => setMobileMenuOpen(false)}
-              className={cn(buttonVariants({
-                className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
-              }))}
-            >
-              {navCta}
-            </a>
-          </div>
-        )}
-      </nav>
+      <SiteHeader locale={locale} page="home" pilotMode={pilotMode} overHero />
 
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 overflow-hidden">
+      <section className="relative bg-[#27BE7B] pt-[88px] pb-20 sm:pt-24 sm:pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
+          <AudienceSwitch locale={locale} active="home" className="mb-12 sm:mb-16" />
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left — Copy */}
             <div>

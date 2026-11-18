@@ -94,7 +94,7 @@ describe("/app/login — modes", () => {
   it("opens on Create account when linked with ?mode=signup", () => {
     renderCard({ initialMode: "signup", pilot: true });
     expect(screen.getByRole("tab", { name: "Create account" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { name: "Join the pilot" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Create your free account" })).toBeInTheDocument();
   });
 
   it("keeps the typed email when switching modes", async () => {

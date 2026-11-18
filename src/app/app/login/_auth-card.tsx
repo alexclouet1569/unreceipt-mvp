@@ -101,7 +101,7 @@ export function AuthCard({ initialMode, pilot, linkError, notice, inStoreApp = f
     mode === "signin"
       ? { title: "Welcome back", sub: "Sign in to see your receipts." }
       : {
-          title: pilot ? "Join the pilot" : "Create your account",
+          title: pilot ? "Create your free account" : "Create your account",
           sub: pilot
             ? inStoreApp
               ? "Free during the pilot."

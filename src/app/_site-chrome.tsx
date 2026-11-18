@@ -8,6 +8,7 @@ import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
 import { LightOnly } from "./_light-only";
+import { HeaderShell } from "./_header-shell";
 
 
 // Same look as the shared Button, without importing that client module
@@ -27,117 +28,233 @@ function languageHref(page: MarketingPageId, locale: Locale): string {
   return (p.translated && p.paths[locale]) || LOCALE_HOME[locale];
 }
 
+/** The pages the audience switch points at, in its order. */
+const AUDIENCE_PAGES = ["home", "freelancers", "accountants"] as const;
+export type AudiencePageId = (typeof AUDIENCE_PAGES)[number];
+
+/**
+ * The marketing header. Links on the left, the wordmark in the middle, sign
+ * in and the two calls to action on the right; below 1024px the wordmark
+ * moves left and the links go into a menu. `overHero`: the page starts with
+ * the green hero, so the bar sits clear on it until the page scrolls (see
+ * HeaderShell). The header is fixed; without a hero under it a spacer keeps
+ * the page's content below it.
+ */
 export function SiteHeader({
   locale,
   page,
   pilotMode,
+  overHero = false,
 }: {
   locale: Locale;
   page: MarketingPageId;
   pilotMode: boolean;
+  overHero?: boolean;
 }) {
   const t = SITE_COPY[locale].nav;
+  const audiences = SITE_COPY[locale].audiences;
   const home = LOCALE_HOME[locale];
   const cta = pilotMode ? t.ctaPilot : t.ctaPaid;
   const links = [
     { label: t.how, href: `${home}#how` },
     ...(SHOW_PRICES ? [{ label: t.pricing, href: `${home}#pricing` }] : []),
-    { label: t.accountants, href: pagePath("accountants", locale) },
-    { label: t.freelancers, href: pagePath("freelancers", locale) },
+    { label: t.faq, href: `${home}#faq` },
+    { label: t.about, href: pagePath("about", locale) },
   ];
   const others = LOCALES.filter((l) => l !== locale);
 
+  // Two looks: clear on the green hero, cream once solid (data-solid).
+  const ink =
+    "text-white/85 hover:text-white group-data-[solid=true]/hdr:text-[#303568]/70 group-data-[solid=true]/hdr:hover:text-[#303568]";
+  const outline =
+    "border border-white/60 text-white hover:bg-white/10 group-data-[solid=true]/hdr:border-[#303568]/20 group-data-[solid=true]/hdr:text-[#303568] group-data-[solid=true]/hdr:hover:bg-[#303568]/5";
+  const filled = "bg-[#303568] text-white hover:bg-[#252850]";
+
   return (
-    <header className="sticky top-0 z-50 bg-[#FAFAF7] border-b border-[#E8E5DD]">
+    <>
       {/* The marketing site has no dark design: keep it light on shared hosts. */}
       <LightOnly />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
-        <a href={home} aria-label={`UnReceipt — ${t.home}`} className="py-1">
-          <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[24px]" />
-        </a>
-        <nav aria-label="Main" className="hidden lg:flex items-center gap-6">
-          {links.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium whitespace-nowrap text-[#303568]/70 hover:text-[#303568]"
-            >
-              {link.label}
-            </a>
-          ))}
-          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#303568]/70">
-            <Globe className="w-4 h-4" aria-hidden="true" />
-            {others.map((l) => (
-              <a
-                key={l}
-                href={languageHref(page, l)}
-                hrefLang={l}
-                lang={l}
-                aria-label={LOCALE_NAME[l].label}
-                className="hover:text-[#303568] px-0.5"
-              >
-                {LOCALE_NAME[l].short}
-              </a>
-            ))}
-          </span>
-          <a
-            href={appUrl("/app/login")}
-            className="text-sm font-medium whitespace-nowrap text-[#303568]/70 hover:text-[#303568]"
-          >
-            {t.signIn}
-          </a>
-          <a
-            href={appUrl(SIGNUP_PATH)}
-            className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-10")}
-          >
-            {cta}
-          </a>
-        </nav>
-        <details className="lg:hidden relative group">
-          <summary
-            className="list-none cursor-pointer p-3 -mr-2 text-[#303568] [&::-webkit-details-marker]:hidden"
-            aria-label={t.menu}
-          >
-            <Menu className="w-5 h-5" aria-hidden="true" />
-          </summary>
-          <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-[#E8E5DD] rounded-2xl p-2 flex flex-col">
+      <HeaderShell overHero={overHero}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[72px] flex items-center gap-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-8">
+          <nav aria-label="Main" className="hidden lg:flex items-center gap-7 text-[15px] font-medium">
             {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-base text-[#303568] font-medium min-h-[44px] flex items-center px-3"
-              >
+              <a key={link.href} href={link.href} className={cn("whitespace-nowrap transition-colors", ink)}>
                 {link.label}
               </a>
             ))}
-            <a
-              href={appUrl("/app/login")}
-              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center px-3 border-t border-[#E8E5DD]"
-            >
+          </nav>
+
+          <a href={home} aria-label={`UnReceipt — ${t.home}`} className="relative py-1 mr-auto lg:mr-0">
+            {/* On the green hero the mint set (navy word, its arrow stays visible);
+                the full-colour mark once the bar is cream. */}
+            <span className="block transition-opacity duration-300 group-data-[solid=true]/hdr:opacity-0">
+              <Wordmark variant="horizontal" on="mint" className="text-[22px] sm:text-[26px]" />
+            </span>
+            <span className="absolute inset-0 py-1 opacity-0 transition-opacity duration-300 group-data-[solid=true]/hdr:opacity-100" aria-hidden="true">
+              <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
+            </span>
+          </a>
+
+          <div className="hidden lg:flex items-center justify-end gap-5 text-[15px] font-medium">
+            <span className="inline-flex items-center gap-1.5 text-white/85 group-data-[solid=true]/hdr:text-[#303568]/70">
+              <Globe className="w-4 h-4" aria-hidden="true" />
+              <span className="sr-only">{t.languages}</span>
+              {others.map((l) => (
+                <a
+                  key={l}
+                  href={languageHref(page, l)}
+                  hrefLang={l}
+                  lang={l}
+                  aria-label={LOCALE_NAME[l].label}
+                  className={cn("px-0.5 transition-colors", ink)}
+                >
+                  {LOCALE_NAME[l].short}
+                </a>
+              ))}
+            </span>
+            <a href={appUrl("/app/login")} className={cn("whitespace-nowrap transition-colors", ink)}>
               {t.signIn}
             </a>
-            {others.map((l) => (
-              <a
-                key={l}
-                href={languageHref(page, l)}
-                hrefLang={l}
-                lang={l}
-                className="text-base text-[#303568] font-medium min-h-[44px] flex items-center gap-2 px-3"
-              >
-                <Globe className="w-4 h-4" aria-hidden="true" />
-                {LOCALE_NAME[l].label}
-              </a>
-            ))}
             <a
-              href={appUrl(SIGNUP_PATH)}
-              className={cn(BTN, "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full h-11")}
+              href={appUrl("/demo")}
+              className={cn(BTN, "hidden xl:inline-flex rounded-full px-5 h-11 font-semibold text-[15px]", outline)}
             >
+              {t.demo}
+            </a>
+            <a href={appUrl(SIGNUP_PATH)} className={cn(BTN, "rounded-full px-6 h-11 font-semibold text-[15px]", filled)}>
               {cta}
             </a>
           </div>
-        </details>
-      </div>
-    </header>
+
+          <a
+            href={appUrl(SIGNUP_PATH)}
+            className={cn(BTN, "hidden min-[380px]:inline-flex lg:hidden rounded-full px-4 h-10 font-semibold", filled)}
+          >
+            {cta}
+          </a>
+          <details className="lg:hidden group/menu">
+            <summary
+              className={cn(
+                "list-none cursor-pointer p-3 -mr-3 [&::-webkit-details-marker]:hidden",
+                "text-white group-data-[solid=true]/hdr:text-[#303568]"
+              )}
+              aria-label={t.menu}
+            >
+              <Menu className="w-6 h-6" aria-hidden="true" />
+            </summary>
+            <div className="hidden group-open/menu:block absolute inset-x-0 top-full border-y border-[#E8E5DD] bg-[#FAFAF7] px-4 sm:px-6 pb-5 pt-2 max-h-[calc(100dvh-72px)] overflow-y-auto">
+              <div className="max-w-xl mx-auto flex flex-col">
+                {links.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="text-lg text-[#303568] font-semibold min-h-[52px] flex items-center border-b border-[#E8E5DD]"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+                <p className="mt-5 mb-1 text-xs font-semibold uppercase tracking-widest text-[#303568]/50">
+                  {audiences.label}
+                </p>
+                {AUDIENCE_PAGES.map((id, i) => (
+                  <a
+                    key={id}
+                    href={pagePath(id, locale)}
+                    aria-current={page === id ? "page" : undefined}
+                    className="min-h-[52px] flex flex-col justify-center border-b border-[#E8E5DD]"
+                  >
+                    <span className={cn("text-base font-semibold", page === id ? "text-[#1A7F52]" : "text-[#303568]")}>
+                      {audiences.items[i].title}
+                    </span>
+                    <span className="text-sm text-[#303568]/60">{audiences.items[i].sub}</span>
+                  </a>
+                ))}
+                <div className="mt-4 flex items-center gap-4 text-base font-medium text-[#303568]">
+                  <a href={appUrl("/app/login")} className="min-h-[44px] flex items-center">
+                    {t.signIn}
+                  </a>
+                  <span className="ml-auto inline-flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-[#303568]/60" aria-hidden="true" />
+                    {others.map((l) => (
+                      <a
+                        key={l}
+                        href={languageHref(page, l)}
+                        hrefLang={l}
+                        lang={l}
+                        aria-label={LOCALE_NAME[l].label}
+                        className="min-h-[44px] min-w-[36px] flex items-center justify-center"
+                      >
+                        {LOCALE_NAME[l].short}
+                      </a>
+                    ))}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <a
+                    href={appUrl("/demo")}
+                    className={cn(BTN, "rounded-full h-12 font-semibold text-base border border-[#303568]/20 text-[#303568] hover:bg-[#303568]/5")}
+                  >
+                    {t.demo}
+                  </a>
+                  <a href={appUrl(SIGNUP_PATH)} className={cn(BTN, "rounded-full h-12 font-semibold text-base", filled)}>
+                    {cta}
+                  </a>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </HeaderShell>
+      {overHero ? null : <div aria-hidden="true" className="h-[72px]" />}
+    </>
+  );
+}
+
+/**
+ * Pleo-style pill at the top of the green hero: one segment per audience,
+ * the current page's filled. Plain links, one page each.
+ */
+export function AudienceSwitch({
+  locale,
+  active,
+  className,
+}: {
+  locale: Locale;
+  active: AudiencePageId;
+  className?: string;
+}) {
+  const a = SITE_COPY[locale].audiences;
+  return (
+    <nav aria-label={a.label} className={cn("flex justify-center", className)}>
+      <ul className="grid grid-cols-3 w-full max-w-[640px] gap-1 rounded-full bg-[#FAFAF7] p-1.5 shadow-xl shadow-[#1F9D63]/25">
+        {AUDIENCE_PAGES.map((id, i) => {
+          const current = id === active;
+          return (
+            <li key={id} className="flex">
+              <a
+                href={pagePath(id, locale)}
+                aria-current={current ? "page" : undefined}
+                className={cn(
+                  "flex-1 flex flex-col items-center justify-center text-center rounded-full px-2 sm:px-4 min-h-[44px] sm:min-h-[56px] py-1.5 transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]",
+                  current ? "bg-[#303568] text-white" : "text-[#303568] hover:bg-[#ECF7E7]"
+                )}
+              >
+                <span className="text-[13px] sm:text-sm font-semibold leading-tight">{a.items[i].title}</span>
+                <span
+                  className={cn(
+                    "hidden sm:block text-xs leading-tight mt-0.5",
+                    current ? "text-white/70" : "text-[#303568]/55"
+                  )}
+                >
+                  {a.items[i].sub}
+                </span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
 
