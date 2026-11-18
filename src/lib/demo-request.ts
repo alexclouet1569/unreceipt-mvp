@@ -1,8 +1,17 @@
 /**
- * The demo request form (/book-demo, /sv/boka-demo → POST /api/demo-request).
+ * The demo request form (/book-demo, /sv/boka-demo, /fr/demander-une-demo,
+ * and at the end of the home and audience pages → POST /api/demo-request).
  * Pure data and helpers, safe to import from the client form; the zod
  * schema lives in demo-request-schema.ts so the browser doesn't load zod.
  */
+
+/**
+ * What the visitor asks for: a demo, or anything else (a question, a
+ * partnership, "tell me when you launch in my country"). A demo needs the
+ * company questions; another request needs a message.
+ */
+export const REQUEST_KINDS = ["demo", "question"] as const;
+export type RequestKind = (typeof REQUEST_KINDS)[number];
 
 /** Number of employees, as the form offers it. Stored as is. */
 export const EMPLOYEE_BANDS = ["1", "2-5", "6-15", "16-50", "50+"] as const;
@@ -13,7 +22,7 @@ export const BOOKKEEPING_OPTIONS = ["fortnox", "visma", "bokio", "other", "none"
 export type BookkeepingOption = (typeof BOOKKEEPING_OPTIONS)[number];
 
 /** Languages the demo page exists in. */
-export const DEMO_REQUEST_LOCALES = ["en", "sv"] as const;
+export const DEMO_REQUEST_LOCALES = ["en", "sv", "fr"] as const;
 export type DemoRequestLocale = (typeof DEMO_REQUEST_LOCALES)[number];
 
 export const DEMO_REQUEST_LIMITS = {

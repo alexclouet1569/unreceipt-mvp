@@ -72,10 +72,9 @@ ${guides}
 - [Svenska / Swedish site, prices in SEK](${SITE_URL}/sv)
 - [Français / French site](${SITE_URL}/fr)
 ${SHOW_PRICES ? `- [Pricing](${SITE_URL}/#pricing)\n` : ""}- [How it works](${SITE_URL}/#how)
-- [Interactive demo, company and accountant side](https://app.unreceipt.com/demo)
 - [FAQ](${SITE_URL}/#faq)
 - [Privacy & data](${SITE_URL}/privacy)
-- [Book a 20-minute demo](${page("bookDemo", "en")}) — Swedish: [Boka demo](${page("bookDemo", "sv")})
+- [Book a 20-minute demo or ask a question](${page("bookDemo", "en")}) — Swedish: [Boka demo](${page("bookDemo", "sv")}) — French: [Demander une démo](${page("bookDemo", "fr")})
 - Contact: support@unreceipt.com
 
 ## FAQ

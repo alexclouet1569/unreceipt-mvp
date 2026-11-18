@@ -4,6 +4,9 @@ import { LANDING_COPY } from "./_landing-copy";
 import { LandingView } from "./_landing";
 import { landingReceipt } from "./_receipt-text";
 import { SiteFooter } from "./_site-chrome";
+import { ContactSection } from "./_contact-section";
+import { DEMO_REQUEST_COPY } from "./_demo-request-copy";
+import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { SITE_COPY } from "./_site-copy";
 
 /**
@@ -22,6 +25,17 @@ export function LandingPage({ pilotMode, locale = "en" }: { pilotMode: boolean; 
       faq={getFaq(pilotMode, locale)}
       receipt={landingReceipt(locale)}
       footer={<SiteFooter locale={locale} />}
+      contact={
+        <ContactSection
+          locale={locale}
+          copy={DEMO_REQUEST_COPY[locale]}
+          bookingUrl={process.env.NEXT_PUBLIC_DEMO_BOOKING_URL ?? null}
+          signup={{
+            href: appUrl(SIGNUP_PATH),
+            label: pilotMode ? LANDING_COPY[locale].hero.ctaPilot : LANDING_COPY[locale].hero.ctaPaid,
+          }}
+        />
+      }
     />
   );
 }

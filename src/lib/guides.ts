@@ -54,12 +54,8 @@ export type Guide = {
   sources: { label: string; url: string }[];
   updatedLabel: string;
   disclaimer: string;
-  /**
-   * `secondaryPath`: where the demo button goes on the app host (default
-   * /demo). `secondaryDemoRequest`: the button opens the demo request page
-   * (/sv/boka-demo, /book-demo) instead.
-   */
-  cta: { title: string; lead: string; secondaryLabel: string; secondaryPath?: string; secondaryDemoRequest?: boolean };
+  /** `secondaryLabel`: the button to the demo request page (the other is the sign-up). */
+  cta: { title: string; lead: string; secondaryLabel: string };
   relatedTitle: string;
   related: { label: string; page: MarketingPageId }[];
 };
@@ -242,7 +238,7 @@ const retentionEn: Guide = {
   cta: {
     title: "Keep every receipt in one place",
     lead: "Forward or snap your receipts; UnReceipt keeps each one with a PDF once checked, ready for your accountant.",
-    secondaryLabel: "See the demo",
+    secondaryLabel: "Book a demo",
   },
   relatedTitle: "Read next",
   related: [
@@ -329,7 +325,7 @@ const retentionSv: Guide = {
   cta: {
     title: "Samla alla kvitton på ett ställe",
     lead: "Fota eller vidarebefordra kvittona; UnReceipt sparar varje kvitto med en PDF när det är kontrollerat, redo för bokföringen.",
-    secondaryLabel: "Se demon",
+    secondaryLabel: "Boka en demo",
   },
   relatedTitle: "Läs mer",
   related: [
@@ -411,7 +407,7 @@ const paperSv: Guide = {
   cta: {
     title: "Fota kvittot – släng papperet när bilden är kontrollerad",
     lead: "AI läser av kvittot på några sekunder och UnReceipt sparar bilden. Kontrollera att den är skarp innan du slänger papperet.",
-    secondaryLabel: "Se demon",
+    secondaryLabel: "Boka en demo",
   },
   relatedTitle: "Läs mer",
   related: [
@@ -568,7 +564,6 @@ const outlaysSv: Guide = {
     title: "Låt de anställda skicka kvittona för godkännande",
     lead: "De anställda fotar kvittot, du godkänner det och ser vad som ska betalas tillbaka. Din redovisningskonsult ser kvittona när de är godkända.",
     secondaryLabel: "Boka en demo på 20 minuter",
-    secondaryDemoRequest: true,
   },
   relatedTitle: "Läs mer",
   related: [
@@ -645,7 +640,7 @@ const retentionFr: Guide = {
   cta: {
     title: "Tous vos justificatifs au même endroit",
     lead: "Photographiez ou transférez vos reçus : UnReceipt les lit, les classe et garde l’original avec un PDF.",
-    secondaryLabel: "Voir la démo",
+    secondaryLabel: "Demander une démo",
   },
   relatedTitle: "À lire aussi",
   related: [
@@ -725,7 +720,7 @@ const paperFr: Guide = {
   cta: {
     title: "Retrouvez chaque ticket en un instant",
     lead: "Photographiez vos tickets : UnReceipt relève le fournisseur, le montant et la TVA, et les transmet à votre expert-comptable.",
-    secondaryLabel: "Voir la démo",
+    secondaryLabel: "Demander une démo",
   },
   relatedTitle: "À lire aussi",
   related: [

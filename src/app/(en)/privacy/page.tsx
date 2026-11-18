@@ -107,8 +107,10 @@ export default function PrivacyPage() {
               currency. You can change the currency in Settings.
             </li>
             <li>
-              <strong>A demo request, if you send one.</strong> On the
-              &ldquo;Book a demo&rdquo; page: your name, company, email, phone
+              <strong>A demo request or another request, if you send one.</strong>{" "}
+              In the contact form (on the &ldquo;Book a demo&rdquo; page and
+              at the end of our home and audience pages): whether you want a
+              demo or something else, your name, company, email, phone
               (optional), number of employees, bookkeeping software, whether
               you have an accountant, and your message.
             </li>
@@ -167,9 +169,9 @@ export default function PrivacyPage() {
               basis: contract performance.
             </li>
             <li>
-              <strong>To answer a demo request</strong> — we email you a
-              confirmation and get back to you to arrange the demo; nothing
-              else, no newsletter. Legal basis: steps you asked for before a
+              <strong>To answer a demo request or another request</strong> —
+              we email you a confirmation and get back to you, to arrange the
+              demo or answer your message; nothing else, no newsletter. Legal basis: steps you asked for before a
               possible contract; when you ask on behalf of your company, our
               legitimate interest in answering the request you sent us.
             </li>
@@ -267,7 +269,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Plausible Analytics</strong> — anonymous visit counts
-              on our public website and demo, hosted in the EU. Only the
+              on our public website, hosted in the EU. Only the
               page address (without its parameters, apart from campaign tags)
               and the referring website are sent: see Cookies below.
             </li>
@@ -325,7 +327,7 @@ export default function PrivacyPage() {
               account.
             </li>
             <li>
-              <strong>Demo requests:</strong> 12 months from the day you sent
+              <strong>Demo and other requests:</strong> 12 months from the day you sent
               the form, then deleted automatically from our database; the
               email that told us about it is deleted from our mailbox within
               the same 12 months. Ask us to delete it sooner at{" "}
@@ -379,11 +381,11 @@ export default function PrivacyPage() {
             use advertising or cross-site tracking cookies. Anonymous,
             aggregated traffic measurement is provided by Vercel Web Analytics
             and Speed Insights (on every page, with addresses stripped of
-            their parameters inside the app) and, on our public website and
-            the demo only, by Plausible Analytics: it sets no cookie, stores
+            their parameters inside the app) and, on our public website
+            only, by Plausible Analytics: it sets no cookie, stores
             nothing in your browser and keeps no personal data or IP address.
             It counts visits, the website that sent you and clicks on a few
-            buttons (create an account, book a demo, start or finish the demo).
+            buttons (create an account, book a demo, send the contact form).
           </p>
         </Section>
 

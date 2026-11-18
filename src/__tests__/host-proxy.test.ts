@@ -102,12 +102,38 @@ describe("proxy — host-based routing", () => {
     );
   });
 
-  it("redirects the public demo from apex → app subdomain", async () => {
-    const res = await proxy(
-      buildRequest("https://unreceipt.com/demo/company?step=2", "unreceipt.com")
-    );
-    expect(res.status).toBe(308);
-    expect(res.headers.get("location")).toBe("https://app.unreceipt.com/demo/company?step=2");
+  // The demo tour is closed to the public (2026-11-18): everyone books a
+  // demo instead, on the page in their browser's language.
+  it("sends the demo tour to the demo request page, on both hosts", async () => {
+    for (const host of ["unreceipt.com", "app.unreceipt.com"]) {
+      const res = await proxy(buildRequest(`https://${host}/demo/company?step=2`, host));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("https://unreceipt.com/book-demo");
+    }
+    const root = await proxy(buildRequest("https://app.unreceipt.com/demo", "app.unreceipt.com"));
+    expect(root.headers.get("location")).toBe("https://unreceipt.com/book-demo");
+    expect(mocks.getUser).not.toHaveBeenCalled();
+  });
+
+  it("picks the demo request page by the browser's language", async () => {
+    const swedish = buildRequest("https://app.unreceipt.com/demo/accountant", "app.unreceipt.com");
+    swedish.headers.set("accept-language", "sv-SE,sv;q=0.9,en;q=0.8");
+    expect((await proxy(swedish)).headers.get("location")).toBe("https://unreceipt.com/sv/boka-demo");
+    const french = buildRequest("https://unreceipt.com/demo", "unreceipt.com");
+    french.headers.set("accept-language", "fr-FR,fr;q=0.9");
+    expect((await proxy(french)).headers.get("location")).toBe("https://unreceipt.com/fr/demander-une-demo");
+  });
+
+  it("keeps the tour on previews closed too, on their own address", async () => {
+    const host = "unreceipt-abc123.vercel.app";
+    const res = await proxy(buildRequest(`https://${host}/demo/company`, host));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(`https://${host}/book-demo`);
+  });
+
+  it("leaves the tour open on localhost (the onboarding guides' screenshots)", async () => {
+    const res = await proxy(buildRequest("http://localhost:3000/demo/company", "localhost:3000"));
+    expect(res.headers.get("location")).toBeNull();
   });
 
   it("sends / on the app subdomain to /app (307, not cached for good)", async () => {

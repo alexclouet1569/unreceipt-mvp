@@ -42,8 +42,7 @@ function text(page: MarketingPageId, locale: Locale): { eyebrow: string; title: 
     case "guides":
       return { eyebrow: GUIDES_INDEX[locale].eyebrow, title: GUIDES_INDEX[locale].title };
     case "bookDemo": {
-      // English and Swedish only (MARKETING_PAGES.bookDemo.paths).
-      const h = DEMO_REQUEST_COPY[locale === "sv" ? "sv" : "en"].hero;
+      const h = DEMO_REQUEST_COPY[locale].hero;
       return { eyebrow: h.eyebrow, title: `${h.title} ${h.accent}` };
     }
     case "guideRetention":

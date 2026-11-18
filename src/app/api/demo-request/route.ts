@@ -10,8 +10,10 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { isSameHost } from "@/lib/same-origin";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-// POST /api/demo-request — the form on /book-demo and /sv/boka-demo (apex
-// host). Stores the request in public.demo_requests (RLS on, no policies:
+// POST /api/demo-request — the contact form on the demo request pages
+// (/book-demo, /sv/boka-demo, /fr/demander-une-demo) and at the end of the
+// home and audience pages (apex host): a demo request or another request
+// (`kind`). Stores the request in public.demo_requests (RLS on, no policies:
 // service role only), emails the founder at once with Reply-To the visitor,
 // and sends the visitor a fixed confirmation. Only a failed insert is a 5xx:
 // a failed email is reported by sendEmail() and the request still counts.
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { error } = await getSupabaseAdmin().from("demo_requests").insert({
+    kind: r.kind,
     locale: r.locale,
     name: r.name,
     company: r.company,
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
         to: founder,
         ...demoRequestFounderEmail({
           ...r,
-          bookkeeping: BOOKKEEPING_NAMES[r.bookkeeping],
+          bookkeeping: r.bookkeeping ? BOOKKEEPING_NAMES[r.bookkeeping] : null,
         }),
         replyTo: r.email,
         tag: "demo_request",
@@ -123,7 +126,7 @@ export async function POST(request: NextRequest) {
     sends.push(
       sendEmail({
         to: r.email,
-        ...demoRequestConfirmationEmail({ locale: r.locale, bookingUrl, canReply: founder !== null }),
+        ...demoRequestConfirmationEmail({ locale: r.locale, kind: r.kind, bookingUrl, canReply: founder !== null }),
         replyTo: founder,
         tag: "demo_request_confirmation",
       })

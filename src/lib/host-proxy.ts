@@ -28,7 +28,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 import { isAdminEmail } from "@/lib/auth-admin";
 import { INDEXNOW_KEY } from "@/lib/indexnow";
-import { MARKETING_PATHS } from "@/lib/marketing-pages";
+import { MARKETING_PATHS, demoRequestPath } from "@/lib/marketing-pages";
 
 const APEX_HOSTS = new Set(["unreceipt.com", "www.unreceipt.com"]);
 const APP_HOST = "app.unreceipt.com";
@@ -133,6 +133,18 @@ export async function proxy(request: NextRequest) {
       new URL("/app" + request.nextUrl.search, `https://${APP_HOST}`),
       307
     );
+  }
+
+  // The interactive demo tour (/demo, /demo/*) is closed to the public
+  // (founder decision 2026-11-18: visitors book a demo and leave their
+  // email instead). Everyone is sent to the demo request page in their
+  // browser's language: 307, because the tour may come back. Local dev
+  // keeps it, because docs/onboarding/scripts/capture.mjs takes the guides'
+  // screenshots from it.
+  if ((path === "/demo" || path.startsWith("/demo/")) && !isLocalDev(host)) {
+    const target = demoRequestPath(demoLocaleFor(request.headers.get("accept-language")));
+    const origin = onApex || onApp ? `https://${[...APEX_HOSTS][0]}` : request.nextUrl.origin;
+    return NextResponse.redirect(new URL(target, origin), 307);
   }
 
   // ─── BEGIN session refresh (TEMPORARY — remove this block as one unit) ───
@@ -311,3 +323,16 @@ function forbid(request: NextRequest, isApiPath: boolean) {
 // written literally in `src/proxy.ts`, so that file repeats this string; a
 // test keeps the two equal.
 export const HOST_PROXY_MATCHER = "/((?!_next/static|_next/image|favicon.ico).*)";
+
+/** localhost and 127.* (not previews, which anyone with the link can open). */
+function isLocalDev(host: string): boolean {
+  return host.startsWith("localhost") || host.startsWith("127.");
+}
+
+/** The demo request page's language for a browser: Swedish, French, else English. */
+export function demoLocaleFor(acceptLanguage: string | null): "sv" | "fr" | "en" {
+  const first = (acceptLanguage ?? "").split(",")[0]?.trim().toLowerCase() ?? "";
+  if (first.startsWith("sv")) return "sv";
+  if (first.startsWith("fr")) return "fr";
+  return "en";
+}

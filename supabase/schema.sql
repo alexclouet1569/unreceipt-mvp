@@ -2223,8 +2223,10 @@ CREATE TRIGGER receipts_keep_in_approval
 -- =============================================================================
 -- 2026-11-17 — Demo requests (src/app/api/demo-request)
 -- =============================================================================
--- One row per demo form sent on /book-demo or /sv/boka-demo: who asked and
--- the answers that qualify the call. A visitor, not a user: no user id.
+-- One row per form sent on /book-demo, /sv/boka-demo, /fr/demander-une-demo
+-- or at the end of the home and audience pages: a demo request (kind 'demo',
+-- with the answers that qualify the call) or another request (kind
+-- 'question', with its message). A visitor, not a user: no user id.
 -- Written and read only by server code (service role): RLS on, no policies.
 -- Rows older than 12 months are deleted by /api/cron/cleanup-exports, as
 -- the privacy page says.
@@ -2232,16 +2234,37 @@ CREATE TRIGGER receipts_keep_in_approval
 CREATE TABLE IF NOT EXISTS public.demo_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  locale TEXT NOT NULL CHECK (locale IN ('en', 'sv')),
+  kind TEXT NOT NULL DEFAULT 'demo' CHECK (kind IN ('demo', 'question')),
+  locale TEXT NOT NULL,
   name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
   company TEXT NOT NULL CHECK (char_length(company) BETWEEN 1 AND 120),
   email TEXT NOT NULL CHECK (char_length(email) BETWEEN 3 AND 254),
   phone TEXT CHECK (phone IS NULL OR char_length(phone) <= 40),
-  employees TEXT NOT NULL CHECK (employees IN ('1', '2-5', '6-15', '16-50', '50+')),
-  bookkeeping TEXT NOT NULL CHECK (bookkeeping IN ('fortnox', 'visma', 'bokio', 'other', 'none')),
-  has_accountant BOOLEAN NOT NULL,
+  employees TEXT CHECK (employees IS NULL OR employees IN ('1', '2-5', '6-15', '16-50', '50+')),
+  bookkeeping TEXT CHECK (bookkeeping IS NULL OR bookkeeping IN ('fortnox', 'visma', 'bokio', 'other', 'none')),
+  has_accountant BOOLEAN,
   message TEXT CHECK (message IS NULL OR char_length(message) <= 2000)
 );
+
+-- If an earlier version of this block ran (demo requests only, en/sv):
+-- the request kind, French, and the company questions optional for another
+-- request. Each statement is safe to run again.
+ALTER TABLE public.demo_requests
+  ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'demo';
+ALTER TABLE public.demo_requests ALTER COLUMN employees DROP NOT NULL;
+ALTER TABLE public.demo_requests ALTER COLUMN bookkeeping DROP NOT NULL;
+ALTER TABLE public.demo_requests ALTER COLUMN has_accountant DROP NOT NULL;
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_locale_check;
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_locale_allowed;
+ALTER TABLE public.demo_requests
+  ADD CONSTRAINT demo_requests_locale_allowed CHECK (locale IN ('en', 'sv', 'fr'));
+-- A demo request carries the company questions; another request its message.
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_kind_fields;
+ALTER TABLE public.demo_requests
+  ADD CONSTRAINT demo_requests_kind_fields CHECK (
+    (kind = 'demo' AND employees IS NOT NULL AND bookkeeping IS NOT NULL AND has_accountant IS NOT NULL)
+    OR (kind = 'question' AND message IS NOT NULL)
+  );
 
 CREATE INDEX IF NOT EXISTS demo_requests_created_idx ON public.demo_requests(created_at);
 

@@ -120,7 +120,6 @@ export type LandingCopy = {
     lead: string;
     ctaPilot: string;
     ctaPaid: string;
-    secondary: string;
     /** `{price}` is replaced with the cheapest plan's price. */
     notePilot: string;
     notePaid: string;
@@ -206,7 +205,6 @@ const en: LandingCopy = {
     lead: "Built for small businesses and freelancers who hate chasing receipts — and for the accountants who chase them. Snap a receipt and AI reads it in seconds; email receipts arrive on their own. You check, confirm, and the VAT is ready.",
     ctaPilot: "Join the pilot",
     ctaPaid: "Start your free week",
-    secondary: "See the demo",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
     notePilotNoPrice: "Free during the pilot. No card needed.",
@@ -387,7 +385,6 @@ const sv: LandingCopy = {
     lead: "Byggt för småföretag och enskilda firmor som är trötta på att jaga kvitton — och för redovisningsbyråerna som jagar dem. Fota kvittot så läser AI av det på några sekunder, och e-postkvittona kommer av sig själva. Du bekräftar, och momsen är klar.",
     ctaPilot: "Gå med i piloten",
     ctaPaid: "Prova gratis i en vecka",
-    secondary: "Se demon",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
     notePilotNoPrice: "Gratis under piloten. Inget kort behövs.",
@@ -560,7 +557,6 @@ const fr: LandingCopy = {
     lead: "Conçu pour les TPE et les indépendants qui en ont assez de courir après les justificatifs — et pour les experts-comptables qui les réclament. Photographiez un ticket, l’IA le lit en quelques secondes\u00a0; vos reçus par e-mail arrivent tout seuls. Vous confirmez, la TVA est relevée.",
     ctaPilot: "Rejoindre la phase pilote",
     ctaPaid: "Essayer gratuitement une semaine",
-    secondary: "Voir la démo",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price}\u00a0HT par mois.",
     notePaid: "À partir de {price}\u00a0HT par mois après la semaine gratuite. Sans engagement.",
     notePilotNoPrice: "Gratuit pendant la phase pilote. Sans carte bancaire.",

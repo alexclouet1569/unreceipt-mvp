@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   ArrowRight,
   CheckCircle2,
@@ -191,6 +190,8 @@ export type LandingViewProps = {
   receipt: LandingReceipt;
   /** The site footer, rendered on the server. */
   footer: React.ReactNode;
+  /** The contact block at the end of the page (form and its copy, this language only). */
+  contact: React.ReactNode;
 };
 
 export function LandingView({
@@ -202,6 +203,7 @@ export function LandingView({
   faq,
   receipt,
   footer,
+  contact,
 }: LandingViewProps) {
   const otherLocales = LOCALES.filter((l) => l !== locale);
   const s = t.samples;
@@ -220,10 +222,6 @@ export function LandingView({
   ];
   // "Who it's for" cards link to each audience's own page.
   const audienceLinks = [pagePath("smallBusiness", locale), pagePath("freelancers", locale), accountantsPath];
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [waitlistError, setWaitlistError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -242,31 +240,6 @@ export function LandingView({
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileMenuOpen]);
 
-  const handleWaitlist = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || t.ending.kind !== "waitlist") return;
-    const copy = t.ending;
-    setSubmitting(true);
-    setWaitlistError("");
-    try {
-      const res = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (res.ok) {
-        setSubmitted(true);
-        setEmail("");
-      } else {
-        const body = await res.json().catch(() => ({}));
-        setWaitlistError(body.error ?? copy.errorGeneric);
-      }
-    } catch {
-      setWaitlistError(copy.errorNetwork);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
@@ -430,15 +403,16 @@ export function LandingView({
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </a>
                 <a
-                  href={appUrl("/demo")}
-                  {...trackedLink("demo_tour_start", { attribution: true })}
+                  href={demoPath}
+                  {...demoLangProps}
+                  {...trackedLink("cta_demo_page")}
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
                     className: "border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12",
                   }))}
                 >
-                  {t.hero.secondary}
+                  {bookDemoLabel}
                 </a>
               </div>
               <p className="text-white/80 text-sm mt-4">
@@ -786,89 +760,8 @@ export function LandingView({
       <ReceiptRows text={receipt.text} rows={receipt.rows.end} />
       </div>
 
-      {/* ─── WAITLIST CTA ─── */}
-      <section id="waitlist" className="relative bg-[#303568] py-20 px-4 sm:px-6 overflow-hidden">
-        <div className="absolute top-0 left-0 right-0">
-          <ReceiptEdge color="#303568" flip />
-        </div>
-        {/* Background accents */}
-        <div className="absolute inset-0 opacity-[0.05]">
-          <div className="absolute top-10 right-20 w-40 h-40 rounded-full border-2 border-white" />
-          <div className="absolute bottom-10 left-10 w-32 h-32 rounded-full border-2 border-white" />
-        </div>
-
-        <div className="max-w-xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[#27BE7B]/20 rounded-full px-4 py-1.5 mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-[#27BE7B]" />
-            <span className="text-[#27BE7B] text-xs font-semibold tracking-wide uppercase">{t.ending.badge}</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 text-white">
-            {t.ending.title}
-          </h2>
-          {t.ending.kind === "cta" ? (
-            <>
-              <p className="text-white/70 text-base mb-10">
-                {pilotMode ? t.ending.leadPilot : t.ending.leadPaid}
-              </p>
-              <a
-                href={appUrl(SIGNUP_PATH)}
-                {...trackedLink("cta_signup", { attribution: true })}
-                className={cn(buttonVariants({
-                  size: "lg",
-                  className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
-                }))}
-              >
-                {heroCta}
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </a>
-            </>
-          ) : (
-            <>
-              <p className="text-white/70 text-base mb-10">
-                {t.ending.lead}
-              </p>
-              {submitted ? (
-                <div className="flex items-center justify-center gap-2 text-[#27BE7B] font-semibold text-lg">
-                  <CheckCircle2 className="w-5 h-5" />
-                  {t.ending.success}
-                </div>
-              ) : (
-                <form onSubmit={handleWaitlist} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                  <Input
-                    type="email"
-                    placeholder={t.ending.placeholder}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="flex-1 bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-full px-6 h-12 focus:bg-white/15"
-                  />
-                  <Button
-                    type="submit"
-                    className="bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
-                    disabled={submitting}
-                  >
-                    {submitting ? t.ending.submitting : t.ending.submit}
-                    {!submitting && <ArrowRight className="w-4 h-4 ml-1.5" />}
-                  </Button>
-                </form>
-              )}
-              {waitlistError ? (
-                <p role="alert" className="text-sm text-[#FFB4A8] mt-3">
-                  {waitlistError}
-                </p>
-              ) : null}
-              <p className="text-xs text-white/40 mt-5">
-                {t.ending.skipPrefix}{" "}
-                <a href={appUrl(SIGNUP_PATH)}
-                {...trackedLink("cta_signup", { attribution: true })} className="underline hover:text-white">
-                  {heroCta.toLowerCase()}
-                </a>
-                .
-              </p>
-            </>
-          )}
-        </div>
-      </section>
+      {/* ─── CONTACT: book a demo or send a request (the form, from the server) ─── */}
+      {contact}
 
       {/* ─── FOOTER ─── */}
       {footer}

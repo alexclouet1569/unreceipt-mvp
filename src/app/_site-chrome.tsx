@@ -180,7 +180,6 @@ export function SiteFooter({ locale }: { locale: Locale }) {
       links: [
         { label: t.nav.how, href: `${home}#how` },
         ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: `${home}#pricing` }] : []),
-        { label: t.footer.demo, href: appUrl("/demo"), track: trackedLink("demo_tour_start", { attribution: true }) },
         { label: t.footer.faq, href: `${home}#faq` },
       ],
     },

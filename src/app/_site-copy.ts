@@ -24,7 +24,6 @@ export type SiteCopy = {
   footer: {
     tagline: string;
     product: string;
-    demo: string;
     faq: string;
     whoFor: string;
     smallBusiness: string;
@@ -62,7 +61,6 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       tagline:
         "VAT-ready receipts for small businesses, freelancers and their accountants. Paper is Past.",
       product: "Product",
-      demo: "Live demo",
       faq: "FAQ",
       whoFor: "Who it's for",
       smallBusiness: "Small businesses",
@@ -98,7 +96,6 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       tagline:
         "Kvitton med momsen klar för småföretag, enskilda firmor och deras redovisningsbyråer. Paper is Past.",
       product: "Produkt",
-      demo: "Demo",
       faq: "Vanliga frågor",
       whoFor: "För vem",
       smallBusiness: "Småföretag",
@@ -123,7 +120,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       accountants: "Experts-comptables",
       freelancers: "Indépendants",
       smallBusiness: "TPE",
-      bookDemo: "Démo (en anglais)",
+      bookDemo: "Demander une démo",
       signIn: "Se connecter",
       ctaPilot: "Je participe",
       ctaPaid: "Essai gratuit",
@@ -134,7 +131,6 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       tagline:
         "Des justificatifs avec la TVA relevée pour les TPE, les indépendants et leurs experts-comptables. Le papier, c’est du passé.",
       product: "Produit",
-      demo: "Démo",
       faq: "FAQ",
       whoFor: "Pour qui",
       smallBusiness: "TPE",

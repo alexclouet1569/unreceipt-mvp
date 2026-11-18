@@ -15,7 +15,8 @@ const BTN =
   "inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]";
 
 /**
- * The demo request page (/book-demo, /sv/boka-demo). Server component: the
+ * The demo request page (/book-demo, /sv/boka-demo, /fr/demander-une-demo).
+ * Server component: the
  * copy is in the HTML, only the form is a client component. Same visual
  * language as the audience pages; out of DESIGN.md scope like them.
  */
@@ -77,7 +78,7 @@ export function DemoRequestPage({
             </div>
 
             <div className="bg-white rounded-3xl border border-[#E8E5DD] p-5 sm:p-7 w-full">
-              <DemoRequestForm locale={locale} bookingUrl={bookingUrl} />
+              <DemoRequestForm locale={locale} copy={{ form: t.form, sent: t.sent }} bookingUrl={bookingUrl} />
             </div>
           </div>
         </section>
@@ -101,22 +102,12 @@ export function DemoRequestPage({
               <p className="text-sm text-white/75 mb-5">{t.notes.selfServe.desc}</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
-                  href={appUrl("/demo/company?step=1")}
-                  {...trackedLink("demo_tour_start", { attribution: true })}
-                  className={cn(BTN, "bg-[#1A7F52] text-white hover:bg-[#176E47] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
-                >
-                  {t.notes.selfServe.tour}
-                  <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
-                </a>
-                <a
                   href={appUrl(SIGNUP_PATH)}
                   {...trackedLink("cta_signup", { attribution: true })}
-                  className={cn(
-                    BTN,
-                    "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11 focus-visible:outline-white"
-                  )}
+                  className={cn(BTN, "bg-[#1A7F52] text-white hover:bg-[#176E47] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
                 >
                   {pilotMode ? t.notes.selfServe.signupPilot : t.notes.selfServe.signupPaid}
+                  <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
                 </a>
               </div>
             </div>

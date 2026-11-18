@@ -69,11 +69,11 @@ describe("demoRequestSchema", () => {
 });
 
 describe("demo request page", () => {
-  it("leads French visitors to the English page and the others to their own", () => {
+  it("leads every visitor to the page in their own language", () => {
     expect(demoRequestPath("en")).toBe("/book-demo");
     expect(demoRequestPath("sv")).toBe("/sv/boka-demo");
-    expect(demoRequestPath("fr")).toBe("/book-demo");
-    expect(demoRequestLang("fr")).toBe("en");
+    expect(demoRequestPath("fr")).toBe("/fr/demander-une-demo");
+    expect(demoRequestLang("fr")).toBe("fr");
     expect(demoRequestLang("sv")).toBe("sv");
   });
 
@@ -109,3 +109,65 @@ describe("demo CTAs", () => {
     }
   });
 });
+
+describe("the contact form at the end of the pages", () => {
+  const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
+
+  it("ends the home and audience pages", () => {
+    expect(read("src/app/_landing-page.tsx")).toContain("<ContactSection");
+    expect(read("src/app/_audience-page.tsx")).toContain("<ContactSection");
+    // The English waitlist it replaced is gone from the page.
+    expect(read("src/app/_landing.tsx")).not.toContain("/api/waitlist");
+  });
+
+  it("gets one language's copy as props, never the module of all three", () => {
+    for (const file of ["src/app/_demo-request-form.tsx", "src/app/_contact-section.tsx", "src/app/_landing.tsx"]) {
+      expect(read(file), file).not.toMatch(/import \{[^}]*\bDEMO_REQUEST_COPY\b/);
+    }
+  });
+
+  it("asks for a demo by default and offers another request", () => {
+    for (const locale of DEMO_REQUEST_LOCALES) {
+      const kinds = DEMO_REQUEST_COPY[locale].form.kinds;
+      expect(kinds.demo.length).toBeGreaterThan(0);
+      expect(kinds.question.length).toBeGreaterThan(0);
+    }
+    const parsed = demoRequestSchema.safeParse({
+      name: "Maja",
+      company: "Nordljus AB",
+      email: "maja@example.se",
+      employees: "2-5",
+      bookkeeping: "fortnox",
+      hasAccountant: true,
+      locale: "sv",
+    });
+    expect(parsed.success && parsed.data.kind).toBe("demo");
+  });
+});
+
+describe("the closed demo tour", () => {
+  // Founder decision 2026-11-18: no public way into /demo; visitors book a
+  // demo instead (the proxy sends /demo there).
+  it("is linked from no marketing page", () => {
+    const files = [
+      "src/app/_landing.tsx",
+      "src/app/_landing-page.tsx",
+      "src/app/_audience-page.tsx",
+      "src/app/_audience-copy.ts",
+      "src/app/_guide-page.tsx",
+      "src/lib/guides.ts",
+      "src/app/_site-chrome.tsx",
+      "src/app/_demo-request-page.tsx",
+      "src/app/_contact-section.tsx",
+      "src/app/_about-page.tsx",
+      "src/app/llms.txt/route.ts",
+      "src/app/llms-full.txt/route.ts",
+    ];
+    for (const file of files) {
+      const source = readFileSync(join(process.cwd(), file), "utf8");
+      expect(source, file).not.toMatch(/["'`(]\/demo(\/|\?|["'`)])/);
+      expect(source, file).not.toMatch(/app\.unreceipt\.com\/demo/);
+    }
+  });
+});
+

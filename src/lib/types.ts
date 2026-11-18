@@ -497,18 +497,21 @@ export interface MailboxOAuthParked {
   expires_at: string;
 }
 
-// One demo form sent on /book-demo or /sv/boka-demo (2026-11-17 block).
+// One form sent on the demo request pages or at the end of the home and
+// audience pages (2026-11-17 block): a demo request, or another request.
 // Service role only; deleted after 12 months by the cleanup cron.
 export interface DemoRequestRow {
   id: string;
   created_at: string;
-  locale: "en" | "sv";
+  kind: "demo" | "question";
+  locale: "en" | "sv" | "fr";
   name: string;
   company: string;
   email: string;
   phone: string | null;
-  employees: "1" | "2-5" | "6-15" | "16-50" | "50+";
-  bookkeeping: "fortnox" | "visma" | "bokio" | "other" | "none";
-  has_accountant: boolean;
+  /** Set for a demo request; may be null for another request. */
+  employees: "1" | "2-5" | "6-15" | "16-50" | "50+" | null;
+  bookkeeping: "fortnox" | "visma" | "bokio" | "other" | "none" | null;
+  has_accountant: boolean | null;
   message: string | null;
 }

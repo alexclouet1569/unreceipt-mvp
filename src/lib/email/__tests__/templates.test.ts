@@ -237,6 +237,7 @@ describe("missingReceiptsEmail", () => {
 
 describe("demo request emails", () => {
   const request = {
+    kind: "demo" as const,
     name: "Maja\nBerg",
     company: "Nordljus\r\nBcc: x@example.com AB",
     email: "maja@example.se",

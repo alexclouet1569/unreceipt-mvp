@@ -20,7 +20,7 @@ import type { MarketingPageId } from "@/lib/marketing-pages";
 export type AudienceId = "accountants" | "freelancers" | "smallBusiness";
 
 /** Where a button goes; resolved to a URL in _audience-page.tsx. */
-export type Cta = "signup" | "demoCompany" | "demoAccountant" | "bookDemo";
+export type Cta = "signup" | "bookDemo";
 
 export type IconName =
   | "mail"
@@ -53,8 +53,9 @@ export type AudienceCopy = {
     primary: Cta;
     /** Label for a non-signup primary button. Signup buttons follow PILOT_MODE. */
     primaryLabel?: string;
-    secondary: Cta;
-    secondaryLabel: string;
+    /** A second button; none on pages whose only ask is the demo. */
+    secondary?: Cta;
+    secondaryLabel?: string;
     notePilot: string;
     notePaid: string;
     /** Used instead while prices are hidden (src/lib/pricing-visibility.ts). */
@@ -68,14 +69,6 @@ export type AudienceCopy = {
   related: { title: string; links: { label: string; page: MarketingPageId }[] };
   faqTitle: string;
   faq: FaqItem[];
-  ending: {
-    title: string;
-    lead: string;
-    primary: Cta;
-    primaryLabel?: string;
-    secondary: Cta;
-    secondaryLabel: string;
-  };
 };
 
 // ─── Accounting firms ────────────────────────────────────────────────
@@ -104,8 +97,6 @@ const accountantsEn: AudienceCopy = {
     lead: "Stop chasing photos, forwarded PDFs and paper bags at month-end. Your clients snap or forward their receipts to UnReceipt; you get every one read by AI, confirmed by the client and VAT-split in one portal, with one export per client and month.",
     primary: "bookDemo",
     primaryLabel: "Book a 20-minute demo",
-    secondary: "demoAccountant",
-    secondaryLabel: "Try the accountant demo",
     notePilot: "No installation. Clients invite you, or you invite them.",
     notePaid: "No installation. Clients invite you, or you invite them.",
   },
@@ -226,14 +217,6 @@ const accountantsEn: AudienceCopy = {
       a: "The product is in English for now. The website is in English, Swedish and French.",
     },
   ],
-  ending: {
-    title: "See it with your own clients' receipts",
-    lead: "20 minutes on a call, or two minutes in the demo with sample data.",
-    primary: "bookDemo",
-    primaryLabel: "Book a demo",
-    secondary: "demoAccountant",
-    secondaryLabel: "Try the accountant demo",
-  },
 };
 
 const accountantsSv: AudienceCopy = {
@@ -261,8 +244,6 @@ const accountantsSv: AudienceCopy = {
     lead: "Sluta jaga foton, vidarebefordrade PDF:er och kvittopåsar vid månadsskiftet. Dina klienter fotar eller vidarebefordrar sina kvitton till UnReceipt, och du får varje kvitto avläst av AI, bekräftat av klienten och med momsen uppdelad i en portal, med en export per klient och månad.",
     primary: "bookDemo",
     primaryLabel: "Boka en demo på 20 minuter",
-    secondary: "demoAccountant",
-    secondaryLabel: "Testa byrådemon",
     notePilot: "Ingen installation. Klienten bjuder in er, eller ni bjuder in klienten.",
     notePaid: "Ingen installation. Klienten bjuder in er, eller ni bjuder in klienten.",
   },
@@ -385,14 +366,6 @@ const accountantsSv: AudienceCopy = {
       a: "Produkten är på engelska än så länge. Webbplatsen finns på svenska, engelska och franska.",
     },
   ],
-  ending: {
-    title: "Se det med dina egna klienters kvitton",
-    lead: "20 minuter i ett samtal, eller två minuter i demon med exempeldata.",
-    primary: "bookDemo",
-    primaryLabel: "Boka en demo",
-    secondary: "demoAccountant",
-    secondaryLabel: "Testa byrådemon",
-  },
 };
 
 const accountantsFr: AudienceCopy = {
@@ -419,8 +392,6 @@ const accountantsFr: AudienceCopy = {
     lead: "Fini les relances, les photos floues et les sacs de tickets en fin de mois. Vos clients photographient ou transfèrent leurs reçus à UnReceipt ; vous les retrouvez lus par l’IA, confirmés par le client et avec la TVA relevée dans un seul portail, avec un export par client et par mois.",
     primary: "bookDemo",
     primaryLabel: "Réserver une démo de 20 minutes",
-    secondary: "demoAccountant",
-    secondaryLabel: "Essayer la démo cabinet",
     notePilot: "Aucune installation. Votre client vous invite, ou vous l’invitez.",
     notePaid: "Aucune installation. Votre client vous invite, ou vous l’invitez.",
   },
@@ -542,14 +513,6 @@ const accountantsFr: AudienceCopy = {
       a: "L’application est pour l’instant en anglais. Le site est en français, en anglais et en suédois.",
     },
   ],
-  ending: {
-    title: "Voyez-le avec les reçus de vos propres clients",
-    lead: "20 minutes en visio, ou deux minutes dans la démo avec des données d’exemple.",
-    primary: "bookDemo",
-    primaryLabel: "Réserver une démo",
-    secondary: "demoAccountant",
-    secondaryLabel: "Essayer la démo cabinet",
-  },
 };
 
 // ─── Freelancers and sole traders ────────────────────────────────────
@@ -577,8 +540,8 @@ const freelancersEn: AudienceCopy = {
     accent: "before tax time.",
     lead: "You run the business and you do the books. UnReceipt takes the receipts off your plate: snap the paper ones, forward the email ones, and each expense is saved with its VAT, category and original — ready for your accountant or your own tax return.",
     primary: "signup",
-    secondary: "demoCompany",
-    secondaryLabel: "See the demo",
+    secondary: "bookDemo",
+    secondaryLabel: "Book a demo",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
     notePilotNoPrice: "Free during the pilot. No card needed.",
@@ -697,13 +660,6 @@ const freelancersEn: AudienceCopy = {
       a: "Your account and receipts stay available for 90 days after you cancel so you can download them, and we email you before anything is deleted. Keeping receipts for the legal period stays your business's duty, so move them to your own archive.",
     },
   ],
-  ending: {
-    title: "Stop losing receipts",
-    lead: "Snap the next one and see it saved with its VAT in seconds.",
-    primary: "signup",
-    secondary: "demoCompany",
-    secondaryLabel: "See the demo",
-  },
 };
 
 const freelancersSv: AudienceCopy = {
@@ -730,8 +686,8 @@ const freelancersSv: AudienceCopy = {
     accent: "före deklarationen.",
     lead: "Du driver firman och sköter bokföringen själv. UnReceipt tar hand om kvittona: fota papperskvittona, vidarebefordra e-postkvittona, och varje utgift sparas med moms, kategori och original — redo för bokföringen, deklarationen eller din redovisningskonsult.",
     primary: "signup",
-    secondary: "demoCompany",
-    secondaryLabel: "Se demon",
+    secondary: "bookDemo",
+    secondaryLabel: "Boka en demo",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
     notePilotNoPrice: "Gratis under piloten. Inget kort behövs.",
@@ -851,13 +807,6 @@ const freelancersSv: AudienceCopy = {
       a: "Ja. Guiden i appen ger dig ett färdigt filter för Gmail eller Outlook som vidarebefordrar kvittomejl till din privata UnReceipt-adress, så att du slipper göra det ett i taget.",
     },
   ],
-  ending: {
-    title: "Sluta tappa bort kvitton",
-    lead: "Fota nästa kvitto och se det sparat med momsen på några sekunder.",
-    primary: "signup",
-    secondary: "demoCompany",
-    secondaryLabel: "Se demon",
-  },
 };
 
 const freelancersFr: AudienceCopy = {
@@ -883,8 +832,8 @@ const freelancersFr: AudienceCopy = {
     accent: "classés sans y penser.",
     lead: "Vous faites tourner l’activité et vous tenez les comptes. UnReceipt s’occupe des reçus : photographiez vos tickets, transférez vos reçus par e-mail, et chaque dépense est enregistrée avec sa TVA, sa catégorie et l’original — prête pour votre comptabilité ou votre expert-comptable.",
     primary: "signup",
-    secondary: "demoCompany",
-    secondaryLabel: "Voir la démo",
+    secondary: "bookDemo",
+    secondaryLabel: "Demander une démo",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price} HT par mois.",
     notePaid: "À partir de {price} HT par mois après la semaine gratuite. Sans engagement.",
     notePilotNoPrice: "Gratuit pendant la phase pilote. Sans carte bancaire.",
@@ -1004,13 +953,6 @@ const freelancersFr: AudienceCopy = {
       a: "Non, pas en France aujourd’hui : UnReceipt ne produit pas la copie conforme qu’exige le Livre des procédures fiscales pour détruire une facture papier. Gardez vos originaux ; UnReceipt sert à les lire, les classer et les retrouver.",
     },
   ],
-  ending: {
-    title: "Fini les reçus perdus",
-    lead: "Photographiez le prochain ticket et retrouvez-le enregistré avec sa TVA en quelques secondes.",
-    primary: "signup",
-    secondary: "demoCompany",
-    secondaryLabel: "Voir la démo",
-  },
 };
 
 // ─── Small businesses with employees ─────────────────────────────────
@@ -1044,8 +986,7 @@ const smallBusinessEn: AudienceCopy = {
     lead: "Stop chasing receipts and expense forms at month-end. Employees snap or forward their receipts and send them for approval. You approve with one tap, see who is owed what, and your accountant sees your team's receipts only once they're approved.",
     primary: "bookDemo",
     primaryLabel: "Ask for a 20-minute demo",
-    secondary: "demoCompany",
-    secondaryLabel: "Try the demo",
+    secondary: "signup",
     notePilot: "Free during the pilot. The team feature is new.",
     notePaid: "One price for the whole company, no per-user fees.",
   },
@@ -1171,14 +1112,6 @@ const smallBusinessEn: AudienceCopy = {
       a: "It's new (November 2026) and part of the pilot. Today each person has one approver (or the owner), with no amount limits, no stand-in while someone is away and no second approver. The app is in English. Tell us what your team needs.",
     },
   ],
-  ending: {
-    title: "See it with your own team",
-    lead: "20 minutes on a call, or two minutes in the demo, where you approve an employee's receipt.",
-    primary: "bookDemo",
-    primaryLabel: "Ask for a demo",
-    secondary: "demoCompany",
-    secondaryLabel: "Try the demo",
-  },
 };
 
 const smallBusinessSv: AudienceCopy = {
@@ -1206,8 +1139,7 @@ const smallBusinessSv: AudienceCopy = {
     lead: "Sluta jaga kvitton och utläggsblanketter i slutet av månaden. De anställda fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande. Du godkänner med ett tryck, ser vem som ska ha tillbaka vad, och redovisningsbyrån ser de anställdas kvitton först när de har godkänts.",
     primary: "bookDemo",
     primaryLabel: "Be om en demo på 20 minuter",
-    secondary: "demoCompany",
-    secondaryLabel: "Testa demon",
+    secondary: "signup",
     notePilot: "Gratis under piloten. Teamfunktionen är ny.",
     notePaid: "Ett pris för hela företaget, inga avgifter per användare.",
   },
@@ -1334,14 +1266,6 @@ const smallBusinessSv: AudienceCopy = {
       a: "Den är ny (november 2026) och ingår i piloten. I dag har varje person en godkännare (eller ägaren), utan beloppsgränser, utan ersättare när någon är borta och utan ett andra godkännande. Appen är på engelska; knapparna heter Approve, Send back och Reject. Berätta vad ert team behöver.",
     },
   ],
-  ending: {
-    title: "Se hur det fungerar med ert team",
-    lead: "20 minuter i ett samtal, eller två minuter i demon där du godkänner en anställds kvitto.",
-    primary: "bookDemo",
-    primaryLabel: "Be om en demo",
-    secondary: "demoCompany",
-    secondaryLabel: "Testa demon",
-  },
 };
 
 const smallBusinessFr: AudienceCopy = {
@@ -1368,8 +1292,7 @@ const smallBusinessFr: AudienceCopy = {
     lead: "Fini les tickets et les notes de frais à rassembler en fin de mois. Vos salariés photographient ou transfèrent leurs reçus et les envoient pour validation. Vous validez d’un geste, voyez qui rembourser, et votre expert-comptable ne voit les reçus de vos salariés qu’une fois validés.",
     primary: "bookDemo",
     primaryLabel: "Demander une démo de 20 minutes",
-    secondary: "demoCompany",
-    secondaryLabel: "Essayer la démo",
+    secondary: "signup",
     notePilot: "Gratuit pendant la phase pilote. La gestion d’équipe est nouvelle.",
     notePaid: "Un prix pour toute l’entreprise, sans frais par utilisateur.",
   },
@@ -1495,14 +1418,6 @@ const smallBusinessFr: AudienceCopy = {
       a: "Elle est nouvelle (novembre 2026) et fait partie de la phase pilote. Aujourd’hui, chaque personne a un valideur (ou le dirigeant), sans seuil de montant, sans remplaçant en cas d’absence et sans double validation. L’application est en anglais. Dites-nous ce dont votre équipe a besoin.",
     },
   ],
-  ending: {
-    title: "Voyez-le avec votre équipe",
-    lead: "20 minutes en appel, ou deux minutes dans la démo, où vous validez le reçu d’un salarié.",
-    primary: "bookDemo",
-    primaryLabel: "Demander une démo",
-    secondary: "demoCompany",
-    secondaryLabel: "Essayer la démo",
-  },
 };
 
 export const AUDIENCE_COPY: Record<AudienceId, Record<Locale, AudienceCopy>> = {

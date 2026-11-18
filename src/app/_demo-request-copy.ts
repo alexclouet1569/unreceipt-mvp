@@ -1,8 +1,10 @@
-import type { BookkeepingOption, DemoRequestLocale, EmployeeBand } from "@/lib/demo-request";
+import type { BookkeepingOption, DemoRequestLocale, EmployeeBand, RequestKind } from "@/lib/demo-request";
 
 /**
- * Every word on the demo request page (/book-demo, /sv/boka-demo), its form
- * and its thank-you state. Pure data, safe to import from the client form.
+ * Every word on the demo request page (/book-demo, /sv/boka-demo,
+ * /fr/demander-une-demo), the contact block at the end of the home and
+ * audience pages, the form they share and its thank-you state. Pure data;
+ * client components get one language's copy as props, never this module.
  * Honest by rule: the team feature is in pilot, there is no bookkeeping
  * integration, and nothing here quotes a customer we don't have.
  */
@@ -15,10 +17,15 @@ export type DemoRequestCopy = {
   notes: {
     title: string;
     items: [{ title: string; desc: string }, { title: string; desc: string }];
-    selfServe: { title: string; desc: string; tour: string; signupPilot: string; signupPaid: string };
+    selfServe: { title: string; desc: string; signupPilot: string; signupPaid: string };
   };
+  /** The contact block at the end of the home and audience pages. */
+  contact: { eyebrow: string; title: string; lead: string; signupLead: string };
   form: {
     title: string;
+    /** "What can we help with?" and its two answers. */
+    kindLegend: string;
+    kinds: Record<RequestKind, string>;
     name: string;
     company: string;
     email: string;
@@ -33,7 +40,9 @@ export type DemoRequestCopy = {
     yes: string;
     no: string;
     message: string;
-    messagePlaceholder: string;
+    messagePlaceholders: Record<RequestKind, string>;
+    /** After "(…)" next to a field that is optional for another request. */
+    optionalForQuestion: string;
     submit: string;
     sending: string;
     privacy: string;
@@ -47,6 +56,9 @@ export type DemoRequestCopy = {
   };
   sent: {
     title: string;
+    /** After another request (no booking link). */
+    titleQuestion: string;
+    questionText: string;
     text: string;
     bookLead: string;
     book: string;
@@ -92,15 +104,22 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
         },
       ],
       selfServe: {
-        title: "Rather try it yourself?",
-        desc: "Click through the interactive demo, or create an account any time.",
-        tour: "Open the interactive demo",
+        title: "Rather start on your own?",
+        desc: "Create an account any time: it takes two minutes.",
         signupPilot: "Join the pilot",
         signupPaid: "Start free",
       },
     },
+    contact: {
+      eyebrow: "Talk to us",
+      title: "Book a demo or send us a question",
+      lead: "Tell us a little about your company. We reply within one working day, and a demo takes 20 minutes on a video call.",
+      signupLead: "Rather start on your own?",
+    },
     form: {
-      title: "Request a demo",
+      title: "Contact us",
+      kindLegend: "What can we help with?",
+      kinds: { demo: "Book a demo", question: "Another request" },
       name: "Your name",
       company: "Company",
       email: "Work email",
@@ -115,10 +134,14 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       yes: "Yes",
       no: "No",
       message: "Message",
-      messagePlaceholder: "What would you most like to see?",
-      submit: "Send request",
+      messagePlaceholders: {
+        demo: "What would you most like to see?",
+        question: "Your question, or what you need from us",
+      },
+      optionalForQuestion: "optional for another request",
+      submit: "Send",
       sending: "Sending…",
-      privacy: "We use these details only to reply and arrange the demo, and delete them after 12 months.",
+      privacy: "We use these details only to reply to you, and delete them after 12 months.",
       privacyLink: "Privacy",
       errors: {
         invalid: "Some answers need a look: see the notes under the fields.",
@@ -133,11 +156,13 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
         employees: "Choose the number of employees.",
         bookkeeping: "Choose your bookkeeping software.",
         hasAccountant: "Choose yes or no.",
-        message: "Keep the message under 2,000 characters.",
+        message: "Write your message, under 2,000 characters.",
       },
     },
     sent: {
       title: "Thanks, we got your request",
+      titleQuestion: "Thanks, we got your message",
+      questionText: "We'll reply by email within one working day.",
       text: "You'll get a confirmation by email.",
       bookLead: "Want to pick a time right away?",
       book: "Choose a time",
@@ -181,15 +206,22 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
         },
       ],
       selfServe: {
-        title: "Vill du hellre testa själv?",
-        desc: "Klicka dig igenom den interaktiva demon, eller skapa ett konto när du vill.",
-        tour: "Öppna den interaktiva demon",
+        title: "Vill du hellre komma igång själv?",
+        desc: "Skapa ett konto när du vill: det tar två minuter.",
         signupPilot: "Gå med i piloten",
         signupPaid: "Kom igång gratis",
       },
     },
+    contact: {
+      eyebrow: "Kontakta oss",
+      title: "Boka en demo eller skicka en fråga",
+      lead: "Berätta lite om företaget. Vi svarar inom en arbetsdag, och en demo tar 20 minuter i ett videomöte.",
+      signupLead: "Vill du hellre komma igång själv?",
+    },
     form: {
-      title: "Be om en demo",
+      title: "Kontakta oss",
+      kindLegend: "Vad kan vi hjälpa till med?",
+      kinds: { demo: "Boka en demo", question: "Något annat" },
       name: "Ditt namn",
       company: "Företag",
       email: "E-post (jobbet)",
@@ -204,10 +236,14 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       yes: "Ja",
       no: "Nej",
       message: "Meddelande",
-      messagePlaceholder: "Vad vill du helst se?",
-      submit: "Skicka förfrågan",
+      messagePlaceholders: {
+        demo: "Vad vill du helst se?",
+        question: "Din fråga, eller vad du behöver av oss",
+      },
+      optionalForQuestion: "valfritt för andra frågor",
+      submit: "Skicka",
       sending: "Skickar…",
-      privacy: "Vi använder uppgifterna bara för att svara och boka demon, och raderar dem efter 12 månader.",
+      privacy: "Vi använder uppgifterna bara för att svara dig, och raderar dem efter 12 månader.",
       privacyLink: "Integritet",
       errors: {
         invalid: "Några svar behöver ses över: se texten under fälten.",
@@ -222,16 +258,120 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
         employees: "Välj antal anställda.",
         bookkeeping: "Välj bokföringsprogram.",
         hasAccountant: "Välj ja eller nej.",
-        message: "Håll meddelandet under 2 000 tecken.",
+        message: "Skriv ditt meddelande, under 2 000 tecken.",
       },
     },
     sent: {
       title: "Tack, vi har fått din förfrågan",
+      titleQuestion: "Tack, vi har fått ditt meddelande",
+      questionText: "Vi svarar via e-post inom en arbetsdag.",
       text: "Du får en bekräftelse via e-post.",
       bookLead: "Vill du välja en tid direkt?",
       book: "Välj en tid",
       newTab: "öppnas i en ny flik",
       noBooking: "Vi mejlar dig inom en arbetsdag för att hitta en tid.",
+    },
+  },
+  fr: {
+    meta: {
+      title: "Demander une démo | UnReceipt, justificatifs des petites équipes",
+      description:
+        "Demandez une démo de 20 minutes d’UnReceipt : les reçus et notes de frais de vos salariés, du téléphone à la validation puis à votre expert-comptable. Réponse sous un jour ouvré.",
+      shareTitle: "Demander une démo d’UnReceipt de 20 minutes",
+    },
+    breadcrumb: "Demander une démo",
+    hero: {
+      eyebrow: "Démo de 20 minutes",
+      title: "Découvrez UnReceipt avec",
+      accent: "vos propres justificatifs",
+      lead: "Parlez-nous un peu de votre entreprise. Nous vous montrons comment les reçus et les notes de frais des salariés vont du téléphone à votre expert-comptable. Aucune préparation nécessaire.",
+    },
+    steps: {
+      title: "Comment ça se passe",
+      items: [
+        "Vous envoyez le formulaire. Cela prend une minute.",
+        "Nous vous écrivons sous un jour ouvré pour fixer un créneau.",
+        "Nous vous montrons UnReceipt en visioconférence pendant 20 minutes, en partant de vos questions et de votre comptabilité. La démo se fait en anglais ou en suédois.",
+        "Vous décidez si cela vous convient. Sans engagement.",
+      ],
+    },
+    notes: {
+      title: "Bon à savoir avant l’appel",
+      items: [
+        {
+          title: "Les équipes et la validation sont nouvelles",
+          desc: "Les salariés envoient leurs reçus pour validation, et le dirigeant ou un valideur décide. C’est en phase pilote : il n’y a pas encore de fichier de paie ni de virement.",
+        },
+        {
+          title: "Pas de connexion directe à un logiciel comptable",
+          desc: "L’export comprend un fichier CSV, des PDF et les justificatifs d’origine. Votre expert-comptable saisit à partir de là. L’application est en anglais.",
+        },
+      ],
+      selfServe: {
+        title: "Vous préférez commencer seul ?",
+        desc: "Créez un compte quand vous voulez : cela prend deux minutes.",
+        signupPilot: "Je participe",
+        signupPaid: "Essai gratuit",
+      },
+    },
+    contact: {
+      eyebrow: "Nous contacter",
+      title: "Demander une démo ou nous poser une question",
+      lead: "Parlez-nous un peu de votre entreprise. Nous répondons sous un jour ouvré, et une démo dure 20 minutes en visioconférence.",
+      signupLead: "Vous préférez commencer seul ?",
+    },
+    form: {
+      title: "Nous contacter",
+      kindLegend: "Comment pouvons-nous vous aider ?",
+      kinds: { demo: "Demander une démo", question: "Autre demande" },
+      name: "Votre nom",
+      company: "Entreprise",
+      email: "E-mail professionnel",
+      phone: "Téléphone",
+      optional: "facultatif",
+      employees: "Nombre de salariés",
+      employeeOptions: { "1": "1 (moi seul)", "2-5": "2 à 5", "6-15": "6 à 15", "16-50": "16 à 50", "50+": "Plus de 50" },
+      bookkeeping: "Logiciel comptable",
+      bookkeepingOptions: { fortnox: "Fortnox", visma: "Visma", bokio: "Bokio", other: "Autre", none: "Aucun" },
+      choose: "Choisir…",
+      hasAccountant: "Travaillez-vous avec un expert-comptable ?",
+      yes: "Oui",
+      no: "Non",
+      message: "Message",
+      messagePlaceholders: {
+        demo: "Que souhaitez-vous voir en priorité ?",
+        question: "Votre question, ou ce dont vous avez besoin",
+      },
+      optionalForQuestion: "facultatif pour une autre demande",
+      submit: "Envoyer",
+      sending: "Envoi…",
+      privacy: "Nous utilisons ces informations uniquement pour vous répondre, et les supprimons après 12 mois.",
+      privacyLink: "Confidentialité",
+      errors: {
+        invalid: "Certaines réponses sont à revoir : voir les indications sous les champs.",
+        rateLimited: "Trop de demandes depuis cette connexion. Réessayez dans une heure, ou écrivez à support@unreceipt.com.",
+        failed: "Une erreur s’est produite et votre demande n’a pas été envoyée. Réessayez, ou écrivez à support@unreceipt.com.",
+      },
+      fieldErrors: {
+        name: "Indiquez votre nom, sur une ligne.",
+        company: "Indiquez le nom de l’entreprise, sur une ligne.",
+        email: "Indiquez une adresse e-mail valide.",
+        phone: "Utilisez uniquement des chiffres, espaces et + ( ) . -, au moins 6.",
+        employees: "Choisissez le nombre de salariés.",
+        bookkeeping: "Choisissez votre logiciel comptable.",
+        hasAccountant: "Choisissez oui ou non.",
+        message: "Écrivez votre message, en moins de 2 000 caractères.",
+      },
+    },
+    sent: {
+      title: "Merci, nous avons reçu votre demande",
+      titleQuestion: "Merci, nous avons reçu votre message",
+      questionText: "Nous vous répondons par e-mail sous un jour ouvré.",
+      text: "Vous recevrez une confirmation par e-mail.",
+      bookLead: "Vous voulez choisir un créneau tout de suite ?",
+      book: "Choisir un créneau",
+      newTab: "s’ouvre dans un nouvel onglet",
+      noBooking: "Nous vous écrivons sous un jour ouvré pour fixer un créneau.",
     },
   },
 };

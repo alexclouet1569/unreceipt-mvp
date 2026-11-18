@@ -75,12 +75,11 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
     lastModified: "2026-11-17",
     priority: 0.6,
   },
-  // The demo request form. Sweden first: no French version, French pages
-  // link to the English one (demoRequestPath).
+  // The demo request (and contact) form, in each language.
   bookDemo: {
-    paths: { en: "/book-demo", sv: "/sv/boka-demo" },
+    paths: { en: "/book-demo", sv: "/sv/boka-demo", fr: "/fr/demander-une-demo" },
     translated: true,
-    lastModified: "2026-11-17",
+    lastModified: "2026-11-18",
     priority: 0.8,
   },
   guideRetention: {

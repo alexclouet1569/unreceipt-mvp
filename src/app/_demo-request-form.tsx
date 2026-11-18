@@ -6,16 +6,22 @@ import {
   BOOKKEEPING_OPTIONS,
   DEMO_REQUEST_LIMITS as L,
   EMPLOYEE_BANDS,
+  REQUEST_KINDS,
   demoBookingUrl,
   type DemoRequestLocale,
+  type RequestKind,
 } from "@/lib/demo-request";
 import { cn } from "@/lib/utils";
-import { DEMO_REQUEST_COPY, type DemoRequestCopy } from "./_demo-request-copy";
+import type { DemoRequestCopy } from "./_demo-request-copy";
 import { pageProps, trackEvent } from "@/lib/tracking/events";
 
-// The demo request form. Posts to /api/demo-request (same host: the apex in
-// production) and then shows the thank-you state, with a "Choose a time"
-// link to the booking page when NEXT_PUBLIC_DEMO_BOOKING_URL is set. The
+// The contact form: a demo request or another request (`kind`), on the demo
+// request pages and at the end of the home and audience pages. Posts to
+// /api/demo-request (same host: the apex in production) and then shows the
+// thank-you state; after a demo request, a "Choose a time" link to the
+// booking page when NEXT_PUBLIC_DEMO_BOOKING_URL is set. It gets one
+// language's copy as props (the server picks it), so the browser never
+// downloads the other languages. The
 // booking page is a link, not an embed, so the CSP stays as it is.
 // Field errors from the server are written under each field (not shown by
 // colour alone) and focus moves to the first one.
@@ -42,16 +48,29 @@ const FIELD =
   "w-full rounded-xl border bg-white px-4 text-base text-[#303568] placeholder:text-[#303568]/55 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]";
 const LABEL = "block text-sm font-semibold text-[#303568] mb-1.5";
 const ERROR_TEXT = "mt-1.5 text-sm font-semibold text-[#B42318]";
+// A radio answer drawn as a 48 px tall box.
+const CHOICE =
+  "flex-1 inline-flex items-center gap-2 min-h-12 rounded-xl border bg-white px-4 text-base text-[#303568] cursor-pointer has-[:checked]:border-[#1F9D63] has-[:checked]:border-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[#303568]";
 
 export function DemoRequestForm({
   locale,
+  copy,
   bookingUrl,
+  idPrefix = "dr",
+  headingLevel = 2,
 }: {
   locale: DemoRequestLocale;
+  copy: Pick<DemoRequestCopy, "form" | "sent">;
   bookingUrl: string | null;
+  /** Keeps field ids unique if the form ever appears twice. */
+  idPrefix?: string;
+  headingLevel?: 2 | 3;
 }) {
-  const t = DEMO_REQUEST_COPY[locale].form;
-  const sentCopy = DEMO_REQUEST_COPY[locale].sent;
+  const t = copy.form;
+  const sentCopy = copy.sent;
+  const Heading = headingLevel === 3 ? "h3" : "h2";
+  const [kind, setKind] = useState<RequestKind>("demo");
+  const isDemo = kind === "demo";
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<ErrorKind | null>(null);
   const [badFields, setBadFields] = useState<Set<FieldName>>(new Set());
@@ -78,14 +97,16 @@ export function DemoRequestForm({
     if (status === "sending") return;
     const data = new FormData(e.currentTarget);
     const text = (k: string) => String(data.get(k) ?? "");
+    const accountant = text("hasAccountant");
     const payload = {
+      kind,
       name: text("name"),
       company: text("company"),
       email: text("email"),
       phone: text("phone"),
       employees: text("employees"),
       bookkeeping: text("bookkeeping"),
-      hasAccountant: text("hasAccountant") === "yes",
+      hasAccountant: accountant === "yes" ? true : accountant === "no" ? false : null,
       message: text("message"),
       website: text("website"),
       locale,
@@ -124,18 +145,21 @@ export function DemoRequestForm({
   }
 
   if (status === "sent") {
+    const sentDemo = kind === "demo";
     return (
       <div className="text-center py-6" role="status">
         <CheckCircle2 className="w-12 h-12 text-[#1F9D63] mx-auto mb-4" aria-hidden="true" />
-        <h2
+        <Heading
           ref={sentTitle}
           tabIndex={-1}
           className="text-2xl font-extrabold text-[#303568] mb-2 scroll-mt-24 focus:outline-none"
         >
-          {sentCopy.title}
-        </h2>
+          {sentDemo ? sentCopy.title : sentCopy.titleQuestion}
+        </Heading>
         {confirmationSent ? <p className="text-[#303568]/75 mb-6">{sentCopy.text}</p> : <div className="mb-6" />}
-        {booking ? (
+        {!sentDemo ? (
+          <p className="text-[#303568] font-semibold">{sentCopy.questionText}</p>
+        ) : booking ? (
           <>
             <p className="text-[#303568] font-semibold mb-3">{sentCopy.bookLead}</p>
             <a
@@ -159,7 +183,11 @@ export function DemoRequestForm({
   const sending = status === "sending";
   const bad = (name: FieldName) => badFields.has(name);
   const border = (name: FieldName) => (bad(name) ? "border-[#B42318] border-2" : "border-[#303568]/60");
-  const errorId = (name: FieldName) => `dr-${name}-error`;
+  const errorId = (name: FieldName) => `${idPrefix}-${name}-error`;
+  const id = (name: string) => `${idPrefix}-${name}`;
+  // The company questions qualify a demo; for another request they are
+  // optional, and the message is what's needed.
+  const qualifyHint = isDemo ? undefined : t.optionalForQuestion;
   const a11y = (name: FieldName) =>
     bad(name) ? { "aria-invalid": true as const, "aria-describedby": errorId(name) } : {};
   const fieldError = (name: FieldName) =>
@@ -171,40 +199,59 @@ export function DemoRequestForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="relative space-y-4">
-      <h2 className="text-xl font-extrabold text-[#303568]">{t.title}</h2>
+      <Heading className="text-xl font-extrabold text-[#303568]">{t.title}</Heading>
 
-      <Field label={t.name} htmlFor="dr-name" error={fieldError("name")}>
-        <input id="dr-name" name="name" required maxLength={L.name} autoComplete="name"
+      <fieldset>
+        <legend className={LABEL}>{t.kindLegend}</legend>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {REQUEST_KINDS.map((k) => (
+            <label key={k} className={cn(CHOICE, "border-[#303568]/60")}>
+              <input
+                type="radio"
+                name="kind"
+                value={k}
+                checked={kind === k}
+                onChange={() => setKind(k)}
+                className="accent-[#1F9D63] w-4 h-4"
+              />
+              {t.kinds[k]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <Field label={t.name} htmlFor={id("name")} error={fieldError("name")}>
+        <input id={id("name")} name="name" required maxLength={L.name} autoComplete="name"
           className={cn(FIELD, "h-12", border("name"))} {...a11y("name")} />
       </Field>
-      <Field label={t.company} htmlFor="dr-company" error={fieldError("company")}>
-        <input id="dr-company" name="company" required maxLength={L.company} autoComplete="organization"
+      <Field label={t.company} htmlFor={id("company")} error={fieldError("company")}>
+        <input id={id("company")} name="company" required maxLength={L.company} autoComplete="organization"
           className={cn(FIELD, "h-12", border("company"))} {...a11y("company")} />
       </Field>
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label={t.email} htmlFor="dr-email" error={fieldError("email")}>
-          <input id="dr-email" name="email" type="email" required maxLength={L.email} autoComplete="email"
+        <Field label={t.email} htmlFor={id("email")} error={fieldError("email")}>
+          <input id={id("email")} name="email" type="email" required maxLength={L.email} autoComplete="email"
             className={cn(FIELD, "h-12", border("email"))} {...a11y("email")} />
         </Field>
-        <Field label={t.phone} hint={t.optional} htmlFor="dr-phone" error={fieldError("phone")}>
-          <input id="dr-phone" name="phone" type="tel" maxLength={L.phone} autoComplete="tel"
+        <Field label={t.phone} hint={t.optional} htmlFor={id("phone")} error={fieldError("phone")}>
+          <input id={id("phone")} name="phone" type="tel" maxLength={L.phone} autoComplete="tel"
             className={cn(FIELD, "h-12", border("phone"))} {...a11y("phone")} />
         </Field>
       </div>
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label={t.employees} htmlFor="dr-employees" error={fieldError("employees")}>
-          <select id="dr-employees" name="employees" required defaultValue=""
+        <Field label={t.employees} hint={qualifyHint} htmlFor={id("employees")} error={fieldError("employees")}>
+          <select id={id("employees")} name="employees" required={isDemo} defaultValue=""
             className={cn(FIELD, "h-12", border("employees"))} {...a11y("employees")}>
-            <option value="" disabled>{t.choose}</option>
+            <option value="" disabled={isDemo}>{t.choose}</option>
             {EMPLOYEE_BANDS.map((b) => (
               <option key={b} value={b}>{t.employeeOptions[b]}</option>
             ))}
           </select>
         </Field>
-        <Field label={t.bookkeeping} htmlFor="dr-bookkeeping" error={fieldError("bookkeeping")}>
-          <select id="dr-bookkeeping" name="bookkeeping" required defaultValue=""
+        <Field label={t.bookkeeping} hint={qualifyHint} htmlFor={id("bookkeeping")} error={fieldError("bookkeeping")}>
+          <select id={id("bookkeeping")} name="bookkeeping" required={isDemo} defaultValue=""
             className={cn(FIELD, "h-12", border("bookkeeping"))} {...a11y("bookkeeping")}>
-            <option value="" disabled>{t.choose}</option>
+            <option value="" disabled={isDemo}>{t.choose}</option>
             {BOOKKEEPING_OPTIONS.map((b) => (
               <option key={b} value={b}>{t.bookkeepingOptions[b]}</option>
             ))}
@@ -212,32 +259,36 @@ export function DemoRequestForm({
         </Field>
       </div>
       <fieldset {...(bad("hasAccountant") ? { "aria-describedby": errorId("hasAccountant") } : {})}>
-        <legend className={LABEL}>{t.hasAccountant}</legend>
+        <legend className={LABEL}>
+          {t.hasAccountant}
+          {qualifyHint ? <span className="font-normal text-[#303568]/70"> ({qualifyHint})</span> : null}
+        </legend>
         <div className="flex gap-3">
           {(["yes", "no"] as const).map((v) => (
             <label
               key={v}
               className={cn(
-                "flex-1 inline-flex items-center gap-2 min-h-12 rounded-xl border bg-white px-4 text-base text-[#303568] cursor-pointer has-[:checked]:border-[#1F9D63] has-[:checked]:border-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[#303568]",
+                CHOICE,
                 border("hasAccountant")
               )}
             >
-              <input type="radio" name="hasAccountant" value={v} required className="accent-[#1F9D63] w-4 h-4" {...a11y("hasAccountant")} />
+              <input type="radio" name="hasAccountant" value={v} required={isDemo} className="accent-[#1F9D63] w-4 h-4" {...a11y("hasAccountant")} />
               {v === "yes" ? t.yes : t.no}
             </label>
           ))}
         </div>
         {fieldError("hasAccountant")}
       </fieldset>
-      <Field label={t.message} hint={t.optional} htmlFor="dr-message" error={fieldError("message")}>
-        <textarea id="dr-message" name="message" rows={4} maxLength={L.message} placeholder={t.messagePlaceholder}
+      <Field label={t.message} hint={isDemo ? t.optional : undefined} htmlFor={id("message")} error={fieldError("message")}>
+        <textarea id={id("message")} name="message" rows={4} maxLength={L.message} required={!isDemo}
+          placeholder={t.messagePlaceholders[kind]}
           className={cn(FIELD, "py-3 resize-y", border("message"))} {...a11y("message")} />
       </Field>
 
       {/* Honeypot: hidden from people and screen readers; bots fill it in. */}
       <div aria-hidden="true" className="absolute -left-[10000px] w-px h-px overflow-hidden">
-        <label htmlFor="dr-website">Website</label>
-        <input id="dr-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+        <label htmlFor={id("website")}>Website</label>
+        <input id={id("website")} name="website" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
       <div aria-live="polite">

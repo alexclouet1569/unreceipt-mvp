@@ -91,6 +91,7 @@ describe("POST /api/demo-request", () => {
     expect(await res.json()).toEqual({ ok: true, confirmation: true });
     expect(rateLimitMock).toHaveBeenCalledWith("demoRequest", "203.0.113.7");
     expect(mocks.insert).toHaveBeenCalledWith({
+      kind: "demo",
       locale: "sv",
       name: "Maja Berg",
       company: "Nordljus <b>Design</b> AB",
@@ -145,7 +146,7 @@ describe("POST /api/demo-request", () => {
     ["bad phone", { phone: "call me maybe" }, "phone"],
     ["message too long", { message: "x".repeat(2001) }, "message"],
     ["company too long", { company: "x".repeat(121) }, "company"],
-    ["unknown locale", { locale: "fr" }, "locale"],
+    ["unknown locale", { locale: "de" }, "locale"],
     ["accountant not a boolean", { hasAccountant: "yes" }, "hasAccountant"],
     ["line break in the name", { name: "Bo\nEmail: ceo@victim.se" }, "name"],
     ["line break in the company", { company: "AB\r\nPhone: 1" }, "company"],
@@ -303,5 +304,46 @@ describe("POST /api/demo-request", () => {
     // The only link left is the footer's link to unreceipt.com.
     const links = confirmation.text.match(/https?:\/\/\S+/g) ?? [];
     expect(links.every((l: string) => l.startsWith("https://unreceipt.com/"))).toBe(true);
+  });
+
+  it("stores another request with its message and no company questions", async () => {
+    process.env.NEXT_PUBLIC_DEMO_BOOKING_URL = "https://cal.eu/unreceipt/demo";
+    const res = await post({
+      kind: "question",
+      name: "Anne Martin",
+      company: "Cabinet Martin",
+      email: "anne@cabinet-martin.fr",
+      message: "Do you support French e-invoices?",
+      locale: "fr",
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "question",
+        locale: "fr",
+        employees: null,
+        bookkeeping: null,
+        has_accountant: null,
+        message: "Do you support French e-invoices?",
+      })
+    );
+    const founder = sentEmails().find((e) => e.to === "founder@example.com")!;
+    expect(founder.subject).toBe("Request: Cabinet Martin");
+    const confirmation = sentEmails().find((e) => e.to === "anne@cabinet-martin.fr")!;
+    expect(confirmation.subject).toBe("Nous avons reçu votre message");
+    // Another request gets no booking link.
+    expect(confirmation.html).not.toContain("cal.eu");
+  });
+
+  it("refuses another request without a message, and a demo request without the company questions", async () => {
+    const question = await post({ ...VALID, kind: "question", message: "" });
+    expect(question.status).toBe(400);
+    expect((await question.json()).fields).toEqual(["message"]);
+
+    const demo = await post({ ...VALID, kind: "demo", employees: "", bookkeeping: "", hasAccountant: null });
+    expect(demo.status).toBe(400);
+    expect((await demo.json()).fields).toEqual(["employees", "bookkeeping", "hasAccountant"]);
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 });

@@ -224,9 +224,9 @@ describe("guides", () => {
     const text = outlays.sections.flatMap((s) => [...s.body, ...(s.list ?? [])]).join(" ");
     expect(text).toContain("lönefil");
     expect(text).toContain("Raderar en anställd sitt konto");
-    // Its second button asks for a demo: the guide is for companies with
-    // employees, the funnel's target.
-    expect(outlays.cta.secondaryDemoRequest).toBe(true);
+    // Its second button asks for a demo (every guide's does since the tour
+    // closed, 2026-11-18).
+    expect(outlays.cta.secondaryLabel).toMatch(/demo/i);
   });
 });
 
