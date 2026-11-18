@@ -259,12 +259,11 @@ export function AudienceTabs({
                 href={pagePath(id, locale)}
                 aria-current={current ? "page" : undefined}
                 className={cn(
-                  "-mb-px flex items-center gap-2 min-h-[48px] border-b-2 text-[13px] sm:text-[15px] whitespace-nowrap transition-colors",
+                  "-mb-px flex items-center gap-2 min-h-[48px] border-b-2 text-[13px] sm:text-[15px] font-semibold whitespace-nowrap transition-colors",
                   FOCUS,
                   current
-                    ? "border-[#303568] text-[#303568] font-semibold"
-                    : // Full navy: at 75 % it was 3.2:1 on the green.
-                      "border-transparent text-[#303568] font-medium hover:border-[#303568]/40"
+                    ? "border-[#303568] text-[#303568]"
+                    : "border-transparent text-[#303568]/75 hover:text-[#303568] hover:border-[#303568]/30"
                 )}
               >
                 <Icon className="hidden sm:block w-4 h-4 shrink-0" aria-hidden="true" />

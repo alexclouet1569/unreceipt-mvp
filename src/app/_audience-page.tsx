@@ -122,28 +122,28 @@ export function AudiencePage({
           <AudienceTabs locale={locale} active={audience} className="mb-10 sm:mb-14" />
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.15fr_1fr] gap-12 items-center">
             <div>
-              <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[#303568]">
-                <a href={pagePath("home", locale)} className="underline-offset-2 hover:underline">
+              <nav aria-label="Breadcrumb" className="mb-6 text-sm text-white/80">
+                <a href={pagePath("home", locale)} className="hover:text-white underline-offset-2 hover:underline">
                   UnReceipt
                 </a>
                 <span aria-hidden="true"> / </span>
                 <span aria-current="page">{t.breadcrumb}</span>
               </nav>
-              <p className="inline-flex bg-white/30 rounded-full px-4 py-1.5 mb-6 text-[#303568] text-xs font-semibold tracking-wide uppercase">
+              <p className="inline-flex bg-white/15 rounded-full px-4 py-1.5 mb-6 text-white/90 text-xs font-semibold tracking-wide uppercase">
                 {t.hero.eyebrow}
               </p>
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.08] mb-6 text-[#303568]">
+              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
                 {t.hero.title}
                 <br />
-                <span className="inline-block mt-2 bg-[#303568] text-white rounded-2xl px-3 pb-1">{t.hero.accent}</span>
+                <span className="text-[#303568]">{t.hero.accent}</span>
               </h1>
-              <p className="text-[#303568] text-lg leading-relaxed max-w-xl mb-8">{t.hero.lead}</p>
+              <p className="text-white/90 text-lg leading-relaxed max-w-xl mb-8">{t.hero.lead}</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={href(t.hero.primary)}
                   {...track(t.hero.primary)}
                   {...langOf(t.hero.primary)}
-                  className={cn(BTN, "bg-white text-[#303568] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
+                  className={cn(BTN, "bg-white text-[#1F9D63] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
                 >
                   {label(t.hero.primary, t.hero.primaryLabel)}
                   <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
@@ -153,13 +153,13 @@ export function AudiencePage({
                     href={href(t.hero.secondary)}
                     {...track(t.hero.secondary)}
                     {...langOf(t.hero.secondary)}
-                    className={cn(BTN, "border-2 border-[#303568] text-[#303568] hover:bg-[#303568] hover:text-white rounded-full px-7 text-base font-semibold bg-transparent h-12")}
+                    className={cn(BTN, "border-2 border-white text-white hover:bg-white hover:text-[#1F9D63] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
                   >
                     {label(t.hero.secondary, t.hero.secondaryLabel)}
                   </a>
                 ) : null}
               </div>
-              <p className="text-[#303568] text-sm mt-4">
+              <p className="text-white/85 text-sm mt-4">
                 {SHOW_PRICES
                   ? fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price })
                   : ((pilotMode ? t.hero.notePilotNoPrice : t.hero.notePaidNoPrice) ??
