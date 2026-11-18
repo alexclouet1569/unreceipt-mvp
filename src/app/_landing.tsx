@@ -18,6 +18,7 @@ import {
   ReceiptText,
   Sparkles,
 } from "lucide-react";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { ExplainerVideo } from "./_explainer-video";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { trackedLink } from "@/lib/tracking/events";
@@ -226,15 +227,16 @@ export function LandingView({
             <div>
               {/* The h1 carries the words people search for; the slogan
                   below keeps its size but is not the page's heading. */}
-              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
-                <Sparkles className="w-3.5 h-3.5 text-white shrink-0" aria-hidden="true" />
-                <h1 className="text-white/90 text-xs font-semibold tracking-wide uppercase">{t.hero.seoTitle}</h1>
+              {/* Hero text is navy: white on the brand green is 2.4:1, navy 4.8:1. */}
+              <div className="inline-flex items-center gap-2 bg-white/30 backdrop-blur-sm rounded-full px-4 py-1.5 mb-8">
+                <Sparkles className="w-3.5 h-3.5 text-[#303568] shrink-0" aria-hidden="true" />
+                <h1 className="text-[#303568] text-xs font-semibold tracking-wide uppercase">{t.hero.seoTitle}</h1>
               </div>
-              <p className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
+              <p className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.08] mb-6 text-[#303568]">
                 {t.hero.titleLine1}<br />{t.hero.titleLine2}<br />
-                <span className="text-[#303568]">{t.hero.titleAccent}</span>
+                <span className="inline-block mt-2 bg-[#303568] text-white rounded-2xl px-3 pb-1">{t.hero.titleAccent}</span>
               </p>
-              <p className="text-white/90 text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
+              <p className="text-[#303568] text-lg sm:text-xl leading-relaxed max-w-lg mb-10">
                 {t.hero.lead}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -243,7 +245,7 @@ export function LandingView({
                   {...trackedLink("cta_signup", { attribution: true })}
                   className={cn(buttonVariants({
                     size: "lg",
-                    className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
+                    className: "bg-white text-[#303568] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
                   }))}
                 >
                   {heroCta}
@@ -256,13 +258,13 @@ export function LandingView({
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
-                    className: "border-2 border-white text-white hover:bg-white hover:text-[#27BE7B] rounded-full px-8 text-base font-semibold bg-transparent h-12",
+                    className: "border-2 border-[#303568] text-[#303568] hover:bg-[#303568] hover:text-white rounded-full px-8 text-base font-semibold bg-transparent h-12",
                   }))}
                 >
                   {bookDemoLabel}
                 </a>
               </div>
-              <p className="text-white/80 text-sm mt-4">
+              <p className="text-[#303568] text-sm mt-4">
                 {SHOW_PRICES
                   ? fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price: fromPrice })
                   : pilotMode
@@ -278,8 +280,9 @@ export function LandingView({
                 <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
                   <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
                     {/* Status bar */}
-                    <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
-                      <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
+                    {/* App bar: the logo sits below the notch (which covers the top 24px). */}
+                    <div className="h-16 bg-[#27BE7B] flex items-end justify-center pb-2.5">
+                      <Wordmark variant="horizontal" on="mint" className="text-[15px]" />
                     </div>
                     <div className="p-4 space-y-3">
                       {/* Latest receipt, confirmed by its owner */}
@@ -477,13 +480,13 @@ export function LandingView({
             </Card>
             <Card className="border-0 shadow-lg shadow-[#27BE7B]/20 rounded-3xl bg-[#27BE7B]">
               <CardContent className="pt-8 pb-8 px-8">
-                <h3 className="font-bold mb-6 text-white text-sm uppercase tracking-widest">
+                <h3 className="font-bold mb-6 text-[#303568] text-sm uppercase tracking-widest">
                   {t.difference.newTitle}
                 </h3>
                 <ul className="space-y-4 text-sm">
                   {t.difference.new.map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-white">
-                      <CheckCircle2 className="w-4 h-4 mt-0.5 text-white shrink-0" />
+                    <li key={item} className="flex items-start gap-3 text-[#303568]">
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 text-[#303568] shrink-0" />
                       {item}
                     </li>
                   ))}
