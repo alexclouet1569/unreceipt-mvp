@@ -99,18 +99,6 @@ type Ending =
     };
 
 export type LandingCopy = {
-  nav: {
-    backToTop: string;
-    how: string;
-    pricing: string;
-    about: string;
-    faq: string;
-    signIn: string;
-    ctaPilot: string;
-    ctaPaid: string;
-    openMenu: string;
-    closeMenu: string;
-  };
   hero: {
     /** The page's <h1>, shown as the small badge above the slogan: the search words. */
     seoTitle: string;
@@ -185,25 +173,13 @@ export type LandingCopy = {
 };
 
 const en: LandingCopy = {
-  nav: {
-    backToTop: "UnReceipt — back to top",
-    how: "How it Works",
-    pricing: "Pricing",
-    about: "Who it's for",
-    faq: "FAQ",
-    signIn: "Sign in",
-    ctaPilot: "Join the pilot",
-    ctaPaid: "Start free",
-    openMenu: "Open menu",
-    closeMenu: "Close menu",
-  },
   hero: {
     seoTitle: "Receipt app for small businesses, freelancers & accountants",
     titleLine1: "From Chaos",
     titleLine2: "to Clarity —",
     titleAccent: "Automatically.",
     lead: "Built for small businesses and freelancers who hate chasing receipts — and for the accountants who chase them. Snap a receipt and AI reads it in seconds; email receipts arrive on their own. You check, confirm, and the VAT is ready.",
-    ctaPilot: "Join the pilot",
+    ctaPilot: "Get started free",
     ctaPaid: "Start your free week",
     notePilot: "Free during the pilot. Plans from {price}/month after.",
     notePaid: "Plans from {price}/month + VAT after the free week. Cancel anytime.",
@@ -365,25 +341,13 @@ const en: LandingCopy = {
 };
 
 const sv: LandingCopy = {
-  nav: {
-    backToTop: "UnReceipt — till toppen",
-    how: "Så funkar det",
-    pricing: "Priser",
-    about: "För vem",
-    faq: "Vanliga frågor",
-    signIn: "Logga in",
-    ctaPilot: "Gå med i piloten",
-    ctaPaid: "Kom igång gratis",
-    openMenu: "Öppna menyn",
-    closeMenu: "Stäng menyn",
-  },
   hero: {
     seoTitle: "Kvittohantering för småföretag, enskild firma och redovisningsbyråer",
     titleLine1: "Från kaos",
     titleLine2: "till klarhet —",
     titleAccent: "automatiskt.",
     lead: "Byggt för småföretag och enskilda firmor som är trötta på att jaga kvitton — och för redovisningsbyråerna som jagar dem. Fota kvittot så läser AI av det på några sekunder, och e-postkvittona kommer av sig själva. Du bekräftar, och momsen är klar.",
-    ctaPilot: "Gå med i piloten",
+    ctaPilot: "Kom igång gratis",
     ctaPaid: "Prova gratis i en vecka",
     notePilot: "Gratis under piloten. Därefter från {price}/mån.",
     notePaid: "Från {price}/mån exkl. moms efter gratisveckan. Avsluta när du vill.",
@@ -537,25 +501,13 @@ const sv: LandingCopy = {
 };
 
 const fr: LandingCopy = {
-  nav: {
-    backToTop: "UnReceipt — retour en haut",
-    how: "Comment ça marche",
-    pricing: "Tarifs",
-    about: "Pour qui",
-    faq: "FAQ",
-    signIn: "Se connecter",
-    ctaPilot: "Je participe",
-    ctaPaid: "Essai gratuit",
-    openMenu: "Ouvrir le menu",
-    closeMenu: "Fermer le menu",
-  },
   hero: {
     seoTitle: "Gestion des justificatifs pour TPE, indépendants et experts-comptables",
     titleLine1: "Du chaos",
     titleLine2: "à la clarté —",
     titleAccent: "automatiquement.",
     lead: "Conçu pour les TPE et les indépendants qui en ont assez de courir après les justificatifs — et pour les experts-comptables qui les réclament. Photographiez un ticket, l’IA le lit en quelques secondes\u00a0; vos reçus par e-mail arrivent tout seuls. Vous confirmez, la TVA est relevée.",
-    ctaPilot: "Rejoindre la phase pilote",
+    ctaPilot: "Commencer gratuitement",
     ctaPaid: "Essayer gratuitement une semaine",
     notePilot: "Gratuit pendant la phase pilote. Ensuite, à partir de {price}\u00a0HT par mois.",
     notePaid: "À partir de {price}\u00a0HT par mois après la semaine gratuite. Sans engagement.",

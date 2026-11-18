@@ -106,7 +106,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       selfServe: {
         title: "Rather start on your own?",
         desc: "Create an account any time: it takes two minutes.",
-        signupPilot: "Join the pilot",
+        signupPilot: "Get started free",
         signupPaid: "Start free",
       },
     },
@@ -208,7 +208,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       selfServe: {
         title: "Vill du hellre komma igång själv?",
         desc: "Skapa ett konto när du vill: det tar två minuter.",
-        signupPilot: "Gå med i piloten",
+        signupPilot: "Kom igång gratis",
         signupPaid: "Kom igång gratis",
       },
     },
@@ -310,7 +310,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       selfServe: {
         title: "Vous préférez commencer seul ?",
         desc: "Créez un compte quand vous voulez : cela prend deux minutes.",
-        signupPilot: "Je participe",
+        signupPilot: "Commencer gratuitement",
         signupPaid: "Essai gratuit",
       },
     },

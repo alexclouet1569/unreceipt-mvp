@@ -3,7 +3,7 @@ import { getFaq } from "@/lib/faq";
 import { LANDING_COPY } from "./_landing-copy";
 import { LandingView } from "./_landing";
 import { landingReceipt } from "./_receipt-text";
-import { SiteFooter } from "./_site-chrome";
+import { AudienceTabs, SiteFooter, SiteHeader } from "./_site-chrome";
 import { ContactSection } from "./_contact-section";
 import { DEMO_REQUEST_COPY } from "./_demo-request-copy";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
@@ -20,10 +20,11 @@ export function LandingPage({ pilotMode, locale = "en" }: { pilotMode: boolean; 
       pilotMode={pilotMode}
       locale={locale}
       copy={LANDING_COPY[locale]}
-      accountantsLabel={SITE_COPY[locale].nav.accountants}
       bookDemoLabel={SITE_COPY[locale].nav.bookDemo}
       faq={getFaq(pilotMode, locale)}
       receipt={landingReceipt(locale)}
+      header={<SiteHeader locale={locale} page="home" pilotMode={pilotMode} />}
+      audienceTabs={<AudienceTabs locale={locale} />}
       footer={<SiteFooter locale={locale} />}
       contact={
         <ContactSection

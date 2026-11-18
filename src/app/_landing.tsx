@@ -10,7 +10,6 @@ import {
   Building2,
   Camera,
   Calculator,
-  Menu,
   X,
   Mail,
   FileText,
@@ -19,16 +18,14 @@ import {
   ReceiptText,
   Sparkles,
   ChevronDown,
-  Globe,
 } from "lucide-react";
-import { Wordmark } from "@/components/brand/Wordmark";
 import { ExplainerVideo } from "./_explainer-video";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { trackedLink } from "@/lib/tracking/events";
 import { cn } from "@/lib/utils";
 import type { FaqItem } from "@/lib/faq";
 import { fill } from "@/lib/fill";
-import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
+import { type Locale } from "@/lib/locale";
 import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
@@ -182,12 +179,14 @@ export type LandingViewProps = {
   pilotMode: boolean;
   locale: Locale;
   copy: LandingCopy;
-  /** The site-wide "Accountants" nav label in this language. */
-  accountantsLabel: string;
-  /** "Book a demo" in the nav (SITE_COPY), passed from the server like accountantsLabel. */
+  /** "Book a demo" (SITE_COPY), passed from the server. */
   bookDemoLabel: string;
   faq: FaqItem[];
   receipt: LandingReceipt;
+  /** The site header, rendered on the server. */
+  header: React.ReactNode;
+  /** The audience tabs at the top of the hero, rendered on the server. */
+  audienceTabs: React.ReactNode;
   /** The site footer, rendered on the server. */
   footer: React.ReactNode;
   /** The contact block at the end of the page (form and its copy, this language only). */
@@ -198,182 +197,34 @@ export function LandingView({
   pilotMode,
   locale,
   copy: t,
-  accountantsLabel,
   bookDemoLabel,
   faq,
   receipt,
+  header,
+  audienceTabs,
   footer,
   contact,
 }: LandingViewProps) {
-  const otherLocales = LOCALES.filter((l) => l !== locale);
   const s = t.samples;
   const fromPrice = planPriceLabel(PLANS[0], locale);
-  const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
   const accountantsPath = pagePath("accountants", locale);
   const demoPath = demoRequestPath(locale);
   const demoLangProps = demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {};
-  const navLinks = [
-    { label: t.nav.how, href: "#how" },
-    ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
-    { label: t.nav.about, href: "#about" },
-    { label: accountantsLabel, href: accountantsPath },
-    { label: t.nav.faq, href: "#faq" },
-  ];
   // "Who it's for" cards link to each audience's own page.
   const audienceLinks = [pagePath("smallBusiness", locale), pagePath("freelancers", locale), accountantsPath];
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [mobileMenuOpen]);
-
 
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
-      {/* The marketing site has no dark design: keep it light on shared hosts. */}
-      {/* ─── NAV ─── */}
-      {/* Solid cream bar from the first pixel so the full-color primary
-          lockup never has to swap variants mid-scroll. Only the hairline
-          appears once the page moves. */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#FAFAF7] border-b transition-colors duration-300 ${scrolled ? "border-[#E8E5DD]" : "border-transparent"}`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-6 py-3">
-          <a href="#top" aria-label={t.nav.backToTop} className="py-1">
-            <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
-          </a>
-          <div className="hidden xl:flex items-center gap-6">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="text-sm font-medium whitespace-nowrap transition-colors text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
-              >
-                {link.label}
-              </a>
-            ))}
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#303568]/70">
-              <Globe className="w-4 h-4" aria-hidden="true" />
-              {otherLocales.map((l) => (
-                <a
-                  key={l}
-                  href={LOCALE_HOME[l]}
-                  hrefLang={l}
-                  lang={l}
-                  aria-label={LOCALE_NAME[l].label}
-                  className="hover:text-[#303568] py-3 -my-3 px-0.5"
-                >
-                  {LOCALE_NAME[l].short}
-                </a>
-              ))}
-            </span>
-            <a
-              href={appUrl("/app/login")}
-              className="text-sm font-medium whitespace-nowrap text-[#303568]/70 hover:text-[#303568] py-3 -my-3"
-            >
-              {t.nav.signIn}
-            </a>
-            <a
-              href={demoPath}
-              {...demoLangProps}
-              {...trackedLink("cta_demo_page")}
-              className={cn(buttonVariants({
-                size: "sm",
-                variant: "outline",
-                className: "border-2 border-[#303568]/20 bg-transparent text-[#303568] hover:border-[#303568] hover:bg-transparent font-semibold rounded-full px-5 h-11",
-              }))}
-            >
-              {bookDemoLabel}
-            </a>
-            <a
-              href={appUrl(SIGNUP_PATH)}
-              {...trackedLink("cta_signup", { attribution: true })}
-              className={cn(buttonVariants({
-                size: "sm",
-                className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
-              }))}
-            >
-              {navCta}
-            </a>
-          </div>
-          <button
-            type="button"
-            aria-label={mobileMenuOpen ? t.nav.closeMenu : t.nav.openMenu}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-menu"
-            className={`xl:hidden p-3 -mr-1 text-[#303568]`}
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-        {mobileMenuOpen && (
-          <div id="mobile-menu" className="xl:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
-            {navLinks.map((link) => (
-              <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
-                {link.label}
-              </a>
-            ))}
-            <a
-              href={demoPath}
-              {...demoLangProps}
-              {...trackedLink("cta_demo_page")}
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center"
-            >
-              {bookDemoLabel}
-            </a>
-            <a
-              href={appUrl("/app/login")}
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center border-t border-gray-100 mt-2 pt-2"
-            >
-              {t.nav.signIn}
-            </a>
-            {otherLocales.map((l) => (
-              <a
-                key={l}
-                href={LOCALE_HOME[l]}
-                hrefLang={l}
-                lang={l}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base text-[#303568] font-medium min-h-[44px] flex items-center gap-2"
-              >
-                <Globe className="w-4 h-4" aria-hidden="true" />
-                {LOCALE_NAME[l].label}
-              </a>
-            ))}
-            <a
-              href={appUrl(SIGNUP_PATH)}
-              {...trackedLink("cta_signup", { attribution: true })}
-              onClick={() => setMobileMenuOpen(false)}
-              className={cn(buttonVariants({
-                className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
-              }))}
-            >
-              {navCta}
-            </a>
-          </div>
-        )}
-      </nav>
+      {header}
 
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 overflow-hidden">
+      <section className="relative bg-[#27BE7B] pt-8 pb-20 sm:pt-12 sm:pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 
         <div className="max-w-6xl mx-auto relative z-10">
+          <div className="mb-12 sm:mb-16">{audienceTabs}</div>
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left — Copy */}
             <div>

@@ -6,6 +6,8 @@ import type { Locale } from "@/lib/locale";
  * Pure data, safe to import from client components.
  */
 
+type AudienceItem = { title: string; sub: string };
+
 export type SiteCopy = {
   nav: {
     home: string;
@@ -15,11 +17,22 @@ export type SiteCopy = {
     freelancers: string;
     smallBusiness: string;
     bookDemo: string;
+    faq: string;
+    about: string;
     signIn: string;
     ctaPilot: string;
     ctaPaid: string;
     menu: string;
     languages: string;
+  };
+  /**
+   * The tabs at the top of the hero on the home and audience pages, and the
+   * list in the mobile menu: small businesses, freelancers, accounting firms,
+   * in that order.
+   */
+  audiences: {
+    label: string;
+    items: [AudienceItem, AudienceItem, AudienceItem];
   };
   footer: {
     tagline: string;
@@ -51,11 +64,21 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       freelancers: "For freelancers",
       smallBusiness: "For small businesses",
       bookDemo: "Book a demo",
+      faq: "FAQ",
+      about: "About",
       signIn: "Sign in",
-      ctaPilot: "Join the pilot",
+      ctaPilot: "Get started free",
       ctaPaid: "Start free",
       menu: "Menu",
       languages: "Language",
+    },
+    audiences: {
+      label: "Who it's for",
+      items: [
+        { title: "Small businesses", sub: "Owners and their teams" },
+        { title: "Freelancers", sub: "Sole traders and consultants" },
+        { title: "Accounting firms", sub: "Every client's receipts" },
+      ],
     },
     footer: {
       tagline:
@@ -86,11 +109,21 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       freelancers: "Enskild firma",
       smallBusiness: "Småföretag",
       bookDemo: "Boka demo",
+      faq: "Vanliga frågor",
+      about: "Om oss",
       signIn: "Logga in",
-      ctaPilot: "Gå med i piloten",
+      ctaPilot: "Kom igång gratis",
       ctaPaid: "Kom igång gratis",
       menu: "Meny",
       languages: "Språk",
+    },
+    audiences: {
+      label: "För vem",
+      items: [
+        { title: "Småföretag", sub: "Ägare och anställda" },
+        { title: "Enskild firma", sub: "Frilansare och konsulter" },
+        { title: "Redovisningsbyråer", sub: "Alla kunders kvitton" },
+      ],
     },
     footer: {
       tagline:
@@ -121,11 +154,21 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       freelancers: "Indépendants",
       smallBusiness: "TPE",
       bookDemo: "Demander une démo",
+      faq: "FAQ",
+      about: "À propos",
       signIn: "Se connecter",
-      ctaPilot: "Je participe",
+      ctaPilot: "Commencer",
       ctaPaid: "Essai gratuit",
       menu: "Menu",
       languages: "Langue",
+    },
+    audiences: {
+      label: "Pour qui",
+      items: [
+        { title: "TPE", sub: "Dirigeants et équipes" },
+        { title: "Indépendants", sub: "Freelances et consultants" },
+        { title: "Experts-comptables", sub: "Les reçus de chaque client" },
+      ],
     },
     footer: {
       tagline:

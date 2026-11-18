@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { AUDIENCE_COPY, type AudienceId, type Cta, type IconName } from "./_audience-copy";
 import { fill } from "./_landing-copy";
 import { SITE_COPY } from "./_site-copy";
-import { SiteFooter, SiteHeader } from "./_site-chrome";
+import { AudienceTabs, SiteFooter, SiteHeader } from "./_site-chrome";
 import { ContactSection } from "./_contact-section";
 import { DEMO_REQUEST_COPY } from "./_demo-request-copy";
 
@@ -118,7 +118,8 @@ export function AudiencePage({
 
       <main>
         {/* ─── HERO ─── */}
-        <section className="bg-[#27BE7B] px-4 sm:px-6 pt-12 pb-16 sm:pt-20 sm:pb-24">
+        <section className="bg-[#27BE7B] px-4 sm:px-6 pt-8 pb-16 sm:pt-12 sm:pb-24">
+          <AudienceTabs locale={locale} active={audience} className="mb-10 sm:mb-14" />
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.15fr_1fr] gap-12 items-center">
             <div>
               <nav aria-label="Breadcrumb" className="mb-6 text-sm text-white/80">
