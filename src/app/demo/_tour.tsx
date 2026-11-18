@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { pageProps, trackEvent, trackedLink } from "@/lib/tracking/events";
 
 // Shared chrome for the public guided tours at /demo/company and
 // /demo/accountant: one short instruction per step, Back / Next, and a guard
@@ -108,20 +109,61 @@ export function DemoNotice({ notice, onClose }: { notice: string | null; onClose
   );
 }
 
-/** The last step: one sentence and the way into the real product. */
+/**
+ * Where "Book a demo" leads from the tours: the tours are in English and
+ * don't know which marketing page the visitor came from, so a browser set
+ * to Swedish gets /sv/boka-demo after mount, everyone else /book-demo. A
+ * relative path: on app.unreceipt.com the proxy sends it to the apex, in
+ * dev and on previews it stays on the same origin. Just a link: the tours
+ * never call a real API route.
+ */
+/** Whether a tour link goes to the demo request page (either language). */
+export function isDemoRequestHref(href: string): boolean {
+  return href === "/book-demo" || href === "/sv/boka-demo";
+}
+
+export function useDemoRequestHref(): string {
+  return useSyncExternalStore(noSubscribe, browserDemoRequestHref, () => "/book-demo");
+}
+
+const noSubscribe = () => () => {};
+
+function browserDemoRequestHref(): string {
+  const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
+  return langs.some((l) => /^sv\b/i.test(l ?? "")) ? "/sv/boka-demo" : "/book-demo";
+}
+
+/**
+ * The last step: one sentence and the way into the real product. Reaching it
+ * sends demo_tour_finished once per visit of the step (src/lib/tracking).
+ */
 export function TourEnd({
+  tour,
   title,
   text,
   cta,
   ctaHref,
+  secondaryCta,
   other,
 }: {
+  tour: "company" | "accountant";
   title: string;
   text: string;
   cta: string;
   ctaHref: string;
+  secondaryCta?: { label: string; href: string };
   other: { label: string; href: string };
 }) {
+  useEffect(() => {
+    trackEvent("demo_tour_finished", { ...pageProps(window.location.pathname), tour });
+  }, [tour]);
+  // A link to the demo request page is the demo request; any other link is
+  // the sign-up, which carries the visit's source.
+  const trackFor = (href: string) =>
+    isDemoRequestHref(href)
+      ? trackedLink("cta_demo_page")
+      : trackedLink("cta_signup", { attribution: true });
+  const ctaTrack = trackFor(ctaHref);
   return (
     <main className="max-w-[540px] mx-auto px-4 pt-16 pb-24 space-y-5">
       <div className="space-y-2">
@@ -138,11 +180,21 @@ export function TourEnd({
       <div className="flex flex-wrap items-center gap-3">
         <a
           href={ctaHref}
+          {...ctaTrack}
           className="inline-flex items-center justify-center h-11 px-5 rounded-[10px] bg-[var(--primary)] text-primary-foreground font-semibold hover:bg-[var(--brand-action-deep)]"
           style={{ fontSize: "15px" }}
         >
           {cta}
         </a>
+        {secondaryCta ? (
+          <a
+            href={secondaryCta.href}
+            {...trackFor(secondaryCta.href)}
+            className="type-body inline-flex items-center justify-center h-11 px-5 rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink)] font-semibold hover:bg-[var(--surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+          >
+            {secondaryCta.label}
+          </a>
+        ) : null}
         <Link href={other.href} className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
           {other.label}
         </Link>

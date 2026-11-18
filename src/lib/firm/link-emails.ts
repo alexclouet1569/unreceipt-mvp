@@ -9,6 +9,8 @@ import { sendEmail, founderReplyTo } from "@/lib/email/send";
 import * as Sentry from "@sentry/nextjs";
 import { firmClosedEmail, linkConfirmationEmail } from "@/lib/email/templates";
 import { absoluteAppUrl } from "@/lib/app-url";
+import { emailSiteLocale } from "@/lib/email/site-link";
+import { chosenCountry } from "@/lib/country";
 
 export async function sendLinkConfirmation(opts: {
   clientUserId: string;
@@ -17,7 +19,7 @@ export async function sendLinkConfirmation(opts: {
   try {
     const db = getSupabaseAdmin();
     const [{ data: firm }, { data: userRes }] = await Promise.all([
-      db.from("firms").select("name").eq("id", opts.firmId).maybeSingle(),
+      db.from("firms").select("name, country").eq("id", opts.firmId).maybeSingle(),
       db.auth.admin.getUserById(opts.clientUserId),
     ]);
     const to = userRes?.user?.email;
@@ -25,6 +27,10 @@ export async function sendLinkConfirmation(opts: {
     const content = linkConfirmationEmail({
       firmName: (firm?.name as string | undefined) ?? "Your accounting firm",
       settingsUrl: absoluteAppUrl("/app/settings"),
+      site: emailSiteLocale({
+        country: chosenCountry(userRes?.user ?? {}) ?? (firm?.country as string | undefined) ?? null,
+        email: to,
+      }),
     });
     const sent = await sendEmail({ to, ...content, replyTo: founderReplyTo(), tag: "link_confirmation" });
     if (!sent.ok) console.error("[link-emails] confirmation not sent", sent.reason);
@@ -67,7 +73,6 @@ export async function sendFirmClosedNotices(opts: {
       .eq("role", "owner");
     if (error) throw new Error(`owner lookup failed (${error.code})`);
     const userIds = [...new Set((owners ?? []).map((o) => o.user_id as string))];
-    const content = firmClosedEmail({ firmName: opts.firmName, settingsUrl: absoluteAppUrl("/app/settings") });
     for (const [i, userId] of userIds.entries()) {
       if (Date.now() >= deadline) {
         result.failed += userIds.length - i;
@@ -80,6 +85,11 @@ export async function sendFirmClosedNotices(opts: {
         result.failed++;
         continue;
       }
+      const content = firmClosedEmail({
+        firmName: opts.firmName,
+        settingsUrl: absoluteAppUrl("/app/settings"),
+        site: emailSiteLocale({ country: chosenCountry(userRes.user), email: to }),
+      });
       const sent = await sendEmail({ to, ...content, replyTo: founderReplyTo(), tag: "firm_closed" });
       if (sent.ok) result.sent++;
       else {

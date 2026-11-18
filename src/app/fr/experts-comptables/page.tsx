@@ -4,9 +4,8 @@ import { AudiencePage } from "@/app/_audience-page";
 import { isPilotMode } from "@/lib/pilot";
 import { marketingMetadata } from "@/lib/seo";
 
-// accountants page, fr. Copy in src/app/_audience-copy.ts; PILOT_MODE changes
-// the call to action, so the page renders per request like the landing.
-export const dynamic = "force-dynamic";
+// accountants page, fr. Copy in src/app/_audience-copy.ts. PILOT_MODE changes
+// the call to action; it is read at build time (src/lib/pilot.ts).
 
 const t = AUDIENCE_COPY.accountants.fr;
 

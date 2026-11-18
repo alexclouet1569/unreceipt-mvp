@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
   const outcome = await createFirmInvite({
     firmId: ctx.firmId,
     firmName: ctx.firmName,
+    firmCountry: ctx.firmCountry ?? null,
     invitedBy: ctx.user.id,
     clientName: parsed.data.client_name,
     clientOrgNumber: parsed.data.client_org_number,

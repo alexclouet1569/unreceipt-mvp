@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getFaq, type FaqItem } from "@/lib/faq";
+import { GUIDES_INDEX, guidesFor } from "@/lib/guides";
 import { LOCALE_HOME, type Locale } from "@/lib/locale";
 import { MARKETING_PAGES, pageLanguages, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
 import { PLANS } from "@/lib/plans";
@@ -45,12 +46,21 @@ export const FR_SHARE_DESCRIPTION =
 const OG_LOCALE: Record<Locale, string> = { en: "en_US", sv: "sv_SE", fr: "fr_FR" };
 
 /** The shared social card (src/app/opengraph-image.tsx). */
-const OG_IMAGE = {
+export const OG_IMAGE = {
   url: "/opengraph-image",
   width: 1200,
   height: 630,
   alt: "UnReceipt — VAT-ready receipts for small businesses and their accountants.",
 };
+
+/**
+ * A marketing page's own share image (`src/app/og/[card]/route.tsx`, drawn at
+ * build time with the page's eyebrow and headline). `OG_IMAGE` stays the
+ * site-wide default for pages outside MARKETING_PAGES (/privacy).
+ */
+export function shareImagePath(page: MarketingPageId, locale: Locale): string {
+  return `/og/${page}-${locale}.png`;
+}
 
 /**
  * JSON-LD serialised for a <script> tag. `<` is escaped so no copy edit
@@ -88,6 +98,7 @@ export function marketingMetadata(opts: {
   const shareTitle = opts.shareTitle ?? opts.title;
   const shareDescription = opts.shareDescription ?? opts.description;
   const languages = pageLanguages(opts.page);
+  const image = { ...OG_IMAGE, url: shareImagePath(opts.page, opts.locale), alt: shareTitle };
   return {
     title: { absolute: opts.title },
     description: opts.description,
@@ -100,7 +111,7 @@ export function marketingMetadata(opts: {
       siteName: "UnReceipt",
       title: shareTitle,
       description: shareDescription,
-      images: [OG_IMAGE],
+      images: [image],
       ...(opts.type === "article"
         ? { publishedTime: opts.publishedTime, modifiedTime: opts.modifiedTime }
         : {}),
@@ -109,7 +120,7 @@ export function marketingMetadata(opts: {
       card: "summary_large_image",
       title: shareTitle,
       description: shareDescription,
-      images: [OG_IMAGE.url],
+      images: [image.url],
     },
   };
 }
@@ -149,7 +160,15 @@ const AUDIENCES = [
   "Accounting firms and bookkeepers",
 ];
 
-function organizationNode() {
+/**
+ * UnReceipt's own profiles elsewhere (LinkedIn company page, Crunchbase…),
+ * listed as `sameAs` on the Organization so search engines and AI
+ * assistants tie them to this site. Only real, live profiles owned by
+ * UnReceipt; empty until the LinkedIn company page exists (2026-11-17).
+ */
+export const SAME_AS: readonly string[] = [];
+
+export function organizationNode() {
   return {
     "@type": "Organization",
     "@id": ORGANIZATION_ID,
@@ -159,6 +178,7 @@ function organizationNode() {
     email: "support@unreceipt.com",
     areaServed: ["SE", "FR"],
     knowsLanguage: ["en", "sv", "fr"],
+    ...(SAME_AS.length ? { sameAs: [...SAME_AS] } : {}),
   };
 }
 
@@ -306,6 +326,36 @@ export function audienceJsonLd(opts: {
   };
 }
 
+/** JSON-LD for the demo request page: a ContactPage with its breadcrumb. */
+export function demoPageJsonLd(opts: {
+  locale: Locale;
+  name: string;
+  description: string;
+  breadcrumb: string;
+}) {
+  const path = pagePath("bookDemo", opts.locale);
+  const url = absoluteUrl(path);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationNode(),
+      websiteNode(),
+      {
+        "@type": "ContactPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: opts.name,
+        description: opts.description,
+        inLanguage: opts.locale,
+        isPartOf: { "@id": WEBSITE_ID },
+        about: { "@id": SOFTWARE_ID },
+        dateModified: MARKETING_PAGES.bookDemo.lastModified,
+      },
+      breadcrumbNode(opts.locale, [{ name: opts.breadcrumb, path }]),
+    ],
+  };
+}
+
 /**
  * JSON-LD for the "About UnReceipt" fact sheet: an AboutPage whose main
  * entity is the organisation, with the product and the facts as Q&A.
@@ -379,11 +429,48 @@ export function guideJsonLd(opts: {
         author: { "@id": ORGANIZATION_ID },
         publisher: { "@id": ORGANIZATION_ID },
         isPartOf: { "@id": WEBSITE_ID },
-        image: absoluteUrl("/opengraph-image"),
+        image: absoluteUrl(shareImagePath(opts.page, opts.locale)),
       },
-      // Guides have no index page yet; the trail is home → guide.
-      breadcrumbNode(opts.locale, [{ name: opts.breadcrumb, path }]),
+      breadcrumbNode(opts.locale, [
+        { name: GUIDES_INDEX[opts.locale].breadcrumb, path: pagePath("guides", opts.locale) },
+        { name: opts.breadcrumb, path },
+      ]),
       ...(opts.faq.length ? [faqNode(url, opts.locale, opts.faq)] : []),
+    ],
+  };
+}
+
+/** JSON-LD for a guides index: a collection page listing that language's guides. */
+export function guidesIndexJsonLd(locale: Locale) {
+  const t = GUIDES_INDEX[locale];
+  const path = pagePath("guides", locale);
+  const url = absoluteUrl(path);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationNode(),
+      websiteNode(),
+      {
+        "@type": "CollectionPage",
+        "@id": `${url}#page`,
+        name: t.title,
+        description: t.description,
+        inLanguage: locale,
+        url,
+        isPartOf: { "@id": WEBSITE_ID },
+        publisher: { "@id": ORGANIZATION_ID },
+        dateModified: MARKETING_PAGES.guides.lastModified,
+        mainEntity: {
+          "@type": "ItemList",
+          itemListElement: guidesFor(locale).map((g, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: g.title,
+            url: absoluteUrl(pagePath(g.page, locale)),
+          })),
+        },
+      },
+      breadcrumbNode(locale, [{ name: t.breadcrumb, path }]),
     ],
   };
 }

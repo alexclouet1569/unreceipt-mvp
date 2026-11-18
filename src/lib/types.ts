@@ -6,6 +6,8 @@
  * call site rather than maintaining a parallel Insert/Update tree.
  */
 
+import type { SignupSource } from "./attribution";
+
 // Canonical intake source — every receipt that lands in the app comes
 // from one of these four paths. See plan step 3 + supabase/schema.sql
 // "digital-receipt canonicalization" section.
@@ -253,6 +255,9 @@ export interface Profile {
   welcome_email_sent_at: string | null;
   // Set when the first-run onboarding on /app is finished or skipped.
   onboarded_at: string | null;
+  // Where the sign-up came from (src/lib/attribution.ts), written once by
+  // syncProfile(); null when unknown (iPhone app, invites, older accounts).
+  signup_source: SignupSource | null;
   created_at: string;
   updated_at: string;
 }
@@ -490,4 +495,23 @@ export interface MailboxOAuthParked {
   refresh_token_enc: string;
   created_at: string;
   expires_at: string;
+}
+
+// One form sent on the demo request pages or at the end of the home and
+// audience pages (2026-11-17 block): a demo request, or another request.
+// Service role only; deleted after 12 months by the cleanup cron.
+export interface DemoRequestRow {
+  id: string;
+  created_at: string;
+  kind: "demo" | "question";
+  locale: "en" | "sv" | "fr";
+  name: string;
+  company: string;
+  email: string;
+  phone: string | null;
+  /** Set for a demo request; may be null for another request. */
+  employees: "1" | "2-5" | "6-15" | "16-50" | "50+" | null;
+  bookkeeping: "fortnox" | "visma" | "bokio" | "other" | "none" | null;
+  has_accountant: boolean | null;
+  message: string | null;
 }

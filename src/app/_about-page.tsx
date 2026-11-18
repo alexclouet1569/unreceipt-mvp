@@ -1,11 +1,11 @@
 import { ArrowRight, Check, X } from "lucide-react";
 import { getAbout, ABOUT_AS_OF } from "@/lib/about";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink } from "@/lib/tracking/events";
 import type { Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { aboutJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
-import { HtmlLang } from "./_html-lang";
 import { SITE_COPY } from "./_site-copy";
 import { SiteFooter, SiteHeader } from "./_site-chrome";
 
@@ -44,7 +44,6 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
   return (
     <div className="min-h-screen bg-[#FAFAF7]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
-      {locale !== "en" ? <HtmlLang lang={locale} /> : null}
       <SiteHeader locale={locale} page="about" pilotMode={pilotMode} />
 
       <main className="px-4 sm:px-6 py-10 sm:py-14">
@@ -116,10 +115,20 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
           <section className="rounded-3xl bg-[#303568] p-6 sm:p-8">
             <h2 className="text-xl font-extrabold text-white mb-2">{a.contactTitle}</h2>
             <p className="text-white/75 mb-6">{a.contact}</p>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+              <a
+                href={demoRequestPath(locale)}
+                {...(demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {})}
+                {...trackedLink("cta_demo_page")}
+                className={cn(BTN, "bg-white text-[#303568] hover:bg-white/90 rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
+              >
+                {nav.bookDemo}
+                <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
+              </a>
               <a
                 href={appUrl(SIGNUP_PATH)}
-                className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11")}
+                {...trackedLink("cta_signup", { attribution: true })}
+                className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
               >
                 {pilotMode ? nav.ctaPilot : nav.ctaPaid}
                 <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
@@ -128,7 +137,7 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
                 href={pagePath("accountants", locale)}
                 className={cn(
                   BTN,
-                  "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11"
+                  "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11 focus-visible:outline-white"
                 )}
               >
                 {nav.accountants}

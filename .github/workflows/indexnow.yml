@@ -1,0 +1,58 @@
+name: IndexNow
+
+# After a production deploy that changed the marketing site, submit the
+# sitemap's URLs to IndexNow (Bing, Yandex, Seznam, Naver) so changed pages
+# are recrawled within hours. Bing's index feeds ChatGPT search and Copilot.
+#
+# Vercel's GitHub integration reports each deployment to GitHub; this runs
+# when a deployment to the "Production" environment succeeds. It reads only
+# public data (the live sitemap and key file), needs no secret, and the key
+# is public by design (public/<key>.txt). Run it by hand from the Actions
+# tab ("Run workflow") to submit every URL whatever changed.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Did this deploy change the marketing site?
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "marketing=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # The deployed commit against its first parent: a merged PR's whole diff.
+          files=$(git diff --name-only HEAD^1 HEAD || true)
+          echo "$files"
+          if echo "$files" | grep -Eq '^(src/app/\(en\)/|src/app/sv/|src/app/fr/|src/app/og/|src/app/_[^/]+$|src/app/(sitemap|robots|opengraph-image)\.tsx?$|src/app/llms(-full)?\.txt/|src/lib/(about|faq|guides|marketing-pages|seo|plans|pricing-visibility)\.ts$)'; then
+            echo "marketing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No marketing change; nothing to submit."
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.changed.outputs.marketing == 'true'
+        with:
+          node-version: 22
+      - name: Submit to IndexNow
+        if: steps.changed.outputs.marketing == 'true'
+        run: node scripts/indexnow.mjs
