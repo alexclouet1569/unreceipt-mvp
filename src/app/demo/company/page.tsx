@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CompanyTour } from "./_company-tour";
+import { COMPANY_STEP_COUNT } from "./steps";
 
 // Public guided tour for a client company. See _company-tour.tsx.
 
@@ -14,7 +15,7 @@ export default async function CompanyTourPage({
   searchParams: Promise<{ step?: string; period?: string; anchor?: string; from?: string; to?: string }>;
 }) {
   const { step, period, anchor, from, to } = await searchParams;
-  const n = Math.min(Math.max(Number.parseInt(step ?? "1", 10) || 1, 1), 5);
+  const n = Math.min(Math.max(Number.parseInt(step ?? "1", 10) || 1, 1), COMPANY_STEP_COUNT);
   // The Insights step's period, checked by the engine itself (an unknown
   // one falls back to this month there).
   return <CompanyTour step={n} period={{ kind: period ?? "month", anchor: anchor ?? null, from: from ?? null, to: to ?? null }} />;

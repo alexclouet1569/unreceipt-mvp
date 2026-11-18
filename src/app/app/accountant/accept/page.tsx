@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
+import { loginPath } from "@/app/auth/callback/safe-next";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -9,6 +11,11 @@ import type { User } from "@supabase/supabase-js";
 import { InviteCard, maskEmail, type InviteView } from "./_invite-card";
 
 export const dynamic = "force-dynamic";
+
+// The invite token is in this page's URL: links and requests from it send
+// only our origin as referrer, so the token never reaches analytics or
+// another page (src/lib/tracking/scrub.ts).
+export const metadata: Metadata = { referrer: "strict-origin" };
 
 // GET never changes anything: the invite is resolved by its token hash and
 // shown with "Yes, share" / "No thanks" buttons, which POST
@@ -52,7 +59,9 @@ export default async function AcceptInvitePage({
   const { token } = await searchParams;
   const user = await getServerUser();
   if (!user) {
-    redirect(`/app/login?next=${encodeURIComponent(`/app/accountant/accept?token=${token ?? ""}`)}`);
+    // New to UnReceipt, most likely: the invite email says "You'll create a
+    // free account first". Create account, then back here.
+    redirect(loginPath(`/app/accountant/accept?token=${token ?? ""}`, { signup: true }));
   }
   const invite = await loadInvite(token, user);
 

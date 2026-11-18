@@ -14,12 +14,17 @@ import { resolvePeriod, type PeriodInput } from "@/lib/analytics/periods";
 import { InsightsBody } from "@/app/app/(authed)/insights/InsightsView";
 import { PeriodHeader } from "@/app/app/(authed)/insights/PeriodHeader";
 import { PendingBody, PeriodScope } from "@/app/app/(authed)/insights/PeriodPending";
-import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, type TourStep } from "../_tour";
+import type { ApprovalQueueItem, ReimbursementGroup } from "@/lib/mobile/types";
+import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, useDemoRequestHref, type TourStep } from "../_tour";
+import { addToPayBack, DEMO_APPROVAL_QUEUE, DEMO_PAY_BACK, DemoTeam } from "./_demo-team";
 
 // Public guided tour for a client company: the real receipts screen and
-// capture sheet with sample receipts, then the accountant's invite.
-// Nothing is saved: /api/ocr, /api/capture, /api/capture/scan(/original) and /api/accountant/respond are
-// answered in the browser, every other /api call gets a 404.
+// capture sheet with sample receipts, Insights, the owner's Team screen
+// with employees' receipts to approve, then the accountant's invite.
+// Nothing is saved: /api/ocr, /api/capture, /api/capture/scan(/original),
+// /api/receipts/<id>/decision, /api/team/reimbursements and
+// /api/accountant/respond are answered in the browser, every other /api
+// call gets a 404. COMPANY_STEP_COUNT (steps.ts) must match STEPS.
 
 const STEPS: TourStep[] = [
   {
@@ -39,11 +44,22 @@ const STEPS: TourStep[] = [
     text: "This month's spending, where it goes and the VAT on the receipts, added up for you. Try Quarter or Year.",
   },
   {
+    title: "Your team's receipts",
+    text: (
+      <>
+        Employees send their receipts for approval and say who paid. <b>Approve</b>, send back with a note, or reject.
+        What they paid with their own money is listed to pay back.
+      </>
+    ),
+  },
+  {
     title: "Your accountant asks",
     text: "Your accountant invites you by email. One tap, and they get your receipts.",
   },
-  { title: "That's it", text: "Your receipts are read for you, and your accountant gets every one." },
+  { title: "That's it", text: "Your receipts are read for you, your team's are approved in one place, and your accountant gets them." },
 ];
+
+export const COMPANY_STEPS = STEPS;
 
 const daysAgo = (n: number) => {
   const d = new Date();
@@ -246,16 +262,35 @@ function DemoInsights({ receipts, period }: { receipts: Receipt[]; period: Perio
 
 export function CompanyTour({ step, period = { kind: "month" } }: { step: number; period?: PeriodInput }) {
   const [notice, closeNotice] = useDemoLinkGuard();
+  const demoHref = useDemoRequestHref();
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
   const addReceipt = useRef((r: Receipt) => setReceipts((prev) => [r, ...prev]));
   const scans = useRef(0);
   const dropReceipt = useRef((id: string) => setReceipts((prev) => prev.filter((r) => r.id !== id)));
+  // The Team step: decisions and "Mark paid" change only this state.
+  const [queue, setQueue] = useState<ApprovalQueueItem[]>(DEMO_APPROVAL_QUEUE);
+  const [payBack, setPayBack] = useState<ReimbursementGroup[]>(DEMO_PAY_BACK);
+  const decide = useRef((id: string, decision: unknown) => {
+    const item = DEMO_APPROVAL_QUEUE.find((i) => i.receipt.id === id);
+    if (!item) return false;
+    setQueue((prev) => prev.filter((i) => i.receipt.id !== id));
+    if (decision === "approve") setPayBack((prev) => addToPayBack(prev, item));
+    return true;
+  });
+  const markPaid = useRef((ids: string[]) =>
+    setPayBack((prev) => prev.filter((g) => !g.receiptIds.some((id) => ids.includes(id))))
+  );
 
   useEffect(() => {
     const realFetch = window.fetch;
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const path = new URL(url, window.location.origin).pathname;
+      const target = new URL(url, window.location.origin);
+      // Only our own API is answered here. Another origin (Plausible's
+      // event endpoint, src/app/_funnel-tracking.tsx) shares path shapes
+      // like /api/event and must go out untouched.
+      if (target.origin !== window.location.origin) return realFetch(input, init);
+      const path = target.pathname;
       if (path === "/api/ocr") {
         await new Promise((resolve) => setTimeout(resolve, 1800));
         return json(DEMO_OCR);
@@ -328,6 +363,21 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
           duplicate: false,
         });
       }
+      // The owner's decision on an employee's receipt (Team step).
+      const decision = /^\/api\/receipts\/([^/]+)\/decision$/.exec(path);
+      if (decision && init?.method === "POST") {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const body = typeof init.body === "string" ? JSON.parse(init.body) : {};
+        // 409 is what the real route answers for a receipt no longer waiting.
+        return decide.current(decision[1], body.decision) ? json({ ok: true }) : new Response(null, { status: 409 });
+      }
+      if (path === "/api/team/reimbursements" && init?.method === "POST") {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const body = typeof init.body === "string" ? JSON.parse(init.body) : {};
+        const ids: string[] = Array.isArray(body.receiptIds) ? body.receiptIds : [];
+        markPaid.current(ids);
+        return json({ ok: true, count: ids.length });
+      }
       // Swipe to delete: gone from the tour's list, nothing deleted anywhere.
       const deleted = /^\/api\/receipts\/([^/]+)$/.exec(path);
       if (deleted && init?.method === "DELETE") {
@@ -369,6 +419,11 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
           <DemoInsights receipts={receipts} period={period} />
         </>
       ) : step === 4 ? (
+        <>
+          <AppHeader tabs={[]} homeHref="/demo/company?step=1" />
+          <DemoTeam queue={queue} payBack={payBack} />
+        </>
+      ) : step === 5 ? (
         <main className="max-w-[540px] mx-auto px-4 pt-16 pb-24">
           <InviteCard
             invite={{ id: "11111111-1111-4111-8111-0000000000aa", firmName: "Bergström Redovisning", clientName: "Nordljus Design AB", state: "open" }}
@@ -378,10 +433,12 @@ export function CompanyTour({ step, period = { kind: "month" } }: { step: number
         </main>
       ) : (
         <TourEnd
+          tour="company"
           title="That's the company side"
-          text="Your receipts are read for you, and your accountant gets every one. No more chasing paper."
+          text="Your receipts are read for you, your team's are approved in one place, and your accountant gets them. No more chasing paper."
           cta="Start free"
           ctaHref={appUrl(SIGNUP_PATH)}
+          secondaryCta={{ label: "Book a demo", href: demoHref }}
           other={{ label: "See the accountant side", href: "/demo/accountant?step=1" }}
         />
       )}

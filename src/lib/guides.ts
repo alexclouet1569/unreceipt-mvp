@@ -54,8 +54,12 @@ export type Guide = {
   sources: { label: string; url: string }[];
   updatedLabel: string;
   disclaimer: string;
-  /** `secondaryPath`: where the demo button goes on the app host (default /demo). */
-  cta: { title: string; lead: string; secondaryLabel: string; secondaryPath?: string };
+  /**
+   * `secondaryPath`: where the demo button goes on the app host (default
+   * /demo). `secondaryDemoRequest`: the button opens the demo request page
+   * (/sv/boka-demo, /book-demo) instead.
+   */
+  cta: { title: string; lead: string; secondaryLabel: string; secondaryPath?: string; secondaryDemoRequest?: boolean };
   relatedTitle: string;
   related: { label: string; page: MarketingPageId }[];
 };
@@ -474,7 +478,7 @@ const outlaysSv: Guide = {
       body: [
         "Företaget får dra av den ingående momsen på ett utlägg om inköpet hör till en verksamhet som ger rätt till avdrag och det är ett utlägg för företagets räkning, inte en kostnadsersättning. Avdraget ska normalt styrkas med en faktura (mervärdesskattelagen 13 kap. 32 §), och ett vanligt kvitto från en butik är ofta en förenklad faktura. För vissa inköp är avdraget begränsat, till exempel representation som en kundlunch (Skatteverket, Avdrag för moms vid representation).",
         "Kvittot behöver inte ha företagets namn. Skatteverket godtar att kvittot för ett utlägg saknar köparens namn eller har den anställdes namn i stället för företagets, om den anställde har köpt för företagets räkning och får tillbaka pengarna mot kvittot.",
-        "När avdraget görs beror på redovisningsmetoden: med faktureringsmetoden i den period då den anställde fick kvittot, med bokslutsmetoden normalt i den period då företaget betalar tillbaka utlägget (Skatteverket). Momsen i en kostnadsersättning får företaget i regel inte dra av, eftersom den anställde inte tar ut moms av företaget (Skatteverket, Hur avdraget ska styrkas). Särskilda regler gäller drivmedel när en anställd kör egen bil i tjänsten.",
+        "När avdraget görs beror på redovisningsmetoden: med faktureringsmetoden i den period då den anställde fick kvittot, med bokslutsmetoden normalt i den period då företaget betalar tillbaka utlägget (Skatteverket, Hur avdraget ska styrkas). Momsen i en kostnadsersättning får företaget i regel inte dra av, eftersom den anställde inte tar ut moms av företaget (Skatteverket, Hur avdraget ska styrkas). Särskilda regler gäller drivmedel när en anställd kör egen bil i tjänsten.",
       ],
     },
     {
@@ -499,7 +503,7 @@ const outlaysSv: Guide = {
       heading: "Kvitton i utländsk valuta",
       body: [
         "Företagets redovisningsvaluta är svenska kronor; aktiebolag och vissa andra företag, till exempel ekonomiska föreningar, får i stället ha euro (bokföringslagen 4 kap. 6 §). Ett kvitto i euro eller dollar bokförs därför i kronor. Ett praktiskt sätt är att betala tillbaka det belopp i kronor som den anställde faktiskt betalade enligt sitt kort- eller kontoutdrag, och spara utdraget med kvittot.",
-        "Utländsk moms får aldrig dras av i den svenska momsdeklarationen (Skatteverket). Företaget kan i vissa fall få tillbaka momsen från landet där den betalades. Inom EU ansöker ett momsregistrerat svenskt företag i Skatteverkets e-tjänst Momsåterbetalning inom EU, senast den 30 september året efter inköpen och med ett minsta belopp (50 euro för ett helt kalenderår). För inköp under 2026 ska ansökan ha kommit in senast den 30 september 2027. E-tjänsten stänger tillfälligt den 31 december 2026; läs Skatteverkets sida innan du ansöker. Utanför EU gäller varje lands egna regler.",
+        "Utländsk moms får aldrig dras av i den svenska momsdeklarationen (Skatteverket). Företaget kan i vissa fall få tillbaka momsen från landet där den betalades. Inom EU ansöker ett momsregistrerat svenskt företag i Skatteverkets e-tjänst Momsåterbetalning inom EU, senast den 30 september året efter inköpen och med ett minsta belopp (50 euro för ett helt kalenderår). För inköp under 2026 är sista dagen den 30 september 2027, men e-tjänsten stänger tillfälligt den 31 december 2026: ansök före dess om du kan, och läs Skatteverkets sida om hur du ansöker efter det. Utanför EU gäller varje lands egna regler.",
       ],
     },
     {
@@ -520,7 +524,7 @@ const outlaysSv: Guide = {
         "Ingen utbetalning och ingen lönefil: ni betalar tillbaka via banken eller lönen som vanligt.",
         "Funktionen för anställda och godkännande är ny (pilot).",
         "Webbappen är bara på engelska; iPhone-appen finns även på svenska.",
-        "Raderar en anställd sitt konto raderas hens kvitton också, och företaget behåller ingen kopia. Din egen export innehåller bara dina egna kvitton. Be därför den anställde ladda ner sina kvitton innan kontot raderas (exporten i appen); är ni kopplade till en redovisningsbyrå får byrån godkända kvitton i sin export. Företaget ska spara verifikationerna under hela bevarandetiden.",
+        "Raderar en anställd sitt konto raderas hens kvitton också, och företaget behåller ingen kopia. Din egen export innehåller bara dina egna kvitton. Be därför den anställde ladda ner sina kvitton innan kontot raderas (exporten i appen); är ni kopplade till en redovisningsbyrå finns de godkända kvitton som byrån redan har exporterat kvar i byråns export, men inte de som byrån inte hann exportera. Företaget ska spara verifikationerna under hela bevarandetiden.",
       ],
     },
   ],
@@ -563,8 +567,8 @@ const outlaysSv: Guide = {
   cta: {
     title: "Låt de anställda skicka kvittona för godkännande",
     lead: "De anställda fotar kvittot, du godkänner det och ser vad som ska betalas tillbaka. Din redovisningskonsult ser kvittona när de är godkända.",
-    secondaryLabel: "Se demon för företag",
-    secondaryPath: "/demo/company",
+    secondaryLabel: "Boka en demo på 20 minuter",
+    secondaryDemoRequest: true,
   },
   relatedTitle: "Läs mer",
   related: [

@@ -21,6 +21,8 @@ import { findPendingFirmSeat, getFirmMembership } from "./require-firm";
 import { hasAnyMembership } from "./organizations";
 import { sendEmail, founderReplyTo } from "./email/send";
 import { firstNameFrom, pilotWelcomeEmail } from "./email/templates";
+import { emailSiteLocale } from "@/lib/email/site-link";
+import { chosenCountry } from "@/lib/country";
 
 const PRODUCT_URL_FALLBACK = "https://app.unreceipt.com";
 
@@ -30,7 +32,7 @@ type WelcomeUser = {
   id: string;
   email?: string | null;
   email_confirmed_at?: string | null;
-  user_metadata?: { full_name?: unknown } | null;
+  user_metadata?: { full_name?: unknown; country?: unknown } | null;
 };
 
 // Runs after the redirect has been sent, so sign-in isn't slowed down.
@@ -91,6 +93,8 @@ export async function sendWelcomeEmailOnce(user: WelcomeUser): Promise<WelcomeOu
   const replyTo = founderReplyTo();
   const fullName = user.user_metadata?.full_name;
   const content = pilotWelcomeEmail({
+    // The country chosen at sign-up, else the address's domain.
+    site: emailSiteLocale({ country: chosenCountry(user), email: user.email }),
     firstName: firstNameFrom(typeof fullName === "string" ? fullName : null),
     appUrl: productUrl(),
     forwardingAddress,

@@ -8,6 +8,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { OWN_SENDER_ADDRESS } from "./own-sender";
+import type { EmailTag } from "./tags";
 
 const RESEND_URL = "https://api.resend.com/emails";
 
@@ -20,23 +21,7 @@ export type OutgoingEmail = {
   text: string;
   replyTo?: string | null;
   // Shows up in the Resend dashboard so the two flows are easy to tell apart.
-  tag:
-    | "waitlist"
-    | "pilot_welcome"
-    | "retention_reminder"
-    | "forwarding_setup"
-    | "signup_digest"
-    | "firm_invite"
-    | "client_request"
-    | "link_confirmation"
-    | "firm_closed"
-    | "missing_receipts"
-    | "weekly_reminder"
-    | "manual_reminder"
-    | "firm_welcome"
-    | "team_invite"
-    | "approval_request"
-    | "approval_decision";
+  tag: EmailTag;
 };
 
 export type SendResult =

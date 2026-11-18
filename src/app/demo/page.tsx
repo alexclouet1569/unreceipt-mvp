@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink } from "@/lib/tracking/events";
 
 // Public guided demo: pick a role, then a short tour of the real screens
 // with sample data. Nothing is saved; every /api call is answered in the
@@ -67,7 +68,7 @@ export default function DemoChooser() {
         </ul>
         <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
           Ready already?{" "}
-          <a href={appUrl(SIGNUP_PATH)} className="underline text-[var(--ink)]">
+          <a href={appUrl(SIGNUP_PATH)} {...trackedLink("cta_signup", { attribution: true })} className="underline text-[var(--ink)]">
             Start free
           </a>
         </p>

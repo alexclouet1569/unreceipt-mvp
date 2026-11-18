@@ -7,12 +7,15 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { sendEmail, founderReplyTo } from "@/lib/email/send";
 import { firmInviteEmail } from "@/lib/email/templates";
+import { emailSiteLocale } from "@/lib/email/site-link";
 import { absoluteAppUrl, iosAppUrl } from "@/lib/app-url";
 import { inviteAcceptPath, inviteExpiry, mintInviteToken } from "./invites";
 
 export type InviteInput = {
   firmId: string;
   firmName: string;
+  /** The firm's country (FirmContext.firmCountry): which site the footer links to. */
+  firmCountry?: string | null;
   invitedBy: string;
   clientName: string;
   clientOrgNumber: string | null;
@@ -47,6 +50,7 @@ export async function createFirmInvite(input: InviteInput): Promise<InviteOutcom
     clientName: input.clientName,
     url: absoluteAppUrl(inviteAcceptPath(token)),
     appUrl: iosAppUrl(),
+    site: emailSiteLocale({ country: input.firmCountry ?? null, email: input.email }),
   });
   const sent = await sendEmail({ to: input.email, ...content, replyTo: founderReplyTo(), tag: "firm_invite" });
   // The invite stays when the email fails: the client can still accept from

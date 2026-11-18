@@ -36,6 +36,7 @@ import { missingFieldsText, missingRequiredFields } from "@/lib/receipts/status"
 import { formatAmount } from "@/lib/receipt-format";
 import { sendEmail } from "@/lib/email/send";
 import { weeklyReminderEmail } from "@/lib/email/templates";
+import { emailSiteLocale } from "@/lib/email/site-link";
 import { absoluteAppUrl } from "@/lib/app-url";
 import type { Receipt } from "@/lib/types";
 
@@ -131,7 +132,7 @@ type LinkRow = {
   firm_id: string;
   organization_id: string;
   client_name: string;
-  firms: { name: string } | { name: string }[] | null;
+  firms: { name: string; country?: string | null } | { name: string; country?: string | null }[] | null;
 };
 
 export type WeeklyRunResult = {
@@ -158,7 +159,7 @@ export async function runWeeklyReminders(
   const db = getSupabaseAdmin();
   const { data: linkData, error: linkError } = await db
     .from("firm_clients")
-    .select("id, firm_id, organization_id, client_name, firms(name)")
+    .select("id, firm_id, organization_id, client_name, firms(name, country)")
     .eq("status", "active")
     .eq("weekly_reminder", true)
     // The client's own "no weekly reminders" always wins.
@@ -246,6 +247,9 @@ export async function runWeeklyReminders(
 
       const firm = Array.isArray(link.firms) ? link.firms[0] : link.firms;
       const content = weeklyReminderEmail({
+        campaign: "weekly_reminder",
+        // One email for every owner: the firm's country stands for the client's.
+        site: emailSiteLocale({ country: firm?.country ?? null }),
         firmName: firm?.name ?? "Your accounting firm",
         clientName: link.client_name,
         payments: needs.payments.map((l) => ({

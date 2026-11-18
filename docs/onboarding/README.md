@@ -21,6 +21,8 @@ Edit the HTML, then render both PDFs:
 node docs/onboarding/scripts/render.mjs
 ```
 
+The script also copies `UnReceipt-Get-started-companies.pdf` to `public/guides/`: the app serves it for the firm's "Rekommendera UnReceipt till klienter" box on `/firm/clients` (`src/lib/firm/recommend.ts`), and a test fails if the two copies differ.
+
 Each `<section class="page">` is one fixed A4 page: text that doesn't fit is cut off rather than flowing on. The script exits with an error naming the page and how many pixels too long it is; shorten the text or a screenshot until it passes.
 
 If Playwright says its browser isn't installed, run `npx playwright install chromium`, or point it at a Chrome you have: `PW_CHROMIUM=/path/to/chrome node docs/onboarding/scripts/render.mjs`.

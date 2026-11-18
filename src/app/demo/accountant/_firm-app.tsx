@@ -488,7 +488,12 @@ export function FirmApp({
 
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      const path = new URL(url, window.location.origin).pathname;
+      const target = new URL(url, window.location.origin);
+      // Only our own API is answered here. Another origin (Plausible's
+      // event endpoint, src/app/_funnel-tracking.tsx) shares path shapes
+      // like /api/event and must go out untouched.
+      if (target.origin !== window.location.origin) return realFetch(input, init);
+      const path = target.pathname;
       const method = (init?.method ?? "GET").toUpperCase();
       const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
       await new Promise((r) => setTimeout(r, 350));

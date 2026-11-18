@@ -18,8 +18,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink, type TrackedLinkAttrs } from "@/lib/tracking/events";
 import type { Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
 import { audienceJsonLd, jsonLdHtml } from "@/lib/seo";
@@ -36,7 +37,8 @@ import { SiteFooter, SiteHeader } from "./_site-chrome";
 const BTN =
   "inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]";
 /**
- * One audience page (accounting firms or freelancers) in one language.
+ * One audience page (accounting firms, freelancers, or small businesses
+ * with employees) in one language.
  * Server component: every word, link and FAQ answer is in the HTML.
  * Same visual language as the landing page (green hero, cream body,
  * navy ink); out of DESIGN.md scope like the landing.
@@ -79,8 +81,26 @@ export function AudiencePage({
         return appUrl("/demo/company?step=1");
       case "demoAccountant":
         return appUrl("/demo/accountant?step=1");
-      case "contactFirm":
-        return `mailto:support@unreceipt.com?subject=${encodeURIComponent(t.contactSubject)}`;
+      case "bookDemo":
+        return demoRequestPath(locale);
+    }
+  };
+  // The demo request page exists in English and Swedish only: a French
+  // button says so to browsers and assistive tech.
+  const langOf = (cta: Cta) =>
+    cta === "bookDemo" && demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {};
+  // Funnel event for each button (src/lib/tracking/events.ts). Sign-up and
+  // demo-tour links carry the visit's source; "Book a demo" opens the demo
+  // request page.
+  const track = (cta: Cta): TrackedLinkAttrs => {
+    switch (cta) {
+      case "signup":
+        return trackedLink("cta_signup", { attribution: true });
+      case "demoCompany":
+      case "demoAccountant":
+        return trackedLink("demo_tour_start", { attribution: true });
+      case "bookDemo":
+        return trackedLink("cta_demo_page");
     }
   };
   const label = (cta: Cta, own?: string) => (cta === "signup" ? signupLabel : own ?? signupLabel);
@@ -128,6 +148,8 @@ export function AudiencePage({
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={href(t.hero.primary)}
+                  {...track(t.hero.primary)}
+                  {...langOf(t.hero.primary)}
                   className={cn(BTN, "bg-white text-[#1F9D63] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
                 >
                   {label(t.hero.primary, t.hero.primaryLabel)}
@@ -135,6 +157,8 @@ export function AudiencePage({
                 </a>
                 <a
                   href={href(t.hero.secondary)}
+                  {...track(t.hero.secondary)}
+                  {...langOf(t.hero.secondary)}
                   className={cn(BTN, "border-2 border-white text-white hover:bg-white hover:text-[#1F9D63] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
                 >
                   {t.hero.secondaryLabel}
@@ -309,6 +333,8 @@ export function AudiencePage({
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <a
                 href={href(t.ending.primary)}
+                {...track(t.ending.primary)}
+                {...langOf(t.ending.primary)}
                 className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-7 text-base font-semibold h-12")}
               >
                 {label(t.ending.primary, t.ending.primaryLabel)}
@@ -316,6 +342,8 @@ export function AudiencePage({
               </a>
               <a
                 href={href(t.ending.secondary)}
+                {...track(t.ending.secondary)}
+                {...langOf(t.ending.secondary)}
                 className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
               >
                 {t.ending.secondaryLabel}

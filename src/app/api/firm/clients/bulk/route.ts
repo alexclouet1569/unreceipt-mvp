@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
         createFirmInvite({
           firmId: ctx.firmId,
           firmName: ctx.firmName,
+          firmCountry: ctx.firmCountry ?? null,
           invitedBy: ctx.user.id,
           clientName: t.name,
           clientOrgNumber: null,
