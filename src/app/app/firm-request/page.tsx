@@ -8,9 +8,10 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { SignOutButton } from "@/app/app/(authed)/settings/SignOutButton";
 import { hashInviteToken, isInviteExpired, isInviteTokenShape } from "@/lib/firm/invites";
-import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
+import { findPendingFirmSeat, getFirmMembership, isUuid } from "@/lib/require-firm";
 import { normalizedSessionEmail } from "@/lib/email-address";
 import { maskEmail } from "@/app/app/accountant/accept/_invite-card";
+import { checkMayJoinFirm } from "@/lib/account-roles";
 import { RequestAnswer } from "./RequestAnswer";
 
 export const dynamic = "force-dynamic";
@@ -31,15 +32,21 @@ type View =
   | { state: "missing" | "expired" | "used" }
   | { state: "wrong_account"; masked: string }
   | { state: "join_firm"; clientName: string; firmName: string }
+  | { state: "company_account"; clientName: string }
   | { state: "open"; id: string; clientName: string; firmName: string | null };
 
-async function load(token: string | undefined, user: User): Promise<View> {
-  if (!isInviteTokenShape(token)) return { state: "missing" };
-  const { data, error } = await getSupabaseAdmin()
+// By the email's token, or by `id` when /app sends an accountant here
+// before a company is created for them (src/lib/home/load-home.ts): then
+// only a request to this signed-in, confirmed address is found.
+async function load(token: string | undefined, id: string | undefined, user: User): Promise<View> {
+  const signedIn = normalizedSessionEmail(user);
+  let query = getSupabaseAdmin()
     .from("firm_clients")
-    .select("id, status, direction, client_name, invited_email, invite_expires_at")
-    .eq("invite_token_hash", hashInviteToken(token))
-    .maybeSingle();
+    .select("id, status, direction, client_name, invited_email, invite_expires_at");
+  if (isInviteTokenShape(token)) query = query.eq("invite_token_hash", hashInviteToken(token));
+  else if (id && isUuid(id) && signedIn) query = query.eq("id", id).eq("invited_email", signedIn);
+  else return { state: "missing" };
+  const { data, error } = await query.maybeSingle();
   if (error || !data || data.direction !== "client") return { state: "missing" };
   if (data.status !== "invited") return { state: "used" };
   if (isInviteExpired(data.invite_expires_at as string | null)) return { state: "expired" };
@@ -52,6 +59,11 @@ async function load(token: string | undefined, user: User): Promise<View> {
   if (!membership) {
     const seat = await findPendingFirmSeat(user);
     if (seat) return { state: "join_firm", clientName: data.client_name as string, firmName: seat.firmName };
+    // One account, one role (src/lib/account-roles.ts). On a failed read the
+    // answer route checks again.
+    if ((await checkMayJoinFirm(user.id)) === "blocked") {
+      return { state: "company_account", clientName: data.client_name as string };
+    }
   }
   return {
     state: "open",
@@ -67,16 +79,17 @@ const P = { fontSize: "15px", lineHeight: 1.5 } as const;
 export default async function FirmRequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; id?: string }>;
 }) {
-  const { token } = await searchParams;
+  const { token, id } = await searchParams;
   const user = await getServerUser();
   if (!user) {
     // The email says "New to UnReceipt? You'll set up your firm first".
     // An accountant who has an account switches to Sign in.
-    redirect(loginPath(`/app/firm-request?token=${token ?? ""}`, { signup: true }));
+    const back = token ? `/app/firm-request?token=${token}` : `/app/firm-request?id=${id ?? ""}`;
+    redirect(loginPath(back, { signup: true }));
   }
-  const view = await load(token, user);
+  const view = await load(token, id, user);
 
   let body: React.ReactNode;
   if (view.state === "open") {
@@ -107,6 +120,19 @@ export default async function FirmRequestPage({
         </p>
         <Link href="/firm" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={P}>
           Open the firm portal
+        </Link>
+      </div>
+    );
+  } else if (view.state === "company_account") {
+    body = (
+      <div className="space-y-3">
+        <h1 className="type-display-lg text-[var(--ink)]">{view.clientName} wants to share their receipts with you</h1>
+        <p className="type-body text-[var(--ink-muted)]">
+          This account is for a company&apos;s receipts, so it can&apos;t also be an accounting firm. Ask{" "}
+          {view.clientName} to invite another email address of yours.
+        </p>
+        <Link href="/app" className="inline-flex min-h-11 items-center type-body text-[var(--ink)] underline">
+          Go to your receipts
         </Link>
       </div>
     );

@@ -758,8 +758,8 @@ export const en = {
     inviteSavedTitle: "Saved, email not sent",
   },
   states: {
-    firmOnlyTitle: "Join your firm on the web first",
-    firmOnlyBody: "An accounting firm added your address to its staff. Open app.unreceipt.com on your computer and join it: your clients then appear here too.",
+    firmOnlyTitle: "Answer your invitation on the web first",
+    firmOnlyBody: "Your address was invited to work as an accountant on UnReceipt. Open app.unreceipt.com to answer. Accept, and your clients appear here. If it isn’t for you, decline there, and you can use the app for your own receipts.",
     inactiveTitle: "This account isn't active yet",
     inactiveBody: "Your receipts are safe. This account doesn't have access to the app yet. Write to support@unreceipt.com and we'll help you.",
     contactSupport: "Email support",

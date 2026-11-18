@@ -28,6 +28,11 @@ const REFUSALS = {
     message: "Your address was added to an accounting firm's staff. Join that firm or say it isn't you first.",
   },
   own_firm: { status: 409, message: "This is your own firm's link. Share it with your clients." },
+  firm_account: {
+    status: 409,
+    message:
+      "This account is for an accounting firm, so it can't also have a company. Sign in with another email address of yours.",
+  },
   already: { status: 409, message: "Your company already shares its receipts with this firm." },
   other_firm: {
     status: 409,

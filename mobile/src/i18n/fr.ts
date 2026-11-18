@@ -754,8 +754,8 @@ export const fr: Strings = {
     inviteSavedTitle: "Enregistrée, e-mail non envoyé",
   },
   states: {
-    firmOnlyTitle: "Rejoignez d’abord votre cabinet sur le web",
-    firmOnlyBody: "Un cabinet comptable a ajouté votre adresse à son équipe. Ouvrez app.unreceipt.com sur votre ordinateur et rejoignez-le : vos clients apparaîtront ensuite ici aussi.",
+    firmOnlyTitle: "Répondez d’abord à l’invitation sur le web",
+    firmOnlyBody: "Votre adresse a été invitée à travailler comme comptable sur UnReceipt. Ouvrez app.unreceipt.com pour répondre. Si vous acceptez, vos clients apparaîtront ici. Si elle ne vous concerne pas, refusez-la là-bas : vous pourrez utiliser l’app pour vos propres reçus.",
     inactiveTitle: "Ce compte n’est pas encore actif",
     inactiveBody: "Vos reçus sont en sécurité. Ce compte n’a pas encore accès à l’application. Écrivez à support@unreceipt.com et nous vous aiderons.",
     contactSupport: "Écrire au support",

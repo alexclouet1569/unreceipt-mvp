@@ -13,6 +13,8 @@ function errorText(code: string | undefined): string {
   if (code === "unauthorized") return "You were signed out. Sign in again and try once more.";
   if (code === "join_firm_first")
     return "A firm added you to its team. Open the firm portal to join it, then accept this request there.";
+  if (code === "company_account")
+    return "This account is for a company's receipts, so it can't also be an accounting firm. Ask your client to invite another email address of yours.";
   if (!code || code === "bad_request" || code === "forbidden") return "Couldn't save. Try again.";
   return code;
 }
@@ -82,6 +84,11 @@ export function RequestAnswer({
         {done === "active" ? (
           <Link href="/firm/clients" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
             Open your clients
+          </Link>
+        ) : needsFirm ? (
+          // Not an accountant after all: their own receipts are next.
+          <Link href="/app" className="inline-flex items-center min-h-11 underline text-[var(--ink)]" style={{ fontSize: "15px" }}>
+            Go to your receipts
           </Link>
         ) : null}
       </div>
