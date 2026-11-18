@@ -110,7 +110,7 @@ export function HeaderShell({
         "group/hdr fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300 " +
         (solid
           ? "bg-[#FAFAF7]/95 backdrop-blur-md border-[#E8E5DD]"
-          : "bg-transparent border-transparent")
+          : "bg-transparent border-[#303568]/10")
       }
     >
       {children}

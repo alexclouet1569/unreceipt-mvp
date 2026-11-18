@@ -218,7 +218,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       <SiteHeader locale={locale} page="home" pilotMode={pilotMode} overHero />
 
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-[88px] pb-20 sm:pt-24 sm:pb-28 px-4 sm:px-6 overflow-hidden">
+      <section className="relative bg-[#27BE7B] pt-[104px] pb-20 sm:pt-[120px] sm:pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 
