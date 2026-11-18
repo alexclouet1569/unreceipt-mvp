@@ -1,4 +1,5 @@
 import { AUDIENCE_COPY } from "@/app/_audience-copy";
+import { DEMO_REQUEST_COPY } from "@/app/_demo-request-copy";
 import { LANDING_COPY } from "@/app/_landing-copy";
 import { getAbout } from "@/lib/about";
 import { GUIDES_INDEX, getGuide } from "@/lib/guides";
@@ -29,7 +30,8 @@ function text(page: MarketingPageId, locale: Locale): { eyebrow: string; title: 
       return { eyebrow: h.seoTitle, title: `${h.titleLine1} ${h.titleLine2} ${h.titleAccent}` };
     }
     case "accountants":
-    case "freelancers": {
+    case "freelancers":
+    case "smallBusiness": {
       const h = AUDIENCE_COPY[page][locale].hero;
       return { eyebrow: h.eyebrow, title: `${h.title} ${h.accent}` };
     }
@@ -39,8 +41,14 @@ function text(page: MarketingPageId, locale: Locale): { eyebrow: string; title: 
     }
     case "guides":
       return { eyebrow: GUIDES_INDEX[locale].eyebrow, title: GUIDES_INDEX[locale].title };
+    case "bookDemo": {
+      // English and Swedish only (MARKETING_PAGES.bookDemo.paths).
+      const h = DEMO_REQUEST_COPY[locale === "sv" ? "sv" : "en"].hero;
+      return { eyebrow: h.eyebrow, title: `${h.title} ${h.accent}` };
+    }
     case "guideRetention":
-    case "guidePaper": {
+    case "guidePaper":
+    case "guideOutlays": {
       const g = getGuide(page, locale);
       return { eyebrow: g.eyebrow, title: g.title };
     }

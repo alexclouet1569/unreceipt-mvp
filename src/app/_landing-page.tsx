@@ -18,6 +18,7 @@ export function LandingPage({ pilotMode, locale = "en" }: { pilotMode: boolean; 
       locale={locale}
       copy={LANDING_COPY[locale]}
       accountantsLabel={SITE_COPY[locale].nav.accountants}
+      bookDemoLabel={SITE_COPY[locale].nav.bookDemo}
       faq={getFaq(pilotMode, locale)}
       receipt={landingReceipt(locale)}
       footer={<SiteFooter locale={locale} />}

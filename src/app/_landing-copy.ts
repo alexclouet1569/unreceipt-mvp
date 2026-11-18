@@ -327,7 +327,7 @@ const en: LandingCopy = {
     items: [
       {
         title: "Small Businesses",
-        desc: "Forward email receipts and snap paper ones. Whoever does the books finds them in one place, with merchant, category and VAT ready.",
+        desc: "Forward email receipts and snap paper ones. Employees send theirs for your approval, and whoever does the books finds them in one place, with merchant, category and VAT ready.",
       },
       {
         title: "Freelancers & Sole Traders",
@@ -511,7 +511,7 @@ const sv: LandingCopy = {
     items: [
       {
         title: "Småföretag",
-        desc: "Vidarebefordra e-postkvitton och fota papperskvitton. Den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
+        desc: "Vidarebefordra e-postkvitton och fota papperskvitton. De anställda skickar sina för ditt godkännande, och den som sköter bokföringen hittar dem på ett ställe, med säljare, kategori och moms klart.",
       },
       {
         title: "Enskild firma och frilansare",
@@ -684,7 +684,7 @@ const fr: LandingCopy = {
     items: [
       {
         title: "TPE",
-        desc: "Transférez vos reçus par e-mail, photographiez vos tickets. Celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
+        desc: "Transférez vos reçus par e-mail, photographiez vos tickets. Vos salariés envoient les leurs pour validation, et celui qui tient la comptabilité les retrouve au même endroit, avec fournisseur, catégorie et TVA.",
       },
       {
         title: "Indépendants",

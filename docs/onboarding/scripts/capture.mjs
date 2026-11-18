@@ -123,7 +123,7 @@ try {
     await phone.waitForTimeout(500);
     await phone.evaluate(tidy);
   };
-  await gm("/demo/company?step=4");
+  await gm("/demo/company?step=5");
   await phone.screenshot({ path: path.join(IMG, "c-connect.png"), clip: { x: 0, y: 0, width: 390, height: 330 } });
   await gm("/demo/company?step=2");
   await phone.getByRole("button", { name: "Capture receipt" }).click();

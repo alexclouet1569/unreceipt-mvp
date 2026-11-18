@@ -74,6 +74,10 @@ describe("GET /api/mobile/firm", () => {
       pending: [{ id: "fc-2", name: "Nordljus", email: "maja@nordljus.se", expired: false }],
       joinLink: { url: "https://app.unreceipt.com/app/connect/AbCdEfGhIjKlMnOpQrStUv", qr: "data:image/png;base64,QR" },
     });
+    // The ready Swedish email for clients, with the same link and the client guide.
+    expect(body.joinLink.recommend.subject).toBe("Så skickar du kvitton till oss med UnReceipt");
+    expect(body.joinLink.recommend.body).toContain("Öppna vår länk: https://app.unreceipt.com/app/connect/AbCdEfGhIjKlMnOpQrStUv");
+    expect(body.joinLink.recommend.body).toContain("/guides/UnReceipt-Get-started-companies.pdf");
     expect(m.clients).toHaveBeenCalledWith("firm-1");
     expect(m.limit).toHaveBeenCalledWith("analytics", "u-1");
   });

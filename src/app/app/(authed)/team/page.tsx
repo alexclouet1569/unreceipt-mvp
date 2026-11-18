@@ -7,6 +7,7 @@ import { loadTeamView } from "@/lib/team/invites";
 import type { ApprovalQueueItem, ReimbursementGroup } from "@/lib/mobile/types";
 import { ApprovalList } from "./ApprovalList";
 import { PayBackList } from "./PayBackList";
+import { SectionLabel } from "./_section-label";
 import { TeamManager } from "./TeamManager";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export default async function TeamPage() {
         <div className="space-y-1">
           <h1 className="type-display-lg text-[var(--ink)]">Team</h1>
           {team && team.ok ? (
-            <p className="text-[var(--ink-muted)]" style={{ fontSize: "15px" }}>
+            <p className="type-body text-[var(--ink-muted)]">
               {team.value.companyName}
             </p>
           ) : null}
@@ -83,19 +84,6 @@ export default async function TeamPage() {
         ) : null}
       </div>
     </div>
-  );
-}
-
-function SectionLabel({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h2
-      id={id}
-      tabIndex={-1}
-      className="uppercase text-[var(--ink-muted)]"
-      style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", outline: "none" }}
-    >
-      {children}
-    </h2>
   );
 }
 

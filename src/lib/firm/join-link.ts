@@ -104,6 +104,19 @@ export async function loadJoinTarget(code: string): Promise<JoinTarget | null> {
 }
 
 /**
+ * Only the firm's name, for a signed-out visitor of the join page (one
+ * read, nothing about its people). Null when the code is unknown, turned
+ * off or replaced. The page rate-limits it per IP before calling.
+ */
+export async function loadJoinFirmName(code: string): Promise<string | null> {
+  if (!isJoinCodeShape(code)) return null;
+  const { data, error } = await getSupabaseAdmin().from("firms").select("name").eq("join_code", code).maybeSingle();
+  // The code only: the page logs this, and nothing else is needed to debug.
+  if (error) throw new JoinLinkError(`firm name unreadable (${error.code})`);
+  return (data?.name as string | undefined) ?? null;
+}
+
+/**
  * The firm's code, made the first time it is asked for. Null when an admin
  * turned the link off, or when it can't be read (the column isn't there yet,
  * a database error): the panel then says the link isn't available.

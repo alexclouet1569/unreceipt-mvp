@@ -102,7 +102,7 @@ describe("marketingMetadata", () => {
 });
 
 describe("audience pages", () => {
-  const audiences: AudienceId[] = ["accountants", "freelancers"];
+  const audiences: AudienceId[] = ["accountants", "freelancers", "smallBusiness"];
 
   it("mirrors the visible FAQ in the FAQPage structured data", () => {
     for (const audience of audiences) {
@@ -149,9 +149,27 @@ describe("audience pages", () => {
   });
 });
 
+describe("small business page", () => {
+  it("states the team feature's limits in every language", () => {
+    // AGENTS.md "Company team and approvals": no payout or payroll file, and
+    // an employee who deletes their account takes their receipts with them.
+    for (const locale of LOCALES) {
+      const faq = AUDIENCE_COPY.smallBusiness[locale].faq.map((i) => i.a).join(" ");
+      expect(faq, locale).toMatch(/Fortnox|Pennylane/);
+      expect(faq, locale).toMatch(/payroll|lönesystem|paie/);
+      expect(faq, locale).toMatch(/deletes their own|raderar sitt eget|supprime son propre/);
+    }
+  });
+
+  it("is linked from every language's about card and footer", async () => {
+    const { SITE_COPY } = await import("@/app/_site-copy");
+    for (const locale of LOCALES) expect(SITE_COPY[locale].nav.smallBusiness.length).toBeGreaterThan(0);
+  });
+});
+
 describe("guides", () => {
   it("exists for every registered guide path, once", () => {
-    for (const id of ["guideRetention", "guidePaper"] as const) {
+    for (const id of ["guideRetention", "guidePaper", "guideOutlays"] as const) {
       for (const locale of Object.keys(MARKETING_PAGES[id].paths)) {
         expect(GUIDES.filter((g) => g.page === id && g.locale === locale)).toHaveLength(1);
       }
@@ -197,6 +215,18 @@ describe("guides", () => {
     const paperSv = GUIDES.find((g) => g.page === "guidePaper" && g.locale === "sv")!;
     expect(paperSv.answer).toMatch(/^Ja/);
     expect(paperSv.sections.map((s) => s.body.join(" ")).join(" ")).toContain("Skatteverket");
+  });
+  it("keeps the outlays guide honest about what UnReceipt doesn't do", () => {
+    // Founder decision 2026-11-17: the limits stay on the page (AGENTS.md
+    // "Company team": no payout or payroll file; an employee's receipts go
+    // with their account).
+    const outlays = GUIDES.find((g) => g.page === "guideOutlays" && g.locale === "sv")!;
+    const text = outlays.sections.flatMap((s) => [...s.body, ...(s.list ?? [])]).join(" ");
+    expect(text).toContain("lönefil");
+    expect(text).toContain("Raderar en anställd sitt konto");
+    // Its second button asks for a demo: the guide is for companies with
+    // employees, the funnel's target.
+    expect(outlays.cta.secondaryDemoRequest).toBe(true);
   });
 });
 
@@ -310,6 +340,7 @@ describe("AI search visibility", () => {
     for (const locale of LOCALES) {
       expect(text).toContain(getAbout(locale, false).summary);
       expect(text).toContain(AUDIENCE_COPY.accountants[locale].faq[0].a);
+      expect(text).toContain(AUDIENCE_COPY.smallBusiness[locale].faq[0].a);
     }
     for (const g of GUIDES) expect(text).toContain(g.answer);
     expect(text).not.toMatch(/undefined|\{\w+\}/);
@@ -344,6 +375,7 @@ describe("AI search visibility", () => {
         texts.push(JSON.stringify(landingJsonLd(pilot, locale)));
         texts.push(JSON.stringify(AUDIENCE_COPY.freelancers[locale]).replace(/"note(Pilot|Paid)":"[^"]*"/g, ""));
         texts.push(JSON.stringify(guidesIndexJsonLd(locale)));
+        texts.push(JSON.stringify(AUDIENCE_COPY.smallBusiness[locale]));
       }
     }
     // Whole amounts only: "29,99 €" inside a sample receipt's "129,99 €" is not a plan price.

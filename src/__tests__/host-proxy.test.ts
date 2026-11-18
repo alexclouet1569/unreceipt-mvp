@@ -178,6 +178,19 @@ describe("proxy — host-based routing", () => {
     );
   });
 
+  it("redirects /api/demo-request and the demo pages from app subdomain → apex", async () => {
+    for (const path of ["/api/demo-request", "/book-demo", "/sv/boka-demo"]) {
+      const res = await proxy(buildRequest(`https://app.unreceipt.com${path}`, "app.unreceipt.com"));
+      expect(res.status, path).toBe(308);
+      expect(res.headers.get("location")).toBe(`https://unreceipt.com${path}`);
+    }
+  });
+
+  it("serves /api/demo-request on the apex", async () => {
+    const res = await proxy(buildRequest("https://unreceipt.com/api/demo-request", "unreceipt.com"));
+    expect(res.status).not.toBe(308);
+  });
+
   it("does NOT redirect / on apex (right host)", async () => {
     const res = await proxy(
       buildRequest("https://unreceipt.com/", "unreceipt.com")

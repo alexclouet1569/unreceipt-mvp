@@ -730,6 +730,7 @@ export const en = {
     share: "Share link",
     copy: "Copy link",
     copied: "Link copied",
+    recommend: "Recommend to clients (Swedish email)",
     linkOff: "The link is turned off. An admin can turn it on again on the website.",
     month: "Month",
     prevMonth: "Previous month",

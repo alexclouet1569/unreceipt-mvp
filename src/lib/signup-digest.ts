@@ -15,6 +15,7 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { isAdminEmail } from "./auth-admin";
 import { founderReplyTo, sendEmail } from "./email/send";
 import { signupDigestEmail, type DigestSignup, type DigestWaitlistEntry } from "./email/templates";
+import { formatSignupSource, sanitizeSignupSource, type SignupSource } from "./attribution";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -39,7 +40,7 @@ type AuthUser = {
   last_sign_in_at?: string | null;
   email_confirmed_at?: string | null;
   app_metadata?: { provider?: string };
-  user_metadata?: { full_name?: unknown; company_name?: unknown };
+  user_metadata?: { full_name?: unknown; company_name?: unknown; signup_source?: unknown };
 };
 
 async function newAccounts(w: { start: Date; end: Date }): Promise<{ users: AuthUser[]; total: number }> {
@@ -61,6 +62,19 @@ async function newAccounts(w: { start: Date; end: Date }): Promise<{ users: Auth
   return { users: found, total };
 }
 
+// The profile's copy (written once on the first confirmed sign-in), else the
+// account's own metadata: an account that never confirmed has no copy yet.
+// Both are checked again, the metadata being writable by the user.
+function sourceOf(profileSource: unknown, metadataSource: unknown): SignupSource | null {
+  for (const raw of [profileSource, metadataSource]) {
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const source = sanitizeSignupSource(raw as Record<string, unknown>);
+      if (source) return source;
+    }
+  }
+  return null;
+}
+
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
@@ -71,7 +85,7 @@ async function describe(users: AuthUser[]): Promise<DigestSignup[]> {
   const ids = users.map((u) => u.id);
 
   const [profiles, receipts, addresses] = await Promise.all([
-    db.from("profiles").select("user_id, full_name, company_name, onboarded_at").in("user_id", ids),
+    db.from("profiles").select("user_id, full_name, company_name, onboarded_at, signup_source").in("user_id", ids),
     db.from("receipts").select("user_id, source").in("user_id", ids),
     db.from("user_email_addresses").select("user_id").in("user_id", ids),
   ]);
@@ -105,6 +119,7 @@ async function describe(users: AuthUser[]): Promise<DigestSignup[]> {
       photoReceipts: photo.get(u.id) ?? 0,
       emailReceipts: email.get(u.id) ?? 0,
       ownAddresses: addressCount.get(u.id) ?? 0,
+      source: formatSignupSource(sourceOf(p?.signup_source, u.user_metadata?.signup_source)),
     };
   });
 }

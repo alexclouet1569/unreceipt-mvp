@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/supabase-server";
+import { loginPath } from "@/app/auth/callback/safe-next";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { findPendingFirmSeat, getFirmMembership } from "@/lib/require-firm";
 import { JoinAnswer } from "./JoinAnswer";
@@ -15,7 +16,10 @@ const P = { fontSize: "15px", lineHeight: 1.5 } as const;
 
 export default async function FirmJoinPage() {
   const user = await getServerUser();
-  if (!user) redirect("/app/login?next=/app/firm-join");
+  // Sign in, not Create account: no email links here (/app and /firm send
+  // signed-in staff), firm staff are told to sign in, and the email code
+  // sign-in creates an account for a new address too.
+  if (!user) redirect(loginPath("/app/firm-join"));
   if (await getFirmMembership(user.id)) redirect("/firm");
   const seat = await findPendingFirmSeat(user);
   if (!seat) redirect("/app");

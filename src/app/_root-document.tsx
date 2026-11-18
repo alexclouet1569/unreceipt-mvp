@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Manrope, Figtree, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DESCRIPTION, SHARE_DESCRIPTION, SITE_URL, TITLE, OG_IMAGE } from "@/lib/seo";
 import type { Locale } from "@/lib/locale";
 import "./globals.css";
 import { NativeAppBridge } from "./_native-app-bridge";
+import { VercelAnalytics } from "./_vercel-analytics";
+import { FunnelTracking } from "./_funnel-tracking";
 
 /**
  * The `<html>` documents of the site. There is no `src/app/layout.tsx`:
@@ -119,8 +119,9 @@ export function MarketingDocument({ lang, children }: { lang: Locale; children: 
       </head>
       <body className={BODY_CLASS}>
         {children}
-        <Analytics />
-        <SpeedInsights />
+        <VercelAnalytics />
+        {/* Funnel links; Plausible only where src/lib/tracking/where.ts allows. */}
+        <FunnelTracking plausibleDomain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN?.trim() || null} />
       </body>
     </html>
   );
@@ -164,8 +165,9 @@ export async function ProductDocument({ children }: { children: React.ReactNode 
       <body className={BODY_CLASS}>
         <TooltipProvider>{children}</TooltipProvider>
         <NativeAppBridge />
-        <Analytics />
-        <SpeedInsights />
+        <VercelAnalytics />
+        {/* Funnel links everywhere; Plausible only where src/lib/tracking/where.ts allows. */}
+        <FunnelTracking plausibleDomain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN?.trim() || null} />
       </body>
     </html>
   );

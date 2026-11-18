@@ -82,7 +82,7 @@ function en(pilot: boolean): About {
     factsTitle: "Key facts",
     facts: [
       { label: "What it is", value: "A receipt collection and reading service, used in the browser on a phone or computer." },
-      { label: "Who it's for", value: "Small businesses, freelancers and sole traders, and accounting firms collecting receipts from their clients." },
+      { label: "Who it's for", value: "Small businesses (employees can send their receipts for approval), freelancers and sole traders, and accounting firms collecting receipts from their clients." },
       { label: "Where", value: "Sweden and France. The website is in English, Swedish and French; the app is in English." },
       {
         label: "How receipts arrive",
@@ -112,6 +112,7 @@ function en(pilot: boolean): About {
     fitTitle: "A good fit for",
     fit: [
       "Small companies in Sweden or France, run by one person or with one person handling the receipts, whose receipts arrive by email and on paper, and who want them in one place for their accountant.",
+      "Small companies with a few employees who pay with their own money or the company's card and send their receipts for the owner's approval; approved outlays are listed per person to pay back.",
       "Freelancers and sole traders who want every receipt sorted with its VAT before the tax return.",
       "Accounting firms that collect receipts from many small clients and want them checked and exported per client and month.",
     ],
@@ -124,7 +125,7 @@ function en(pilot: boolean): About {
     limitsTitle: "What UnReceipt doesn't do (yet)",
     limits: [
       "No direct integration with bookkeeping programs such as Fortnox, Visma or Pennylane; the export is CSV, PDFs and receipt files.",
-      "One sign-in per company account for now: colleagues can't be added to a company yet (accounting firms can add colleagues to their portal).",
+      "Employees (added since November 2026, in pilot) send receipts for approval, but there is no payout and no payroll file: approved outlays are listed per person and marked paid by hand. Each person has one approver, with no amount limits or stand-in, and a company has one owner (no co-owner yet). Only the accounting firm's export includes employees' receipts; the owner's own export doesn't. If an employee deletes their own account, their receipts are deleted too, approved ones included.",
       "Foreign-currency conversion covers EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON, TRY and SEK. Receipts in ALL, BAM, BYN, MDL, MKD, RSD, RUB or UAH keep their own amount with no estimate.",
       "No bank or card connection, and no company cards.",
       "It doesn't decide whether VAT is deductible: the VAT is recorded as read from the receipt (worth checking), the bookkeeping CSV only suggests accounts, and the accountant decides.",
@@ -132,7 +133,7 @@ function en(pilot: boolean): About {
       "The app is in English only.",
     ],
     contactTitle: "Contact",
-    contact: "Questions, partnerships or a demo for your accounting firm: support@unreceipt.com.",
+    contact: "Want to see it with your own receipts? Book a 20-minute demo. Questions or partnerships: support@unreceipt.com.",
   };
 }
 
@@ -152,7 +153,7 @@ function sv(pilot: boolean): About {
     factsTitle: "Fakta i korthet",
     facts: [
       { label: "Vad det är", value: "En tjänst som samlar in och läser av kvitton, i webbläsaren på mobil eller dator." },
-      { label: "För vem", value: "Småföretag, enskilda firmor och frilansare, och redovisningsbyråer som samlar in kvitton från sina klienter." },
+      { label: "För vem", value: "Småföretag (anställda kan skicka sina kvitton för godkännande), enskilda firmor och frilansare, och redovisningsbyråer som samlar in kvitton från sina klienter." },
       { label: "Var", value: "Sverige och Frankrike. Webbplatsen finns på svenska, engelska och franska; appen är på engelska." },
       {
         label: "Så kommer kvittona in",
@@ -182,6 +183,7 @@ function sv(pilot: boolean): About {
     fitTitle: "Passar bra för",
     fit: [
       "Småföretag i Sverige där en person sköter kvittona, vars kvitton kommer både som mejl och på papper, och som vill ha dem på ett ställe för redovisningskonsulten.",
+      "Småföretag med några anställda som betalar med egna pengar eller företagets kort och skickar sina kvitton för ägarens godkännande; godkända utlägg listas per person att betala tillbaka.",
       "Enskilda firmor och frilansare som vill ha varje kvitto sorterat med momsen före deklarationen.",
       "Redovisningsbyråer som samlar in kvitton från många små klienter och vill ha dem kontrollerade och exporterade per klient och månad.",
     ],
@@ -194,14 +196,14 @@ function sv(pilot: boolean): About {
     limitsTitle: "Det här gör UnReceipt inte (än)",
     limits: [
       "Ingen direktintegration med bokföringsprogram som Fortnox eller Visma; exporten är CSV, PDF:er och kvittofiler.",
-      "En inloggning per företagskonto än så länge: kollegor kan inte läggas till i ett företag ännu (redovisningsbyråer kan lägga till kollegor i sin portal).",
+      "Anställda (sedan november 2026, i pilot) skickar kvitton för godkännande, men det finns ingen utbetalning och ingen lönefil: godkända utlägg listas per person och markeras som betalda för hand. Varje person har en godkännare, utan beloppsgränser eller ersättare, och ett företag har en ägare (ingen delägare än). Bara redovisningsbyråns export innehåller de anställdas kvitton; ägarens egen export gör det inte. Om en anställd raderar sitt eget konto raderas hens kvitton också, även de godkända.",
       "Valutaomräkningen omfattar EUR, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON och TRY. Kvitton i ALL, BAM, BYN, MDL, MKD, RSD, RUB eller UAH behåller sitt belopp utan uppskattning.",
       "Ingen bank- eller kortkoppling, och inga företagskort.",
       "Tjänsten avgör inte om momsen är avdragsgill: momsen sparas som den lästs av från kvittot (värt att kontrollera), bokföringsfilen föreslår bara konton, och redovisningskonsulten avgör.",
       "Appen är bara på engelska.",
     ],
     contactTitle: "Kontakt",
-    contact: "Frågor, samarbeten eller en demo för din redovisningsbyrå: support@unreceipt.com.",
+    contact: "Vill du se hur det fungerar med dina egna kvitton? Boka en demo på 20 minuter. Frågor eller samarbeten: support@unreceipt.com.",
   };
 }
 
@@ -221,7 +223,7 @@ function fr(pilot: boolean): About {
     factsTitle: "L’essentiel",
     facts: [
       { label: "Ce que c’est", value: "Un service de collecte et de lecture des reçus, dans le navigateur, sur téléphone ou ordinateur." },
-      { label: "Pour qui", value: "TPE, indépendants et micro-entrepreneurs, et cabinets d’expertise comptable qui collectent les justificatifs de leurs clients." },
+      { label: "Pour qui", value: "TPE (les salariés peuvent envoyer leurs reçus pour validation), indépendants et micro-entrepreneurs, et cabinets d’expertise comptable qui collectent les justificatifs de leurs clients." },
       { label: "Où", value: "France et Suède. Le site est en français, en anglais et en suédois ; l’application est en anglais." },
       {
         label: "Comment arrivent les reçus",
@@ -251,6 +253,7 @@ function fr(pilot: boolean): About {
     fitTitle: "Adapté pour",
     fit: [
       "Les TPE en France où une personne gère les reçus, dont les reçus arrivent par e-mail et sur papier, et qui veulent les centraliser pour leur expert-comptable.",
+      "Les TPE avec quelques salariés qui paient de leur poche ou avec la carte de l’entreprise et envoient leurs reçus pour validation ; les frais validés sont listés par personne à rembourser.",
       "Les indépendants et micro-entrepreneurs qui veulent chaque justificatif classé avec sa TVA.",
       "Les cabinets qui collectent les justificatifs de nombreux petits clients et veulent les recevoir vérifiés, par client et par mois.",
     ],
@@ -263,7 +266,7 @@ function fr(pilot: boolean): About {
     limitsTitle: "Ce qu’UnReceipt ne fait pas (encore)",
     limits: [
       "Pas d’intégration directe avec un logiciel comptable comme Pennylane ; l’export est un CSV, des PDF et les fichiers des reçus.",
-      "Un seul accès par compte d’entreprise pour l’instant : on ne peut pas encore ajouter de collègues à une entreprise (les cabinets peuvent ajouter leurs collaborateurs à leur portail).",
+      "Les salariés (depuis novembre 2026, en phase pilote) envoient leurs reçus pour validation, mais il n’y a ni virement ni fichier de paie : les frais validés sont listés par personne et marqués payés à la main. Chaque personne a un valideur, sans seuil de montant ni remplaçant, et une entreprise a un seul dirigeant (pas encore de co-dirigeant). Seul l’export du cabinet contient les reçus des salariés ; l’export du dirigeant ne les contient pas. Si un salarié supprime son propre compte, ses reçus sont supprimés aussi, même validés.",
       "La conversion couvre SEK, USD, GBP, NOK, DKK, ISK, CHF, PLN, CZK, HUF, RON et TRY. Les reçus en ALL, BAM, BYN, MDL, MKD, RSD, RUB ou UAH gardent leur montant, sans estimation.",
       "Pas de connexion bancaire ni de carte, et pas de cartes d’entreprise.",
       "Le service ne décide pas si la TVA est récupérable : elle est relevée telle que lue sur le justificatif (à vérifier), et l’expert-comptable décide.",
@@ -271,7 +274,7 @@ function fr(pilot: boolean): About {
       "L’application est en anglais uniquement.",
     ],
     contactTitle: "Contact",
-    contact: "Questions, partenariats ou démo pour votre cabinet : support@unreceipt.com.",
+    contact: "Envie de le voir avec vos propres justificatifs ? Demandez une démo de 20 minutes (en anglais ou en suédois). Questions ou partenariats : support@unreceipt.com.",
   };
 }
 

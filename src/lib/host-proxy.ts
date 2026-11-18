@@ -38,7 +38,7 @@ const APP_HOST = "app.unreceipt.com";
 // wherever the request landed. Every marketing page (landing pages,
 // audience pages, guides) comes from MARKETING_PAGES.
 const APEX_ONLY_EXACT = new Set([...MARKETING_PATHS, "/privacy"]);
-const APEX_ONLY_PREFIX = ["/api/waitlist"];
+const APEX_ONLY_PREFIX = ["/api/waitlist", "/api/demo-request"];
 
 // Paths that belong on the product host: checkout, auth callback, admin and
 // the firm portal, so signups, payments, magic links and operator tools all
