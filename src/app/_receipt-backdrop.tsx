@@ -451,6 +451,10 @@ export function ReceiptBackdrop({ currency }: { currency: string }) {
           }
           .rb-stamp {
             right: 0;
+            /* Grow from the right edge: scaled up from its centre, the stamp
+               reached past a phone's screen during its animation and made
+               the page scroll sideways. */
+            transform-origin: 100% 50%;
           }
         }
         @media (prefers-reduced-motion: reduce) {
