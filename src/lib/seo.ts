@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getFaq, type FaqItem } from "@/lib/faq";
+import { FAQ_PAGE, getFaq, type FaqItem } from "@/lib/faq";
 import { GUIDES_INDEX, guidesFor } from "@/lib/guides";
 import { LOCALE_HOME, type Locale } from "@/lib/locale";
 import { MARKETING_PAGES, pageLanguages, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
@@ -219,7 +219,7 @@ function breadcrumbNode(locale: Locale, trail: { name: string; path: string }[])
   };
 }
 
-/** JSON-LD for a landing page: organization, site, product and FAQ. */
+/** JSON-LD for a landing page: organization, site and product. The FAQ has its own page (faqPageJsonLd). */
 export function landingJsonLd(pilotMode: boolean, locale: Locale = "en", showPrices: boolean = SHOW_PRICES) {
   const pageUrl = absoluteUrl(LOCALE_HOME[locale]);
   return {
@@ -255,7 +255,30 @@ export function landingJsonLd(pilotMode: boolean, locale: Locale = "en", showPri
           description: OFFER_TEXT[locale](plan.receipts),
         })) }),
       },
-      faqNode(pageUrl, locale, getFaq(pilotMode, locale, showPrices)),
+    ],
+  };
+}
+
+/** JSON-LD for the FAQ page: the FAQPage itself, mirroring the visible questions, and its breadcrumb. */
+export function faqPageJsonLd(pilotMode: boolean, locale: Locale, showPrices: boolean = SHOW_PRICES) {
+  const t = FAQ_PAGE[locale];
+  const path = pagePath("faq", locale);
+  const url = absoluteUrl(path);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationNode(),
+      websiteNode(),
+      {
+        ...faqNode(url, locale, getFaq(pilotMode, locale, showPrices)),
+        "@id": `${url}#webpage`,
+        name: t.metaTitle,
+        description: t.description,
+        isPartOf: { "@id": WEBSITE_ID },
+        about: { "@id": SOFTWARE_ID },
+        dateModified: MARKETING_PAGES.faq.lastModified,
+      },
+      breadcrumbNode(locale, [{ name: t.breadcrumb, path }]),
     ],
   };
 }

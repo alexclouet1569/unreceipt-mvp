@@ -2,6 +2,7 @@ import { AUDIENCE_COPY } from "@/app/_audience-copy";
 import { DEMO_REQUEST_COPY } from "@/app/_demo-request-copy";
 import { LANDING_COPY } from "@/app/_landing-copy";
 import { getAbout } from "@/lib/about";
+import { FAQ_PAGE } from "@/lib/faq";
 import { GUIDES_INDEX, getGuide } from "@/lib/guides";
 import type { Locale } from "@/lib/locale";
 import { MARKETING_PAGES, type MarketingPageId } from "@/lib/marketing-pages";
@@ -39,6 +40,8 @@ function text(page: MarketingPageId, locale: Locale): { eyebrow: string; title: 
       const a = getAbout(locale, false);
       return { eyebrow: a.eyebrow, title: a.title };
     }
+    case "faq":
+      return { eyebrow: FAQ_PAGE[locale].eyebrow, title: FAQ_PAGE[locale].title };
     case "guides":
       return { eyebrow: GUIDES_INDEX[locale].eyebrow, title: GUIDES_INDEX[locale].title };
     case "bookDemo": {

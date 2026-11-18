@@ -17,13 +17,11 @@ import {
   Search,
   ReceiptText,
   Sparkles,
-  ChevronDown,
 } from "lucide-react";
 import { ExplainerVideo } from "./_explainer-video";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { trackedLink } from "@/lib/tracking/events";
 import { cn } from "@/lib/utils";
-import type { FaqItem } from "@/lib/faq";
 import { fill } from "@/lib/fill";
 import { type Locale } from "@/lib/locale";
 import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
@@ -181,7 +179,6 @@ export type LandingViewProps = {
   copy: LandingCopy;
   /** "Book a demo" (SITE_COPY), passed from the server. */
   bookDemoLabel: string;
-  faq: FaqItem[];
   receipt: LandingReceipt;
   /** The site header, rendered on the server. */
   header: React.ReactNode;
@@ -198,7 +195,6 @@ export function LandingView({
   locale,
   copy: t,
   bookDemoLabel,
-  faq,
   receipt,
   header,
   audienceTabs,
@@ -543,36 +539,6 @@ export function LandingView({
                   <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </a>
               </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* ─── FAQ ─── */}
-      <Section id="faq" className="py-20 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-[#27BE7B] uppercase tracking-widest mb-3">{t.faq.eyebrow}</p>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#303568]">
-              {t.faq.title}
-            </h2>
-          </div>
-          {/* Native <details>: every answer is in the HTML, so search
-              engines and AI assistants read it without running JS. */}
-          <div className="space-y-3">
-            {faq.map((item) => (
-              <details
-                key={item.q}
-                className="group bg-white border border-[#E8E5DD] rounded-2xl px-5 sm:px-6 open:pb-5"
-              >
-                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none py-4 sm:py-5 font-bold text-[#303568] [&::-webkit-details-marker]:hidden">
-                  <h3 className="text-base sm:text-lg">{item.q}</h3>
-                  <ChevronDown className="w-5 h-5 shrink-0 text-[#27BE7B] transition-transform group-open:rotate-180" />
-                </summary>
-                <p className="text-sm sm:text-base leading-relaxed text-[#303568]/70">
-                  {item.a}
-                </p>
-              </details>
             ))}
           </div>
         </div>

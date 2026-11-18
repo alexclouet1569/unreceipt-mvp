@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getFaq } from "@/lib/faq";
 import { OVERAGE_PRICE, PLANS, formatEurFr, formatPrice, formatSek } from "@/lib/plans";
-import { landingJsonLd } from "@/lib/seo";
+import { faqPageJsonLd, landingJsonLd } from "@/lib/seo";
 import { LANDING_COPY, fill } from "@/app/_landing-copy";
 
 describe("landing FAQ + structured data", () => {
@@ -21,13 +21,20 @@ describe("landing FAQ + structured data", () => {
   });
 
   it("FAQPage JSON-LD mirrors the visible FAQ exactly", () => {
-    const graph = landingJsonLd(true, "en", true)["@graph"];
+    const graph = faqPageJsonLd(true, "en", true)["@graph"];
     const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
       mainEntity: { name: string; acceptedAnswer: { text: string } }[];
     };
     expect(faqPage.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
       getFaq(true, "en", true).map((i) => [i.q, i.a])
     );
+  });
+
+  it("keeps the FAQPage off the home page, which no longer shows the questions", () => {
+    for (const locale of ["en", "sv", "fr"] as const) {
+      const graph = landingJsonLd(true, locale, true)["@graph"] as { "@type": string }[];
+      expect(graph.some((n) => n["@type"] === "FAQPage"), locale).toBe(false);
+    }
   });
 
   it("lists one EUR offer per plan", () => {
@@ -58,14 +65,16 @@ describe("Swedish landing (/sv)", () => {
     expect(paper.a).toContain("Skatteverket");
   });
 
-  it("FAQPage JSON-LD mirrors the Swedish FAQ and offers SEK prices", () => {
-    const graph = landingJsonLd(true, "sv", true)["@graph"];
-    const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
+  it("FAQPage JSON-LD mirrors the Swedish FAQ; the home page offers SEK prices", () => {
+    const faqPage = faqPageJsonLd(true, "sv", true)["@graph"].find((n) => n["@type"] === "FAQPage") as {
+      url: string;
       mainEntity: { name: string; acceptedAnswer: { text: string } }[];
     };
+    expect(faqPage.url).toBe("https://unreceipt.com/sv/vanliga-fragor");
     expect(faqPage.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
       getFaq(true, "sv", true).map((i) => [i.q, i.a])
     );
+    const graph = landingJsonLd(true, "sv", true)["@graph"];
     const app = graph.find((n) => n["@type"] === "SoftwareApplication") as {
       offers: { price: string; priceCurrency: string }[];
     };
@@ -125,16 +134,16 @@ describe("French landing (/fr)", () => {
     expect(paper.a).toContain("A102 B-2");
   });
 
-  it("FAQPage JSON-LD mirrors the French FAQ and offers EUR prices", () => {
-    const graph = landingJsonLd(true, "fr", true)["@graph"];
-    const faqPage = graph.find((n) => n["@type"] === "FAQPage") as {
+  it("FAQPage JSON-LD mirrors the French FAQ; the home page offers EUR prices", () => {
+    const faqPage = faqPageJsonLd(true, "fr", true)["@graph"].find((n) => n["@type"] === "FAQPage") as {
       url: string;
       mainEntity: { name: string; acceptedAnswer: { text: string } }[];
     };
-    expect(faqPage.url).toBe("https://unreceipt.com/fr");
+    expect(faqPage.url).toBe("https://unreceipt.com/fr/faq");
     expect(faqPage.mainEntity.map((q) => [q.name, q.acceptedAnswer.text])).toEqual(
       faq(true).map((i) => [i.q, i.a])
     );
+    const graph = landingJsonLd(true, "fr", true)["@graph"];
     const app = graph.find((n) => n["@type"] === "SoftwareApplication") as {
       offers: { price: string; priceCurrency: string }[];
     };

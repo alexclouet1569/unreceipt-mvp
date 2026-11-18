@@ -10,9 +10,10 @@ import {
 } from "@/lib/plans";
 
 /**
- * Landing-page FAQ. One source for the visible FAQ section, the FAQPage
- * structured data and /llms.txt, so search engines and AI assistants see
- * exactly what visitors read. Every answer must stay true to the product.
+ * The FAQ page (`/faq`, `/sv/vanliga-fragor`, `/fr/faq`). One source for the
+ * visible questions, the FAQPage structured data and /llms.txt, so search
+ * engines and AI assistants see exactly what visitors read. Every answer
+ * must stay true to the product.
  *
  * The English FAQ stays general and gives the short version of each
  * market's rules; the full answer belongs on that country's language page.
@@ -21,6 +22,54 @@ import {
  */
 
 export type FaqItem = { q: string; a: string };
+
+/** The words around the questions on the FAQ page, per language. */
+export type FaqPageCopy = {
+  metaTitle: string;
+  description: string;
+  breadcrumb: string;
+  eyebrow: string;
+  title: string;
+  lead: string;
+  contactTitle: string;
+  contact: string;
+};
+
+export const FAQ_PAGE: Record<Locale, FaqPageCopy> = {
+  en: {
+    metaTitle: "UnReceipt FAQ: receipts, VAT, accountants and pricing",
+    description:
+      "Answers about UnReceipt: how receipts get in, who checks them, VAT, your accountant's access, employees, cancelling and where your data is stored.",
+    breadcrumb: "FAQ",
+    eyebrow: "FAQ",
+    title: "Questions, answered",
+    lead: "How receipts get into UnReceipt, who checks them, what your accountant sees and what happens to your data.",
+    contactTitle: "Still have a question?",
+    contact: "Ask us directly or book a 20-minute demo. We reply within one working day.",
+  },
+  sv: {
+    metaTitle: "Vanliga frågor om UnReceipt: kvitton, moms och redovisningsbyrå",
+    description:
+      "Svar om UnReceipt: hur kvittona kommer in, vem som kontrollerar dem, moms, redovisningsbyråns åtkomst, anställda, papperskvitton, uppsägning och var din data lagras.",
+    breadcrumb: "Vanliga frågor",
+    eyebrow: "Vanliga frågor",
+    title: "Frågor och svar",
+    lead: "Hur kvittona kommer in i UnReceipt, vem som kontrollerar dem, vad din redovisningsbyrå ser och vad som händer med din data.",
+    contactTitle: "Har du fler frågor?",
+    contact: "Fråga oss direkt eller boka en demo på 20 minuter. Vi svarar inom en arbetsdag.",
+  },
+  fr: {
+    metaTitle: "FAQ UnReceipt\u00a0: reçus, TVA, expert-comptable et tarifs",
+    description:
+      "Les réponses sur UnReceipt\u00a0: comment les reçus arrivent, qui les vérifie, la TVA, l’accès de votre expert-comptable, les salariés, les tickets papier, la résiliation et l’hébergement des données.",
+    breadcrumb: "FAQ",
+    eyebrow: "FAQ",
+    title: "Vos questions, nos réponses",
+    lead: "Comment les reçus arrivent dans UnReceipt, qui les vérifie, ce que voit votre expert-comptable et ce que deviennent vos données.",
+    contactTitle: "Une autre question\u00a0?",
+    contact: "Posez-la-nous directement ou demandez une démo de 20 minutes. Nous répondons sous un jour ouvré.",
+  },
+};
 
 function pricingAnswer(pilotMode: boolean): string {
   const plans = PLANS.map(
