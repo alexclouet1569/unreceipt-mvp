@@ -6,7 +6,8 @@
 //   ANTHROPIC_API_KEY=... \
 //   NEXT_PUBLIC_SUPABASE_URL=... \
 //   SUPABASE_SERVICE_ROLE_KEY=... \
-//   npx tsx scripts/reparse-pending-rows.ts [--dry-run] [--limit=50]
+//   npx tsx --conditions=react-server scripts/reparse-pending-rows.ts [--dry-run] [--limit=50]
+//   (--conditions=react-server: the server modules it reaches import "server-only")
 //
 // Costs LLM tokens (one call per pending row that hits the LLM
 // fallback). Default --limit=50 keeps a single run under ~$0.50 at

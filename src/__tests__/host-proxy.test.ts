@@ -11,6 +11,8 @@ type CookieMethods = {
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
+  // Verified JWT claims; an admin who passed the second sign-in step by default.
+  getClaims: vi.fn(async () => ({ data: { claims: { aal: "aal2" } }, error: null })),
   // The cookie methods the proxy handed to the last Supabase client, so a
   // test can play the SDK rotating the session inside getUser().
   cookies: null as CookieMethods | null,
@@ -19,11 +21,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (_url: string, _key: string, opts: { cookies: CookieMethods }) => {
     mocks.cookies = opts.cookies;
-    return { auth: { getUser: mocks.getUser } };
+    return { auth: { getUser: mocks.getUser, getClaims: mocks.getClaims } };
   },
 }));
 
-vi.mock("@/lib/auth-admin", () => ({
+vi.mock("@/lib/auth-admin", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth-admin")>()),
   isAdminEmail: (email: string | null | undefined) =>
     email === "founder@unreceipt.com",
 }));
@@ -320,6 +323,45 @@ describe("proxy — admin gate (preserved from PR #13)", () => {
     );
     expect(res.status).not.toBe(307);
     expect(res.status).not.toBe(403);
+  });
+
+  describe("second sign-in step (aal2)", () => {
+    beforeEach(() => {
+      mocks.getUser.mockResolvedValue({ data: { user: { email: "founder@unreceipt.com" } } });
+      mocks.getClaims.mockResolvedValue({ data: { claims: { aal: "aal1" } }, error: null });
+    });
+    afterEach(() => {
+      mocks.getClaims.mockResolvedValue({ data: { claims: { aal: "aal2" } }, error: null });
+    });
+
+    it("sends an admin page to /admin/mfa without it", async () => {
+      const res = await proxy(buildRequest("https://app.unreceipt.com/admin/pilot", "app.unreceipt.com"));
+      expect(res.status).toBe(307);
+      expect(new URL(res.headers.get("location")!).pathname).toBe("/admin/mfa");
+    });
+
+    it("answers 403 mfa_required on /api/admin without it", async () => {
+      const res = await proxy(buildRequest("https://app.unreceipt.com/api/admin/firms", "app.unreceipt.com"));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: "mfa_required" });
+    });
+
+    it("refuses when the claims can't be verified", async () => {
+      mocks.getClaims.mockResolvedValue({ data: null, error: new Error("bad jwt") } as never);
+      const res = await proxy(buildRequest("https://app.unreceipt.com/api/admin/receipts", "app.unreceipt.com"));
+      expect(res.status).toBe(403);
+    });
+
+    it("lets the admin reach /admin/mfa itself", async () => {
+      const res = await proxy(buildRequest("https://app.unreceipt.com/admin/mfa", "app.unreceipt.com"));
+      expect(res.status).toBe(200);
+    });
+
+    it("still sends a non-admin to /app from /admin/mfa", async () => {
+      mocks.getUser.mockResolvedValue({ data: { user: { email: "rando@example.com" } } });
+      const res = await proxy(buildRequest("https://app.unreceipt.com/admin/mfa", "app.unreceipt.com"));
+      expect(new URL(res.headers.get("location")!).pathname).toBe("/app");
+    });
   });
 });
 

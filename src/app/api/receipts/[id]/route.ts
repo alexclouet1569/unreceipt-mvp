@@ -23,6 +23,7 @@
 import { isScanPath } from "@/lib/receipts/scans";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { maskCardNumbers } from "@/lib/receipts/card-numbers";
 import { getServerUser, getUserSupabase } from "@/lib/supabase-server";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
@@ -191,7 +192,7 @@ export async function PATCH(
     update.category = patch.category;
   }
   if (patch.notes !== undefined) {
-    update.notes = patch.notes?.trim() ? patch.notes.trim() : null;
+    update.notes = patch.notes?.trim() ? maskCardNumbers(patch.notes.trim()) : null;
   }
 
   if (patch.tax_amount !== undefined) update.tax_amount = patch.tax_amount;

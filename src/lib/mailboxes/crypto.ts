@@ -10,6 +10,8 @@
 // copied onto another user's row fails to decrypt. Any change to the
 // ciphertext, tag, iv or context throws.
 
+import "server-only";
+
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const VERSION = "v1";

@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { maskCardNumbers, maskDigitRuns } from "./card-numbers";
 
 // zod sets its English messages as a side effect of its entry module, which
 // the production bundle can skip (zod declares "sideEffects": false). Without
@@ -23,7 +24,8 @@ export const ReceiptItemSchema = z.object({
     .string({ error: "Every line needs a description" })
     .trim()
     .min(1, "Every line needs a description")
-    .max(200, "A line description can be at most 200 characters"),
+    .max(200, "A line description can be at most 200 characters")
+    .transform(maskCardNumbers),
   qty: z.number().positive().max(10_000).nullable().optional(),
   unit_amount: z.number().min(-MAX_AMOUNT).max(MAX_AMOUNT).nullable().optional(),
   total_amount: z
@@ -110,7 +112,9 @@ export const PaymentMethodSchema = z
   .string()
   .trim()
   .min(1)
-  .max(50, "Payment can be at most 50 characters");
+  .max(50, "Payment can be at most 50 characters")
+  // Never a full card number, whoever typed it (card-numbers.ts).
+  .transform(maskDigitRuns);
 
 // Offered as suggestions in the forms; any other short text is accepted.
 export const PAYMENT_METHOD_SUGGESTIONS = [

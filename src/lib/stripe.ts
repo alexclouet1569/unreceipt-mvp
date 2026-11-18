@@ -2,7 +2,10 @@
 //
 // STRIPE_SECRET_KEY is intentionally not NEXT_PUBLIC_* — an accidental client
 // import resolves the env to undefined and getStripe() throws fast rather
-// than silently leaking the secret key into a browser bundle.
+// than silently leaking the secret key into a browser bundle. `import
+// "server-only"` makes such an import fail the build (2026-11-18).
+
+import "server-only";
 
 import Stripe from "stripe";
 

@@ -2299,3 +2299,86 @@ ALTER TABLE public.profiles
 
 REVOKE INSERT ON public.profiles FROM anon, authenticated;
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+
+-- =============================================================================
+-- 2026-11-18 — Least privilege for the API roles (security plan, Phase 1)
+--
+-- Checked against production on 2026-11-18 (information_schema grants and
+-- pg_policy). Supabase gives anon and authenticated every privilege on a new
+-- public table by default; RLS kept rows safe, but these were still open:
+--
+-- * transactions (the old prototype table, read by nothing in the app) still
+--   let a signed-in user insert and update their own rows, and a row deleted
+--   there also deletes its receipt (ON DELETE CASCADE).
+-- * receipt_items (an older prototype, items now live in receipts.items)
+--   had an insert policy and grant. Production no longer has the table, so
+--   the statements are guarded.
+-- * subscriptions, rate_limits and waitlist kept INSERT/UPDATE/DELETE grants
+--   with no matching policy (RLS refused them), and profiles kept DELETE.
+-- * TRUNCATE, REFERENCES and TRIGGER on every table, for anon and
+--   authenticated. TRUNCATE ignores RLS; PostgREST doesn't expose it, so it
+--   wasn't reachable, but nothing needs it.
+-- * The receipts insert/update policies were re-created after their grants
+--   were revoked (2026-10-14 block); without a grant they did nothing and
+--   would come back to life with any future GRANT.
+-- * Users could delete files in their own folder of the receipts bucket
+--   straight through the Storage API, past the routes and the "receipt in
+--   approval" guard (which protects rows only). Every delete already goes
+--   through the server with the service role.
+-- * receipt-originals had no size or type limit. It holds what the email
+--   intake and the scan upload store: images, PDFs and raw .eml messages
+--   of at most 15 MB (MAX_RAW_BYTES, src/lib/mailboxes/raw-message.ts).
+--
+-- Kept on purpose: SELECT where a "Users can view own …" policy exists, the
+-- DELETE grant and policy on receipts (DELETE /api/receipts/[id] deletes the
+-- row with the user's session), and the column-level UPDATE on profiles.
+-- =============================================================================
+
+-- Nothing needs TRUNCATE, REFERENCES or TRIGGER through the API roles.
+DO $$
+DECLARE t record;
+BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('REVOKE TRUNCATE, REFERENCES, TRIGGER ON public.%I FROM anon, authenticated', t.tablename);
+    -- Signed-out callers never write a table: every public form posts to a
+    -- server route that writes with the service role.
+    EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON public.%I FROM anon', t.tablename);
+  END LOOP;
+END $$;
+
+-- …and new tables don't get them by default either.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLES FROM anon, authenticated;
+
+-- Server-only tables that still carried write grants.
+REVOKE INSERT, UPDATE, DELETE ON public.subscriptions FROM authenticated;
+REVOKE ALL ON public.rate_limits FROM anon, authenticated;
+REVOKE ALL ON public.waitlist FROM anon, authenticated;
+REVOKE DELETE ON public.profiles FROM authenticated;
+
+-- The prototype transactions table: read-only for its owner.
+REVOKE INSERT, UPDATE, DELETE ON public.transactions FROM anon, authenticated;
+DROP POLICY IF EXISTS "Users can insert own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can update own transactions" ON public.transactions;
+
+DO $$
+BEGIN
+  IF to_regclass('public.receipt_items') IS NOT NULL THEN
+    REVOKE INSERT, UPDATE, DELETE ON public.receipt_items FROM anon, authenticated;
+    DROP POLICY IF EXISTS "Users can insert own receipt items" ON public.receipt_items;
+  END IF;
+END $$;
+
+-- Dead receipts policies (no grant behind them since 2026-10-14).
+DROP POLICY IF EXISTS "Users can insert own receipts" ON public.receipts;
+DROP POLICY IF EXISTS "Users can update own receipts" ON public.receipts;
+
+-- Storage: users read their own files; only the server deletes them.
+DROP POLICY IF EXISTS "Users can delete own receipt images" ON storage.objects;
+
+UPDATE storage.buckets
+   SET file_size_limit = 16777216,
+       allowed_mime_types = ARRAY[
+         'image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'message/rfc822'
+       ]
+ WHERE id = 'receipt-originals';

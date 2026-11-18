@@ -5,7 +5,7 @@
 // Built from the claude-api skill's runner scaffold; the harness half below
 // the "fill these in" section is the scaffold unchanged except for flags.
 //
-//   npx tsx evals/receipt-ocr/run-eval.mjs --flow .claude/hillclimb/receipt-ocr \
+//   npx tsx --conditions=react-server evals/receipt-ocr/run-eval.mjs --flow .claude/hillclimb/receipt-ocr \
 //     --variant v1 --model claude-haiku-5-5 --effort low --max-tokens 16000 --reps 2
 //
 // See evals/receipt-ocr/README.md for the variants and how to add real photos.
@@ -310,7 +310,7 @@ function parseArgs(argv) {
   return a;
 }
 function usage() {
-  eprint('usage: npx tsx evals/receipt-ocr/run-eval.mjs --flow DIR --variant ID [--model ID] [--effort low|medium|high] [--max-tokens N] [--cases all|synthetic|real] [--fake oracle|null] [--reps N] [--concurrency N] [--timeout-s N (0 = no ceiling)] [--approve-harness]');
+  eprint('usage: npx tsx --conditions=react-server evals/receipt-ocr/run-eval.mjs --flow DIR --variant ID [--model ID] [--effort low|medium|high] [--max-tokens N] [--cases all|synthetic|real] [--fake oracle|null] [--reps N] [--concurrency N] [--timeout-s N (0 = no ceiling)] [--approve-harness]');
 }
 
 // Harness integrity gate. The hillclimb loop gets this runner command

@@ -32,6 +32,12 @@ Defense in depth (plan decision A2):
 
 `src/lib/auth-admin.ts` exports the pure `isAdminEmail()` matcher. Both the proxy and `requireAdmin()` share it so the policy is defined once.
 
+**Second sign-in step (2026-11-18).** Admins read every customer's data, so the allowlist alone isn't enough: the proxy and `requireAdmin()` also require the session's verified `aal` claim to be `aal2` (Supabase Auth MFA, an authenticator app; `hasSecondFactor()` in `auth-admin.ts`, read from `auth.getClaims()`). Without it a page goes to `/admin/mfa` (sets up the authenticator the first time, then asks for its code) and `/api/admin/*` answers 403 `mfa_required`. Only `/admin/mfa` and the admin layout pass `{ allowWithoutMfa: true }`; every other admin page and route calls `requireAdminPage()` / `requireAdmin()` without options. Lost phone: remove the factor in the Supabase dashboard (Authentication → Users → MFA factors) and set it up again on `/admin/mfa`.
+
+**Server-only modules.** `supabase-admin.ts`, `stripe.ts`, `ocr.ts` and `mailboxes/crypto.ts` start with `import "server-only"`, so a client import fails the build. Vitest aliases it to a no-op; Node scripts that reach them (`scripts/reparse-pending-rows.ts`, the OCR eval) run with `npx tsx --conditions=react-server`.
+
+**No card numbers (2026-11-18).** We never store a payment card number: Stripe holds the cards we charge and a receipt keeps only `card_last_four`. Every write path masks free text with `src/lib/receipts/card-numbers.ts` (payment method: any run of 7+ digits; notes and line labels: Luhn-valid 13–19 digit numbers become `•••• 1234`; `PaymentMethodSchema` and `ReceiptItemSchema` do it in the schema). A new route that saves receipt text must use them. The stored original file is evidence and stays as received.
+
 `src/lib/supabase-admin.ts` exposes `getSupabaseAdmin()` — a Supabase client built with the **service-role** key. This bypasses RLS and is god-mode for the database. Rules:
 
 - Never import this file from a `"use client"` component, page, or hook.
