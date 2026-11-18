@@ -3,16 +3,39 @@ name: Checks
 # Runs on every pull request (and on main after a merge) so a broken
 # type, lint error or failing unit test shows up as a red check on the PR
 # before it reaches production. Vercel still builds and deploys on its own.
+#
+# The dependency audit is its own job so a red audit never stops the type
+# check, lint and tests from running and reporting.
 on:
   pull_request:
   push:
     branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Fails on high/critical advisories in what ships to production
+      # (npm audit --omit=dev, read from package-lock.json; no install needed).
+      # Dev-only tooling (eslint, playwright, the shadcn CLI) is excluded.
+      # Known advisories with no fix are accepted only as listed, with a
+      # reason and a review date, in scripts/audit-exceptions.json; each run
+      # shows them as warnings and in the job summary.
+      - name: Dependency audit
+        run: node scripts/audit-gate.mjs
+
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -23,10 +46,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Fails on high/critical advisories in what ships to production.
-      # Dev-only tooling (eslint, playwright, the shadcn CLI) is excluded.
-      - name: Dependency audit
-        run: npm audit --omit=dev --audit-level=high
       - name: Type check
         run: npx tsc --noEmit
       - name: Lint
