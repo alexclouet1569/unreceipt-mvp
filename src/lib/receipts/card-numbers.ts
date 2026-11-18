@@ -25,20 +25,49 @@ export function luhnValid(digits: string): boolean {
   return sum % 10 === 0;
 }
 
-// 13 to 19 digits, optionally grouped by single spaces or dashes, not part
-// of a longer number.
-const CARD_CANDIDATE = /(?<![\d])\d(?:[ -]?\d){12,18}(?![\d])/g;
+// A run of digit groups separated by single spaces or dashes ("4111 1111
+// 1111 1111 12/26" gives "4111 1111 1111 1111 12"). The card number can be
+// any whole groups inside it, so each run is searched group by group.
+const DIGIT_GROUPS = /\d+(?:[ -]\d+)*/g;
 
 /**
  * Replaces every card-shaped number (13–19 digits that pass the Luhn check)
- * with "•••• " and its last four digits. Other numbers (org.nr, OCR
- * reference, phone) are left alone: they rarely pass Luhn at card length,
- * and when one does, losing its middle digits costs little.
+ * with "•••• " and its last four digits, also when other numbers sit next
+ * to it (an expiry date, a CVC, a reference). A card number is whole digit
+ * groups: a single unbroken run longer than 19 digits (a payment
+ * reference) is never cut into one. Other numbers (org.nr, OCR reference,
+ * phone) are left alone: they rarely pass Luhn at card length, and when one
+ * does, losing its middle digits costs little.
  */
 export function maskCardNumbers(text: string): string {
-  return text.replace(CARD_CANDIDATE, (match) => {
-    const digits = match.replace(/[ -]/g, "");
-    return luhnValid(digits) ? `•••• ${digits.slice(-4)}` : match;
+  return text.replace(DIGIT_GROUPS, (run) => {
+    const groups = run.split(/[ -]/);
+    const seps = run.match(/[ -]/g) ?? [];
+    if (groups.join("").length < 13) return run;
+    let out = "";
+    let i = 0;
+    while (i < groups.length) {
+      let end = -1;
+      let digits = "";
+      for (let j = i; j < groups.length; j++) {
+        digits += groups[j];
+        if (digits.length > 19) break;
+        if (digits.length >= 13 && luhnValid(digits)) {
+          end = j;
+          break;
+        }
+      }
+      if (end >= 0) {
+        const card = groups.slice(i, end + 1).join("");
+        out += `•••• ${card.slice(-4)}`;
+        i = end + 1;
+      } else {
+        out += groups[i];
+        i += 1;
+      }
+      if (i < groups.length) out += seps[i - 1];
+    }
+    return out;
   });
 }
 

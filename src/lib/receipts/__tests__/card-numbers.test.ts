@@ -31,12 +31,21 @@ describe("maskCardNumbers", () => {
     expect(maskCardNumbers(`Amex ${AMEX}`)).toBe("Amex •••• 0005");
   });
 
+  it("finds a card number next to an expiry date, a CVC or a reference", () => {
+    expect(maskCardNumbers("Visa 4111 1111 1111 1111 12/26")).toBe("Visa •••• 1111 12/26");
+    expect(maskCardNumbers("4111-1111-1111-1111 123")).toBe("•••• 1111 123");
+    expect(maskCardNumbers("ref 12 4111 1111 1111 1111")).toBe("ref 12 •••• 1111");
+    expect(maskCardNumbers("card 4111111111111111 cvv 123")).toBe("card •••• 1111 cvv 123");
+    expect(maskCardNumbers("12 34 56 4242 4242 4242 4242 99")).toBe("12 34 56 •••• 4242 99");
+  });
+
   it("leaves numbers that aren't card numbers alone", () => {
     expect(maskCardNumbers("Org.nr 556677-8899")).toBe("Org.nr 556677-8899");
     expect(maskCardNumbers("Ref 4242424242424241")).toBe("Ref 4242424242424241");
     // Part of a longer number (a 22-digit payment reference) is not a card.
     expect(maskCardNumbers(`OCR 123456${VISA}`)).toBe(`OCR 123456${VISA}`);
     expect(maskCardNumbers("Visa •••• 4821")).toBe("Visa •••• 4821");
+    expect(maskCardNumbers("2026-11-18 070-123 45 67")).toBe("2026-11-18 070-123 45 67");
   });
 
   it("passes null and undefined through", () => {
