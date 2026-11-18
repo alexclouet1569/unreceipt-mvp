@@ -65,7 +65,6 @@ export function SiteHeader({
   const links = [
     { label: t.how, href: `${home}#how` },
     ...(SHOW_PRICES ? [{ label: t.pricing, href: `${home}#pricing` }] : []),
-    { label: t.faq, href: pagePath("faq", locale) },
     { label: t.about, href: pagePath("about", locale) },
   ];
   const demo = { href: demoRequestPath(locale), lang: demoRequestLang(locale) };
