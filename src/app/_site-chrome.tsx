@@ -104,7 +104,7 @@ export function SiteHeader({
           </a>
           <a
             href={appUrl(SIGNUP_PATH)}
-            className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-10")}
+            className={cn(BTN, "bg-[#1A7F52] text-white hover:bg-[#176E47] font-semibold rounded-full px-6 h-10")}
           >
             {cta}
           </a>
@@ -153,7 +153,7 @@ export function SiteHeader({
             ))}
             <a
               href={appUrl(SIGNUP_PATH)}
-              className={cn(BTN, "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full h-11")}
+              className={cn(BTN, "mt-2 w-full bg-[#1A7F52] text-white hover:bg-[#176E47] font-semibold rounded-full h-11")}
             >
               {cta}
             </a>

@@ -48,26 +48,26 @@ export function DemoRequestPage({
         <section className="bg-[#27BE7B] px-4 sm:px-6 pt-10 pb-12 sm:pt-16 sm:pb-20">
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_minmax(0,520px)] gap-10 lg:gap-14 items-start">
             <div>
-              <nav aria-label="Breadcrumb" className="mb-6 text-sm text-white/80">
-                <a href={pagePath("home", locale)} className="hover:text-white underline-offset-2 hover:underline">
+              <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[#303568]">
+                <a href={pagePath("home", locale)} className="underline underline-offset-2 hover:decoration-2">
                   UnReceipt
                 </a>
                 <span aria-hidden="true"> / </span>
                 <span aria-current="page">{t.breadcrumb}</span>
               </nav>
-              <p className="inline-flex bg-white/15 rounded-full px-4 py-1.5 mb-6 text-white/90 text-xs font-semibold tracking-wide uppercase">
+              <p className="inline-flex bg-white/15 rounded-full px-4 py-1.5 mb-6 text-[#303568] text-xs font-semibold tracking-wide uppercase">
                 {t.hero.eyebrow}
               </p>
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
+              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.08] mb-6 text-[#303568]">
                 {t.hero.title}
                 <br />
-                <span className="text-[#303568]">{t.hero.accent}</span>
+                <span className="underline decoration-white decoration-4 sm:decoration-[6px] underline-offset-8 [text-decoration-skip-ink:none]">{t.hero.accent}</span>
               </h1>
-              <p className="text-white/90 text-lg leading-relaxed max-w-xl mb-8">{t.hero.lead}</p>
-              <h2 className="text-sm font-bold text-white uppercase tracking-widest mb-4">{t.steps.title}</h2>
+              <p className="text-[#303568] text-lg leading-relaxed max-w-xl mb-8">{t.hero.lead}</p>
+              <h2 className="text-sm font-bold text-[#303568] uppercase tracking-widest mb-4">{t.steps.title}</h2>
               <ol className="space-y-3 max-w-xl">
                 {t.steps.items.map((item, i) => (
-                  <li key={item} className="flex items-start gap-3 text-white">
+                  <li key={item} className="flex items-start gap-3 text-[#303568]">
                     <span className="w-7 h-7 shrink-0 rounded-full bg-white text-[#1A7F52] text-sm font-bold flex items-center justify-center">
                       {i + 1}
                     </span>
@@ -103,7 +103,7 @@ export function DemoRequestPage({
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={appUrl("/demo/company?step=1")}
-                  className={cn(BTN, "bg-[#1A7F52] text-white hover:bg-[#176E47] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
+                  className={cn(BTN, "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
                 >
                   {t.notes.selfServe.tour}
                   <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />

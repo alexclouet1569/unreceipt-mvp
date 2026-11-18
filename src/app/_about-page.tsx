@@ -57,7 +57,7 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
             <span aria-current="page">{a.breadcrumb}</span>
           </nav>
 
-          <p className="text-sm font-semibold text-[#1F9D63] uppercase tracking-widest mb-3">{a.eyebrow}</p>
+          <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{a.eyebrow}</p>
           <h1 className="text-3xl sm:text-[2.6rem] font-extrabold tracking-tight leading-[1.12] text-[#303568] mb-4">
             {a.title}
           </h1>
@@ -127,7 +127,7 @@ export function AboutPage({ locale, pilotMode }: { locale: Locale; pilotMode: bo
               </a>
               <a
                 href={appUrl(SIGNUP_PATH)}
-                className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
+                className={cn(BTN, "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
               >
                 {pilotMode ? nav.ctaPilot : nav.ctaPaid}
                 <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />

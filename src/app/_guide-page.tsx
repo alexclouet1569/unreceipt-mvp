@@ -69,7 +69,7 @@ export function GuidePage({
             <span aria-current="page">{g.breadcrumb}</span>
           </nav>
 
-          <p className="text-sm font-semibold text-[#1F9D63] uppercase tracking-widest mb-3">{g.eyebrow}</p>
+          <p className="text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">{g.eyebrow}</p>
           <h1 className="text-3xl sm:text-[2.6rem] font-extrabold tracking-tight leading-[1.12] text-[#303568] mb-4">
             {g.title}
           </h1>
@@ -79,7 +79,7 @@ export function GuidePage({
           </p>
 
           <div className="rounded-2xl bg-[#ECF7E7] border border-[#27BE7B]/25 p-5 sm:p-6 mb-10">
-            <p className="text-xs font-bold text-[#1F9D63] uppercase tracking-widest mb-2">{g.answerLabel}</p>
+            <p className="text-xs font-bold text-[#1A7F52] uppercase tracking-widest mb-2">{g.answerLabel}</p>
             <p className="text-base sm:text-lg leading-relaxed text-[#303568]">{g.answer}</p>
           </div>
 
@@ -119,14 +119,14 @@ export function GuidePage({
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={appUrl(SIGNUP_PATH)}
-                className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11")}
+                className={cn(BTN, "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11 focus-visible:outline-white")}
               >
                 {pilotMode ? nav.ctaPilot : nav.ctaPaid}
                 <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
               </a>
               <a
                 href={appUrl("/demo")}
-                className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11")}
+                className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11 focus-visible:outline-white")}
               >
                 {g.cta.secondaryLabel}
               </a>

@@ -113,27 +113,27 @@ export function AudiencePage({
         <section className="bg-[#27BE7B] px-4 sm:px-6 pt-12 pb-16 sm:pt-20 sm:pb-24">
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.15fr_1fr] gap-12 items-center">
             <div>
-              <nav aria-label="Breadcrumb" className="mb-6 text-sm text-white/80">
-                <a href={pagePath("home", locale)} className="hover:text-white underline-offset-2 hover:underline">
+              <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[#303568]">
+                <a href={pagePath("home", locale)} className="underline underline-offset-2 hover:decoration-2">
                   UnReceipt
                 </a>
                 <span aria-hidden="true"> / </span>
                 <span aria-current="page">{t.breadcrumb}</span>
               </nav>
-              <p className="inline-flex bg-white/15 rounded-full px-4 py-1.5 mb-6 text-white/90 text-xs font-semibold tracking-wide uppercase">
+              <p className="inline-flex bg-white/15 rounded-full px-4 py-1.5 mb-6 text-[#303568] text-xs font-semibold tracking-wide uppercase">
                 {t.hero.eyebrow}
               </p>
-              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.08] mb-6 text-white">
+              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.08] mb-6 text-[#303568]">
                 {t.hero.title}
                 <br />
-                <span className="text-[#303568]">{t.hero.accent}</span>
+                <span className="underline decoration-white decoration-4 sm:decoration-[6px] underline-offset-8 [text-decoration-skip-ink:none]">{t.hero.accent}</span>
               </h1>
-              <p className="text-white/90 text-lg leading-relaxed max-w-xl mb-8">{t.hero.lead}</p>
+              <p className="text-[#303568] text-lg leading-relaxed max-w-xl mb-8">{t.hero.lead}</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <a
                   href={href(t.hero.primary)}
                   {...langOf(t.hero.primary)}
-                  className={cn(BTN, "bg-white text-[#1F9D63] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
+                  className={cn(BTN, "bg-white text-[#303568] hover:bg-white/90 rounded-full px-7 text-base font-semibold h-12")}
                 >
                   {label(t.hero.primary, t.hero.primaryLabel)}
                   <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
@@ -141,12 +141,12 @@ export function AudiencePage({
                 <a
                   href={href(t.hero.secondary)}
                   {...langOf(t.hero.secondary)}
-                  className={cn(BTN, "border-2 border-white text-white hover:bg-white hover:text-[#1F9D63] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
+                  className={cn(BTN, "border-2 border-[#303568] text-[#303568] hover:bg-[#303568] hover:text-white rounded-full px-7 text-base font-semibold bg-transparent h-12")}
                 >
                   {t.hero.secondaryLabel}
                 </a>
               </div>
-              <p className="text-white/85 text-sm mt-4">
+              <p className="text-[#303568] text-sm mt-4">
                 {SHOW_PRICES
                   ? fill(pilotMode ? t.hero.notePilot : t.hero.notePaid, { price })
                   : ((pilotMode ? t.hero.notePilotNoPrice : t.hero.notePaidNoPrice) ??
@@ -164,7 +164,7 @@ export function AudiencePage({
                     <span
                       className={cn(
                         "inline-flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap",
-                        row.done ? "text-[#1F9D63]" : "text-[#B4690E]"
+                        row.done ? "text-[#1A7F52]" : "text-[#B4690E]"
                       )}
                     >
                       {row.done ? (
@@ -185,7 +185,7 @@ export function AudiencePage({
         {/* ─── BEFORE / AFTER ─── */}
         <section className="px-4 sm:px-6 py-16 sm:py-20">
           <div className="max-w-4xl mx-auto">
-            <p className="text-center text-sm font-semibold text-[#1F9D63] uppercase tracking-widest mb-3">
+            <p className="text-center text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">
               {t.compare.eyebrow}
             </p>
             <h2 className="text-center text-3xl sm:text-4xl font-extrabold text-[#303568] mb-10">
@@ -221,14 +221,14 @@ export function AudiencePage({
         {/* ─── STEPS ─── */}
         <section id="how" className="px-4 sm:px-6 py-16 sm:py-20 bg-white border-y border-[#E8E5DD]">
           <div className="max-w-5xl mx-auto">
-            <p className="text-center text-sm font-semibold text-[#1F9D63] uppercase tracking-widest mb-3">
+            <p className="text-center text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">
               {t.steps.eyebrow}
             </p>
             <h2 className="text-center text-3xl sm:text-4xl font-extrabold text-[#303568] mb-12">{t.steps.title}</h2>
             <ol className="grid md:grid-cols-3 gap-8">
               {t.steps.items.map((item, i) => (
                 <li key={item.title}>
-                  <p className="text-xs font-bold text-[#1F9D63] mb-2 tracking-widest">
+                  <p className="text-xs font-bold text-[#1A7F52] mb-2 tracking-widest">
                     {t.steps.step} 0{i + 1}
                   </p>
                   <h3 className="font-bold text-[#303568] text-lg mb-2">{item.title}</h3>
@@ -242,7 +242,7 @@ export function AudiencePage({
         {/* ─── FEATURES ─── */}
         <section className="px-4 sm:px-6 py-16 sm:py-20">
           <div className="max-w-5xl mx-auto">
-            <p className="text-center text-sm font-semibold text-[#1F9D63] uppercase tracking-widest mb-3">
+            <p className="text-center text-sm font-semibold text-[#1A7F52] uppercase tracking-widest mb-3">
               {t.features.eyebrow}
             </p>
             <h2 className="text-center text-3xl sm:text-4xl font-extrabold text-[#303568] mb-12">{t.features.title}</h2>
@@ -316,7 +316,7 @@ export function AudiencePage({
               <a
                 href={href(t.ending.primary)}
                 {...langOf(t.ending.primary)}
-                className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-7 text-base font-semibold h-12")}
+                className={cn(BTN, "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-7 text-base font-semibold h-12 focus-visible:outline-white")}
               >
                 {label(t.ending.primary, t.ending.primaryLabel)}
                 <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
@@ -324,7 +324,7 @@ export function AudiencePage({
               <a
                 href={href(t.ending.secondary)}
                 {...langOf(t.ending.secondary)}
-                className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-7 text-base font-semibold bg-transparent h-12")}
+                className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-7 text-base font-semibold bg-transparent h-12 focus-visible:outline-white")}
               >
                 {t.ending.secondaryLabel}
               </a>

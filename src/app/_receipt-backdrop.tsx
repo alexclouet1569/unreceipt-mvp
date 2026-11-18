@@ -506,7 +506,7 @@ export function ReceiptBackdrop({ locale = "en" }: { locale?: Locale }) {
         .rb-strong-soft.is-printed .rb-mono {
           font-weight: 600;
           font-size: 16px;
-          color: #27be7b;
+          color: #1a7f52;
         }
         .rb-rule {
           border-top: 1px dashed #d9d6cc;
@@ -547,7 +547,7 @@ export function ReceiptBackdrop({ locale = "en" }: { locale?: Locale }) {
           padding: 4px 10px;
           border: 2px solid #27be7b;
           border-radius: 6px;
-          color: #27be7b;
+          color: #1a7f52;
           font-weight: 800;
           font-size: 13px;
           letter-spacing: 0.08em;
