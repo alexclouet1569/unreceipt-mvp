@@ -9,7 +9,9 @@ name: Checks
 on:
   pull_request:
   push:
-    branches: [main]
+    # claude/**: agent branches often get pushed before (or without) a PR.
+    branches: [main, "claude/**"]
+  workflow_dispatch:
 
 concurrency:
   group: checks-${{ github.ref }}
