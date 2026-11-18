@@ -336,6 +336,14 @@ describe("POST /api/demo-request", () => {
     expect(confirmation.html).not.toContain("cal.eu");
   });
 
+  it("refuses a lone surrogate in typed text before saving anything", async () => {
+    for (const body of [{ ...VALID, message: "x\ud800y" }, { ...VALID, name: "Maja\udc00" }]) {
+      const res = await post(body);
+      expect(res.status).toBe(400);
+    }
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("refuses another request without a message, and a demo request without the company questions", async () => {
     const question = await post({ ...VALID, kind: "question", message: "" });
     expect(question.status).toBe(400);

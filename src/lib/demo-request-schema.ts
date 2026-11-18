@@ -21,7 +21,10 @@ const optional = (max: number) =>
 
 // One line of text: no control characters (line breaks would fake extra
 // "Email:" lines in the founder's plain-text email).
-const ONE_LINE = /^[^\p{Cc}]*$/u;
+const ONE_LINE = /^[^\p{Cc}\p{Cs}]*$/u;
+// A lone UTF-16 surrogate can't be stored (Postgres refuses it), so free
+// text with one is refused here, before it costs a 500 and a Sentry event.
+const WELL_FORMED = (v: string | null) => v === null || !/\p{Cs}/u.test(v);
 
 export const demoRequestSchema = z
   .object({
@@ -43,7 +46,7 @@ export const demoRequestSchema = z
     message: optional(L.message).refine(
       (v) => v === null || !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(v),
       { message: "message" }
-    ),
+    ).refine(WELL_FORMED, { message: "message" }),
     locale: z.enum(DEMO_REQUEST_LOCALES),
     // Honeypot: a field people never see. Anything in it means a bot.
     website: z.string().max(500).optional(),
