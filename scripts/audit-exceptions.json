@@ -1,0 +1,10 @@
+[
+  {
+    "id": "GHSA-fc5q-39xc-vjpf",
+    "package": "picomatch",
+    "severity": "high",
+    "reason": "ReDoS in picomatch <=4.0.7 (latest published on 2026-11-18); no fixed release exists. Reached only through @sentry/nextjs -> @rollup/plugin-commonjs / @rollup/pluginutils / fdir, inside Sentry's webpack wrapping loader at build time, with glob patterns written by Sentry, never from a request. npm's only suggestion is downgrading @sentry/nextjs to 8.38.0. Remove this entry once a fixed picomatch (or a Sentry release without it) is out.",
+    "added": "2026-11-18",
+    "reviewBy": "2027-01-31"
+  }
+]
