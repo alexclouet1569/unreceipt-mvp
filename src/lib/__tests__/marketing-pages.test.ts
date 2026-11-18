@@ -341,6 +341,7 @@ describe("AI search visibility", () => {
       expect(text).toContain(getAbout(locale, false).summary);
       expect(text).toContain(AUDIENCE_COPY.accountants[locale].faq[0].a);
       expect(text).toContain(AUDIENCE_COPY.smallBusiness[locale].faq[0].a);
+      expect(text).toContain(absoluteUrl(MARKETING_PAGES.faq.paths[locale]!));
     }
     for (const g of GUIDES) expect(text).toContain(g.answer);
     expect(text).not.toMatch(/undefined|\{\w+\}/);
@@ -356,7 +357,7 @@ describe("AI search visibility", () => {
     if (SHOW_PRICES) return;
     const { getAbout } = await import("@/lib/about");
     const { getFaq } = await import("@/lib/faq");
-    const { landingJsonLd } = await import("@/lib/seo");
+    const { faqPageJsonLd, landingJsonLd } = await import("@/lib/seo");
     const { GET: llms } = await import("@/app/llms.txt/route");
     const { GET: llmsFull } = await import("@/app/llms-full.txt/route");
     const { PLANS, OVERAGE_PRICE, formatPrice, formatEurFr, formatSek, OVERAGE_PRICE_SEK } = await import("@/lib/plans");
@@ -373,6 +374,7 @@ describe("AI search visibility", () => {
         texts.push(JSON.stringify(getAbout(locale, pilot)));
         texts.push(JSON.stringify(getFaq(pilot, locale)));
         texts.push(JSON.stringify(landingJsonLd(pilot, locale)));
+        texts.push(JSON.stringify(faqPageJsonLd(pilot, locale)));
         texts.push(JSON.stringify(AUDIENCE_COPY.freelancers[locale]).replace(/"note(Pilot|Paid)":"[^"]*"/g, ""));
         texts.push(JSON.stringify(guidesIndexJsonLd(locale)));
         texts.push(JSON.stringify(AUDIENCE_COPY.smallBusiness[locale]));

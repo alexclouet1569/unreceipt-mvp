@@ -79,7 +79,7 @@ export function GET() {
     "## How it works (en)",
     en.how.items.map((s, i) => `${i + 1}. **${s.title}** — ${s.desc}`).join("\n"),
     en.features.items.map((f) => `- **${f.title}:** ${f.desc}`).join("\n"),
-    ...locales.map((l) => `## FAQ (${l})\n\nSource: ${absoluteUrl(pagePath("home", l))}#faq\n\n${faqMd(getFaq(pilot, l))}`),
+    ...locales.map((l) => `## FAQ (${l})\n\nSource: ${absoluteUrl(pagePath("faq", l))}\n\n${faqMd(getFaq(pilot, l))}`),
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.accountants[l], "accountants", l)),
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.freelancers[l], "freelancers", l)),
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.smallBusiness[l], "smallBusiness", l)),

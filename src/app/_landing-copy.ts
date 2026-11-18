@@ -8,8 +8,8 @@ import { PLANS, type PlanId } from "@/lib/plans";
  * tuples keep the languages in step: adding a feature in one language
  * without the others is a type error.
  *
- * FAQ answers live in src/lib/faq.ts (shared with structured data and
- * /llms.txt); prices come from src/lib/plans.ts.
+ * The FAQ has its own page (`/faq`, answers in src/lib/faq.ts); prices
+ * come from src/lib/plans.ts.
  */
 
 type Item = { title: string; desc: string };
@@ -161,7 +161,6 @@ export type LandingCopy = {
   };
   /** Who it's for: small businesses, freelancers, accounting firms (in that order). */
   about: { eyebrow: string; title: string; more: string; items: Three<Item> };
-  faq: { eyebrow: string; title: string };
   badges: Four<string>;
   /**
    * The 20 s explainer loop near the end of the page (public/video/,
@@ -313,7 +312,6 @@ const en: LandingCopy = {
       },
     ],
   },
-  faq: { eyebrow: "FAQ", title: "Questions, Answered" },
   badges: [
     "Private Address per Company",
     "Receipt Image Saved",
@@ -484,7 +482,6 @@ const sv: LandingCopy = {
       },
     ],
   },
-  faq: { eyebrow: "Vanliga frågor", title: "Frågor och svar" },
   badges: [
     "Privat adress per företag",
     "Kvittobilden sparas",
@@ -644,7 +641,6 @@ const fr: LandingCopy = {
       },
     ],
   },
-  faq: { eyebrow: "FAQ", title: "Vos questions, nos réponses" },
   badges: [
     "Adresse privée par entreprise",
     "Reçu d’origine consultable",

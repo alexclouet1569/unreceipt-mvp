@@ -65,7 +65,7 @@ export function SiteHeader({
   const links = [
     { label: t.how, href: `${home}#how` },
     ...(SHOW_PRICES ? [{ label: t.pricing, href: `${home}#pricing` }] : []),
-    { label: t.faq, href: `${home}#faq` },
+    { label: t.faq, href: pagePath("faq", locale) },
     { label: t.about, href: pagePath("about", locale) },
   ];
   const demo = { href: demoRequestPath(locale), lang: demoRequestLang(locale) };
@@ -290,7 +290,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
       links: [
         { label: t.nav.how, href: `${home}#how` },
         ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: `${home}#pricing` }] : []),
-        { label: t.footer.faq, href: `${home}#faq` },
+        { label: t.footer.faq, href: pagePath("faq", locale) },
       ],
     },
     {

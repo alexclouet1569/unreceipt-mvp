@@ -23,6 +23,7 @@ export type MarketingPageId =
   | "freelancers"
   | "smallBusiness"
   | "about"
+  | "faq"
   | "guides"
   | "bookDemo"
   | "guideRetention"
@@ -41,7 +42,7 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
   home: {
     paths: { en: "/", sv: "/sv", fr: "/fr" },
     translated: true,
-    lastModified: "2026-11-17",
+    lastModified: "2026-11-18",
     priority: 1,
   },
   accountants: {
@@ -67,6 +68,13 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
     translated: true,
     lastModified: "2026-11-17",
     priority: 0.8,
+  },
+  // The FAQ, on its own page since 2026-11-18 (it used to close the home page).
+  faq: {
+    paths: { en: "/faq", sv: "/sv/vanliga-fragor", fr: "/fr/faq" },
+    translated: true,
+    lastModified: "2026-11-18",
+    priority: 0.7,
   },
   // The guides index of each language: its own list of guides.
   guides: {
