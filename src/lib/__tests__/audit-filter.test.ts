@@ -63,6 +63,13 @@ describe("evaluateAudit", () => {
     expect(r.other).toHaveLength(1);
   });
 
+  it("fails when an exception is dated in the future (no stretching the cap)", () => {
+    const later = { ...exception, added: "2027-06-01", until: "2027-07-15" };
+    const r = evaluateAudit(report([PATH], "critical"), [later], "2026-11-18");
+    expect(r.ok).toBe(false);
+    expect(r.problems.join()).toMatch(/after today/);
+  });
+
   it("fails when npm audit gave no report", () => {
     expect(evaluateAudit({ error: { code: "ENOTFOUND" } }, [], "2026-11-20").ok).toBe(false);
   });

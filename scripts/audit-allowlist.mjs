@@ -21,8 +21,9 @@ export const AUDIT_EXCEPTIONS = [
     //   build-time wrapping code; next.config.ts doesn't even call
     //   withSentryConfig, and its globs are our own config, never user input.
     // - vite / tinyglobby: vite is an optional peer of @sentry/cloudflare
-    //   (inside @sentry/nextjs), installed only because vitest needs it, so
-    //   npm counts it as production. `npm ci --omit=dev` doesn't install it.
+    //   (inside @sentry/nextjs), present only because vitest needs it; npm
+    //   then marks it devOptional and counts it as production. Nothing in
+    //   the app imports vite, and no function trace includes it.
     // On the re-check date: look for picomatch > 4.0.7 (or a fixed advisory
     // range) and for a @sentry/nextjs that drops the plugin-commonjs pin.
     ghsa: "GHSA-fc5q-39xc-vjpf",

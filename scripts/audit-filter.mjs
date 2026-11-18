@@ -73,6 +73,10 @@ export function checkExceptions(/** @type {AuditException[]} */ exceptions) {
  */
 export function evaluateAudit(report, exceptions, today) {
   const problems = checkExceptions(exceptions);
+  // A future `added` would stretch the 45-day cap from today.
+  for (const e of exceptions) {
+    if (e.added > today) problems.push(`${e.ghsa}: added (${e.added}) is after today (${today})`);
+  }
   if (!report || typeof report !== "object" || !("vulnerabilities" in report)) {
     problems.push("npm audit returned no report (registry error?)");
   }
