@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -13,6 +14,11 @@ import { maskEmail } from "@/app/app/accountant/accept/_invite-card";
 import { RequestAnswer } from "./RequestAnswer";
 
 export const dynamic = "force-dynamic";
+
+// The invite token is in this page's URL: links and requests from it send
+// only our origin as referrer, so the token never reaches analytics or
+// another page (src/lib/tracking/scrub.ts).
+export const metadata: Metadata = { referrer: "strict-origin" };
 
 // The accountant's side of a client company's invite (direction 'client').
 // GET changes nothing; answering POSTs /api/firm-request/respond. Only the

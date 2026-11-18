@@ -46,3 +46,19 @@ describe("the client guide served from public/", () => {
     expect(hash(`public${CLIENT_GUIDE_PATH}`)).toBe(hash("docs/onboarding/UnReceipt-Get-started-companies.pdf"));
   });
 });
+
+describe("offersRecommendText", () => {
+  it("offers the Swedish text to Swedish firms and firms with no country", async () => {
+    const { offersRecommendText } = await import("../recommend");
+    expect(offersRecommendText("SE")).toBe(true);
+    expect(offersRecommendText("se")).toBe(true);
+    expect(offersRecommendText(null)).toBe(true);
+    expect(offersRecommendText(undefined)).toBe(true);
+  });
+
+  it("leaves it out for firms in other countries", async () => {
+    const { offersRecommendText } = await import("../recommend");
+    expect(offersRecommendText("FR")).toBe(false);
+    expect(offersRecommendText("DE")).toBe(false);
+  });
+});

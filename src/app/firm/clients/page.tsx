@@ -8,7 +8,7 @@ import { FirmRequests, type FirmRequest } from "./FirmRequests";
 import { absoluteAppUrl } from "@/lib/app-url";
 import { ensureJoinCode, joinPath } from "@/lib/firm/join-link";
 import { joinQrDataUrl } from "@/lib/firm/join-qr";
-import { CLIENT_GUIDE_PATH, recommendEmail } from "@/lib/firm/recommend";
+import { CLIENT_GUIDE_PATH, recommendEmail, offersRecommendText } from "@/lib/firm/recommend";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,7 @@ export default async function FirmClientsPage({
           qr: joinUrl ? await joinQrDataUrl(joinUrl) : null,
           off: join.off,
           isAdmin: ctx.role === "admin",
-          recommend: joinUrl
+          recommend: joinUrl && offersRecommendText(ctx.firmCountry)
             ? recommendEmail({ firmName: ctx.firmName, joinUrl, guideUrl: absoluteAppUrl(CLIENT_GUIDE_PATH) })
             : null,
         }}

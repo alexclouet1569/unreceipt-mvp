@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await syncProfile(user.id, user.user_metadata ?? null);
+    await syncProfile(user.id, user.user_metadata ?? null, user.created_at);
     // Only to a proven inbox: if email confirmation were ever switched off,
     // anyone could sign up with someone else's address.
     if (user.email_confirmed_at) scheduleWelcomeEmail(user);

@@ -24,11 +24,13 @@ describe("emailSiteLocale", () => {
   it("follows the company's country first", () => {
     expect(emailSiteLocale({ country: "SE" })).toBe("sv");
     expect(emailSiteLocale({ country: "se", email: "anna@firma.fr" })).toBe("sv");
-    expect(emailSiteLocale({ country: "FR", email: "anna@firma.se" })).toBe("en");
+    expect(emailSiteLocale({ country: "FR", email: "anna@firma.se" })).toBe("fr");
+    expect(emailSiteLocale({ country: "DE" })).toBe("en");
   });
 
   it("falls back to the address's country domain, else English", () => {
     expect(emailSiteLocale({ country: null, email: "anna@byran.se" })).toBe("sv");
+    expect(emailSiteLocale({ country: null, email: "anne@cabinet.fr" })).toBe("fr");
     expect(emailSiteLocale({ email: "anna@gmail.com" })).toBe("en");
     expect(emailSiteLocale({})).toBe("en");
   });
@@ -38,6 +40,9 @@ describe("emailSiteUrl", () => {
   it("tags the flow and nothing else", () => {
     expect(emailSiteUrl("sv", "firm_invite")).toBe(
       "https://unreceipt.com/sv?utm_source=email&utm_medium=transactional&utm_campaign=firm_invite",
+    );
+    expect(emailSiteUrl("fr", "firm_invite")).toBe(
+      "https://unreceipt.com/fr?utm_source=email&utm_medium=transactional&utm_campaign=firm_invite",
     );
     expect(emailSiteUrl("en", "weekly_reminder")).toBe(
       "https://unreceipt.com/?utm_source=email&utm_medium=transactional&utm_campaign=weekly_reminder",

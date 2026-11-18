@@ -14,6 +14,15 @@ export const CLIENT_GUIDE_PATH = "/guides/UnReceipt-Get-started-companies.pdf";
 
 export type RecommendText = { subject: string; body: string };
 
+/**
+ * The text is Swedish, so only Swedish firms are offered it. A firm with no
+ * country recorded is one of the Swedish firms set up before firms.country.
+ */
+export function offersRecommendText(firmCountry: string | null | undefined): boolean {
+  const country = firmCountry?.trim().toUpperCase();
+  return !country || country === "SE";
+}
+
 export function recommendEmail(opts: { firmName: string; joinUrl: string; guideUrl: string }): RecommendText {
   const firm = opts.firmName.trim();
   return {

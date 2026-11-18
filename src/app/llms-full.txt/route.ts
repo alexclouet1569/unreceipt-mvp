@@ -1,4 +1,4 @@
-import { AUDIENCE_COPY, type AudienceCopy } from "@/app/_audience-copy";
+import { AUDIENCE_COPY, type AudienceCopy, type AudienceId } from "@/app/_audience-copy";
 import { LANDING_COPY } from "@/app/_landing-copy";
 import { ABOUT_AS_OF, getAbout, type About } from "@/lib/about";
 import { getFaq, type FaqItem } from "@/lib/faq";
@@ -35,7 +35,7 @@ function aboutMd(a: About, locale: Locale): string {
   ].join("\n\n");
 }
 
-function audienceMd(t: AudienceCopy, page: "accountants" | "freelancers", locale: Locale): string {
+function audienceMd(t: AudienceCopy, page: AudienceId, locale: Locale): string {
   return [
     `## ${t.meta.title.replace(/ \| UnReceipt$/, "")} (${locale})`,
     `Source: ${absoluteUrl(pagePath(page, locale))}`,
@@ -80,8 +80,9 @@ export function GET() {
     ...locales.map((l) => `## FAQ (${l})\n\nSource: ${absoluteUrl(pagePath("home", l))}#faq\n\n${faqMd(getFaq(pilot, l))}`),
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.accountants[l], "accountants", l)),
     ...locales.map((l) => audienceMd(AUDIENCE_COPY.freelancers[l], "freelancers", l)),
+    ...locales.map((l) => audienceMd(AUDIENCE_COPY.smallBusiness[l], "smallBusiness", l)),
     ...GUIDES.map(guideMd),
-    "## Contact\n\nsupport@unreceipt.com — https://unreceipt.com",
+    `## Contact\n\nBook a 20-minute demo: ${absoluteUrl(pagePath("bookDemo", "en"))} (Swedish: ${absoluteUrl(pagePath("bookDemo", "sv"))}). Questions: support@unreceipt.com — https://unreceipt.com`,
   ].join("\n\n");
 
   return new Response(body + "\n", {

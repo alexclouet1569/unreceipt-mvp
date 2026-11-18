@@ -204,6 +204,26 @@ export const RATE_LIMITS = {
     { limit: 5, windowSeconds: 60 * 60 },
     { limit: 20, windowSeconds: 24 * 60 * 60 },
   ],
+  // The demo request form (POST /api/demo-request), per IP: each request
+  // stores a row and sends two emails, one to the typed address.
+  demoRequest: [
+    { limit: 5, windowSeconds: 60 * 60 },
+    { limit: 20, windowSeconds: 24 * 60 * 60 },
+  ],
+  // The demo request's confirmation email, per typed address (hashed):
+  // spread over many IPs, the form still can't flood one inbox.
+  demoRequestConfirm: [{ limit: 2, windowSeconds: 24 * 60 * 60 }],
+  // Every confirmation email together (subject "all"): +tags and other
+  // domains make new inboxes for free, so this bounds what the form can send
+  // to third parties and to the shared Resend quota. Past it the request is
+  // still saved and the founder still emailed; only the confirmation is skipped.
+  demoRequestConfirmAll: [{ limit: 30, windowSeconds: 24 * 60 * 60 }],
+  // Every demo request together (subject "all"): rotating IPs (an IPv6 /64,
+  // a botnet) still can't flood the founder's inbox or the Resend quota.
+  // Far above a real day's requests while the funnel is young, and high
+  // enough that a few IPs at their own daily cap (20) can't close the form
+  // for real visitors; raise it once real traffic gets near it.
+  demoRequestAll: [{ limit: 200, windowSeconds: 24 * 60 * 60 }],
 } satisfies Record<string, RateLimitRule[]>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

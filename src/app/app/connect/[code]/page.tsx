@@ -15,6 +15,10 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Share your receipts with your accountant",
   robots: { index: false, follow: false },
+  // Invite tokens and join codes travel in this page's URL (or its ?next=):
+  // links and requests from it send only our origin as referrer, so the
+  // token never reaches analytics or another page (src/lib/tracking/scrub.ts).
+  referrer: "strict-origin",
 };
 
 // An accounting firm's join link (src/lib/firm/join-link.ts). GET never
