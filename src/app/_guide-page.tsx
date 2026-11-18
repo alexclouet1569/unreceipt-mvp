@@ -1,11 +1,11 @@
 import { ArrowRight } from "lucide-react";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
-import { getGuide, type GuidePageId } from "@/lib/guides";
+import { trackedLink } from "@/lib/tracking/events";
+import { GUIDES_INDEX, formatGuideDate, getGuide, type GuidePageId } from "@/lib/guides";
 import type { Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { guideJsonLd, jsonLdHtml } from "@/lib/seo";
 import { cn } from "@/lib/utils";
-import { HtmlLang } from "./_html-lang";
 import { SITE_COPY } from "./_site-copy";
 import { SiteFooter, SiteHeader } from "./_site-chrome";
 
@@ -20,16 +20,6 @@ const BTN =
  * then the detail, the sources with links and the review date.
  */
 
-const DATE_LOCALE: Record<Locale, string> = { en: "en-GB", sv: "sv-SE", fr: "fr-FR" };
-
-function formatDate(iso: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(DATE_LOCALE[locale], {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${iso}T00:00:00Z`));
-}
 
 export function GuidePage({
   page,
@@ -56,7 +46,6 @@ export function GuidePage({
   return (
     <div className="min-h-screen bg-[#FAFAF7]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
-      {locale !== "en" ? <HtmlLang lang={locale} /> : null}
       <SiteHeader locale={locale} page={page} pilotMode={pilotMode} />
 
       <main className="px-4 sm:px-6 py-10 sm:py-14">
@@ -64,6 +53,10 @@ export function GuidePage({
           <nav aria-label="Breadcrumb" className="mb-6 text-sm text-[#303568]/60">
             <a href={pagePath("home", locale)} className="hover:text-[#303568] hover:underline underline-offset-2">
               UnReceipt
+            </a>
+            <span aria-hidden="true"> / </span>
+            <a href={pagePath("guides", locale)} className="hover:text-[#303568] hover:underline underline-offset-2">
+              {GUIDES_INDEX[locale].breadcrumb}
             </a>
             <span aria-hidden="true"> / </span>
             <span aria-current="page">{g.breadcrumb}</span>
@@ -75,7 +68,7 @@ export function GuidePage({
           </h1>
           <p className="text-sm text-[#303568]/60 mb-8">
             {g.updatedLabel}{" "}
-            <time dateTime={g.updated}>{formatDate(g.updated, locale)}</time>
+            <time dateTime={g.updated}>{formatGuideDate(g.updated, locale)}</time>
           </p>
 
           <div className="rounded-2xl bg-[#ECF7E7] border border-[#27BE7B]/25 p-5 sm:p-6 mb-10">
@@ -119,13 +112,23 @@ export function GuidePage({
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={appUrl(SIGNUP_PATH)}
+                {...trackedLink("cta_signup", { attribution: true })}
                 className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] rounded-full px-6 font-semibold h-11")}
               >
                 {pilotMode ? nav.ctaPilot : nav.ctaPaid}
                 <ArrowRight className="w-4 h-4 ml-2" aria-hidden="true" />
               </a>
               <a
-                href={appUrl("/demo")}
+                {...(g.cta.secondaryDemoRequest
+                  ? {
+                      href: demoRequestPath(locale),
+                      ...(demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {}),
+                      ...trackedLink("cta_demo_page"),
+                    }
+                  : {
+                      href: appUrl(g.cta.secondaryPath ?? "/demo"),
+                      ...trackedLink("demo_tour_start", { attribution: true }),
+                    })}
                 className={cn(BTN, "border-2 border-white/70 text-white hover:bg-white hover:text-[#303568] rounded-full px-6 font-semibold bg-transparent h-11")}
               >
                 {g.cta.secondaryLabel}

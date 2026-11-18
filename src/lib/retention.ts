@@ -28,6 +28,8 @@ import { isPilotMode } from "./pilot";
 import { absoluteAppUrl } from "./app-url";
 import { founderReplyTo, sendEmail } from "./email/send";
 import { retentionReminderEmail } from "./email/templates";
+import { emailSiteLocale } from "@/lib/email/site-link";
+import { chosenCountry } from "@/lib/country";
 
 const DAY = 24 * 60 * 60 * 1000;
 export const RETENTION_DAYS = 90;
@@ -220,6 +222,7 @@ export async function runRetention(now: Date = new Date()): Promise<RetentionRun
       if (action === "remind") {
         const deleteOn = deletionDate(endedAt, now);
         const content = retentionReminderEmail({
+          site: emailSiteLocale({ country: chosenCountry(userData.user), email }),
           // The sentence is about the subscription, not the clock (which
           // moves later when receipts keep arriving).
           endedOn: stockholmDate(fresh.subscriptionEnded),

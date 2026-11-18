@@ -16,3 +16,16 @@ export function safeNext(raw: string | null | undefined): string {
   if (raw.startsWith("//")) return DEFAULT_NEXT;
   return raw;
 }
+
+/**
+ * The login page continuing to `next` (checked by safeNext()). `signup`
+ * opens it on Create account: invite and join links for people who most
+ * likely have no account yet. Every page that sends a signed-out visitor
+ * to log in builds the address here, so `next` is encoded one way.
+ */
+export function loginPath(next: string, opts: { signup?: boolean } = {}): string {
+  const params = new URLSearchParams();
+  if (opts.signup) params.set("mode", "signup");
+  params.set("next", safeNext(next));
+  return `/app/login?${params.toString()}`;
+}

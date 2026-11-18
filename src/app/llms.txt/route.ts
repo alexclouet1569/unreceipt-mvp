@@ -13,7 +13,9 @@ import { DESCRIPTION, SITE_URL, absoluteUrl } from "@/lib/seo";
  * (llmstxt.org convention). Built from the same plans and FAQ the landing
  * page renders, so it can't drift from the site.
  */
-export const dynamic = "force-dynamic";
+// Built once per deployment, like the marketing pages: PILOT_MODE is
+// read at build time (src/lib/pilot.ts).
+export const dynamic = "force-static";
 
 export function GET() {
   const pilot = isPilotMode();
@@ -31,6 +33,9 @@ export function GET() {
   const forFreelancers = AUDIENCE_COPY.freelancers.en.faq
     .map((item) => `### ${item.q}\n${item.a}`)
     .join("\n\n");
+  const forSmallBusiness = AUDIENCE_COPY.smallBusiness.en.faq
+    .map((item) => `### ${item.q}\n${item.a}`)
+    .join("\n\n");
   const about = getAbout("en", pilot);
   const page = (id: keyof typeof MARKETING_PAGES, lang: "en" | "sv" | "fr") =>
     absoluteUrl(MARKETING_PAGES[id].paths[lang]!);
@@ -44,16 +49,20 @@ UnReceipt is a receipt service for small businesses, freelancers and sole trader
 
 Accounting firms get a portal with every linked client company: which receipts need a check, completing and correcting receipts, and a monthly export per client (ZIP with a bookkeeping CSV — one line per receipt and VAT rate with a suggested BAS account and input-VAT account 2640 — plus a PDF and the file of every receipt). Clients invite their accountant, or the firm invites the client; the firm itself needs no plan.
 
+Companies can add employees (since November 2026, in pilot): an employee's receipts go to the company and are sent for approval, saying whether the employee paid with their own money or the company's card. The owner, or the approver assigned to that person, approves, sends back with a note or rejects; nobody approves their own receipt. Approved outlays paid by an employee are listed per person to pay back and marked paid by hand (no payout or payroll file). The accounting firm sees an employee's receipt only once it is approved. One price per company, no per-user fees.
+
 ## What UnReceipt doesn't do (yet)
 ${about.limits.map((l) => `- ${l}`).join("\n")}
 
 ${SHOW_PRICES ? `## Pricing (excl. VAT, one price per company, no per-user fees)\n${plans}\n` : `## Pricing\n${about.facts.find((f) => f.label === "Pricing")!.value}\n`}
 ## Who it's for
-- [Small businesses](${SITE_URL})
+- [Small businesses with employees](${page("smallBusiness", "en")}): employees send receipts for approval, approved outlays are listed to pay back — Swedish: [småföretag](${page("smallBusiness", "sv")}), French: [TPE](${page("smallBusiness", "fr")})
 - [Accounting firms](${page("accountants", "en")}) — Swedish: [redovisningsbyråer](${page("accountants", "sv")}), French: [experts-comptables](${page("accountants", "fr")})
 - [Freelancers and sole traders](${page("freelancers", "en")}) — Swedish: [enskild firma](${page("freelancers", "sv")}), French: [indépendants](${page("freelancers", "fr")})
 
 ## Guides
+All guides: [English](${page("guides", "en")}), [Swedish](${page("guides", "sv")}), [French](${page("guides", "fr")})
+
 ${guides}
 
 ## Links
@@ -66,6 +75,7 @@ ${SHOW_PRICES ? `- [Pricing](${SITE_URL}/#pricing)\n` : ""}- [How it works](${SI
 - [Interactive demo, company and accountant side](https://app.unreceipt.com/demo)
 - [FAQ](${SITE_URL}/#faq)
 - [Privacy & data](${SITE_URL}/privacy)
+- [Book a 20-minute demo](${page("bookDemo", "en")}) — Swedish: [Boka demo](${page("bookDemo", "sv")})
 - Contact: support@unreceipt.com
 
 ## FAQ
@@ -76,6 +86,9 @@ ${forFirms}
 
 ## FAQ for freelancers
 ${forFreelancers}
+
+## FAQ for small businesses with employees
+${forSmallBusiness}
 `;
 
   return new Response(body, {

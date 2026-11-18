@@ -24,19 +24,19 @@ import {
 } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ExplainerVideo } from "./_explainer-video";
-import { LightOnly } from "./_light-only";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink } from "@/lib/tracking/events";
 import { cn } from "@/lib/utils";
-import { getFaq } from "@/lib/faq";
+import type { FaqItem } from "@/lib/faq";
+import { fill } from "@/lib/fill";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
-import { pagePath } from "@/lib/marketing-pages";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 import { PLANS, planPriceLabel } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
-import { LANDING_COPY, fill, type LandingCopy } from "./_landing-copy";
+import type { LandingCopy } from "./_landing-copy";
 import { Pricing } from "./_pricing";
-import { RECEIPT, ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
-import { SiteFooter } from "./_site-chrome";
-import { SITE_COPY } from "./_site-copy";
+import { ReceiptBackdrop, ReceiptRows } from "./_receipt-backdrop";
+import type { LandingReceipt } from "./_receipt-text";
 
 /* ── Scroll-reveal hook ── */
 function useReveal() {
@@ -174,29 +174,52 @@ function FloatingReceipts() {
   );
 }
 
-type LandingPageProps = {
+/**
+ * One language of the landing page. Everything language-specific arrives as
+ * props from the server (`_landing-page.tsx`), so the browser downloads only
+ * this page's language, never the copy of all three.
+ */
+export type LandingViewProps = {
   pilotMode: boolean;
-  locale?: Locale;
+  locale: Locale;
+  copy: LandingCopy;
+  /** The site-wide "Accountants" nav label in this language. */
+  accountantsLabel: string;
+  /** "Book a demo" in the nav (SITE_COPY), passed from the server like accountantsLabel. */
+  bookDemoLabel: string;
+  faq: FaqItem[];
+  receipt: LandingReceipt;
+  /** The site footer, rendered on the server. */
+  footer: React.ReactNode;
 };
 
-export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
-  const t = LANDING_COPY[locale];
+export function LandingView({
+  pilotMode,
+  locale,
+  copy: t,
+  accountantsLabel,
+  bookDemoLabel,
+  faq,
+  receipt,
+  footer,
+}: LandingViewProps) {
   const otherLocales = LOCALES.filter((l) => l !== locale);
   const s = t.samples;
   const fromPrice = planPriceLabel(PLANS[0], locale);
   const navCta = pilotMode ? t.nav.ctaPilot : t.nav.ctaPaid;
   const heroCta = pilotMode ? t.hero.ctaPilot : t.hero.ctaPaid;
   const accountantsPath = pagePath("accountants", locale);
+  const demoPath = demoRequestPath(locale);
+  const demoLangProps = demoRequestLang(locale) !== locale ? { hrefLang: demoRequestLang(locale) } : {};
   const navLinks = [
     { label: t.nav.how, href: "#how" },
     ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: "#pricing" }] : []),
     { label: t.nav.about, href: "#about" },
-    { label: SITE_COPY[locale].nav.accountants, href: accountantsPath },
+    { label: accountantsLabel, href: accountantsPath },
     { label: t.nav.faq, href: "#faq" },
   ];
-  // "Who it's for" cards link to each audience's own page; small
-  // businesses are this page, so theirs goes to how it works.
-  const audienceLinks = ["#how", pagePath("freelancers", locale), accountantsPath];
+  // "Who it's for" cards link to each audience's own page.
+  const audienceLinks = [pagePath("smallBusiness", locale), pagePath("freelancers", locale), accountantsPath];
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -248,7 +271,6 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
       {/* The marketing site has no dark design: keep it light on shared hosts. */}
-      <LightOnly />
       {/* ─── NAV ─── */}
       {/* Solid cream bar from the first pixel so the full-color primary
           lockup never has to swap variants mid-scroll. Only the hairline
@@ -258,7 +280,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           <a href="#top" aria-label={t.nav.backToTop} className="py-1">
             <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[26px]" />
           </a>
-          <div className="hidden lg:flex items-center gap-6 xl:gap-8">
+          <div className="hidden xl:flex items-center gap-6">
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -290,7 +312,20 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               {t.nav.signIn}
             </a>
             <a
+              href={demoPath}
+              {...demoLangProps}
+              {...trackedLink("cta_demo_page")}
+              className={cn(buttonVariants({
+                size: "sm",
+                variant: "outline",
+                className: "border-2 border-[#303568]/20 bg-transparent text-[#303568] hover:border-[#303568] hover:bg-transparent font-semibold rounded-full px-5 h-11",
+              }))}
+            >
+              {bookDemoLabel}
+            </a>
+            <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               className={cn(buttonVariants({
                 size: "sm",
                 className: "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-11",
@@ -304,19 +339,28 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             aria-label={mobileMenuOpen ? t.nav.closeMenu : t.nav.openMenu}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
-            className={`lg:hidden p-3 -mr-1 text-[#303568]`}
+            className={`xl:hidden p-3 -mr-1 text-[#303568]`}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
         {mobileMenuOpen && (
-          <div id="mobile-menu" className="lg:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
+          <div id="mobile-menu" className="xl:hidden bg-white border-t border-gray-100 px-4 py-2 flex flex-col shadow-lg">
             {navLinks.map((link) => (
               <a key={link.label} href={link.href} className="text-base text-[#303568] font-medium min-h-[44px] flex items-center" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}
               </a>
             ))}
+            <a
+              href={demoPath}
+              {...demoLangProps}
+              {...trackedLink("cta_demo_page")}
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center"
+            >
+              {bookDemoLabel}
+            </a>
             <a
               href={appUrl("/app/login")}
               onClick={() => setMobileMenuOpen(false)}
@@ -339,6 +383,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
             ))}
             <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               onClick={() => setMobileMenuOpen(false)}
               className={cn(buttonVariants({
                 className: "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1fa568] font-semibold rounded-full h-12",
@@ -375,6 +420,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
                   href={appUrl(SIGNUP_PATH)}
+                  {...trackedLink("cta_signup", { attribution: true })}
                   className={cn(buttonVariants({
                     size: "lg",
                     className: "bg-white text-[#27BE7B] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
@@ -385,6 +431,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 </a>
                 <a
                   href={appUrl("/demo")}
+                  {...trackedLink("demo_tour_start", { attribution: true })}
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
@@ -491,8 +538,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           surface with the printing receipt behind it, so these sections
           carry no background of their own. */}
       <div className="receipt-scope relative isolate bg-[#FAFAF7] pb-16">
-      <ReceiptBackdrop locale={locale} />
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].top} />
+      <ReceiptBackdrop currency={receipt.text.currency} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.top} />
 
       {/* ─── SOCIAL PROOF BAR ─── */}
       <Section className="py-10 px-4 sm:px-6">
@@ -513,7 +560,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         <ReceiptTicker t={t.ticker} samples={t.samples} />
       </section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].features} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.features} />
 
       {/* ─── FEATURES — 3 PILLARS ─── */}
       <Section id="features" className="py-20 px-4 sm:px-6">
@@ -542,7 +589,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].how} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.how} />
 
       {/* ─── HOW IT WORKS ─── */}
       <Section id="how" className="py-20 px-4 sm:px-6">
@@ -577,7 +624,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].difference} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.difference} />
 
       {/* ─── COMPARISON ─── */}
       <Section id="difference" className="py-20 px-4 sm:px-6">
@@ -629,14 +676,19 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       {/* ─── PRICING ─── (hidden while SHOW_PRICES is off) */}
       {SHOW_PRICES ? (
         <>
-          <ReceiptRows locale={locale} rows={RECEIPT[locale].pricing} />
+          <ReceiptRows text={receipt.text} rows={receipt.rows.pricing} />
           <Section id="pricing" className="py-20 px-4 sm:px-6">
-            <Pricing pilotMode={pilotMode} locale={locale} />
+            <Pricing
+              locale={locale}
+              copy={t.pricing}
+              cta={heroCta}
+              note={pilotMode ? t.pricing.notePilot : t.pricing.notePaid}
+            />
           </Section>
         </>
       ) : null}
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].about} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.about} />
 
       {/* ─── BUILT FOR TEAMS ─── */}
       <Section id="about" className="py-20 px-4 sm:px-6">
@@ -683,7 +735,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
           {/* Native <details>: every answer is in the HTML, so search
               engines and AI assistants read it without running JS. */}
           <div className="space-y-3">
-            {getFaq(pilotMode, locale).map((item) => (
+            {faq.map((item) => (
               <details
                 key={item.q}
                 className="group bg-white border border-[#E8E5DD] rounded-2xl px-5 sm:px-6 open:pb-5"
@@ -701,7 +753,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </div>
       </Section>
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].badges} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.badges} />
 
       {/* ─── TRUST BADGES ─── */}
       <Section className="py-16 px-4 sm:px-6">
@@ -731,7 +783,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
         </Section>
       ) : null}
 
-      <ReceiptRows locale={locale} rows={RECEIPT[locale].end} />
+      <ReceiptRows text={receipt.text} rows={receipt.rows.end} />
       </div>
 
       {/* ─── WAITLIST CTA ─── */}
@@ -760,6 +812,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               </p>
               <a
                 href={appUrl(SIGNUP_PATH)}
+                {...trackedLink("cta_signup", { attribution: true })}
                 className={cn(buttonVariants({
                   size: "lg",
                   className: "bg-[#27BE7B] text-white hover:bg-[#1fa568] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
@@ -806,7 +859,8 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
               ) : null}
               <p className="text-xs text-white/40 mt-5">
                 {t.ending.skipPrefix}{" "}
-                <a href={appUrl(SIGNUP_PATH)} className="underline hover:text-white">
+                <a href={appUrl(SIGNUP_PATH)}
+                {...trackedLink("cta_signup", { attribution: true })} className="underline hover:text-white">
                   {heroCta.toLowerCase()}
                 </a>
                 .
@@ -817,7 +871,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <SiteFooter locale={locale} />
+      {footer}
 
       {/* ─── ANIMATIONS ─── */}
       <style jsx>{`

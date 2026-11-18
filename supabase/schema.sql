@@ -2219,3 +2219,60 @@ DROP TRIGGER IF EXISTS receipts_keep_in_approval ON public.receipts;
 CREATE TRIGGER receipts_keep_in_approval
   BEFORE DELETE ON public.receipts
   FOR EACH ROW EXECUTE FUNCTION public.receipts_keep_in_approval();
+
+-- =============================================================================
+-- 2026-11-17 — Demo requests (src/app/api/demo-request)
+-- =============================================================================
+-- One row per demo form sent on /book-demo or /sv/boka-demo: who asked and
+-- the answers that qualify the call. A visitor, not a user: no user id.
+-- Written and read only by server code (service role): RLS on, no policies.
+-- Rows older than 12 months are deleted by /api/cron/cleanup-exports, as
+-- the privacy page says.
+
+CREATE TABLE IF NOT EXISTS public.demo_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  locale TEXT NOT NULL CHECK (locale IN ('en', 'sv')),
+  name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
+  company TEXT NOT NULL CHECK (char_length(company) BETWEEN 1 AND 120),
+  email TEXT NOT NULL CHECK (char_length(email) BETWEEN 3 AND 254),
+  phone TEXT CHECK (phone IS NULL OR char_length(phone) <= 40),
+  employees TEXT NOT NULL CHECK (employees IN ('1', '2-5', '6-15', '16-50', '50+')),
+  bookkeeping TEXT NOT NULL CHECK (bookkeeping IN ('fortnox', 'visma', 'bokio', 'other', 'none')),
+  has_accountant BOOLEAN NOT NULL,
+  message TEXT CHECK (message IS NULL OR char_length(message) <= 2000)
+);
+
+CREATE INDEX IF NOT EXISTS demo_requests_created_idx ON public.demo_requests(created_at);
+
+ALTER TABLE public.demo_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.demo_requests FROM anon, authenticated;
+
+-- =============================================================================
+-- 2026-11-17 — Where a signup came from (src/lib/attribution.ts)
+--
+-- First-touch attribution for the founder's signup digest: the campaign tags
+-- (utm_source, utm_medium, utm_campaign), the referring site's host (ref)
+-- and the marketing page the sign-up link was clicked on (landing). The
+-- login page saves them in user_metadata.signup_source on a new account;
+-- syncProfile() copies them here once (only while this is NULL), after
+-- checking them again with sanitizeSignupSource(), because user_metadata is
+-- writable by the user. NULL for accounts from the iPhone app, invites and
+-- before this date.
+--
+-- Not writable by users: UPDATE on profiles is granted to authenticated for
+-- (full_name, company_name) only (2026-10-14 "trust fields are server-only"
+-- block). INSERT was still granted, with the "Users can insert own profile"
+-- policy, so a user without a profile row could have created one holding any
+-- signup_source (or onboarded_at, welcome_email_sent_at, email_alias_hash).
+-- Nothing inserts profiles with a user's session: the signup trigger is
+-- SECURITY DEFINER and the app writes them with the service role
+-- (profile-sync.ts, email-alias.ts, welcome-email.ts). So INSERT is revoked
+-- and the policy dropped. Users can still read their own row.
+-- =============================================================================
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS signup_source JSONB;
+
+REVOKE INSERT ON public.profiles FROM anon, authenticated;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;

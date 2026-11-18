@@ -130,13 +130,18 @@ export async function createTeamInvite(
     if (insertError && insertError.code !== "23505") return fail(500, "save_failed");
   }
 
-  const { data: org } = await db.from("organizations").select("name").eq("id", company.organizationId).maybeSingle();
+  const { data: org } = await db.from("organizations").select("name, country").eq("id", company.organizationId).maybeSingle();
   const me = people.get(owner.id);
   // Both names go into an email from our domain to an address anyone can
   // type: only names that pass the same check as a firm's (firm rule 5).
   const companyName = typeof org?.name === "string" && isAcceptableDisplayName(org.name) ? org.name : "A company";
   const inviter = me?.name && isAcceptableDisplayName(me.name) ? me.name : me?.email ?? "A colleague";
-  const emailed = await sendTeamInvite({ to: input.email.trim(), companyName, inviterName: inviter });
+  const emailed = await sendTeamInvite({
+    to: input.email.trim(),
+    companyName,
+    inviterName: inviter,
+    country: typeof org?.country === "string" ? org.country : null,
+  });
   return { ok: true, emailed };
 }
 

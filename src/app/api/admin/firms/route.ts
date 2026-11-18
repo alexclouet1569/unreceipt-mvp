@@ -11,6 +11,7 @@ import { isSameHost } from "@/lib/same-origin";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeAddress } from "@/lib/email-address";
 import { isAcceptableDisplayName } from "@/lib/firm/names";
+import { emailSiteLocale } from "@/lib/email/site-link";
 import { founderReplyTo, sendEmail } from "@/lib/email/send";
 import { firmWelcomeEmail } from "@/lib/email/templates";
 import { absoluteAppUrl } from "@/lib/app-url";
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
   }
   if (existing) return NextResponse.json({ error: "This address is already in a firm." }, { status: 409 });
 
-  const { data: firm, error: firmError } = await db.from("firms").insert({ name }).select("id").single();
+  const { data: firm, error: firmError } = await db.from("firms").insert({ name }).select("id, country").single();
   if (firmError || !firm) {
     console.error("[/api/admin/firms] firm insert failed", firmError?.code);
     return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });
@@ -77,7 +78,11 @@ export async function POST(request: NextRequest) {
 
   const sent = await sendEmail({
     to: email,
-    ...firmWelcomeEmail({ firmName: name, signInUrl: absoluteAppUrl("/app/login?next=/firm") }),
+    ...firmWelcomeEmail({
+      firmName: name,
+      signInUrl: absoluteAppUrl("/app/login?next=/firm"),
+      site: emailSiteLocale({ country: (firm.country as string | undefined) ?? null, email }),
+    }),
     replyTo: founderReplyTo(),
     tag: "firm_welcome",
   });

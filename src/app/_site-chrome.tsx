@@ -2,12 +2,19 @@ import Image from "next/image";
 import { Globe, Menu } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
+import { trackedLink, type TrackedLinkAttrs } from "@/lib/tracking/events";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
-import { MARKETING_PAGES, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
+import {
+  MARKETING_PAGES,
+  demoRequestLang,
+  demoRequestPath,
+  pagePath,
+  type MarketingPageId,
+} from "@/lib/marketing-pages";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
+import { SUPPORT_MAILTO } from "@/lib/support-contact";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
-import { LightOnly } from "./_light-only";
 
 
 // Same look as the shared Button, without importing that client module
@@ -42,20 +49,22 @@ export function SiteHeader({
   const links = [
     { label: t.how, href: `${home}#how` },
     ...(SHOW_PRICES ? [{ label: t.pricing, href: `${home}#pricing` }] : []),
+    { label: t.smallBusiness, href: pagePath("smallBusiness", locale) },
     { label: t.accountants, href: pagePath("accountants", locale) },
     { label: t.freelancers, href: pagePath("freelancers", locale) },
   ];
+  const demo = { href: demoRequestPath(locale), lang: demoRequestLang(locale) };
+  const demoLangProps = demo.lang !== locale ? { hrefLang: demo.lang } : {};
   const others = LOCALES.filter((l) => l !== locale);
 
   return (
     <header className="sticky top-0 z-50 bg-[#FAFAF7] border-b border-[#E8E5DD]">
       {/* The marketing site has no dark design: keep it light on shared hosts. */}
-      <LightOnly />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-6">
         <a href={home} aria-label={`UnReceipt — ${t.home}`} className="py-1">
           <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[24px]" />
         </a>
-        <nav aria-label="Main" className="hidden lg:flex items-center gap-6">
+        <nav aria-label="Main" className="hidden xl:flex items-center gap-5">
           {links.map((link) => (
             <a
               key={link.href}
@@ -87,13 +96,22 @@ export function SiteHeader({
             {t.signIn}
           </a>
           <a
+            href={demo.href}
+            {...demoLangProps}
+            {...trackedLink("cta_demo_page")}
+            className={cn(BTN, "border-2 border-[#303568]/20 text-[#303568] hover:border-[#303568] font-semibold rounded-full px-5 h-10")}
+          >
+            {t.bookDemo}
+          </a>
+          <a
             href={appUrl(SIGNUP_PATH)}
+            {...trackedLink("cta_signup", { attribution: true })}
             className={cn(BTN, "bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full px-6 h-10")}
           >
             {cta}
           </a>
         </nav>
-        <details className="lg:hidden relative group">
+        <details className="xl:hidden relative group">
           <summary
             className="list-none cursor-pointer p-3 -mr-2 text-[#303568] [&::-webkit-details-marker]:hidden"
             aria-label={t.menu}
@@ -110,6 +128,14 @@ export function SiteHeader({
                 {link.label}
               </a>
             ))}
+            <a
+              href={demo.href}
+              {...demoLangProps}
+              {...trackedLink("cta_demo_page")}
+              className="text-base text-[#303568] font-medium min-h-[44px] flex items-center px-3"
+            >
+              {t.bookDemo}
+            </a>
             <a
               href={appUrl("/app/login")}
               className="text-base text-[#303568] font-medium min-h-[44px] flex items-center px-3 border-t border-[#E8E5DD]"
@@ -130,6 +156,7 @@ export function SiteHeader({
             ))}
             <a
               href={appUrl(SIGNUP_PATH)}
+              {...trackedLink("cta_signup", { attribution: true })}
               className={cn(BTN, "mt-2 w-full bg-[#27BE7B] text-white hover:bg-[#1F9D63] font-semibold rounded-full h-11")}
             >
               {cta}
@@ -146,20 +173,21 @@ export function SiteFooter({ locale }: { locale: Locale }) {
   const home = LOCALE_HOME[locale];
   const others = LOCALES.filter((l) => l !== locale);
   const guidePaper = MARKETING_PAGES.guidePaper.paths[locale];
-  const columns: { title: string; links: { label: string; href: string; lang?: Locale }[] }[] = [
+  const guideOutlays = MARKETING_PAGES.guideOutlays.paths[locale];
+  const columns: { title: string; links: { label: string; href: string; lang?: Locale; track?: TrackedLinkAttrs }[] }[] = [
     {
       title: t.footer.product,
       links: [
         { label: t.nav.how, href: `${home}#how` },
         ...(SHOW_PRICES ? [{ label: t.nav.pricing, href: `${home}#pricing` }] : []),
-        { label: t.footer.demo, href: appUrl("/demo") },
+        { label: t.footer.demo, href: appUrl("/demo"), track: trackedLink("demo_tour_start", { attribution: true }) },
         { label: t.footer.faq, href: `${home}#faq` },
       ],
     },
     {
       title: t.footer.whoFor,
       links: [
-        { label: t.footer.smallBusiness, href: home },
+        { label: t.footer.smallBusiness, href: pagePath("smallBusiness", locale) },
         { label: t.nav.freelancers, href: pagePath("freelancers", locale) },
         { label: t.nav.accountants, href: pagePath("accountants", locale) },
       ],
@@ -171,13 +199,19 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         ...(guidePaper && t.footer.guidePaper
           ? [{ label: t.footer.guidePaper, href: guidePaper }]
           : []),
+        ...(guideOutlays && t.footer.guideOutlays
+          ? [{ label: t.footer.guideOutlays, href: guideOutlays }]
+          : []),
+        { label: t.footer.allGuides, href: pagePath("guides", locale) },
       ],
     },
     {
       title: t.footer.company,
       links: [
         { label: t.footer.about, href: pagePath("about", locale) },
-        { label: t.footer.contact, href: "mailto:support@unreceipt.com" },
+        // No hrefLang here: the footer's hreflang links are its language switch.
+        { label: t.nav.bookDemo, href: demoRequestPath(locale), track: trackedLink("cta_demo_page") },
+        { label: t.footer.contact, href: SUPPORT_MAILTO },
         { label: t.footer.privacy, href: "/privacy" },
         ...others.map((l) => ({ label: LOCALE_NAME[l].label, href: LOCALE_HOME[l], lang: l })),
       ],
@@ -209,6 +243,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
                     <a
                       href={link.href}
                       {...(link.lang ? { hrefLang: link.lang, lang: link.lang } : {})}
+                      {...link.track}
                       className="block text-sm text-white/50 hover:text-white transition-colors py-2"
                     >
                       {link.label}

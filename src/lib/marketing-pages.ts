@@ -21,9 +21,13 @@ export type MarketingPageId =
   | "home"
   | "accountants"
   | "freelancers"
+  | "smallBusiness"
   | "about"
+  | "guides"
+  | "bookDemo"
   | "guideRetention"
-  | "guidePaper";
+  | "guidePaper"
+  | "guideOutlays";
 
 export type MarketingPage = {
   paths: Partial<Record<Locale, string>>;
@@ -52,8 +56,29 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
     lastModified: "2026-11-17",
     priority: 0.9,
   },
+  smallBusiness: {
+    paths: { en: "/small-business", sv: "/sv/smaforetag", fr: "/fr/tpe" },
+    translated: true,
+    lastModified: "2026-11-17",
+    priority: 0.9,
+  },
   about: {
     paths: { en: "/about", sv: "/sv/om-unreceipt", fr: "/fr/a-propos" },
+    translated: true,
+    lastModified: "2026-11-17",
+    priority: 0.8,
+  },
+  // The guides index of each language: its own list of guides.
+  guides: {
+    paths: { en: "/guides", sv: "/sv/guider", fr: "/fr/guides" },
+    translated: true,
+    lastModified: "2026-11-17",
+    priority: 0.6,
+  },
+  // The demo request form. Sweden first: no French version, French pages
+  // link to the English one (demoRequestPath).
+  bookDemo: {
+    paths: { en: "/book-demo", sv: "/sv/boka-demo" },
     translated: true,
     lastModified: "2026-11-17",
     priority: 0.8,
@@ -77,6 +102,12 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
     lastModified: "2026-11-17",
     priority: 0.7,
   },
+  guideOutlays: {
+    paths: { sv: "/sv/guider/utlagg-for-anstallda" },
+    translated: false,
+    lastModified: "2026-11-17",
+    priority: 0.7,
+  },
 };
 
 /** The page's path in a language; throws if that version doesn't exist. */
@@ -84,6 +115,21 @@ export function pagePath(id: MarketingPageId, locale: Locale): string {
   const path = MARKETING_PAGES[id].paths[locale];
   if (!path) throw new Error(`No ${locale} version of marketing page ${id}`);
   return path;
+}
+
+/**
+ * Where a "Book a demo" link goes from a page in this language: the demo page
+ * in that language when it exists, else the English one. Every demo CTA uses
+ * this, never a mailto: link.
+ */
+export function demoRequestPath(locale: Locale): string {
+  const paths = MARKETING_PAGES.bookDemo.paths;
+  return paths[locale] ?? paths.en!;
+}
+
+/** The language of the page demoRequestPath(locale) leads to (for hrefLang). */
+export function demoRequestLang(locale: Locale): Locale {
+  return MARKETING_PAGES.bookDemo.paths[locale] ? locale : "en";
 }
 
 /** hreflang map for a page: every language it exists in, plus x-default. */

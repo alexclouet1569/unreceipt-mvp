@@ -9,6 +9,7 @@
 
 import { chromium } from "playwright";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,6 +54,15 @@ try {
     const out = path.join(DIR, GUIDES[name]);
     await page.pdf({ path: out, format: "A4", printBackground: true, preferCSSPageSize: true });
     console.log(`wrote ${path.relative(process.cwd(), out)}`);
+    // The client quick-start is also served by the app (public/guides), for
+    // the firm's "Rekommendera UnReceipt till klienter" box; a test keeps
+    // the two files identical.
+    if (name === "quickstart-company") {
+      const served = path.join(DIR, "..", "..", "public", "guides", GUIDES[name]);
+      fs.mkdirSync(path.dirname(served), { recursive: true });
+      fs.copyFileSync(out, served);
+      console.log(`wrote ${path.relative(process.cwd(), served)}`);
+    }
     await page.close();
   }
 } finally {

@@ -109,6 +109,7 @@ describe("GET /auth/callback", () => {
       data: {
         user: {
           id: "user-abc",
+          created_at: "2026-11-17T10:00:00Z",
           user_metadata: { full_name: "Alex", company_name: "Acme" },
         },
       },
@@ -119,10 +120,11 @@ describe("GET /auth/callback", () => {
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/app");
     expect(mocks.signOut).not.toHaveBeenCalled();
-    expect(mocks.syncProfile).toHaveBeenCalledWith("user-abc", {
-      full_name: "Alex",
-      company_name: "Acme",
-    });
+    expect(mocks.syncProfile).toHaveBeenCalledWith(
+      "user-abc",
+      { full_name: "Alex", company_name: "Acme" },
+      "2026-11-17T10:00:00Z"
+    );
     expect(mocks.scheduleWelcomeEmail).toHaveBeenCalledWith(
       expect.objectContaining({ id: "user-abc" })
     );

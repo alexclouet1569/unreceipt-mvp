@@ -25,6 +25,7 @@ const USER = {
   id: "u1",
   email: "alex@acme.se",
   email_confirmed_at: "2026-10-15T20:00:00Z",
+  created_at: "2026-10-15T19:58:00Z",
   user_metadata: { full_name: "Alex" },
 };
 
@@ -39,7 +40,7 @@ describe("POST /api/auth/finish", () => {
     mocks.getServerUser.mockResolvedValue(USER);
     const res = await POST(req("https://app.unreceipt.com"));
     expect(res.status).toBe(200);
-    expect(mocks.syncProfile).toHaveBeenCalledWith("u1", { full_name: "Alex" });
+    expect(mocks.syncProfile).toHaveBeenCalledWith("u1", { full_name: "Alex" }, "2026-10-15T19:58:00Z");
     expect(mocks.scheduleWelcomeEmail).toHaveBeenCalledWith(USER);
   });
 

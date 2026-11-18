@@ -55,6 +55,7 @@ vi.mock("@/lib/email/send", () => ({
 }));
 
 import { digestFailed, digestWindow, runSignupDigest } from "@/lib/signup-digest";
+import { attributionFrom, sanitizeSignupSource, withAttribution } from "@/lib/attribution";
 
 const NOW = new Date("2026-10-18T19:37:00Z");
 
@@ -142,6 +143,68 @@ describe("runSignupDigest", () => {
     const result = await runSignupDigest(NOW);
     expect(result).toMatchObject({ sent: false, reason: "no_recipient" });
     expect(state.sent).toHaveLength(0);
+  });
+});
+
+describe("runSignupDigest: where a signup came from", () => {
+  it("shows test / x / /sv for a sign-up started on /sv?utm_source=test&utm_campaign=x", async () => {
+    // The marketing page's link at click time (src/lib/tracking/links.ts)…
+    const href = withAttribution(
+      "https://app.unreceipt.com/app/login?mode=signup",
+      attributionFrom("https://unreceipt.com/sv?utm_source=test&utm_campaign=x", "")
+    );
+    // …read back by /app/login and saved on the new account.
+    const signupSource = sanitizeSignupSource(new URL(href).searchParams);
+    state.users = [
+      {
+        id: "u1",
+        email: "anna@bygg-ab.se",
+        created_at: "2026-10-18T08:15:00Z",
+        user_metadata: { full_name: "Anna Berg", signup_source: signupSource },
+      },
+    ];
+
+    await runSignupDigest(NOW);
+
+    const [email] = state.sent;
+    expect(email.text).toContain("Source: test / x / /sv");
+    expect(email.html).toContain("Source: test / x / /sv");
+  });
+
+  it("prefers the profile's copy and checks it again", async () => {
+    state.users = [
+      {
+        id: "u1",
+        email: "anna@bygg-ab.se",
+        created_at: "2026-10-18T08:15:00Z",
+        email_confirmed_at: "2026-10-18T08:16:00Z",
+        user_metadata: { signup_source: { utm_source: "edited-later" } },
+      },
+    ];
+    state.profiles = [
+      { user_id: "u1", full_name: "Anna", signup_source: { utm_source: "linkedin", utm_campaign: "outreach", landing: "/sv", x: "y" } },
+    ];
+
+    await runSignupDigest(NOW);
+
+    expect(state.sent[0].text).toContain("Source: linkedin / outreach / /sv");
+    expect(state.sent[0].text).not.toContain("edited-later");
+  });
+
+  it("says unknown, escaped, when there is no source", async () => {
+    state.users = [
+      {
+        id: "u1",
+        email: "anna@bygg-ab.se",
+        created_at: "2026-10-18T08:15:00Z",
+        user_metadata: { signup_source: { utm_source: "<img src=x>" } },
+      },
+    ];
+
+    await runSignupDigest(NOW);
+
+    expect(state.sent[0].text).toContain("Source: unknown");
+    expect(state.sent[0].html).not.toContain("<img");
   });
 });
 

@@ -726,6 +726,7 @@ export const fr: Strings = {
     share: "Partager le lien",
     copy: "Copier le lien",
     copied: "Lien copié",
+    recommend: "Recommander aux clients (e-mail en suédois)",
     linkOff: "Le lien est désactivé. Un administrateur peut le réactiver sur le site.",
     month: "Mois",
     prevMonth: "Mois précédent",

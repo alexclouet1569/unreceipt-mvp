@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data } = await supabase.auth.getUser();
     if (data.user) {
-      await syncProfile(data.user.id, data.user.user_metadata ?? null);
+      await syncProfile(data.user.id, data.user.user_metadata ?? null, data.user.created_at);
       // First confirmed sign-in → welcome email. Runs after the redirect
       // is sent and is a no-op for anyone who already got it.
       scheduleWelcomeEmail(data.user);

@@ -100,6 +100,10 @@ function faqEn(pilotMode: boolean): FaqItem[] {
       a: "Yes. Invite your accountant from Settings in the app; once they accept with their work email, they see your company's receipts in UnReceipt's accounting-firm portal, can complete and check them, and export each month for the bookkeeping. You can also download a ZIP for any month and send it yourself.",
     },
     {
+      q: "Can employees send their receipts?",
+      a: "Yes. The owner invites employees by email under Team; they snap or forward their receipts and send them for approval, saying whether they paid with their own money or the company's card. The owner, or the approver chosen for that person, approves, sends back or rejects. Approved outlays paid with an employee's own money are listed per person to pay back (there is no payout or payroll file), and the accountant sees an employee's receipt only once it's approved. The team feature is new and in pilot.",
+    },
+    {
       q: "How long do companies have to keep receipts?",
       a: "It depends on the country. In Sweden, the Bookkeeping Act (bokföringslagen) requires keeping them until the end of the seventh year after the calendar year in which the financial year ended, stored in Sweden (or elsewhere in the EU under conditions, including notifying Skatteverket). A paper original may be thrown away once it's digitised, as long as the transfer carries no risk of the information being changed or lost; UnReceipt stores receipts in Germany, so Swedish companies notify Skatteverket of that once, and again if the location changes. In France, the Commercial Code (article L123-22) requires traders and companies to keep them ten years from the end of the financial year (the tax code's six years also becomes ten for documents still within the six-year period on 1 January 2027), and a paper invoice may only be destroyed if the scan is a compliant copy under article A102 B-2 of the tax procedures code (an untouched image in a sealed or signed, timestamped PDF). UnReceipt doesn't produce such copies yet, so in France keep your paper originals.",
     },
@@ -139,6 +143,10 @@ function faqSv(pilotMode: boolean): FaqItem[] {
     {
       q: "Kan min redovisningsbyrå se mina kvitton?",
       a: "Ja. Bjud in din redovisningskonsult under Settings i appen; när hen accepterar med sin jobbmejl ser byrån ditt företags kvitton i UnReceipts byråportal, kan komplettera och kontrollera dem och exportera varje månad till bokföringen, med förslag på BAS-konto. Du kan också ladda ner en ZIP för valfri månad och skicka den själv.",
+    },
+    {
+      q: "Kan de anställda skicka in sina kvitton?",
+      a: "Ja. Ägaren bjuder in de anställda via mejl under Team; de fotar eller vidarebefordrar sina kvitton och skickar dem för godkännande, med uppgift om de betalade med egna pengar eller med företagets kort. Ägaren, eller den godkännare som valts för personen, godkänner, skickar tillbaka eller avvisar. Godkända utlägg som en anställd betalat själv listas per person att betala tillbaka (det finns ingen utbetalning eller lönefil), och redovisningsbyrån ser en anställds kvitto först när det är godkänt. Teamfunktionen är ny och ingår i piloten.",
     },
     {
       q: "Hur länge måste företag spara kvitton?",
@@ -184,6 +192,10 @@ function faqFr(pilotMode: boolean): FaqItem[] {
     {
       q: "Mon expert-comptable peut-il voir mes reçus\u00a0?",
       a: "Oui. Invitez votre expert-comptable depuis les réglages de l’application (Settings)\u00a0; une fois qu’il accepte avec son e-mail professionnel, il voit les reçus de votre entreprise dans le portail cabinet d’UnReceipt, peut les compléter et les vérifier, et exporter chaque mois pour la saisie. Vous pouvez aussi télécharger un ZIP pour n’importe quel mois et l’envoyer vous-même.",
+    },
+    {
+      q: "Mes salariés peuvent-ils envoyer leurs reçus\u00a0?",
+      a: "Oui. Le dirigeant invite ses salariés par e-mail dans Team\u00a0; ils photographient ou transfèrent leurs reçus et les envoient pour validation, en indiquant s’ils ont payé eux-mêmes ou avec la carte de l’entreprise. Le dirigeant, ou le valideur choisi pour cette personne, valide, renvoie ou refuse. Les frais validés payés par un salarié de sa poche sont listés par personne à rembourser (il n’y a ni virement ni fichier de paie), et l’expert-comptable ne voit le reçu d’un salarié qu’une fois validé. La gestion d’équipe est nouvelle et en phase pilote.",
     },
     {
       q: "Combien de temps faut-il conserver les justificatifs\u00a0?",

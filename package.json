@@ -21,6 +21,7 @@
     "@capacitor/ios": "8.5.3",
     "@capacitor/splash-screen": "8.0.2",
     "@napi-rs/canvas": "1.1.1",
+    "@plausible-analytics/tracker": "0.4.7",
     "@react-pdf/renderer": "^4.5.1",
     "@sentry/nextjs": "^11.7.0",
     "@supabase/ssr": "^0.10.2",
