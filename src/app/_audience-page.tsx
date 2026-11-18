@@ -164,7 +164,7 @@ export function AudiencePage({
                     <span
                       className={cn(
                         "inline-flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap",
-                        row.done ? "text-[#1A7F52]" : "text-[#B4690E]"
+                        row.done ? "text-[#1A7F52]" : "text-[#8C6320]"
                       )}
                     >
                       {row.done ? (

@@ -53,7 +53,7 @@ export default function GlobalError({
             style={{
               fontSize: "0.875rem",
               lineHeight: 1.5,
-              color: "rgba(48, 53, 104, 0.65)",
+              color: "#5A5F7A",
               margin: "0 0 1.5rem",
             }}
           >
@@ -81,7 +81,7 @@ export default function GlobalError({
             <p
               style={{
                 fontSize: "0.75rem",
-                color: "rgba(48, 53, 104, 0.65)",
+                color: "#5A5F7A",
                 margin: "1rem 0 0",
               }}
             >

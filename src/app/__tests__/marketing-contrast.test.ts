@@ -44,7 +44,7 @@ describe("marketing contrast", () => {
     for (const file of FILES) {
       for (const s of strings(readFileSync(file, "utf8"))) {
         const t = tokens(s);
-        if (t.includes("hover:bg-[#1F9D63]") && t.includes("text-white")) offenders.push(`${file}: ${s}`);
+        if (t.some((x) => x.toLowerCase() === "hover:bg-[#1f9d63]") && t.includes("text-white")) offenders.push(`${file}: ${s}`);
       }
     }
     expect(offenders).toEqual([]);

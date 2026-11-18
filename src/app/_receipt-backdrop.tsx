@@ -402,7 +402,7 @@ export function ReceiptBackdrop({ locale = "en" }: { locale?: Locale }) {
           top: 6px;
           font-size: 11px;
           font-weight: 600;
-          color: #1f9d63;
+          color: #1a7f52;
           background: #ecf7e7;
           border-radius: 999px;
           padding: 2px 8px;

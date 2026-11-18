@@ -99,7 +99,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
             border: 2px solid #27be7b;
           }
           .receipts-slider:focus-visible {
-            outline: 2px solid #27be7b;
+            outline: 2px solid #1a7f52;
             outline-offset: 4px;
             border-radius: 4px;
           }
@@ -153,7 +153,7 @@ export function Pricing({ pilotMode, locale = "en" }: { pilotMode: boolean; loca
                 className={cn(buttonVariants({
                   className: `mt-auto w-full rounded-full font-semibold h-12 ${
                     active
-                      ? "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63]"
+                      ? "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                       : "bg-[#ECF7E7] text-[#303568] hover:bg-[#dff0d8]"
                   }`,
                 }))}

@@ -398,7 +398,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   href={appUrl(SIGNUP_PATH)}
                   className={cn(buttonVariants({
                     size: "lg",
-                    className: "bg-white text-[#303568] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12",
+                    className: "bg-white text-[#303568] hover:bg-white/90 rounded-full px-8 text-base font-semibold shadow-lg shadow-black/15 h-12 focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]",
                   }))}
                 >
                   {heroCta}
@@ -409,7 +409,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   className={cn(buttonVariants({
                     size: "lg",
                     variant: "outline",
-                    className: "border-2 border-[#303568] text-[#303568] hover:bg-[#303568] hover:text-white rounded-full px-8 text-base font-semibold bg-transparent h-12",
+                    className: "border-2 border-[#303568] text-[#303568] hover:bg-[#303568] hover:text-white rounded-full px-8 text-base font-semibold bg-transparent h-12 focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]",
                   }))}
                 >
                   {t.hero.secondary}
@@ -783,7 +783,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                 href={appUrl(SIGNUP_PATH)}
                 className={cn(buttonVariants({
                   size: "lg",
-                  className: "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25",
+                  className: "bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-8 text-base font-semibold h-12 shadow-lg shadow-[#27BE7B]/25 focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
                 }))}
               >
                 {heroCta}
@@ -812,7 +812,7 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
                   />
                   <Button
                     type="submit"
-                    className="bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25"
+                    className="bg-[#27BE7B] text-[#0F1124] hover:bg-[#1F9D63] rounded-full px-8 font-semibold h-12 shadow-lg shadow-[#27BE7B]/25 focus-visible:ring-0 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                     disabled={submitting}
                   >
                     {submitting ? t.ending.submitting : t.ending.submit}
