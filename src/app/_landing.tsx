@@ -215,10 +215,10 @@ export function LandingPage({ pilotMode, locale = "en" }: LandingPageProps) {
 
   return (
     <div id="top" className="min-h-screen bg-[#ECF7E7]">
-      <SiteHeader locale={locale} page="home" pilotMode={pilotMode} overHero />
+      <SiteHeader locale={locale} page="home" pilotMode={pilotMode} />
 
       {/* ─── HERO ─── */}
-      <section className="relative bg-[#27BE7B] pt-[104px] pb-20 sm:pt-[120px] sm:pb-28 px-4 sm:px-6 overflow-hidden">
+      <section className="relative bg-[#27BE7B] pt-8 pb-20 sm:pt-12 sm:pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Floating receipt shapes */}
         <FloatingReceipts />
 

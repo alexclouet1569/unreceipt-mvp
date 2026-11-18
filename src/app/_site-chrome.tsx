@@ -39,20 +39,17 @@ const AUDIENCE_ICONS = [Building2, UserRound, Calculator] as const;
  * The marketing header: the wordmark on the left, a few links in the
  * middle, then the language menu, Sign in and the one call to action.
  * Below 1024px the links, languages and sign in go into a menu.
- * `overHero`: the page starts with the green hero, so the bar sits clear on
- * it until the page scrolls (see HeaderShell). The header is fixed; without
- * a hero under it a spacer keeps the page's content below it.
+ * The bar is cream, as on the original site; it is fixed, and a spacer
+ * keeps the page's content below it.
  */
 export function SiteHeader({
   locale,
   page,
   pilotMode,
-  overHero = false,
 }: {
   locale: Locale;
   page: MarketingPageId;
   pilotMode: boolean;
-  overHero?: boolean;
 }) {
   const t = SITE_COPY[locale].nav;
   const audiences = SITE_COPY[locale].audiences;
@@ -65,29 +62,19 @@ export function SiteHeader({
     { label: t.about, href: pagePath("about", locale) },
   ];
 
-  // Navy text in both looks: white on the brand green is 2.4:1, navy 4.8:1.
-  const ink =
-    "text-[#303568] hover:text-[#252850] group-data-[solid=true]/hdr:text-[#303568]/75 group-data-[solid=true]/hdr:hover:text-[#303568]";
-  const quiet =
-    "border border-[#303568]/30 text-[#303568] hover:bg-white/20 group-data-[solid=true]/hdr:border-[#303568]/20 group-data-[solid=true]/hdr:hover:bg-[#303568]/5";
+  const ink = "text-[#303568]/75 hover:text-[#303568]";
+  const quiet = "border border-[#303568]/20 text-[#303568] hover:bg-[#303568]/5";
   const filled = "bg-[#303568] text-white hover:bg-[#252850]";
 
   return (
     <>
       {/* The marketing site has no dark design: keep it light on shared hosts. */}
       <LightOnly />
-      <HeaderShell overHero={overHero}>
+      <HeaderShell>
         <div className="px-4 sm:px-6">
         <div className="max-w-6xl mx-auto h-[72px] flex items-center gap-4 lg:gap-10">
           <a href={home} aria-label={`UnReceipt — ${t.home}`} className={cn("relative py-1 shrink-0", FOCUS)}>
-            {/* On the green hero the mint set (navy word, its arrow stays
-                visible); the full-colour mark once the bar is cream. */}
-            <span className="block transition-opacity duration-300 group-data-[solid=true]/hdr:opacity-0">
-              <Wordmark variant="horizontal" on="mint" className="text-[22px] sm:text-[24px]" />
-            </span>
-            <span className="absolute inset-0 py-1 opacity-0 transition-opacity duration-300 group-data-[solid=true]/hdr:opacity-100" aria-hidden="true">
-              <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[24px]" />
-            </span>
+            <Wordmark variant="horizontal" on="light" className="text-[22px] sm:text-[24px]" />
           </a>
 
           <nav aria-label="Main" className="hidden lg:flex items-center gap-7 text-[15px] font-medium">
@@ -221,7 +208,7 @@ export function SiteHeader({
         </div>
         </div>
       </HeaderShell>
-      {overHero ? null : <div aria-hidden="true" className="h-[72px]" />}
+      <div aria-hidden="true" className="h-[72px]" />
     </>
   );
 }

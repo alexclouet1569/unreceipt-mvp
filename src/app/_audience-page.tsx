@@ -102,11 +102,11 @@ export function AudiencePage({
         dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
       {locale !== "en" ? <HtmlLang lang={locale} /> : null}
-      <SiteHeader locale={locale} page={audience} pilotMode={pilotMode} overHero />
+      <SiteHeader locale={locale} page={audience} pilotMode={pilotMode} />
 
       <main>
         {/* ─── HERO ─── */}
-        <section className="bg-[#27BE7B] px-4 sm:px-6 pt-[104px] pb-16 sm:pt-[120px] sm:pb-24">
+        <section className="bg-[#27BE7B] px-4 sm:px-6 pt-8 pb-16 sm:pt-12 sm:pb-24">
           <AudienceTabs locale={locale} active={audience} className="mb-10 sm:mb-14" />
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[1.15fr_1fr] gap-12 items-center">
             <div>
