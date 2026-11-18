@@ -6,7 +6,8 @@ import type { Locale } from "@/lib/locale";
  * Pure data, safe to import from client components.
  */
 
-type AudienceItem = { title: string; sub: string };
+/** `short` replaces the title below 640px when the title is one long word. */
+type AudienceItem = { title: string; sub: string; short?: string };
 
 export type SiteCopy = {
   nav: {
@@ -116,7 +117,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       items: [
         { title: "Småföretag", sub: "Ägare och anställda" },
         { title: "Enskild firma", sub: "Frilansare och konsulter" },
-        { title: "Redovisningsbyråer", sub: "Alla kunders kvitton" },
+        { title: "Redovisningsbyråer", short: "Byråer", sub: "Alla kunders kvitton" },
       ],
     },
     footer: {

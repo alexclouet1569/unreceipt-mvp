@@ -47,18 +47,45 @@ export function HeaderShell({
         menu.querySelector("summary")?.focus();
       }
     };
-    const onOutside = (e: MouseEvent) => {
+    // pointerdown, not click: iOS Safari sends no click for a tap on
+    // something that isn't clickable.
+    const onOutside = (e: PointerEvent) => {
       if (menu.open && !menu.contains(e.target as Node)) close();
     };
+    // Tabbing out of the menu closes it, so focus never goes under it.
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (menu.open && next && !menu.contains(next)) close();
+    };
+    // The menu is hidden from 1024px up: close it so the bar doesn't stay cream.
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const onWide = () => {
+      if (wide.matches) close();
+    };
     menu.addEventListener("toggle", onToggle);
+    menu.addEventListener("focusout", onFocusOut);
     header.addEventListener("click", onClick);
     document.addEventListener("keydown", onKey);
-    document.addEventListener("click", onOutside);
+    document.addEventListener("pointerdown", onOutside);
+    wide.addEventListener("change", onWide);
     return () => {
       menu.removeEventListener("toggle", onToggle);
+      menu.removeEventListener("focusout", onFocusOut);
       header.removeEventListener("click", onClick);
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("click", onOutside);
+      document.removeEventListener("pointerdown", onOutside);
+      wide.removeEventListener("change", onWide);
+    };
+  }, []);
+
+  // The page's own focus and anchor scrolling keep clear of the 72px bar
+  // (globals.css sets 64px for the product's 56px header).
+  useEffect(() => {
+    const html = document.documentElement;
+    const before = html.style.scrollPaddingTop;
+    html.style.scrollPaddingTop = "80px";
+    return () => {
+      html.style.scrollPaddingTop = before;
     };
   }, []);
 

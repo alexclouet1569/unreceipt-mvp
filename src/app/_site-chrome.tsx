@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Globe, Menu } from "lucide-react";
+import { Check, Globe, Menu } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { appUrl, SIGNUP_PATH } from "@/lib/app-url";
 import { LOCALES, LOCALE_HOME, LOCALE_NAME, type Locale } from "@/lib/locale";
@@ -13,6 +13,8 @@ import { HeaderShell } from "./_header-shell";
 
 // Same look as the shared Button, without importing that client module
 // into a server component.
+const FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]";
 const BTN =
   "inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]";
 /**
@@ -64,10 +66,11 @@ export function SiteHeader({
   const others = LOCALES.filter((l) => l !== locale);
 
   // Two looks: clear on the green hero, cream once solid (data-solid).
+  // Navy text in both looks: white on the brand green is 2.4:1, navy 4.8:1.
   const ink =
-    "text-white/85 hover:text-white group-data-[solid=true]/hdr:text-[#303568]/70 group-data-[solid=true]/hdr:hover:text-[#303568]";
+    "text-[#303568] hover:text-[#252850] group-data-[solid=true]/hdr:text-[#303568]/75 group-data-[solid=true]/hdr:hover:text-[#303568]";
   const outline =
-    "border border-white/60 text-white hover:bg-white/10 group-data-[solid=true]/hdr:border-[#303568]/20 group-data-[solid=true]/hdr:text-[#303568] group-data-[solid=true]/hdr:hover:bg-[#303568]/5";
+    "border border-[#303568]/40 text-[#303568] hover:bg-white/15 group-data-[solid=true]/hdr:border-[#303568]/20 group-data-[solid=true]/hdr:hover:bg-[#303568]/5";
   const filled = "bg-[#303568] text-white hover:bg-[#252850]";
 
   return (
@@ -78,13 +81,13 @@ export function SiteHeader({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[72px] flex items-center gap-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-8">
           <nav aria-label="Main" className="hidden lg:flex items-center gap-7 text-[15px] font-medium">
             {links.map((link) => (
-              <a key={link.href} href={link.href} className={cn("whitespace-nowrap transition-colors", ink)}>
+              <a key={link.href} href={link.href} className={cn("whitespace-nowrap transition-colors py-3 -my-3", FOCUS, ink)}>
                 {link.label}
               </a>
             ))}
           </nav>
 
-          <a href={home} aria-label={`UnReceipt — ${t.home}`} className="relative py-1 mr-auto lg:mr-0">
+          <a href={home} aria-label={`UnReceipt — ${t.home}`} className={cn("relative py-1 mr-auto lg:mr-0", FOCUS)}>
             {/* On the green hero the mint set (navy word, its arrow stays visible);
                 the full-colour mark once the bar is cream. */}
             <span className="block transition-opacity duration-300 group-data-[solid=true]/hdr:opacity-0">
@@ -96,7 +99,7 @@ export function SiteHeader({
           </a>
 
           <div className="hidden lg:flex items-center justify-end gap-5 text-[15px] font-medium">
-            <span className="inline-flex items-center gap-1.5 text-white/85 group-data-[solid=true]/hdr:text-[#303568]/70">
+            <span className="inline-flex items-center gap-1.5 text-[#303568] group-data-[solid=true]/hdr:text-[#303568]/75">
               <Globe className="w-4 h-4" aria-hidden="true" />
               <span className="sr-only">{t.languages}</span>
               {others.map((l) => (
@@ -106,13 +109,13 @@ export function SiteHeader({
                   hrefLang={l}
                   lang={l}
                   aria-label={LOCALE_NAME[l].label}
-                  className={cn("px-0.5 transition-colors", ink)}
+                  className={cn("px-1 py-3 -my-3 transition-colors", FOCUS, ink)}
                 >
                   {LOCALE_NAME[l].short}
                 </a>
               ))}
             </span>
-            <a href={appUrl("/app/login")} className={cn("whitespace-nowrap transition-colors", ink)}>
+            <a href={appUrl("/app/login")} className={cn("whitespace-nowrap transition-colors py-3 -my-3", FOCUS, ink)}>
               {t.signIn}
             </a>
             <a
@@ -128,7 +131,7 @@ export function SiteHeader({
 
           <a
             href={appUrl(SIGNUP_PATH)}
-            className={cn(BTN, "hidden min-[380px]:inline-flex lg:hidden rounded-full px-4 h-10 font-semibold", filled)}
+            className={cn(BTN, "hidden min-[420px]:inline-flex lg:hidden rounded-full px-4 h-11 font-semibold", filled)}
           >
             {cta}
           </a>
@@ -136,14 +139,14 @@ export function SiteHeader({
             <summary
               className={cn(
                 "list-none cursor-pointer p-3 -mr-3 [&::-webkit-details-marker]:hidden",
-                "text-white group-data-[solid=true]/hdr:text-[#303568]"
+                "text-[#303568]", FOCUS
               )}
               aria-label={t.menu}
             >
               <Menu className="w-6 h-6" aria-hidden="true" />
             </summary>
-            <div className="hidden group-open/menu:block absolute inset-x-0 top-full border-y border-[#E8E5DD] bg-[#FAFAF7] px-4 sm:px-6 pb-5 pt-2 max-h-[calc(100dvh-72px)] overflow-y-auto">
-              <div className="max-w-xl mx-auto flex flex-col">
+            <div className="hidden group-open/menu:block [&_a]:focus-visible:outline-2 [&_a]:focus-visible:outline-offset-2 [&_a]:focus-visible:outline-[#303568] absolute inset-x-0 top-full border-y border-[#E8E5DD] bg-[#FAFAF7] px-4 sm:px-6 pb-5 pt-2 max-h-[calc(100dvh-72px)] overflow-y-auto">
+              <nav aria-label={t.menu} className="max-w-xl mx-auto flex flex-col">
                 {links.map((link) => (
                   <a
                     key={link.href}
@@ -153,7 +156,7 @@ export function SiteHeader({
                     {link.label}
                   </a>
                 ))}
-                <p className="mt-5 mb-1 text-xs font-semibold uppercase tracking-widest text-[#303568]/50">
+                <p className="mt-5 mb-1 text-xs font-semibold uppercase tracking-widest text-[#303568]/70">
                   {audiences.label}
                 </p>
                 {AUDIENCE_PAGES.map((id, i) => (
@@ -163,10 +166,11 @@ export function SiteHeader({
                     aria-current={page === id ? "page" : undefined}
                     className="min-h-[52px] flex flex-col justify-center border-b border-[#E8E5DD]"
                   >
-                    <span className={cn("text-base font-semibold", page === id ? "text-[#1A7F52]" : "text-[#303568]")}>
+                    <span className="inline-flex items-center gap-1.5 text-base font-semibold text-[#303568]">
                       {audiences.items[i].title}
+                      {page === id ? <Check className="w-4 h-4 text-[#1A7F52]" aria-hidden="true" /> : null}
                     </span>
-                    <span className="text-sm text-[#303568]/60">{audiences.items[i].sub}</span>
+                    <span className="text-sm text-[#303568]/70">{audiences.items[i].sub}</span>
                   </a>
                 ))}
                 <div className="mt-4 flex items-center gap-4 text-base font-medium text-[#303568]">
@@ -200,7 +204,7 @@ export function SiteHeader({
                     {cta}
                   </a>
                 </div>
-              </div>
+              </nav>
             </div>
           </details>
         </div>
@@ -240,11 +244,20 @@ export function AudienceSwitch({
                   current ? "bg-[#303568] text-white" : "text-[#303568] hover:bg-[#ECF7E7]"
                 )}
               >
-                <span className="text-[13px] sm:text-sm font-semibold leading-tight">{a.items[i].title}</span>
+                <span className="text-[13px] sm:text-sm font-semibold leading-tight">
+                  {a.items[i].short ? (
+                    <>
+                      <span className="sm:hidden">{a.items[i].short}</span>
+                      <span className="hidden sm:inline">{a.items[i].title}</span>
+                    </>
+                  ) : (
+                    a.items[i].title
+                  )}
+                </span>
                 <span
                   className={cn(
                     "hidden sm:block text-xs leading-tight mt-0.5",
-                    current ? "text-white/70" : "text-[#303568]/55"
+                    current ? "text-white/75" : "text-[#303568]/70"
                   )}
                 >
                   {a.items[i].sub}
