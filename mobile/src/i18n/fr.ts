@@ -176,6 +176,7 @@ export const fr: Strings = {
     close: "Fermer",
     readingMany: "Lecture de {count} reçus…",
     readingSub: "Commerce, total, date et TVA. Vous pourrez tout vérifier ensuite.",
+    readingCropped: "Recadré sur le reçu. Vérifiez que rien n’est coupé avant de jeter le papier.",
     readingProgress: "{done} sur {total} terminés",
     background: "Continuer en arrière-plan",
     keptOnPhone: "Il reste dans votre liste et se termine tout seul.",

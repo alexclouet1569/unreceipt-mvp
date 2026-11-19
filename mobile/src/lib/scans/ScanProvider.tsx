@@ -359,7 +359,9 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       // when the crop replaces it, else once it is prepared for sending.
       if (crop.cropped) deleteFile(shot);
       const added = await enqueue([crop.uri], true);
-      if (added.length === 1) setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri] });
+      if (added.length === 1) {
+        setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri], cropped: crop.cropped });
+      }
     } catch {
       // No camera here (the Simulator): the photo library still works.
       Alert.alert(s.scan.unavailable, undefined, [

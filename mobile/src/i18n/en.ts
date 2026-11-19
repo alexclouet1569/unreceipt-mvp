@@ -178,6 +178,7 @@ export const en = {
     close: "Close",
     readingMany: "Reading {count} receipts…",
     readingSub: "Shop, total, date and VAT. You can check everything next.",
+    readingCropped: "Cropped to the receipt. Check that nothing is cut off before you throw the paper away.",
     readingProgress: "{done} of {total} done",
     background: "Continue in the background",
     keptOnPhone: "It stays in your list and finishes by itself.",

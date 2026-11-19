@@ -26,12 +26,11 @@ enum ReceiptCropper {
   // more likely a label or a card than the receipt; above the upper one
   // there is next to nothing to crop.
   static let minSegmentationConfidence: VNConfidence = 0.7
-  static let minRectangleConfidence: VNConfidence = 0.8
   static let minArea: CGFloat = 0.15
   static let maxArea: CGFloat = 0.95
   // Room left around the detected edges, as a share of the receipt's size,
-  // so a slightly-off edge never cuts a line of print.
-  static let padding: CGFloat = 0.02
+  // so a slightly-off edge or a curled corner never cuts a line of print.
+  static let padding: CGFloat = 0.04
   // A crop smaller than this (pixels) on either side isn't worth reading.
   static let minSide: CGFloat = 300
 
@@ -82,23 +81,14 @@ enum ReceiptCropper {
   static func detect(in image: CIImage) -> Quad? {
     let handler = VNImageRequestHandler(ciImage: image, options: [:])
 
-    // A document detector trained for paper on a background: first choice.
+    // Apple's document detector, trained for paper on a background. No
+    // plain rectangle detection as a fallback: it would as readily return a
+    // framed table inside an A4 invoice or a card slip lying on the receipt,
+    // and crop away the seller's name, numbers or date.
     let segmentation = VNDetectDocumentSegmentationRequest()
     if (try? handler.perform([segmentation])) != nil,
        let best = segmentation.results?.first,
        best.confidence >= minSegmentationConfidence {
-      return Quad(best)
-    }
-
-    // Plain rectangle detection, allowing long, narrow receipts.
-    let rectangles = VNDetectRectanglesRequest()
-    rectangles.minimumAspectRatio = 0.1
-    rectangles.maximumAspectRatio = 1.0
-    rectangles.minimumSize = 0.2
-    rectangles.minimumConfidence = minRectangleConfidence
-    rectangles.quadratureTolerance = 20
-    rectangles.maximumObservations = 1
-    if (try? handler.perform([rectangles])) != nil, let best = rectangles.results?.first {
       return Quad(best)
     }
     return nil

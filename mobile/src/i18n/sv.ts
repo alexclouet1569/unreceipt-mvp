@@ -176,6 +176,7 @@ export const sv: Strings = {
     close: "Stäng",
     readingMany: "Läser {count} kvitton…",
     readingSub: "Butik, belopp, datum och moms. Du kan kontrollera allt sedan.",
+    readingCropped: "Beskuret till kvittot. Kontrollera att inget är avklippt innan du slänger papperet.",
     readingProgress: "{done} av {total} klara",
     background: "Fortsätt i bakgrunden",
     keptOnPhone: "Det ligger kvar i listan och blir klart av sig självt.",
