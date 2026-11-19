@@ -338,6 +338,29 @@ describe("PATCH /api/receipts/[id]", () => {
     ]);
   });
 
+  it("corrects and clears the card digits, never storing more than four", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: { ...verifiedRow(), card_last_four: "5678" }, error: null });
+    const res = await PATCH(req({ card_last_four: "1234" }), params());
+    expect(res.status).toBe(200);
+    const [payload] = mocks.updateEq.mock.calls[0];
+    expect(payload.card_last_four).toBe("1234");
+    expect(payload.edited_fields).toEqual(["card_last_four"]);
+
+    mocks.maybeSingle.mockResolvedValueOnce({ data: { ...verifiedRow(), card_last_four: "1234" }, error: null });
+    expect((await PATCH(req({ card_last_four: null }), params())).status).toBe(200);
+    expect(mocks.updateEq.mock.calls[1][0].card_last_four).toBeNull();
+
+    // Refused before the row is read.
+    expect((await PATCH(req({ card_last_four: "4111111111111111" }), params())).status).toBe(400);
+  });
+
+  it("masks a full card number typed as the payment method", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: { ...verifiedRow(), payment_method: null }, error: null });
+    const res = await PATCH(req({ payment_method: "VISA 4111 1111 1111 1111" }), params());
+    expect(res.status).toBe(200);
+    expect(mocks.updateEq.mock.calls[0][0].payment_method).toBe("VISA •••");
+  });
+
   it("clears VAT with null and stores an empty item list as null", async () => {
     mocks.maybeSingle.mockResolvedValueOnce({
       data: { ...verifiedRow(), tax_amount: 5, items: [{ label: "x", total_amount: 1 }] },

@@ -18,6 +18,7 @@ import { s } from "../../i18n";
 import { ApiError, apiResponse, reportScanProblem } from "../api";
 import { useHome } from "../HomeProvider";
 import { ScanFlowView } from "../../components/ScanFlowView";
+import { cropReceipt } from "../../../modules/receipt-crop";
 import {
   adoptDraft,
   currentScanUri,
@@ -336,6 +337,9 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
   // full screen with the scan line and its digital receipt opens. Apple's
   // document scanner instead shrinks each shot into a corner and waits for
   // the next page, which made people scan the same receipt twice.
+  // Since 2026-11-19 the photo is cropped straight to the receipt on the
+  // phone (modules/receipt-crop) when its edges are clear, so the original
+  // shows the receipt, not the table; otherwise it is sent as taken.
   const scan = useCallback(async () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -349,9 +353,15 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
       }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 1, exif: false });
       if (result.canceled || result.assets.length === 0) return;
-      // The camera's file is in the app's caches: ours to remove.
-      const added = await enqueue([result.assets[0].uri], true);
-      if (added.length === 1) setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri] });
+      const shot = result.assets[0].uri;
+      const crop = await cropReceipt(shot);
+      // The camera's file is in the app's caches: ours to remove, at once
+      // when the crop replaces it, else once it is prepared for sending.
+      if (crop.cropped) deleteFile(shot);
+      const added = await enqueue([crop.uri], true);
+      if (added.length === 1) {
+        setFlow({ phase: "reading", ids: [added[0].id], images: [added[0].fileUri], cropped: crop.cropped });
+      }
     } catch {
       // No camera here (the Simulator): the photo library still works.
       Alert.alert(s.scan.unavailable, undefined, [

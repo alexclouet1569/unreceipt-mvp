@@ -25,6 +25,7 @@ import { CaptureDialog } from "./CaptureDialog";
 import { ReceiptDetailDialog } from "./ReceiptDetailDialog";
 import { ownerMayDelete } from "@/lib/team/rules";
 import { NewReceiptsNotice } from "./_new-receipts-notice";
+import { ReceiptSearchBar, ReceiptSearchStatus, useReceiptSearch } from "./_receipt-search";
 import { useReceiptUpdates } from "./use-receipt-updates";
 import { ForwardingUnavailable } from "./_forwarding-unavailable";
 import { FirstRun, GuideLink, type FirstRunStep } from "./_first-run";
@@ -57,6 +58,9 @@ type DashboardProps = {
   // (use-receipt-updates.ts). Left out by the demo tour and the tests,
   // which make no requests.
   liveUpdatesUserId?: string | null;
+  // Search and the month filter (they ask /api/receipts/search). Left out by
+  // the demo tour and the tests, which make no requests.
+  searchable?: boolean;
 };
 
 type Filter = "all" | "review" | `category:${CategoryKey}`;
@@ -78,6 +82,7 @@ export function Dashboard({
   mailboxProviders = NO_PROVIDERS,
   connectedMailboxes = [],
   liveUpdatesUserId = null,
+  searchable = false,
 }: DashboardProps) {
   const router = useRouter();
   const newReceipts = useReceiptUpdates(liveUpdatesUserId);
@@ -101,6 +106,30 @@ export function Dashboard({
     () => (deletedIds.size ? allReceipts.filter((r) => !deletedIds.has(r.id)) : allReceipts),
     [allReceipts, deletedIds],
   );
+  // Searching, the list shows the matches (which may be older than the
+  // newest 50 the page holds); the stat cards keep counting everything.
+  // The server's rows changing (an edit, a delete, a new receipt) asks again.
+  const search = useReceiptSearch(searchable, serverReceipts);
+  // Show more goes away with the last page: focus moves to the status line
+  // instead of falling to the page.
+  const showMoreRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchStatusRef = useRef<HTMLParagraphElement>(null);
+  const showMorePressed = useRef(false);
+  const hasMore = search.active && Boolean(search.results?.hasMore);
+  useEffect(() => {
+    if (hasMore || !showMorePressed.current) return;
+    showMorePressed.current = false;
+    const focus = document.activeElement;
+    if (!focus || focus === document.body) searchStatusRef.current?.focus();
+  }, [hasMore]);
+  // Until the first answer the list stays as it was (dimmed), so it never
+  // blinks empty.
+  const listReceipts = useMemo(() => {
+    if (!search.active || !search.results) return receipts;
+    const found = search.results.receipts;
+    return deletedIds.size ? found.filter((r) => !deletedIds.has(r.id)) : found;
+  }, [search.active, search.results, receipts, deletedIds]);
 
   const restore = useCallback((id: string) => {
     setDeletedIds((ids) => {
@@ -224,36 +253,39 @@ export function Dashboard({
   const [view, setView] = useState<View>("date");
 
   const reviewCount = useMemo(
-    () => receipts.filter((r) => r.status === "pending_review").length,
-    [receipts],
+    () => listReceipts.filter((r) => r.status === "pending_review").length,
+    [listReceipts],
   );
 
   // Categories that have receipts, most used first.
   const categoryCounts = useMemo(() => {
     const counts = new Map<CategoryKey, number>();
-    for (const r of receipts) counts.set(r.category, (counts.get(r.category) ?? 0) + 1);
+    for (const r of listReceipts) counts.set(r.category, (counts.get(r.category) ?? 0) + 1);
     return CATEGORY_KEYS.filter((k) => counts.has(k))
       .map((key) => ({ key, count: counts.get(key)! }))
       .sort((a, b) => b.count - a.count);
-  }, [receipts]);
+  }, [listReceipts]);
 
-  // A category filter whose last receipt was deleted falls back to all.
+  // A category filter whose last receipt was deleted (or isn't among the
+  // matches) falls back to all; so does Review needed when no match needs
+  // review (its chip is gone, so it couldn't be switched off).
   const filter: Filter =
-    chosenFilter.startsWith("category:") &&
-    !receipts.some((r) => `category:${r.category}` === chosenFilter)
+    (chosenFilter.startsWith("category:") &&
+      !listReceipts.some((r) => `category:${r.category}` === chosenFilter)) ||
+    (chosenFilter === "review" && search.active && reviewCount === 0)
       ? "all"
       : chosenFilter;
 
   const visibleReceipts = useMemo(() => {
     if (filter === "review") {
-      return receipts.filter((r) => r.status === "pending_review");
+      return listReceipts.filter((r) => r.status === "pending_review");
     }
     if (filter.startsWith("category:")) {
       const key = filter.slice("category:".length);
-      return receipts.filter((r) => r.category === key);
+      return listReceipts.filter((r) => r.category === key);
     }
-    return receipts;
-  }, [receipts, filter]);
+    return listReceipts;
+  }, [listReceipts, filter]);
 
   // Today's month in the user's own calendar, known only in the browser: the
   // server renders in UTC, so around midnight on the 1st it would name (and
@@ -299,6 +331,18 @@ export function Dashboard({
     const totals = formatLines(mergeLines(own, rest, baseCurrency));
     return { baseCurrency, count, verified, periods, selected, totals };
   }, [receipts, homeCurrency, today, period, older]);
+
+  // The search's period menu: only months that have receipts (the total
+  // card also offers this month when it has none).
+  const searchMonths = useMemo(() => {
+    if (!stats.periods) return [];
+    const used = new Set(Object.keys(older?.months ?? {}));
+    for (const r of receipts) {
+      const k = receiptMonthKey(r);
+      if (k) used.add(k);
+    }
+    return stats.periods.filter((p) => used.has(p.key)).map((p) => ({ key: p.key, label: p.short }));
+  }, [stats.periods, receipts, older]);
 
   const groupedReceipts = useMemo(() => {
     if (view === "category") {
@@ -395,6 +439,18 @@ export function Dashboard({
               )}
             </div>
 
+            {searchable ? (
+              <>
+                <ReceiptSearchBar search={search} months={searchMonths} inputRef={searchInputRef} />
+                <ReceiptSearchStatus
+                  search={search}
+                  shown={listReceipts.length}
+                  statusRef={searchStatusRef}
+                  onCleared={() => searchInputRef.current?.focus()}
+                />
+              </>
+            ) : null}
+
             <ViewToggle view={view} onChange={setView} />
 
             <div
@@ -406,7 +462,7 @@ export function Dashboard({
                 active={filter === "all"}
                 onClick={() => setFilter("all")}
                 label="All"
-                count={receipts.length}
+                count={listReceipts.length}
               />
               {reviewCount > 0 ? (
                 <FilterChip
@@ -450,6 +506,10 @@ export function Dashboard({
               </p>
             ) : null}
 
+            <div
+              aria-busy={search.loading || undefined}
+              className={search.loading ? "opacity-60 transition-opacity" : "transition-opacity"}
+            >
             {groupedReceipts.map(({ label, items, total }) => (
               <section key={label} className="mb-5">
                 <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 type-micro text-[var(--ink-muted)]">
@@ -484,6 +544,24 @@ export function Dashboard({
                 </div>
               </section>
             ))}
+            </div>
+
+            {search.active && search.results?.hasMore ? (
+              <button
+                ref={showMoreRef}
+                type="button"
+                onClick={() => {
+                  if (search.loading) return;
+                  showMorePressed.current = true;
+                  search.loadMore();
+                }}
+                // Stays focusable while loading, so focus isn't dropped.
+                aria-disabled={search.loading || undefined}
+                className="mx-auto flex h-11 items-center rounded-[10px] border border-[var(--hairline)] bg-card px-4 text-[15px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:text-[var(--ink-muted)]"
+              >
+                {search.loading ? "Loading…" : "Show more"}
+              </button>
+            ) : null}
           </div>
         )}
       </div>
@@ -529,7 +607,13 @@ export function Dashboard({
         // The live row (after a refresh or an optimistic change), so Send for
         // approval or an edit shows in the open sheet; the copy saved on open
         // only until the list has it.
-        receipt={openReceipt ? (allReceipts.find((r) => r.id === openReceipt.id) ?? openReceipt) : null}
+        receipt={
+          openReceipt
+            ? (allReceipts.find((r) => r.id === openReceipt.id) ??
+              search.results?.receipts.find((r) => r.id === openReceipt.id) ??
+              openReceipt)
+            : null
+        }
         onChangeAction={changeReceipt}
         onOpenChange={(open) => {
           if (!open) setOpenReceipt(null);

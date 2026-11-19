@@ -59,6 +59,8 @@ const CaptureSchema = z
     seller_org_number: OrgNumberSchema.optional(),
     merchant_vat_number: VatNumberSchema.optional(),
     payment_method: PaymentMethodSchema.optional(),
+    // Read by OCR from a masked card number; exactly four digits or nothing.
+    card_last_four: z.string().regex(/^\d{4}$/, "Card digits must be 4 digits").optional(),
   })
   .refine((d) => !taxExceedsTotal(d.tax_amount, d.amount), {
     message: "VAT can't be more than the total",
@@ -130,6 +132,7 @@ export async function POST(request: NextRequest) {
     seller_org_number: optionalString(form.get("seller_org_number")),
     merchant_vat_number: optionalString(form.get("merchant_vat_number")),
     payment_method: optionalString(form.get("payment_method")),
+    card_last_four: optionalString(form.get("card_last_four")),
   });
 
   if (!parsed.success) {
@@ -263,6 +266,7 @@ export async function POST(request: NextRequest) {
       // VAT would contradict the receipt.
       vat_lines: data.tax_amount != null ? (vatLines ?? null) : null,
       payment_method: data.payment_method ?? null,
+      card_last_four: data.card_last_four ?? null,
       image_url: uploadedPath,
       image_captured_at: uploadedPath ? new Date().toISOString() : null,
       items: items ?? null,
@@ -284,7 +288,8 @@ export async function POST(request: NextRequest) {
         .remove([uploadedPath])
         .catch(() => {});
     }
-    console.error("[/api/capture] insert failed:", insertError);
+    // The code only: a constraint error's details can echo the row.
+    console.error("[/api/capture] insert failed:", insertError?.code);
     return NextResponse.json(
       { error: "Couldn't save the receipt. Please try again." },
       { status: 500 }

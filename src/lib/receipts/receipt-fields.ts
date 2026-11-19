@@ -105,12 +105,15 @@ export function usableVatLines(raw: unknown): UsableVatLine[] | undefined {
 }
 
 // Free text ("Card", "Swish", "Amex ending 1234"…), kept short so it fits
-// one line on the PDF.
+// one line on the PDF. Anything that could be a card number (7+ digits,
+// spaces or dashes inside) is masked, as safePaymentMethod() does for OCR:
+// a typed or pre-filled "VISA 4111 1111 1111 1111" never reaches the row.
 export const PaymentMethodSchema = z
   .string()
   .trim()
   .min(1)
-  .max(50, "Payment can be at most 50 characters");
+  .max(50, "Payment can be at most 50 characters")
+  .transform((v) => v.replace(/\d(?:[ -]?\d){6,}/g, "•••"));
 
 // Offered as suggestions in the forms; any other short text is accepted.
 export const PAYMENT_METHOD_SUGGESTIONS = [

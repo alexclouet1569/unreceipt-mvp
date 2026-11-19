@@ -67,6 +67,8 @@ const PatchSchema = z.object({
   tax_amount: TaxAmountSchema.nullable().optional(),
   tax_rate: TaxRateSchema.nullable().optional(),
   payment_method: PaymentMethodSchema.nullable().optional(),
+  // The card's last four digits; null removes a misread.
+  card_last_four: z.string().trim().regex(/^\d{4}$/, "Card digits must be 4 digits").nullable().optional(),
   items: ReceiptItemsSchema.nullable().optional(),
   seller_org_number: OrgNumberSchema.nullable().optional(),
   merchant_vat_number: VatNumberSchema.nullable().optional(),
@@ -199,6 +201,7 @@ export async function PATCH(
   if (patch.payment_method !== undefined) {
     update.payment_method = patch.payment_method;
   }
+  if (patch.card_last_four !== undefined) update.card_last_four = patch.card_last_four;
   if (patch.items !== undefined) {
     update.items = patch.items && patch.items.length > 0 ? patch.items : null;
   }

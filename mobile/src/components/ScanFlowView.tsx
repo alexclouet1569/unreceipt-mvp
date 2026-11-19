@@ -345,7 +345,9 @@ function Reading({
         ? null
         : v.kind === "reading" && total > 1 && v.done > 0
           ? fill(s.scan.readingProgress, { done: v.done, total })
-          : s.scan.readingSub;
+          : flow.cropped
+            ? s.scan.readingCropped
+            : s.scan.readingSub;
   // Focus once; later changes are announced below rather than read twice.
   const titleRef = useFocusOnMount([]);
   // iOS has no live regions: say what changed (progress, waiting, stuck).

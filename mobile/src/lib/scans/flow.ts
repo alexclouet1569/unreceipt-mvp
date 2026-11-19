@@ -14,7 +14,8 @@ export type DraftScan = { id: string; fileUri: string };
 
 export type ScanFlow =
   | { phase: "review"; drafts: DraftScan[] }
-  | { phase: "reading"; ids: string[]; images: string[] };
+  // `cropped`: the camera photo was cropped to the receipt (modules/receipt-crop).
+  | { phase: "reading"; ids: string[]; images: string[]; cropped?: boolean };
 
 /** What the reading screen shows for the scans it follows. */
 export type ReadingView =

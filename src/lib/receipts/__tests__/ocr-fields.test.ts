@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ATTACHMENT_CONFIDENCE_CAP, fieldsFromOcr } from "@/lib/receipts/ocr-fields";
+import type { OcrResult } from "@/lib/ocr";
+import { ATTACHMENT_CONFIDENCE_CAP, clientSafeOcr, fieldsFromOcr, safeCardLastFour } from "@/lib/receipts/ocr-fields";
 
 describe("fieldsFromOcr", () => {
   it("maps a full answer and caps the confidence below the review threshold", () => {
@@ -63,5 +64,39 @@ describe("fieldsFromOcr", () => {
     expect(fields).toMatchObject({ category: null, tax_amount: null });
     const split = fieldsFromOcr({ merchant: "X", amount: 125, receipt_date: "2026-11-02", currency: "SEK", tax_amount: 25, vat_lines: [{ rate: 25, vat: 20 }] });
     expect(split?.vat_lines).toBeNull();
+  });
+
+  it("keeps the card's last four digits read from the photo", () => {
+    const fields = fieldsFromOcr({
+      merchant: "Circle K",
+      amount: 642.5,
+      currency: "SEK",
+      receipt_date: "2026-11-02",
+      payment_method: "Visa",
+      card_last_four: "4421",
+    });
+    expect(fields?.card_last_four).toBe("4421");
+  });
+});
+
+describe("safeCardLastFour", () => {
+  it("accepts exactly four digits and nothing else", () => {
+    expect(safeCardLastFour("4421")).toBe("4421");
+    expect(safeCardLastFour(" 0042 ")).toBe("0042");
+    for (const bad of ["123", "12345", "4111111111111111", "****1234", "12a4", "", 1234, null, undefined]) {
+      expect(safeCardLastFour(bad)).toBeNull();
+    }
+  });
+});
+
+describe("clientSafeOcr", () => {
+  it("never sends a card number to the browser", () => {
+    expect(clientSafeOcr({ merchant: "ICA", payment_method: "VISA 4111 1111 1111 1111", card_last_four: "4111111111111111" })).toEqual({
+      merchant: "ICA",
+      payment_method: "VISA •••",
+    });
+    expect(clientSafeOcr({ payment_method: "Card", card_last_four: "4421" })).toEqual({ payment_method: "Card", card_last_four: "4421" });
+    const plain: OcrResult = { merchant: "ICA" };
+    expect(clientSafeOcr(plain)).toEqual({ merchant: "ICA" });
   });
 });
