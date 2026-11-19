@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AUDIENCE_COPY, type AudienceId } from "@/app/_audience-copy";
@@ -301,6 +301,17 @@ describe("Organization sameAs", () => {
       expect(org.sameAs).toEqual([...SAME_AS]);
       for (const url of SAME_AS) expect(url).toMatch(/^https:\/\/[^\s]+$/);
     }
+  });
+});
+
+describe("LinkedIn company page", () => {
+  it("names the public LinkedIn page as the same company, and links it from the footer", () => {
+    const org = organizationNode() as { sameAs?: string[] };
+    expect(org.sameAs).toContain("https://www.linkedin.com/company/unreceipt/");
+    // The admin's own view must never be published.
+    for (const url of SAME_AS) expect(url).not.toMatch(/viewAsMember|\/home\b/);
+    const chrome = readFileSync(join(process.cwd(), "src/app/_site-chrome.tsx"), "utf8");
+    expect(chrome).toContain("LINKEDIN_URL");
   });
 });
 
