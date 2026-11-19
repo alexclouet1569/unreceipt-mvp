@@ -354,4 +354,60 @@ describe("POST /api/demo-request", () => {
     expect((await demo.json()).fields).toEqual(["employees", "bookkeeping", "hasAccountant"]);
     expect(mocks.insert).not.toHaveBeenCalled();
   });
+
+  it("stores a contact-page message with its reason and no company", async () => {
+    const res = await post({
+      kind: "contact",
+      name: "Jonas Ek",
+      email: "Jonas@Example.se",
+      topic: "support",
+      message: "I can't find my export.",
+      // The contact page sends none of these; a crafted body is ignored.
+      company: "Ek AB",
+      phone: "+46 70 123 45 67",
+      employees: "6-15",
+      hasAccountant: true,
+      website: "",
+      locale: "sv",
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.insert).toHaveBeenCalledWith({
+      kind: "contact",
+      locale: "sv",
+      name: "Jonas Ek",
+      company: null,
+      topic: "support",
+      email: "jonas@example.se",
+      phone: null,
+      employees: null,
+      bookkeeping: null,
+      has_accountant: null,
+      message: "I can't find my export.",
+    });
+    const founder = sentEmails().find((e) => e.to === "founder@example.com")!;
+    expect(founder.reply_to).toBe("jonas@example.se");
+    expect(founder.subject).toBe("Contact: Help with an account · Jonas Ek");
+    expect(founder.text).toContain("Reason: Help with an account");
+    expect(founder.text).not.toContain("Employees");
+    const confirmation = sentEmails().find((e) => e.to === "jonas@example.se")!;
+    expect(confirmation.subject).toBe("Vi har fått ditt meddelande");
+    expect(confirmation.html).not.toContain("cal.eu");
+    expect(confirmation.html).not.toContain("Jonas");
+  });
+
+  it("refuses a contact-page message without a reason or a message, and another request without a company", async () => {
+    const contact = await post({ kind: "contact", name: "Jonas", email: "jonas@example.se", topic: "", message: " ", locale: "en" });
+    expect(contact.status).toBe(400);
+    expect((await contact.json()).fields).toEqual(["topic", "message"]);
+
+    const unknownTopic = await post({ kind: "contact", name: "Jonas", email: "jonas@example.se", topic: "sales", message: "Hi", locale: "en" });
+    expect(unknownTopic.status).toBe(400);
+    expect((await unknownTopic.json()).fields).toEqual(["topic"]);
+
+    const question = await post({ ...VALID, kind: "question", company: "" });
+    expect(question.status).toBe(400);
+    expect((await question.json()).fields).toEqual(["company"]);
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
 });

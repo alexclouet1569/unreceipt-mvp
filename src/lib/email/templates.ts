@@ -1044,9 +1044,13 @@ export function approvalDecisionEmail(opts: {
 // ---------------------------------------------------------------------------
 
 export type DemoRequestDetails = {
-  kind: "demo" | "question";
+  /** `contact`: the contact page (a reason and a message, no company). */
+  kind: "demo" | "question" | "contact";
   name: string;
-  company: string;
+  /** Always set for a demo or another request; optional on the contact page. */
+  company: string | null;
+  /** The contact page's reason, as the founder reads it; null otherwise. */
+  topic?: string | null;
   email: string;
   phone: string | null;
   /** Always set for a demo request; may be null for another request. */
@@ -1071,21 +1075,34 @@ function subjectPart(value: string, max: number): string {
  */
 export function demoRequestFounderEmail(r: DemoRequestDetails): EmailContent {
   const demo = r.kind === "demo";
+  const contact = r.kind === "contact";
+  const topic = r.topic ?? "Something else";
   const subject = demo
-    ? `Demo request: ${subjectPart(r.company, 60)}${r.employees ? ` (${r.employees} employees)` : ""}`
-    : `Request: ${subjectPart(r.company, 60)}`;
-  const title = demo ? "New demo request" : "New request";
-  const rows: [string, string][] = [
-    ["Asked for", demo ? "A demo" : "Something else (see the message)"],
-    ["Name", r.name],
-    ["Company", r.company],
-    ["Email", r.email],
-    ["Phone", r.phone ?? "—"],
-    ["Employees", r.employees ?? "—"],
-    ["Bookkeeping", r.bookkeeping ?? "—"],
-    ["Has an accountant", r.hasAccountant === null ? "—" : r.hasAccountant ? "Yes" : "No"],
-    ["Language", LANGUAGE_NAMES[r.locale]],
-  ];
+    ? `Demo request: ${subjectPart(r.company ?? "", 60)}${r.employees ? ` (${r.employees} employees)` : ""}`
+    : contact
+      ? `Contact: ${subjectPart(topic, 40)} · ${subjectPart(r.name, 60)}`
+      : `Request: ${subjectPart(r.company ?? "", 60)}`;
+  const title = demo ? "New demo request" : contact ? "New message from the contact page" : "New request";
+  // The contact page asks only for a name, an email, a reason and a message:
+  // no empty company-question rows.
+  const rows: [string, string][] = contact
+    ? [
+        ["Reason", topic],
+        ["Name", r.name],
+        ["Email", r.email],
+        ["Language", LANGUAGE_NAMES[r.locale]],
+      ]
+    : [
+        ["Asked for", demo ? "A demo" : "Something else (see the message)"],
+        ["Name", r.name],
+        ["Company", r.company ?? "—"],
+        ["Email", r.email],
+        ["Phone", r.phone ?? "—"],
+        ["Employees", r.employees ?? "—"],
+        ["Bookkeeping", r.bookkeeping ?? "—"],
+        ["Has an accountant", r.hasAccountant === null ? "—" : r.hasAccountant ? "Yes" : "No"],
+        ["Language", LANGUAGE_NAMES[r.locale]],
+      ];
   const table = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
 ${rows
   .map(
@@ -1117,7 +1134,9 @@ ${rows
       site: null,
       preheader: demo
         ? `${r.name} · ${r.employees ?? "?"} employees · ${r.bookkeeping ?? "?"}`
-        : `${r.name} · ${r.company}`,
+        : contact
+          ? `${r.name} · ${topic}`
+          : `${r.name} · ${r.company ?? ""}`,
       bodyHtml,
       footerHtml: "Sent when someone sends the contact form on unreceipt.com. Only you receive this.",
     }),
@@ -1196,12 +1215,15 @@ const DEMO_CONFIRMATION_COPY = {
  */
 export function demoRequestConfirmationEmail(opts: {
   locale: "en" | "sv" | "fr";
-  /** A demo request offers the booking link; another request doesn't. */
-  kind?: "demo" | "question";
+  /**
+   * A demo request offers the booking link; another request and a message
+   * from the contact page don't (they get the same words).
+   */
+  kind?: "demo" | "question" | "contact";
   bookingUrl: string | null;
   canReply: boolean;
 }): EmailContent {
-  const kind = opts.kind ?? "demo";
+  const kind = opts.kind === "contact" ? "question" : (opts.kind ?? "demo");
   const t = { ...DEMO_CONFIRMATION_COPY[opts.locale], ...DEMO_CONFIRMATION_COPY[opts.locale][kind] };
   const bookingUrl = kind === "demo" ? opts.bookingUrl : null;
   const site: SiteLink = { locale: opts.locale, campaign: "demo_request_confirmation" };

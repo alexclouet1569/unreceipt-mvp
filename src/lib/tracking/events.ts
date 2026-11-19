@@ -22,6 +22,8 @@ export const FUNNEL_EVENTS = [
   "demo_tour_start",
   // Sent by the demo request form once the request is saved.
   "demo_request_sent",
+  // Sent by the contact page's form once the message is saved.
+  "contact_sent",
   "demo_tour_finished",
 ] as const;
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];

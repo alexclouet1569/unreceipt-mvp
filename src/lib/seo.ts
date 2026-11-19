@@ -356,8 +356,11 @@ export function demoPageJsonLd(opts: {
   name: string;
   description: string;
   breadcrumb: string;
+  /** The demo request page (default) or the contact page: both ContactPages. */
+  page?: "bookDemo" | "contact";
 }) {
-  const path = pagePath("bookDemo", opts.locale);
+  const page = opts.page ?? "bookDemo";
+  const path = pagePath(page, opts.locale);
   const url = absoluteUrl(path);
   return {
     "@context": "https://schema.org",
@@ -373,7 +376,7 @@ export function demoPageJsonLd(opts: {
         inLanguage: opts.locale,
         isPartOf: { "@id": WEBSITE_ID },
         about: { "@id": SOFTWARE_ID },
-        dateModified: MARKETING_PAGES.bookDemo.lastModified,
+        dateModified: MARKETING_PAGES[page].lastModified,
       },
       breadcrumbNode(opts.locale, [{ name: opts.breadcrumb, path }]),
     ],

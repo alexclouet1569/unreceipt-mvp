@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { NextRequest, NextResponse } from "next/server";
-import { BOOKKEEPING_NAMES, demoBookingUrl } from "@/lib/demo-request";
+import { BOOKKEEPING_NAMES, CONTACT_TOPIC_NAMES, demoBookingUrl } from "@/lib/demo-request";
 import { demoRequestSchema } from "@/lib/demo-request-schema";
 import { normalizeAddress } from "@/lib/email-address";
 import { founderReplyTo, sendEmail } from "@/lib/email/send";
@@ -13,7 +13,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 // POST /api/demo-request — the contact form on the demo request pages
 // (/book-demo, /sv/boka-demo, /fr/demander-une-demo) and at the end of the
 // home and audience pages (apex host): a demo request or another request
-// (`kind`). Stores the request in public.demo_requests (RLS on, no policies:
+// (`kind`), and the contact page (/contact, /sv/kontakt, /fr/contact: kind
+// `contact`, with a topic and no company). Stores the request in public.demo_requests (RLS on, no policies:
 // service role only), emails the founder at once with Reply-To the visitor,
 // and sends the visitor a fixed confirmation. Only a failed insert is a 5xx:
 // a failed email is reported by sendEmail() and the request still counts.
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest) {
     locale: r.locale,
     name: r.name,
     company: r.company,
+    // Only a contact-page message has a topic. Left out otherwise, so demo
+    // requests still save if the code ships before the 2026-11-19 column.
+    ...(r.topic ? { topic: r.topic } : {}),
     email: r.email,
     phone: r.phone,
     employees: r.employees,
@@ -111,6 +115,7 @@ export async function POST(request: NextRequest) {
         ...demoRequestFounderEmail({
           ...r,
           bookkeeping: r.bookkeeping ? BOOKKEEPING_NAMES[r.bookkeeping] : null,
+          topic: r.topic ? CONTACT_TOPIC_NAMES[r.topic] : null,
         }),
         replyTo: r.email,
         tag: "demo_request",

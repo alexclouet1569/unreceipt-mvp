@@ -498,15 +498,19 @@ export interface MailboxOAuthParked {
 }
 
 // One form sent on the demo request pages or at the end of the home and
-// audience pages (2026-11-17 block): a demo request, or another request.
-// Service role only; deleted after 12 months by the cleanup cron.
+// audience pages (2026-11-17 block): a demo request, or another request;
+// or on the contact page (2026-11-19 block: kind 'contact', with a topic and
+// no company). Service role only; deleted after 12 months by the cleanup cron.
 export interface DemoRequestRow {
   id: string;
   created_at: string;
-  kind: "demo" | "question";
+  kind: "demo" | "question" | "contact";
   locale: "en" | "sv" | "fr";
   name: string;
-  company: string;
+  /** Always set for a demo or another request; optional on the contact page. */
+  company: string | null;
+  /** Set for a contact-page message only. */
+  topic: "product" | "support" | "accountant" | "partnership" | "press" | "other" | null;
   email: string;
   phone: string | null;
   /** Set for a demo request; may be null for another request. */

@@ -1,4 +1,5 @@
 import { AUDIENCE_COPY } from "@/app/_audience-copy";
+import { CONTACT_COPY } from "@/app/_contact-copy";
 import { DEMO_REQUEST_COPY } from "@/app/_demo-request-copy";
 import { LANDING_COPY } from "@/app/_landing-copy";
 import { getAbout } from "@/lib/about";
@@ -47,6 +48,10 @@ function text(page: MarketingPageId, locale: Locale): { eyebrow: string; title: 
     case "bookDemo": {
       const h = DEMO_REQUEST_COPY[locale].hero;
       return { eyebrow: h.eyebrow, title: `${h.title} ${h.accent}` };
+    }
+    case "contact": {
+      const h = CONTACT_COPY[locale].hero;
+      return { eyebrow: h.eyebrow, title: h.title };
     }
     case "guideRetention":
     case "guidePaper":

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-11-17";
+const LAST_UPDATED = "2026-11-19";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -112,7 +112,8 @@ export default function PrivacyPage() {
               at the end of our home and audience pages): whether you want a
               demo or something else, your name, company, email, phone
               (optional), number of employees, bookkeeping software, whether
-              you have an accountant, and your message.
+              you have an accountant, and your message. On the contact page:
+              your name, email, why you&apos;re writing and your message.
             </li>
             <li>
               <strong>How you found us.</strong> When you create an account

@@ -1,6 +1,7 @@
 /**
  * The demo request form (/book-demo, /sv/boka-demo, /fr/demander-une-demo,
- * and at the end of the home and audience pages → POST /api/demo-request).
+ * and at the end of the home and audience pages) and the contact page
+ * (/contact, /sv/kontakt, /fr/contact), both → POST /api/demo-request.
  * Pure data and helpers, safe to import from the client form; the zod
  * schema lives in demo-request-schema.ts so the browser doesn't load zod.
  */
@@ -12,6 +13,27 @@
  */
 export const REQUEST_KINDS = ["demo", "question"] as const;
 export type RequestKind = (typeof REQUEST_KINDS)[number];
+
+/**
+ * Every kind the route stores: the demo form's two, plus `contact` from the
+ * contact page (name, email, a reason and a message; no company needed).
+ */
+export const STORED_REQUEST_KINDS = [...REQUEST_KINDS, "contact"] as const;
+export type StoredRequestKind = (typeof STORED_REQUEST_KINDS)[number];
+
+/** Why someone writes from the contact page. Stored as is. */
+export const CONTACT_TOPICS = ["product", "support", "accountant", "partnership", "press", "other"] as const;
+export type ContactTopic = (typeof CONTACT_TOPICS)[number];
+
+/** The founder's email reads them in English. */
+export const CONTACT_TOPIC_NAMES: Record<ContactTopic, string> = {
+  product: "Question about UnReceipt",
+  support: "Help with an account",
+  accountant: "Accounting firm",
+  partnership: "Partnership",
+  press: "Press",
+  other: "Something else",
+};
 
 /** Number of employees, as the form offers it. Stored as is. */
 export const EMPLOYEE_BANDS = ["1", "2-5", "6-15", "16-50", "50+"] as const;
