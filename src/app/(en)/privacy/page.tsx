@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-11-17";
+const LAST_UPDATED = "2026-11-19";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -107,12 +107,13 @@ export default function PrivacyPage() {
               currency. You can change the currency in Settings.
             </li>
             <li>
-              <strong>A demo request or another request, if you send one.</strong>{" "}
-              In the contact form (on the &ldquo;Book a demo&rdquo; page and
-              at the end of our home and audience pages): whether you want a
-              demo or something else, your name, company, email, phone
-              (optional), number of employees, bookkeeping software, whether
-              you have an accountant, and your message.
+              <strong>A demo request or a message, if you send one.</strong>{" "}
+              In the demo form (on the &ldquo;Book a demo&rdquo; page and at
+              the end of our home and audience pages): your name, company,
+              email, phone (optional), number of employees, bookkeeping
+              software, whether you have an accountant, and your message
+              (optional). On the contact page: your name, email, why
+              you&apos;re writing and your message.
             </li>
             <li>
               <strong>How you found us.</strong> When you create an account

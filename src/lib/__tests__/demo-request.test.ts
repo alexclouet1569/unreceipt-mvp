@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { DEMO_REQUEST_COPY } from "@/app/_demo-request-copy";
 import { demoBookingUrl, DEMO_REQUEST_LOCALES } from "@/lib/demo-request";
 import { demoRequestSchema } from "@/lib/demo-request-schema";
-import { demoRequestLang, demoRequestPath } from "@/lib/marketing-pages";
+import { CONTACT_COPY } from "@/app/_contact-copy";
+import { demoRequestLang, demoRequestPath, pagePath } from "@/lib/marketing-pages";
 
 describe("demoBookingUrl", () => {
   const prefill = { name: "Maja Berg", email: "maja@example.se" };
@@ -86,10 +87,58 @@ describe("demo request page", () => {
   });
 });
 
+describe("contact page", () => {
+  const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
+
+  it("is where the footer's Contact leads, in each language", () => {
+    expect(pagePath("contact", "en")).toBe("/contact");
+    expect(pagePath("contact", "sv")).toBe("/sv/kontakt");
+    expect(pagePath("contact", "fr")).toBe("/fr/contact");
+    expect(read("src/app/_site-chrome.tsx")).toContain('href: pagePath("contact", locale)');
+  });
+
+  it("asks only for a name, an email, a reason and a message", () => {
+    const parsed = demoRequestSchema.parse({
+      kind: "contact",
+      name: "Jonas",
+      email: "jonas@example.se",
+      topic: "press",
+      message: "Hello",
+      locale: "en",
+    });
+    expect(parsed).toMatchObject({ company: null, topic: "press", employees: null, hasAccountant: null });
+  });
+
+  it("drops a topic sent with the other kinds", () => {
+    const parsed = demoRequestSchema.parse({
+      kind: "question",
+      name: "Jonas",
+      company: "Ek AB",
+      email: "jonas@example.se",
+      topic: "press",
+      message: "Hello",
+      locale: "en",
+    });
+    expect(parsed.topic).toBeNull();
+  });
+
+  it("keeps search titles and descriptions to a length Google shows", () => {
+    for (const locale of DEMO_REQUEST_LOCALES) {
+      const { title, description } = CONTACT_COPY[locale].meta;
+      expect(title.length, title).toBeLessThanOrEqual(80);
+      expect(description.length, description).toBeLessThanOrEqual(220);
+    }
+  });
+
+  it("gives the form one language's copy as props, never the module of all three", () => {
+    expect(read("src/app/_contact-form.tsx")).not.toMatch(/import \{[^}]*\bCONTACT_COPY\b/);
+  });
+});
+
 describe("demo CTAs", () => {
   // Every "Book a demo" goes to the demo page: a mailto: link does nothing
   // for webmail and phone users, and can't be measured. The footer's
-  // support "Contact" is not a demo CTA and comes from SUPPORT_MAILTO.
+  // "Contact" goes to the contact page's form for the same reason.
   const files = [
     "src/app/_audience-page.tsx",
     "src/app/_audience-copy.ts",
@@ -97,6 +146,10 @@ describe("demo CTAs", () => {
     "src/app/_about-page.tsx",
     "src/app/_landing.tsx",
     "src/app/_demo-request-page.tsx",
+    "src/app/_contact-page.tsx",
+    "src/app/_contact-form.tsx",
+    "src/app/_contact-copy.ts",
+    "src/lib/support-contact.ts",
     "src/app/demo/_tour.tsx",
     "src/app/demo/company/_company-tour.tsx",
     "src/app/demo/accountant/_accountant-tour.tsx",
@@ -126,12 +179,17 @@ describe("the contact form at the end of the pages", () => {
     }
   });
 
-  it("asks for a demo by default and offers another request", () => {
+  it("asks for a demo only, and sends anything else to the contact page", () => {
+    const form = read("src/app/_demo-request-form.tsx");
+    expect(form).toContain('kind: "demo"');
+    expect(form).toContain('pagePath("contact", locale)');
+    expect(form).not.toContain('name="kind"');
     for (const locale of DEMO_REQUEST_LOCALES) {
-      const kinds = DEMO_REQUEST_COPY[locale].form.kinds;
-      expect(kinds.demo.length).toBeGreaterThan(0);
-      expect(kinds.question.length).toBeGreaterThan(0);
+      const { contactLead, contactLink } = DEMO_REQUEST_COPY[locale].form;
+      expect(contactLead.length).toBeGreaterThan(0);
+      expect(contactLink.length).toBeGreaterThan(0);
     }
+    // The route still takes a demo with no kind (older clients).
     const parsed = demoRequestSchema.safeParse({
       name: "Maja",
       company: "Nordljus AB",

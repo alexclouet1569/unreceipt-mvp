@@ -1,9 +1,11 @@
-import type { BookkeepingOption, DemoRequestLocale, EmployeeBand, RequestKind } from "@/lib/demo-request";
+import type { BookkeepingOption, DemoRequestLocale, EmployeeBand } from "@/lib/demo-request";
 
 /**
  * Every word on the demo request page (/book-demo, /sv/boka-demo,
- * /fr/demander-une-demo), the contact block at the end of the home and
- * audience pages, the form they share and its thank-you state. Pure data;
+ * /fr/demander-une-demo), the demo block at the end of the home and
+ * audience pages, the demo form they share and its thank-you state. Any
+ * other request goes to the contact page (_contact-copy.ts) since
+ * 2026-11-19: the form links there. Pure data;
  * client components get one language's copy as props, never this module.
  * Honest by rule: the team feature is in pilot, there is no bookkeeping
  * integration, and nothing here quotes a customer we don't have.
@@ -19,13 +21,13 @@ export type DemoRequestCopy = {
     items: [{ title: string; desc: string }, { title: string; desc: string }];
     selfServe: { title: string; desc: string; signupPilot: string; signupPaid: string };
   };
-  /** The contact block at the end of the home and audience pages. */
+  /** The demo block at the end of the home and audience pages. */
   contact: { eyebrow: string; title: string; lead: string; signupLead: string };
   form: {
     title: string;
-    /** "What can we help with?" and its two answers. */
-    kindLegend: string;
-    kinds: Record<RequestKind, string>;
+    /** "Just a question?" and its link to the contact page, under the title. */
+    contactLead: string;
+    contactLink: string;
     name: string;
     company: string;
     email: string;
@@ -40,9 +42,7 @@ export type DemoRequestCopy = {
     yes: string;
     no: string;
     message: string;
-    messagePlaceholders: Record<RequestKind, string>;
-    /** After "(…)" next to a field that is optional for another request. */
-    optionalForQuestion: string;
+    messagePlaceholder: string;
     submit: string;
     sending: string;
     privacy: string;
@@ -56,9 +56,6 @@ export type DemoRequestCopy = {
   };
   sent: {
     title: string;
-    /** After another request (no booking link). */
-    titleQuestion: string;
-    questionText: string;
     text: string;
     bookLead: string;
     book: string;
@@ -112,14 +109,14 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
     },
     contact: {
       eyebrow: "Talk to us",
-      title: "Book a demo or send us a question",
-      lead: "Tell us a little about your company. We reply within one working day, and a demo takes 20 minutes on a video call.",
+      title: "See UnReceipt in a 20-minute demo",
+      lead: "Tell us a little about your company. We reply within one working day to find a time, and the demo takes 20 minutes on a video call.",
       signupLead: "Rather start on your own?",
     },
     form: {
-      title: "Contact us",
-      kindLegend: "What can we help with?",
-      kinds: { demo: "Book a demo", question: "Another request" },
+      title: "Book a demo",
+      contactLead: "Just a question?",
+      contactLink: "Write to us",
       name: "Your name",
       company: "Company",
       email: "Work email",
@@ -134,11 +131,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       yes: "Yes",
       no: "No",
       message: "Message",
-      messagePlaceholders: {
-        demo: "What would you most like to see?",
-        question: "Your question, or what you need from us",
-      },
-      optionalForQuestion: "optional for another request",
+      messagePlaceholder: "What would you most like to see?",
       submit: "Send",
       sending: "Sending…",
       privacy: "We use these details only to reply to you, and delete them after 12 months.",
@@ -161,8 +154,6 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
     },
     sent: {
       title: "Thanks, we got your request",
-      titleQuestion: "Thanks, we got your message",
-      questionText: "We'll reply by email within one working day.",
       text: "You'll get a confirmation by email.",
       bookLead: "Want to pick a time right away?",
       book: "Choose a time",
@@ -213,15 +204,15 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       },
     },
     contact: {
-      eyebrow: "Kontakta oss",
-      title: "Boka en demo eller skicka en fråga",
-      lead: "Berätta lite om företaget. Vi svarar inom en arbetsdag, och en demo tar 20 minuter i ett videomöte.",
+      eyebrow: "Prata med oss",
+      title: "Se UnReceipt i en demo på 20 minuter",
+      lead: "Berätta lite om företaget. Vi svarar inom en arbetsdag för att hitta en tid, och demon tar 20 minuter i ett videomöte.",
       signupLead: "Vill du hellre komma igång själv?",
     },
     form: {
-      title: "Kontakta oss",
-      kindLegend: "Vad kan vi hjälpa till med?",
-      kinds: { demo: "Boka en demo", question: "Något annat" },
+      title: "Boka en demo",
+      contactLead: "Har du bara en fråga?",
+      contactLink: "Skriv till oss",
       name: "Ditt namn",
       company: "Företag",
       email: "E-post (jobbet)",
@@ -236,11 +227,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       yes: "Ja",
       no: "Nej",
       message: "Meddelande",
-      messagePlaceholders: {
-        demo: "Vad vill du helst se?",
-        question: "Din fråga, eller vad du behöver av oss",
-      },
-      optionalForQuestion: "valfritt för andra frågor",
+      messagePlaceholder: "Vad vill du helst se?",
       submit: "Skicka",
       sending: "Skickar…",
       privacy: "Vi använder uppgifterna bara för att svara dig, och raderar dem efter 12 månader.",
@@ -263,8 +250,6 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
     },
     sent: {
       title: "Tack, vi har fått din förfrågan",
-      titleQuestion: "Tack, vi har fått ditt meddelande",
-      questionText: "Vi svarar via e-post inom en arbetsdag.",
       text: "Du får en bekräftelse via e-post.",
       bookLead: "Vill du välja en tid direkt?",
       book: "Välj en tid",
@@ -315,15 +300,15 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       },
     },
     contact: {
-      eyebrow: "Nous contacter",
-      title: "Demander une démo ou nous poser une question",
-      lead: "Parlez-nous un peu de votre entreprise. Nous répondons sous un jour ouvré, et une démo dure 20 minutes en visioconférence.",
+      eyebrow: "Parlons-en",
+      title: "Découvrez UnReceipt en 20 minutes",
+      lead: "Parlez-nous un peu de votre entreprise. Nous répondons sous un jour ouvré pour convenir d’un créneau, et la démo dure 20 minutes en visioconférence.",
       signupLead: "Vous préférez commencer seul ?",
     },
     form: {
-      title: "Nous contacter",
-      kindLegend: "Comment pouvons-nous vous aider ?",
-      kinds: { demo: "Demander une démo", question: "Autre demande" },
+      title: "Demander une démo",
+      contactLead: "Juste une question ?",
+      contactLink: "Écrivez-nous",
       name: "Votre nom",
       company: "Entreprise",
       email: "E-mail professionnel",
@@ -338,11 +323,7 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
       yes: "Oui",
       no: "Non",
       message: "Message",
-      messagePlaceholders: {
-        demo: "Que souhaitez-vous voir en priorité ?",
-        question: "Votre question, ou ce dont vous avez besoin",
-      },
-      optionalForQuestion: "facultatif pour une autre demande",
+      messagePlaceholder: "Que souhaitez-vous voir en priorité ?",
       submit: "Envoyer",
       sending: "Envoi…",
       privacy: "Nous utilisons ces informations uniquement pour vous répondre, et les supprimons après 12 mois.",
@@ -365,8 +346,6 @@ export const DEMO_REQUEST_COPY: Record<DemoRequestLocale, DemoRequestCopy> = {
     },
     sent: {
       title: "Merci, nous avons reçu votre demande",
-      titleQuestion: "Merci, nous avons reçu votre message",
-      questionText: "Nous vous répondons par e-mail sous un jour ouvré.",
       text: "Vous recevrez une confirmation par e-mail.",
       bookLead: "Vous voulez choisir un créneau tout de suite ?",
       book: "Choisir un créneau",

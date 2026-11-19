@@ -1,10 +1,10 @@
 /**
- * The support address shown to visitors (footer "Contact", fact sheets).
- * Demo requests never use it: every "Book a demo" goes to the demo request
- * page (`demoRequestPath()`), which a test enforces. Client-safe.
+ * The support address, written out in text (fact sheets, llms files). The
+ * marketing site never links it: the footer's "Contact" goes to
+ * the contact page and every "Book a demo" to the demo request page, which
+ * a test enforces. Client-safe.
  */
 export const SUPPORT_EMAIL = "support@unreceipt.com";
-export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 
 /**
  * UnReceipt's LinkedIn company page (public address, without the admin's

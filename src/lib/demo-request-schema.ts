@@ -1,10 +1,11 @@
 import { z } from "zod";
 import {
   BOOKKEEPING_OPTIONS,
+  CONTACT_TOPICS,
   DEMO_REQUEST_LIMITS as L,
   DEMO_REQUEST_LOCALES,
   EMPLOYEE_BANDS,
-  REQUEST_KINDS,
+  STORED_REQUEST_KINDS,
 } from "./demo-request";
 
 // What POST /api/demo-request accepts. Every string is trimmed and capped
@@ -29,9 +30,13 @@ const WELL_FORMED = (v: string | null) => v === null || !/\p{Cs}/u.test(v);
 export const demoRequestSchema = z
   .object({
     // Older clients send no kind: they only asked for demos.
-    kind: z.enum(REQUEST_KINDS).default("demo"),
+    kind: z.enum(STORED_REQUEST_KINDS).default("demo"),
     name: z.string().trim().min(1).max(L.name).regex(ONE_LINE),
-    company: z.string().trim().min(1).max(L.company).regex(ONE_LINE),
+    // Required for a demo or another request (checked below); the contact
+    // page doesn't ask for it.
+    company: optional(L.company).refine((v) => v === null || ONE_LINE.test(v), { message: "company" }),
+    // Why someone writes from the contact page; ignored for the other kinds.
+    topic: z.preprocess((v) => (v === "" ? undefined : v), z.enum(CONTACT_TOPICS).optional()),
     email: z.string().trim().toLowerCase().pipe(z.email().max(L.email)),
     phone: optional(L.phone).refine((v) => v === null || /^[0-9+(). -]{6,40}$/.test(v), {
       message: "phone",
@@ -52,7 +57,13 @@ export const demoRequestSchema = z
     website: z.string().max(500).optional(),
   })
   .superRefine((r, ctx) => {
-    if (r.kind === "demo") {
+    if (r.kind !== "contact" && !r.company) {
+      ctx.addIssue({ code: "custom", path: ["company"], message: "company" });
+    }
+    if (r.kind === "contact") {
+      if (!r.topic) ctx.addIssue({ code: "custom", path: ["topic"], message: "topic" });
+      if (!r.message) ctx.addIssue({ code: "custom", path: ["message"], message: "message" });
+    } else if (r.kind === "demo") {
       if (!r.employees) ctx.addIssue({ code: "custom", path: ["employees"], message: "employees" });
       if (!r.bookkeeping) ctx.addIssue({ code: "custom", path: ["bookkeeping"], message: "bookkeeping" });
       if (typeof r.hasAccountant !== "boolean") {
@@ -63,11 +74,19 @@ export const demoRequestSchema = z
       ctx.addIssue({ code: "custom", path: ["message"], message: "message" });
     }
   })
-  .transform((r) => ({
-    ...r,
-    employees: r.employees ?? null,
-    bookkeeping: r.bookkeeping ?? null,
-    hasAccountant: typeof r.hasAccountant === "boolean" ? r.hasAccountant : null,
-  }));
+  .transform((r) => {
+    // The contact page asks for none of the company details: keep the row to
+    // what it asked (a crafted body can't store more).
+    const contact = r.kind === "contact";
+    return {
+      ...r,
+      company: contact ? null : r.company,
+      phone: contact ? null : r.phone,
+      topic: contact ? (r.topic ?? null) : null,
+      employees: contact ? null : (r.employees ?? null),
+      bookkeeping: contact ? null : (r.bookkeeping ?? null),
+      hasAccountant: !contact && typeof r.hasAccountant === "boolean" ? r.hasAccountant : null,
+    };
+  });
 
 export type DemoRequestInput = z.infer<typeof demoRequestSchema>;

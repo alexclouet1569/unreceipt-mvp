@@ -2264,12 +2264,23 @@ ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_locale_
 ALTER TABLE public.demo_requests
   ADD CONSTRAINT demo_requests_locale_allowed CHECK (locale IN ('en', 'sv', 'fr'));
 -- A demo request carries the company questions; another request its message.
-ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_kind_fields;
-ALTER TABLE public.demo_requests
-  ADD CONSTRAINT demo_requests_kind_fields CHECK (
-    (kind = 'demo' AND employees IS NOT NULL AND bookkeeping IS NOT NULL AND has_accountant IS NOT NULL)
-    OR (kind = 'question' AND message IS NOT NULL)
-  );
+-- Added only when missing (edited 2026-11-19): the 2026-11-19 block replaces
+-- it to allow contact-page rows, and re-running this block must not put the
+-- two-kind version back over them.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'demo_requests_kind_fields'
+      AND conrelid = 'public.demo_requests'::regclass
+  ) THEN
+    ALTER TABLE public.demo_requests
+      ADD CONSTRAINT demo_requests_kind_fields CHECK (
+        (kind = 'demo' AND employees IS NOT NULL AND bookkeeping IS NOT NULL AND has_accountant IS NOT NULL)
+        OR (kind = 'question' AND message IS NOT NULL)
+      );
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS demo_requests_created_idx ON public.demo_requests(created_at);
 
@@ -2660,3 +2671,46 @@ REVOKE EXECUTE ON FUNCTION public.search_receipts(UUID, TEXT, NUMERIC, DATE, DAT
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.search_receipts(UUID, TEXT, NUMERIC, DATE, DATE, TIMESTAMPTZ, TIMESTAMPTZ, UUID, INTEGER)
   TO service_role;
+
+-- =============================================================================
+-- 2026-11-19 — The contact page (src/app/_contact-page.tsx)
+-- =============================================================================
+-- The footer's "Contact" used to be a mailto: link. It now opens a contact
+-- page (/contact, /sv/kontakt, /fr/contact) whose form asks only for a name,
+-- an email, a reason and a message, and goes to the same table through
+-- POST /api/demo-request as kind 'contact'. Such a row has a topic and
+-- nothing else the form didn't ask. Same rules as the rest of the table: service role only,
+-- deleted after 12 months.
+--
+-- Apply BEFORE deploying the code: until then every contact-page message
+-- fails (no topic column) and the visitor sees "Something went wrong".
+-- Demo requests and other requests keep working either way.
+
+ALTER TABLE public.demo_requests
+  ADD COLUMN IF NOT EXISTS topic TEXT;
+ALTER TABLE public.demo_requests ALTER COLUMN company DROP NOT NULL;
+
+-- The inline CHECK from CREATE TABLE ('demo', 'question') is replaced.
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_kind_check;
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_kind_allowed;
+ALTER TABLE public.demo_requests
+  ADD CONSTRAINT demo_requests_kind_allowed CHECK (kind IN ('demo', 'question', 'contact'));
+
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_topic_allowed;
+ALTER TABLE public.demo_requests
+  ADD CONSTRAINT demo_requests_topic_allowed CHECK (
+    topic IS NULL OR topic IN ('product', 'support', 'accountant', 'partnership', 'press', 'other')
+  );
+
+-- A demo request carries the company questions; another request its
+-- company and message; a contact message its topic and message only.
+ALTER TABLE public.demo_requests DROP CONSTRAINT IF EXISTS demo_requests_kind_fields;
+ALTER TABLE public.demo_requests
+  ADD CONSTRAINT demo_requests_kind_fields CHECK (
+    (kind = 'demo' AND company IS NOT NULL AND employees IS NOT NULL
+      AND bookkeeping IS NOT NULL AND has_accountant IS NOT NULL)
+    OR (kind = 'question' AND company IS NOT NULL AND message IS NOT NULL)
+    OR (kind = 'contact' AND topic IS NOT NULL AND message IS NOT NULL
+      AND company IS NULL AND phone IS NULL AND employees IS NULL
+      AND bookkeeping IS NULL AND has_accountant IS NULL)
+  );

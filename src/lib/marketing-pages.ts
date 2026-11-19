@@ -26,6 +26,7 @@ export type MarketingPageId =
   | "faq"
   | "guides"
   | "bookDemo"
+  | "contact"
   | "guideRetention"
   | "guidePaper"
   | "guideOutlays";
@@ -89,6 +90,13 @@ export const MARKETING_PAGES: Record<MarketingPageId, MarketingPage> = {
     translated: true,
     lastModified: "2026-11-18",
     priority: 0.8,
+  },
+  // The footer's "Contact": a short form (name, email, reason, message).
+  contact: {
+    paths: { en: "/contact", sv: "/sv/kontakt", fr: "/fr/contact" },
+    translated: true,
+    lastModified: "2026-11-19",
+    priority: 0.5,
   },
   guideRetention: {
     paths: {
