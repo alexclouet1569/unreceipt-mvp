@@ -21,6 +21,10 @@ It replaces the Capacitor shell (`ios/`, `capacitor.config.ts`, `native/`), whic
 
 Business rules stay on the server. The app shows what `/api/mobile/*` returns, so the website and the app can't disagree.
 
+## Native modules of our own
+
+`modules/` holds the app's own Expo modules, linked by Expo's autolinking like any package (`npx expo-modules-autolinking resolve --platform apple` lists them). `modules/receipt-crop` (Swift, Apple's Vision and Core Image) crops a camera photo to the receipt before it is sent; its JavaScript side (`index.ts`) returns the photo as taken when the module is missing (an update on an older build) or fails. Swift can't be compiled on Linux: a change there is only checked by the next EAS build, so try it on a phone from TestFlight (receipts on a table, crumpled, long, on white paper).
+
 ## Settings
 
 Three public values: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY` (the publishable key, the same one every browser gets). Cloud builds read them from `eas.json`. For `npx expo start` or `expo export` on a computer, put the same three lines in `mobile/.env` (git ignores `.env` files repo-wide). Nothing secret ever goes in the app.
@@ -103,6 +107,7 @@ Apple's reviewers (TestFlight external testing and the App Store) can't receive 
 7. **Offline:** Airplane mode, reopen: the saved list with a "You're offline" note.
 8. **Languages:** set the iPhone to Swedish or French (Settings → General → Language): the whole app follows.
 9. **Scan:** tap the green button. Apple's scanner opens, finds the receipt's edges and takes it by itself; scan two or three receipts in a row, then Save. Each shows at once with its picture and "Reading your receipt…", then turns into the receipt (a tick in the hand). Touch and hold the button (or the photo icon at the top) to pick photos instead. The first time, iOS asks for the camera with UnReceipt's sentence.
+9b. **Crop (since 2026-11-19, `modules/receipt-crop`):** tap the green button and photograph a receipt lying on a table: the reading screen shows only the receipt, straightened, with "Cropped to the receipt. Check that nothing is cut off…". Try a long receipt, a crumpled one, one on white paper, an A4 invoice, and two papers in one photo: nothing may be cut off (the amounts at the right edge, the seller's org.nr and VAT number at the top); when the edges aren't clear the photo must come through as taken. Say what you saw so the thresholds can be tuned.
 10. **Offline scan:** Airplane mode, scan a receipt: it says it's waiting and saved on the iPhone. Airplane mode off, back in the app: it's read.
 11. **Confirm:** open a receipt "To confirm", tap the amount, the date or the category to change it in the bottom sheet, then **Confirm receipt**. It leaves the "To confirm" section and the badge goes down.
 12. **Missing fields:** a receipt with a missing amount shows "Add" in red and a button "Add amount" that opens the right sheet.

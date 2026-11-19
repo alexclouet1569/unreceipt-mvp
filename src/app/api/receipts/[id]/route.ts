@@ -23,6 +23,7 @@
 import { isScanPath } from "@/lib/receipts/scans";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { maskCardNumbers } from "@/lib/receipts/card-numbers";
 import { getServerUser, getUserSupabase } from "@/lib/supabase-server";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { computeReceiptStatus } from "@/lib/receipts/status";
@@ -67,6 +68,8 @@ const PatchSchema = z.object({
   tax_amount: TaxAmountSchema.nullable().optional(),
   tax_rate: TaxRateSchema.nullable().optional(),
   payment_method: PaymentMethodSchema.nullable().optional(),
+  // The card's last four digits; null removes a misread.
+  card_last_four: z.string().trim().regex(/^\d{4}$/, "Card digits must be 4 digits").nullable().optional(),
   items: ReceiptItemsSchema.nullable().optional(),
   seller_org_number: OrgNumberSchema.nullable().optional(),
   merchant_vat_number: VatNumberSchema.nullable().optional(),
@@ -191,7 +194,7 @@ export async function PATCH(
     update.category = patch.category;
   }
   if (patch.notes !== undefined) {
-    update.notes = patch.notes?.trim() ? patch.notes.trim() : null;
+    update.notes = patch.notes?.trim() ? maskCardNumbers(patch.notes.trim()) : null;
   }
 
   if (patch.tax_amount !== undefined) update.tax_amount = patch.tax_amount;
@@ -199,6 +202,7 @@ export async function PATCH(
   if (patch.payment_method !== undefined) {
     update.payment_method = patch.payment_method;
   }
+  if (patch.card_last_four !== undefined) update.card_last_four = patch.card_last_four;
   if (patch.items !== undefined) {
     update.items = patch.items && patch.items.length > 0 ? patch.items : null;
   }

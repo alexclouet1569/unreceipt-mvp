@@ -2,6 +2,7 @@
 // (`Authorization: Bearer`, accepted by getServerUser() on the server).
 
 import Constants from "expo-constants";
+import { searchPath } from "./searchPath";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import type {
   ApprovalQueueItem,
@@ -216,6 +217,10 @@ export const getReceiptUpdates = (after: string | null) =>
 /** "Load more": the next page of older receipts after the last one shown (its listKey). */
 export const getOlderReceipts = (after: string) =>
   api<MobileReceiptsPage>(`/api/mobile/receipts?after=${encodeURIComponent(after)}`);
+
+/** The list's search and period filter: see searchPath(). */
+export const searchReceipts = (q: string, period: string, after: string | null) =>
+  api<MobileReceiptsPage>(searchPath(q, period, after));
 
 /** The first-run screens were finished or skipped (the website's call). Best effort. */
 export function markOnboarded(): void {

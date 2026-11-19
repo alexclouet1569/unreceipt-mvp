@@ -62,7 +62,12 @@ describe("GET /api/mobile/home", () => {
   it("never passes a Stripe session id (no Checkout in the app)", async () => {
     mocks.loadHome.mockResolvedValue({ kind: "subscribe" });
     await GET();
-    expect(mocks.loadHome).toHaveBeenCalledWith(USER, null);
+    expect(mocks.loadHome).toHaveBeenCalledWith(USER, null, { askAboutFirmSeat: true });
+  });
+
+  it("answers a waiting firm seat with no company as firm-only, so no company is created", async () => {
+    mocks.loadHome.mockResolvedValueOnce({ kind: "firm_pending", firmName: "Byrån AB" });
+    expect(await (await GET()).json()).toEqual({ state: "firm_only", email: USER.email, firm: null });
   });
 
   it("tells firm-only staff apart, and gives a neutral state without a plan", async () => {

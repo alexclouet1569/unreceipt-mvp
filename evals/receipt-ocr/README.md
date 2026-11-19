@@ -43,7 +43,7 @@ To render the images with the browser preinstalled in a Claude Code cloud sessio
 The first run stops with "no approved harness sha". Look over `run-eval.mjs` and `src/lib/ocr.ts`, then approve once:
 
 ```bash
-npx tsx evals/receipt-ocr/run-eval.mjs --flow .claude/hillclimb/receipt-ocr --variant baseline --approve-harness
+npx tsx --conditions=react-server evals/receipt-ocr/run-eval.mjs --flow .claude/hillclimb/receipt-ocr --variant baseline --approve-harness
 ```
 
 Results land in `.claude/hillclimb/receipt-ocr/` (gitignored): one folder per variant, `comparison.md` with the side-by-side table.

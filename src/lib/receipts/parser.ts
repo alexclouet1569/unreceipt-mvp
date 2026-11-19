@@ -24,6 +24,7 @@ import type { PartialFields } from "./templates/types";
 import { MAX_BODY_CHARS, isFromDomain, looksLikeRefund } from "./templates/amount";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import { usableItems, usableVatLines } from "./receipt-fields";
+import { maskCardNumbersOrNull, safePaymentMethod } from "./card-numbers";
 import type {
   CanonicalReceiptFields,
   EmailRaw,
@@ -342,9 +343,9 @@ function finalize(
     merchant_vat_number: fields.merchant_vat_number ?? null,
     vat_lines: fields.vat_lines ?? null,
     category,
-    payment_method: fields.payment_method ?? null,
+    payment_method: safePaymentMethod(fields.payment_method),
     card_last_four: fields.card_last_four ?? null,
-    notes: fields.notes ?? null,
+    notes: maskCardNumbersOrNull(fields.notes ?? null),
     items: fields.items ?? null,
     parse_confidence: clamp01(confidence),
   };

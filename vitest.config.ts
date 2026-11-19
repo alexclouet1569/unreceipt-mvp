@@ -12,6 +12,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Tests run outside React Server Components; the marker is a no-op there.
+      "server-only": path.resolve(__dirname, "./node_modules/server-only/empty.js"),
     },
   },
 });

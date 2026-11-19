@@ -1151,6 +1151,9 @@ CREATE INDEX IF NOT EXISTS receipts_organization_purchased_idx
 
 -- Backfill: one default organisation per existing user, an owner membership,
 -- then every receipt. Safe to re-run (ON CONFLICT / IS NULL guards).
+-- Accounting-firm accounts are skipped (edited 2026-11-17, the one change
+-- made to this block): they never get a company, and the 2026-11-17
+-- triggers would refuse the row and abort a re-run of the whole file.
 INSERT INTO public.organizations (name, default_for_user_id, created_by)
 SELECT COALESCE(NULLIF(TRIM(p.company_name), ''), split_part(u.email, '@', 1), 'My company'),
        p.user_id,
@@ -1158,12 +1161,14 @@ SELECT COALESCE(NULLIF(TRIM(p.company_name), ''), split_part(u.email, '@', 1), '
   FROM public.profiles p
   JOIN auth.users u ON u.id = p.user_id
  WHERE p.user_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.firm_members f WHERE f.user_id = p.user_id)
 ON CONFLICT (default_for_user_id) DO NOTHING;
 
 INSERT INTO public.memberships (organization_id, user_id, role)
 SELECT o.id, o.default_for_user_id, 'owner'
   FROM public.organizations o
  WHERE o.default_for_user_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.firm_members f WHERE f.user_id = o.default_for_user_id)
 ON CONFLICT DO NOTHING;
 
 UPDATE public.receipts r
@@ -2310,6 +2315,362 @@ ALTER TABLE public.profiles
 
 REVOKE INSERT ON public.profiles FROM anon, authenticated;
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+
+-- =============================================================================
+-- 2026-11-17 — One account, one role (src/lib/account-roles.ts)
+-- =============================================================================
+-- An account is either a company account (a row in memberships: owner,
+-- approver or employee) or an accounting-firm account (a claimed seat in
+-- firm_members), never both. A firm that also keeps its own receipts uses
+-- a second account with another email address. The app refuses first, with
+-- a reason on screen; these triggers refuse the same writes for any route
+-- that forgets. Rows that already exist are left alone.
+--
+-- account_role_exemptions: accounts allowed both roles (the founder's test
+-- account, added by the backfill below). Server-only (RLS on, no
+-- policies). Another one is added by hand:
+--   INSERT INTO public.account_role_exemptions (user_id, note)
+--   SELECT id, 'founder' FROM auth.users WHERE email = '<address>'
+--   ON CONFLICT (user_id) DO NOTHING;
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS public.account_role_exemptions (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  note TEXT CHECK (note IS NULL OR char_length(note) <= 200),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.account_role_exemptions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.account_role_exemptions FROM anon, authenticated;
+
+-- Accounts that already hold both roles keep them (on 2026-11-17 only the
+-- founder's). Safe to re-run: once the triggers below exist, no new
+-- account can hold both.
+INSERT INTO public.account_role_exemptions (user_id, note)
+SELECT DISTINCT f.user_id, 'held both roles on 2026-11-17'
+  FROM public.firm_members f
+  JOIN public.memberships m ON m.user_id = f.user_id
+ WHERE f.user_id IS NOT NULL
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Refuses giving `uid` the role named by `wanted` ('company' or 'firm')
+-- when it already has the other one. The advisory lock serialises the
+-- checks for one user, so a company and a firm seat added at the same
+-- moment can't both pass.
+CREATE OR REPLACE FUNCTION public.assert_single_account_role(uid UUID, wanted TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF uid IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('account-role:' || uid::text, 0));
+  IF EXISTS (SELECT 1 FROM public.account_role_exemptions e WHERE e.user_id = uid) THEN
+    RETURN;
+  END IF;
+  IF wanted = 'company' AND EXISTS (
+    SELECT 1 FROM public.firm_members f WHERE f.user_id = uid
+  ) THEN
+    RAISE EXCEPTION 'account_role_conflict: accounting-firm account can''t have a company'
+      USING ERRCODE = '23514';
+  END IF;
+  -- A company row counts too: creating a company is two writes (the
+  -- organisation, then the membership), and a seat claimed between them
+  -- would leave a firm account holding a company.
+  IF wanted = 'firm' AND (
+    EXISTS (SELECT 1 FROM public.memberships m WHERE m.user_id = uid)
+    OR EXISTS (SELECT 1 FROM public.organizations o WHERE o.default_for_user_id = uid)
+  ) THEN
+    RAISE EXCEPTION 'account_role_conflict: company account can''t join a firm'
+      USING ERRCODE = '23514';
+  END IF;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.assert_single_account_role(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.organizations_single_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.assert_single_account_role(NEW.default_for_user_id, 'company');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.organizations_single_role() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS organizations_single_role ON public.organizations;
+CREATE TRIGGER organizations_single_role
+  BEFORE INSERT OR UPDATE OF default_for_user_id ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION public.organizations_single_role();
+
+CREATE OR REPLACE FUNCTION public.memberships_single_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.assert_single_account_role(NEW.user_id, 'company');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.memberships_single_role() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS memberships_single_role ON public.memberships;
+CREATE TRIGGER memberships_single_role
+  BEFORE INSERT OR UPDATE OF user_id ON public.memberships
+  FOR EACH ROW EXECUTE FUNCTION public.memberships_single_role();
+
+CREATE OR REPLACE FUNCTION public.firm_members_single_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.assert_single_account_role(NEW.user_id, 'firm');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.firm_members_single_role() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS firm_members_single_role ON public.firm_members;
+CREATE TRIGGER firm_members_single_role
+  BEFORE INSERT OR UPDATE OF user_id ON public.firm_members
+  FOR EACH ROW EXECUTE FUNCTION public.firm_members_single_role();
+
+-- Whether an address belongs to a company account (and isn't exempt), for
+-- the founder's "set up a firm" form (/api/admin/firms), so a firm isn't
+-- made for an admin who could never join it. `addr` is normalised like
+-- normalizeAddress() in src/lib/email-address.ts (lowercase; Gmail without
+-- dots or +tag, googlemail.com as gmail.com). Service role only: it says
+-- whether someone has an account, which firm admins must not learn.
+CREATE OR REPLACE FUNCTION public.company_account_for_address(addr TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+      FROM auth.users u
+     WHERE (CASE
+              WHEN split_part(lower(u.email), '@', 2) IN ('gmail.com', 'googlemail.com')
+              THEN replace(regexp_replace(split_part(lower(u.email), '@', 1), '\+.*$', ''), '.', '') || '@gmail.com'
+              ELSE lower(u.email)
+            END) = addr
+       AND EXISTS (SELECT 1 FROM public.memberships m WHERE m.user_id = u.id)
+       AND NOT EXISTS (SELECT 1 FROM public.account_role_exemptions e WHERE e.user_id = u.id)
+  );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.company_account_for_address(TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.company_account_for_address(TEXT) TO service_role;
+
+-- =============================================================================
+-- 2026-11-18 — Least privilege for the API roles (security plan, Phase 1)
+--
+-- Checked against production on 2026-11-18 (information_schema grants and
+-- pg_policy). Supabase gives anon and authenticated every privilege on a new
+-- public table by default; RLS kept rows safe, but these were still open:
+--
+-- * transactions (the old prototype table, read by nothing in the app) still
+--   let a signed-in user insert and update their own rows, and a row deleted
+--   there also deletes its receipt (ON DELETE CASCADE).
+-- * receipt_items (an older prototype, items now live in receipts.items)
+--   had an insert policy and grant. Production no longer has the table, so
+--   the statements are guarded.
+-- * subscriptions, rate_limits and waitlist kept INSERT/UPDATE/DELETE grants
+--   with no matching policy (RLS refused them), and profiles kept DELETE.
+-- * TRUNCATE, REFERENCES and TRIGGER on every table, for anon and
+--   authenticated. TRUNCATE ignores RLS; PostgREST doesn't expose it, so it
+--   wasn't reachable, but nothing needs it.
+-- * The receipts insert/update policies were re-created after their grants
+--   were revoked (2026-10-14 block); without a grant they did nothing and
+--   would come back to life with any future GRANT.
+-- * Users could delete files in their own folder of the receipts bucket
+--   straight through the Storage API, past the routes and the "receipt in
+--   approval" guard (which protects rows only). Every delete already goes
+--   through the server with the service role.
+-- * receipt-originals had no size or type limit. It holds what the email
+--   intake and the scan upload store: images, PDFs and raw .eml messages
+--   of at most 15 MB (MAX_RAW_BYTES, src/lib/mailboxes/raw-message.ts).
+--
+-- Kept on purpose: SELECT where a "Users can view own …" policy exists, the
+-- DELETE grant and policy on receipts (DELETE /api/receipts/[id] deletes the
+-- row with the user's session), and the column-level UPDATE on profiles.
+-- =============================================================================
+
+-- Nothing needs TRUNCATE, REFERENCES or TRIGGER through the API roles.
+DO $$
+DECLARE t record;
+BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('REVOKE TRUNCATE, REFERENCES, TRIGGER ON public.%I FROM anon, authenticated', t.tablename);
+    -- Signed-out callers never write a table: every public form posts to a
+    -- server route that writes with the service role.
+    EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON public.%I FROM anon', t.tablename);
+  END LOOP;
+END $$;
+
+-- …and new tables don't get them by default either.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLES FROM anon, authenticated;
+
+-- Server-only tables that still carried write grants.
+REVOKE INSERT, UPDATE, DELETE ON public.subscriptions FROM authenticated;
+REVOKE ALL ON public.rate_limits FROM anon, authenticated;
+REVOKE ALL ON public.waitlist FROM anon, authenticated;
+REVOKE DELETE ON public.profiles FROM authenticated;
+
+-- The prototype transactions table: read-only for its owner.
+REVOKE INSERT, UPDATE, DELETE ON public.transactions FROM anon, authenticated;
+DROP POLICY IF EXISTS "Users can insert own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can update own transactions" ON public.transactions;
+
+DO $$
+BEGIN
+  IF to_regclass('public.receipt_items') IS NOT NULL THEN
+    REVOKE INSERT, UPDATE, DELETE ON public.receipt_items FROM anon, authenticated;
+    DROP POLICY IF EXISTS "Users can insert own receipt items" ON public.receipt_items;
+  END IF;
+END $$;
+
+-- Dead receipts policies (no grant behind them since 2026-10-14).
+DROP POLICY IF EXISTS "Users can insert own receipts" ON public.receipts;
+DROP POLICY IF EXISTS "Users can update own receipts" ON public.receipts;
+
+-- Storage: users read their own files; only the server deletes them.
+DROP POLICY IF EXISTS "Users can delete own receipt images" ON storage.objects;
+
+UPDATE storage.buckets
+   SET file_size_limit = 16777216,
+       allowed_mime_types = ARRAY[
+         'image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'message/rfc822'
+       ]
+ WHERE id = 'receipt-originals';
+
+-- =============================================================================
+-- 2026-11-19 — Card digits are four digits (src/lib/receipts/ocr-fields.ts)
+--
+-- Photo and PDF OCR now read the card's last four digits too, and an owner can
+-- correct them (PATCH /api/receipts/[id]). Every writer checks /^\d{4}$/; this
+-- holds the rule in the database as well, so a future writer that forgets
+-- can never store more of a card number. NOT VALID: checked on every new
+-- write without scanning existing rows (all written by the same checks).
+-- Idempotent.
+-- =============================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'receipts_card_last_four_format'
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_card_last_four_format
+      CHECK (card_last_four IS NULL OR card_last_four ~ '^[0-9]{4}$') NOT VALID;
+  END IF;
+END $$;
+
+-- =============================================================================
+-- 2026-11-19 — Receipt search (src/lib/home/search.ts)
+--
+-- Pilot feedback: "type in the expense and the receipt pops up". One user's
+-- receipts whose merchant, note, card digits or any line item contains the
+-- typed text, or
+-- whose amount (as printed, or converted to the company's currency) equals a
+-- typed number, optionally limited to a range of days. A receipt's day is its
+-- printed date, else the date part of purchased_at (as Insights). Same order
+-- and keyset cursor as the home list (purchased_at DESC NULLS LAST,
+-- created_at DESC, id DESC), so "Load more" pages through results the same
+-- way.
+--
+-- Called only by the server with the service role, which passes the signed-in
+-- user's id: no grant to anon or authenticated. The text is matched literally
+-- (\, % and _ are escaped here, at most 100 characters). No new index: a
+-- user's receipts are reached through receipts_user_id_purchased_at_idx and
+-- scanned; add a pg_trgm index if one account grows past ~50,000 receipts.
+-- Apply before deploying the search routes. Idempotent.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.search_receipts(
+  p_user_id UUID,
+  p_query TEXT,
+  p_amount NUMERIC,
+  p_from DATE,
+  p_to DATE,
+  p_after_purchased_at TIMESTAMPTZ,
+  p_after_created_at TIMESTAMPTZ,
+  p_after_id UUID,
+  p_limit INTEGER
+)
+RETURNS SETOF public.receipts
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH params AS (
+    SELECT CASE
+      WHEN p_query IS NULL OR btrim(p_query) = '' THEN NULL
+      ELSE '%' || replace(replace(replace(left(btrim(p_query), 100), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+    END AS pat
+  )
+  SELECT r.*
+  FROM public.receipts AS r, params
+  WHERE r.user_id = p_user_id
+    AND (
+      (params.pat IS NULL AND p_amount IS NULL)
+      OR (
+        params.pat IS NOT NULL
+        AND (
+          r.merchant_name ILIKE params.pat
+          OR r.notes ILIKE params.pat
+          OR r.card_last_four ILIKE params.pat
+          OR (
+            jsonb_typeof(r.items) = 'array'
+            AND EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(r.items) AS it
+              WHERE jsonb_typeof(it) = 'object' AND it->>'label' ILIKE params.pat
+            )
+          )
+        )
+      )
+      OR (p_amount IS NOT NULL AND (r.total = p_amount OR r.home_total = p_amount))
+    )
+    AND (p_from IS NULL OR COALESCE(r.receipt_date, (r.purchased_at AT TIME ZONE 'UTC')::date) >= p_from)
+    AND (p_to IS NULL OR COALESCE(r.receipt_date, (r.purchased_at AT TIME ZONE 'UTC')::date) <= p_to)
+    AND (
+      p_after_created_at IS NULL
+      OR (
+        p_after_purchased_at IS NULL
+        AND r.purchased_at IS NULL
+        AND (r.created_at, r.id) < (p_after_created_at, p_after_id)
+      )
+      OR (
+        p_after_purchased_at IS NOT NULL
+        AND (
+          r.purchased_at < p_after_purchased_at
+          OR (r.purchased_at = p_after_purchased_at AND (r.created_at, r.id) < (p_after_created_at, p_after_id))
+          OR r.purchased_at IS NULL
+        )
+      )
+    )
+  ORDER BY r.purchased_at DESC NULLS LAST, r.created_at DESC, r.id DESC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit, 50), 1), 101);
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.search_receipts(UUID, TEXT, NUMERIC, DATE, DATE, TIMESTAMPTZ, TIMESTAMPTZ, UUID, INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.search_receipts(UUID, TEXT, NUMERIC, DATE, DATE, TIMESTAMPTZ, TIMESTAMPTZ, UUID, INTEGER)
+  TO service_role;
 
 -- =============================================================================
 -- 2026-11-19 — The contact page (src/app/_contact-page.tsx)

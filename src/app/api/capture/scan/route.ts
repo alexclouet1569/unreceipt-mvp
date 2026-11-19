@@ -192,6 +192,7 @@ export async function POST(request: NextRequest) {
       merchant_vat_number: fields.merchant_vat_number,
       vat_lines: fields.tax_amount != null ? (vatLines ?? null) : null,
       payment_method: fields.payment_method,
+      card_last_four: fields.card_last_four,
       items: usableItems(fields.items) ?? null,
       notes:
         [

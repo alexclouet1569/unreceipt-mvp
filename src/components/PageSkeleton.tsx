@@ -45,6 +45,8 @@ export function ReceiptsSkeleton() {
           <div key={i} aria-hidden="true" className="h-[62px] rounded-[12px] border border-[var(--hairline)] bg-card" />
         ))}
       </div>
+      {/* The search field and period menu. */}
+      <Block className="mb-3 h-11 w-full rounded-[10px]" />
       <Block className="mb-3 h-[54px] w-full rounded-[10px]" />
       <div className="mb-5 flex gap-2">
         {[64, 120, 88].map((w) => (

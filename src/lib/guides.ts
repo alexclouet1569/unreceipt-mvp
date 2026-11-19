@@ -380,7 +380,7 @@ const paperSv: Guide = {
     {
       heading: "Med UnReceipt",
       body: [
-        "Fota kvittot i appen och spara. Öppna sedan kvittot i UnReceipt och kontrollera att bilden är skarp och att hela kvittot syns — det är den sparade bilden som ska vara läsbar, och stora foton förminskas i mobilen innan de laddas upp. Först då slänger du papperet. UnReceipt lagrar kvittona inom EU, i Frankfurt i Tyskland, så du anmäler till Skatteverket att räkenskapsinformationen förvaras där, och igen om platsen ändras. Kopian ska finnas kvar hela bevarandetiden, även om du slutar använda tjänsten: ladda då ner dina kvitton — de finns kvar i 90 dagar efter att du avslutat.",
+        "Fota kvittot i appen och spara. Öppna sedan kvittot i UnReceipt och kontrollera att bilden är skarp och att hela kvittot syns — det är den sparade bilden som ska vara läsbar, stora foton förminskas i mobilen innan de laddas upp och iPhone-appen beskär fotot till kvittot. Först då slänger du papperet. UnReceipt lagrar kvittona inom EU, i Frankfurt i Tyskland, så du anmäler till Skatteverket att räkenskapsinformationen förvaras där, och igen om platsen ändras. Kopian ska finnas kvar hela bevarandetiden, även om du slutar använda tjänsten: ladda då ner dina kvitton — de finns kvar i 90 dagar efter att du avslutat.",
       ],
     },
   ],

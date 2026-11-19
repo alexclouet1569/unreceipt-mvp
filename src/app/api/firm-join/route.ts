@@ -4,7 +4,9 @@
 // add any address as staff, so being added never makes anyone a member by
 // itself, and a page load never claims (AGENTS.md, firm portal rule 4).
 //
-//   { action: "join" }    claims the seat → { redirect: "/firm" }
+//   { action: "join" }    claims the seat → { redirect: "/firm" }; 409
+//                         company_account when this account has a company
+//                         (one account, one role: src/lib/account-roles.ts)
 //   { action: "decline" } removes the waiting seats for this address and
 //                         gives the user their own company → { redirect: "/app" }
 //
@@ -23,6 +25,7 @@ import {
   getFirmMembership,
 } from "@/lib/require-firm";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { checkMayJoinFirm, COMPANY_ACCOUNT, COMPANY_ACCOUNT_MESSAGE } from "@/lib/account-roles";
 import { chosenCountry } from "@/lib/country";
 
 export const runtime = "nodejs";
@@ -58,6 +61,14 @@ export async function POST(request: NextRequest) {
   if (parsed.data.action === "join") {
     if (!(await findPendingFirmSeat(user))) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    // One account, one role: a company account can't become firm staff.
+    const may = await checkMayJoinFirm(user.id);
+    if (may === "blocked") {
+      return NextResponse.json({ error: COMPANY_ACCOUNT, message: COMPANY_ACCOUNT_MESSAGE }, { status: 409 });
+    }
+    if (may === "error") {
+      return NextResponse.json({ error: "Couldn't join the firm. Try again." }, { status: 500 });
     }
     const membership = await claimPendingFirmSeat(user);
     if (!membership) {

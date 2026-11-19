@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isAdminEmail } from "@/lib/auth-admin";
+import { hasSecondFactor, isAdminEmail } from "@/lib/auth-admin";
 
 const ENV_KEY = "CONCIERGE_ADMIN_EMAILS";
 
@@ -68,5 +68,16 @@ describe("isAdminEmail", () => {
   it("returns false for undefined input", () => {
     process.env[ENV_KEY] = "founder@unreceipt.com";
     expect(isAdminEmail(undefined)).toBe(false);
+  });
+});
+
+describe("hasSecondFactor", () => {
+  it("is true only for aal2 claims", () => {
+    expect(hasSecondFactor({ aal: "aal2" })).toBe(true);
+    expect(hasSecondFactor({ aal: "aal1" })).toBe(false);
+    expect(hasSecondFactor({})).toBe(false);
+    expect(hasSecondFactor(null)).toBe(false);
+    expect(hasSecondFactor(undefined)).toBe(false);
+    expect(hasSecondFactor({ aal: "AAL2" })).toBe(false);
   });
 });

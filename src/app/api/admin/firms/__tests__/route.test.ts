@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   memberInsert: vi.fn(),
   firmDeletes: [] as unknown[],
   sendEmail: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock("@/lib/require-admin", async (orig) => ({
@@ -23,6 +24,7 @@ vi.mock("@/lib/app-url", () => ({
 }));
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
+    rpc: (name: string, args: unknown) => Promise.resolve(mocks.rpc(name, args)),
     from: (table: string) => {
       const chain: Record<string, unknown> = {
         select: () => chain,
@@ -61,11 +63,28 @@ beforeEach(() => {
   mocks.firmInsert.mockReset().mockReturnValue({ data: { id: "f-new" }, error: null });
   mocks.memberInsert.mockReset().mockReturnValue({ error: null });
   mocks.firmDeletes = [];
+  mocks.rpc.mockReset().mockReturnValue({ data: false, error: null });
   mocks.sendEmail.mockReset().mockResolvedValue({ ok: true, id: "e" });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("POST /api/admin/firms", () => {
+  it("refuses an address that already has a company account (one account, one role)", async () => {
+    mocks.rpc.mockReturnValue({ data: true, error: null });
+    const res = await post({ name: "Bergström Redovisning AB", email: "Anna@Bergstrom.se" });
+    expect(res.status).toBe(409);
+    expect(mocks.rpc).toHaveBeenCalledWith("company_account_for_address", { addr: "anna@bergstrom.se" });
+    expect(mocks.firmInsert).not.toHaveBeenCalled();
+    expect(mocks.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("creates nothing when it can't tell whether the address has a company account", async () => {
+    mocks.rpc.mockReturnValue({ data: null, error: { code: "XX000" } });
+    const res = await post({ name: "Bergström Redovisning AB", email: "anna@bergstrom.se" });
+    expect(res.status).toBe(500);
+    expect(mocks.firmInsert).not.toHaveBeenCalled();
+  });
+
   it("creates the firm with the accountant as admin and emails her the sign-in link", async () => {
     const res = await post({ name: "Bergström Redovisning AB", email: " Anna@Bergstrom.se " });
     expect(res.status).toBe(201);

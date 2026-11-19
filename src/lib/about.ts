@@ -90,7 +90,7 @@ function en(pilot: boolean): About {
       },
       {
         label: "What is recorded",
-        value: "Merchant, date, total, currency and category; line items, VAT amount and VAT rate when the receipt shows them; the photo as uploaded (large photos are reduced in size on the device first) or the forwarded email, kept unchanged; and a PDF once the receipt is complete.",
+        value: "Merchant, date, total, currency and category; line items, VAT amount and VAT rate when the receipt shows them; the photo as uploaded (large photos are reduced in size on the device first, and a photo taken with the iPhone app is cropped and straightened to the receipt when its edges are clear) or the forwarded email, kept unchanged; and a PDF once the receipt is complete.",
       },
       { label: "Checking", value: "Each receipt is read by AI: a photo in seconds, an email as soon as it arrives. Nobody at UnReceipt checks receipts by hand. When you save a photo, you check the filled-in fields yourself; receipts that can't be read with confidence, several files scanned at once, and emails from senders that aren't trusted wait in Review needed until you or your accountant confirm them. Receipts from a connected mailbox always wait there, and the accountant sees them only once you have confirmed them." },
       {
@@ -161,7 +161,7 @@ function sv(pilot: boolean): About {
       },
       {
         label: "Vad som sparas",
-        value: "Säljare, datum, belopp, valuta och kategori; kvittorader, momsbelopp och momssats när kvittot visar dem; fotot som det laddades upp (stora foton förminskas i mobilen först) eller det vidarebefordrade mejlet, sparat oförändrat; och en PDF när kvittot är komplett.",
+        value: "Säljare, datum, belopp, valuta och kategori; kvittorader, momsbelopp och momssats när kvittot visar dem; fotot som det laddades upp (stora foton förminskas i mobilen först, och ett foto taget i iPhone-appen beskärs och rätas ut till kvittot när kanterna syns tydligt) eller det vidarebefordrade mejlet, sparat oförändrat; och en PDF när kvittot är komplett.",
       },
       { label: "Kontroll", value: "Varje kvitto läses av AI: ett foto på några sekunder, ett mejl så fort det kommer. Ingen på UnReceipt kontrollerar kvitton för hand. När du sparar ett foto ser du själv över fälten; kvitton som inte kan läsas säkert, flera filer som skannas på en gång och mejl från avsändare som inte är betrodda väntar i Review needed tills du eller din redovisningskonsult bekräftar dem. Kvitton från en ansluten inkorg väntar alltid där, och redovisningskonsulten ser dem först när du har bekräftat dem." },
       {
@@ -231,7 +231,7 @@ function fr(pilot: boolean): About {
       },
       {
         label: "Ce qui est enregistré",
-        value: "Fournisseur, date, montant, devise et catégorie ; lignes, montant et taux de TVA quand le justificatif les indique ; la photo telle qu’envoyée (les photos volumineuses sont réduites sur l’appareil) ou l’e-mail transféré, conservé à l’identique ; et un PDF une fois le reçu complet.",
+        value: "Fournisseur, date, montant, devise et catégorie ; lignes, montant et taux de TVA quand le justificatif les indique ; la photo telle qu’envoyée (les photos volumineuses sont réduites sur l’appareil, et une photo prise avec l’app iPhone est recadrée et redressée sur le reçu quand ses bords sont nets) ou l’e-mail transféré, conservé à l’identique ; et un PDF une fois le reçu complet.",
       },
       { label: "Vérification", value: "Chaque reçu est lu par l’IA : une photo en quelques secondes, un e-mail dès son arrivée. Personne chez UnReceipt ne vérifie les reçus à la main. Quand vous enregistrez une photo, vous vérifiez vous-même les champs remplis ; les reçus qui ne peuvent pas être lus avec certitude, les fichiers numérisés en lot et les e-mails d’expéditeurs non reconnus attendent dans « Review needed » que vous ou votre expert-comptable les confirmiez. Les reçus d’une boîte mail connectée y attendent toujours, et l’expert-comptable ne les voit qu’une fois que vous les avez confirmés." },
       {

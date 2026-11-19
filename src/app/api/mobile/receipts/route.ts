@@ -1,7 +1,9 @@
 // GET /api/mobile/receipts?after=<listKey> — "Load more" at the end of the
 // iPhone app's receipts list: the next page of receipts after the last one
 // shown, in the home list's order (src/lib/home/load-home.ts), as display
-// JSON. Same access
+// JSON. With q, month or year it is the list's search and month filter
+// (src/lib/home/search.ts; the website asks /api/receipts/search): the first
+// page without `after`, then "Load more" with it. Same access
 // rules as the home screen and Insights (firm-only staff and accounts
 // without a plan get nothing), scoped by user_id, converted to the
 // company's currency like the list.
@@ -12,6 +14,7 @@ import { getServerUser } from "@/lib/supabase-server";
 import { analyticsAccess } from "@/lib/analytics/load";
 import { ensureHomeAmounts } from "@/lib/fx";
 import { loadOlderReceipts, parseListCursor } from "@/lib/home/load-home";
+import { parseReceiptSearch, searchReceipts } from "@/lib/home/search";
 import { toMobileReceipt } from "@/lib/mobile/receipt";
 import type { MobileReceiptsPage } from "@/lib/mobile/types";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
@@ -28,13 +31,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE });
   }
 
-  const cursor = parseListCursor(new URL(request.url).searchParams.get("after"));
-  if (!cursor) {
+  const params = new URL(request.url).searchParams;
+  const search = parseReceiptSearch(params);
+  if (search === "invalid") {
+    return NextResponse.json({ error: "invalid" }, { status: 400, headers: NO_STORE });
+  }
+  const rawAfter = params.get("after");
+  const cursor = parseListCursor(rawAfter);
+  // The plain list always continues a page; a search may start one.
+  if (!cursor && (search === null || rawAfter)) {
     return NextResponse.json({ error: "invalid_cursor" }, { status: 400, headers: NO_STORE });
   }
 
-  // Shares the Insights budget: both page through the user's receipts.
-  const limited = await rateLimit("analytics", user.id);
+  // "Load more" shares the Insights budget (both page through the user's
+  // receipts); a search has its own.
+  const limited = await rateLimit(search ? "receiptSearch" : "analytics", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
   try {
@@ -42,7 +53,7 @@ export async function GET(request: Request) {
     if (access.kind !== "ready") {
       return NextResponse.json({ error: access.kind }, { status: 403, headers: NO_STORE });
     }
-    const page = await loadOlderReceipts(user.id, cursor);
+    const page = search ? await searchReceipts(user.id, search, cursor) : await loadOlderReceipts(user.id, cursor!);
     const converted = await ensureHomeAmounts(page.receipts, access.home).catch(() => page.receipts);
     const body: MobileReceiptsPage = { receipts: converted.map(toMobileReceipt), hasMore: page.hasMore };
     return NextResponse.json(body, { headers: NO_STORE });
