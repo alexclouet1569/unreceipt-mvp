@@ -1,6 +1,7 @@
-// The website's Insights page body (DESIGN.md "Charts and Insights"): the
-// hero, the chart, Worth knowing, Where it goes, Top merchants, the VAT on
-// the receipts and what isn't in the numbers. No hooks and no server code,
+// The website's Analysis page body (DESIGN.md "Charts and Analysis"): what
+// was spent and how many receipts, by category, over time, top merchants,
+// highlights, the VAT on the receipts (closed until asked) and the receipts
+// in no period. No comparison with earlier periods: the arrows show them. No hooks and no server code,
 // so the page (a server component) and the demo tour (in the browser) both
 // render it. Hairline cards, no shadows; mint only for the VAT panel;
 // amounts in Geist Mono, also inside sentences.
@@ -11,20 +12,19 @@ import type { AnalyticsInsight } from "@/lib/mobile/types";
 import {
   categoryColor,
   categoryLabel,
-  changeText,
   fillParts,
   insightFilter,
   insightText,
   money,
   percentText,
   plural,
-  previousLabel,
   shareText,
   type Part,
   type ReadyAnalytics,
 } from "@/lib/analytics/display";
 import { getMerchantColor, getMerchantInitials } from "@/lib/merchant-display";
 import { BarChart } from "@/components/charts/Charts";
+import { Donut } from "@/components/charts/Donut";
 
 /** Where a number leads: the receipts behind it, or null (the demo tour). */
 export type DrillHref = (filter: Record<string, string>) => string | null;
@@ -85,61 +85,100 @@ function Chevron({ show }: { show: boolean }) {
 const CARD = "overflow-hidden rounded-[12px] border border-[var(--hairline)] bg-card";
 const ROW = "flex min-h-[56px] items-center gap-3 px-3.5 py-3";
 
-function Hero({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
-  const vsPrevious = changeText(a.total.amount, a.compare.previous);
-  const vsLastYear = a.period.kind !== "year" ? changeText(a.total.amount, a.compare.lastYear) : null;
-  const unconverted = a.total.unconverted.map((l) => money(l.amount, l.currency)).join(" + ");
-  const total = money(a.total.amount, a.currency);
-  const to = a.total.count > 0 ? href({}) : null;
+/** One of the summary's two figures: a label and a big value, opening the receipts. */
+function Figure({ label, value, mono, approx, to, aria }: { label: string; value: string; mono: boolean; approx?: boolean; to: string | null; aria: string }) {
+  // Half a card's width: long amounts step down rather than wrap.
+  const size = value.length > 12 ? "text-[18px]" : value.length > 8 ? "text-[22px]" : "text-[30px]";
   return (
-    <section aria-label="Spent in this period">
-      <p className="type-micro text-[var(--ink-muted)]">Spent</p>
-      <Maybe
-        href={to}
-        label={`Spent: ${a.total.estimate ? "about " : ""}${total}. Show the receipts.`}
-        className="-mx-2 mt-1 inline-flex min-h-11 items-baseline gap-1 rounded-[10px] px-2 py-1"
-      >
-        {a.total.estimate ? (
-          <span aria-hidden="true" className="font-mono text-[26px] text-[var(--ink-muted)]">
+    <Maybe href={to} label={aria} className="flex min-h-[96px] flex-col justify-center gap-1 px-4 py-3.5">
+      <span className="type-micro text-[var(--ink-muted)]">{label}</span>
+      <span className="flex items-baseline gap-1 whitespace-nowrap leading-[1.1]">
+        {approx ? (
+          <span aria-hidden="true" className={`font-mono text-[var(--ink-muted)] ${size}`}>
             ≈
           </span>
         ) : null}
         <span
           className={
-            "font-mono font-medium tracking-[-0.02em] text-[var(--ink)] tabular-nums " +
-            (total.length > 14 ? "text-[30px] leading-[1.1]" : "text-[40px] leading-[1.05]")
+            (mono ? "font-mono font-medium tabular-nums" : "font-display font-bold") +
+            ` tracking-[-0.02em] text-[var(--ink)] ${size}`
           }
         >
-          {total}
+          {value}
         </span>
-      </Maybe>
-      {vsPrevious || vsLastYear ? (
-        // Change is neutral ink: spending more isn't red, spending less isn't green.
-        <div className="mt-2 flex flex-wrap gap-2">
-          {vsPrevious ? <Chip text={`${vsPrevious} vs ${previousLabel(a)}`} /> : null}
-          {vsLastYear ? <Chip text={`${vsLastYear} vs last year`} /> : null}
-        </div>
-      ) : null}
-      <p className="mt-2 type-caption text-[var(--ink-muted)]">
-        {plural(a.total.count, "1 receipt", "{count} receipts")}
-        {a.total.toConfirm > 0
-          ? ` · ${plural(a.total.toConfirm, "Includes 1 receipt to confirm", "Includes {count} receipts to confirm")}`
-          : ""}
-      </p>
-      {unconverted ? (
-        <p className="type-caption text-[var(--ink-muted)]">
-          <Parts parts={fillParts("+ {amounts} not converted yet", {}, { amounts: unconverted })} amountClass="text-[var(--ink-muted)]" />
-        </p>
-      ) : null}
-    </section>
+      </span>
+    </Maybe>
   );
 }
 
-function Chip({ text }: { text: string }) {
+/**
+ * The three answers' first two: what was spent and how many receipts, side
+ * by side and the same size; under them, only when it applies, what the
+ * total leaves out or still waits for (each opens its receipts).
+ */
+function Summary({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
+  const total = money(a.total.amount, a.currency);
+  const all = href({});
+  const count = plural(a.total.count, "1 receipt", "{count} receipts");
+  const unconverted = a.total.unconverted.map((l) => money(l.amount, l.currency)).join(" + ");
+  const notes: { key: string; parts: Part[]; to: string | null }[] = [];
+  if (a.total.toConfirm > 0) {
+    notes.push({
+      key: "confirm",
+      parts: [{ text: plural(a.total.toConfirm, "1 receipt to confirm", "{count} receipts to confirm") }],
+      to: href({ quality: "to_confirm" }),
+    });
+  }
+  if (a.quality.missingAmount > 0) {
+    notes.push({
+      key: "amount",
+      parts: [
+        {
+          text: plural(
+            a.quality.missingAmount,
+            "1 receipt without an amount, not in the total",
+            "{count} receipts without an amount, not in the total",
+          ),
+        },
+      ],
+      to: href({ quality: "missing_amount" }),
+    });
+  }
+  if (unconverted) {
+    notes.push({
+      key: "unconverted",
+      parts: fillParts("{amounts} in another currency, not converted yet", {}, { amounts: unconverted }),
+      to: href({ quality: "unconverted" }),
+    });
+  }
   return (
-    <span className="inline-flex min-h-7 items-center rounded-full border border-[var(--hairline)] bg-card px-3 type-caption text-[var(--ink)]">
-      {text}
-    </span>
+    <section aria-label="This period" className={CARD}>
+      <div className="grid grid-cols-2 divide-x divide-[var(--hairline)]">
+        <Figure
+          label="Spent"
+          value={total}
+          mono
+          approx={a.total.estimate}
+          to={all}
+          aria={`Spent: ${a.total.estimate ? "about " : ""}${total}. Show the receipts.`}
+        />
+        <Figure label="Receipts" value={String(a.total.count)} mono={false} to={all} aria={`${count}. Show them.`} />
+      </div>
+      {notes.length > 0 ? (
+        <ul className="divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
+          {notes.map((n) => (
+            <li key={n.key}>
+              <Maybe href={n.to} className="flex min-h-11 items-center gap-2 px-4 py-2.5">
+                <span className="flex-1 type-caption text-[var(--ink)]">
+                  <Parts parts={n.parts} />
+                </span>
+                <Chevron show={n.to != null} />
+              </Maybe>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 
@@ -156,7 +195,7 @@ function Findings({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
   if (a.insights.length === 0) return null;
   return (
     <section aria-labelledby="findings-title">
-      <SectionTitle id="findings-title">Worth knowing</SectionTitle>
+      <SectionTitle id="findings-title">Highlights</SectionTitle>
       <ul className="space-y-2">
         {a.insights.map((i, n) => {
           const t = insightText(i, a.currency);
@@ -198,12 +237,10 @@ function Findings({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
   );
 }
 
-function rowDetail(count: number, share: number | null, current: number, previous: number | null): string {
-  const bits = [plural(count, "1 receipt", "{count} receipts")];
-  if (share != null) bits.push(shareText(share));
-  const change = changeText(current, previous);
-  if (change) bits.push(change);
-  return bits.join(" · ");
+/** "42% · 3 receipts" under a category's or a merchant's name. */
+function rowDetail(count: number, share: number | null): string {
+  const receipts = plural(count, "1 receipt", "{count} receipts");
+  return share != null && share > 0 ? `${shareText(share)} · ${receipts}` : receipts;
 }
 
 function Categories({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
@@ -212,70 +249,96 @@ function Categories({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
   const withAmount = shown.filter((c) => c.amount > 0);
   return (
     <section aria-labelledby="where-title">
-      <SectionTitle id="where-title">Where it goes</SectionTitle>
-      {withAmount.length > 0 ? (
-        <div aria-hidden="true" className="mb-3 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
-          {withAmount.map((c) => (
-            <span key={c.category} style={{ flex: Math.max(c.share, 0.01), background: categoryColor(c.category) }} />
-          ))}
-        </div>
-      ) : null}
-      <ul className={`${CARD} divide-y divide-[var(--hairline)]`}>
-        {shown.map((c) => {
-          const label = categoryLabel(c.category);
-          const to = href({ category: c.category });
-          return (
-            <li key={c.category}>
-              <Maybe href={to} className={ROW}>
-                <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full" style={{ background: categoryColor(c.category) }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-[var(--ink)]">{label}</span>
-                  <span className="block type-caption text-[var(--ink-muted)]">
-                    {rowDetail(c.count, c.share, c.amount, c.previous)}
+      <SectionTitle id="where-title">By category</SectionTitle>
+      <div className={CARD}>
+        {withAmount.length > 0 ? (
+          <div className="border-b border-[var(--hairline)] px-4 py-5">
+            <Donut
+              slices={withAmount.map((c) => ({ key: c.category, share: c.share, color: categoryColor(c.category) }))}
+              centre={money(a.total.amount, a.currency)}
+              caption={plural(withAmount.length, "1 category", "{count} categories")}
+            />
+          </div>
+        ) : null}
+        <ul className="divide-y divide-[var(--hairline)]">
+          {shown.map((c) => {
+            const label = categoryLabel(c.category);
+            const to = href({ category: c.category });
+            return (
+              <li key={c.category}>
+                <Maybe href={to} className={ROW}>
+                  <span aria-hidden="true" className="h-3 w-3 shrink-0 rounded-full" style={{ background: categoryColor(c.category) }} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-[var(--ink)]">{label}</span>
+                    <span className="block type-caption text-[var(--ink-muted)]">{rowDetail(c.count, c.share)}</span>
                   </span>
-                </span>
-                <span className="type-amount-row text-[var(--ink)]">{money(c.amount, a.currency)}</span>
-                <Chevron show={to != null} />
-              </Maybe>
-            </li>
-          );
-        })}
-      </ul>
+                  <span className="type-amount-row text-[var(--ink)]">{money(c.amount, a.currency)}</span>
+                  <Chevron show={to != null} />
+                </Maybe>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
+  );
+}
+
+/** Top merchants shown before "Show more" (all of them when only one more would hide). */
+const MERCHANTS_SHOWN = 5;
+
+function MerchantRow({ m, a, href }: { m: ReadyAnalytics["merchants"][number]; a: ReadyAnalytics; href: DrillHref }) {
+  const to = href({ merchant: m.key });
+  const share = m.share ?? (a.total.amount > 0 ? m.amount / a.total.amount : 0);
+  return (
+    <li>
+      <Maybe href={to} className={ROW}>
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[13px] font-bold text-white"
+          style={{ background: getMerchantColor(m.name) }}
+        >
+          {getMerchantInitials(m.name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-semibold text-[var(--ink)]">{m.name}</span>
+          <span className="block type-caption text-[var(--ink-muted)]">{rowDetail(m.count, share)}</span>
+        </span>
+        <span className="type-amount-row text-[var(--ink)]">{money(m.amount, a.currency)}</span>
+        <Chevron show={to != null} />
+      </Maybe>
+    </li>
   );
 }
 
 function Merchants({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
   if (a.merchants.length === 0) return null;
+  const cut = a.merchants.length > MERCHANTS_SHOWN + 1 ? MERCHANTS_SHOWN : a.merchants.length;
+  const first = a.merchants.slice(0, cut);
+  const more = a.merchants.slice(cut);
   return (
     <section aria-labelledby="merchants-title">
       <SectionTitle id="merchants-title">Top merchants</SectionTitle>
-      <ul className={`${CARD} divide-y divide-[var(--hairline)]`}>
-        {a.merchants.map((m) => {
-          const to = href({ merchant: m.key });
-          return (
-            <li key={m.key}>
-              <Maybe href={to} className={ROW}>
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[13px] font-bold text-white"
-                  style={{ background: getMerchantColor(m.name) }}
-                >
-                  {getMerchantInitials(m.name)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-[var(--ink)]">{m.name}</span>
-                  <span className="block type-caption text-[var(--ink-muted)]">
-                    {rowDetail(m.count, null, m.amount, m.previous)}
-                  </span>
-                </span>
-                <span className="type-amount-row text-[var(--ink)]">{money(m.amount, a.currency)}</span>
-                <Chevron show={to != null} />
-              </Maybe>
-            </li>
-          );
-        })}
-      </ul>
+      <div className={CARD}>
+        <ul className="divide-y divide-[var(--hairline)]">
+          {first.map((m) => (
+            <MerchantRow key={m.key} m={m} a={a} href={href} />
+          ))}
+        </ul>
+        {more.length > 0 ? (
+          <details className="group border-t border-[var(--hairline)]">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-1 px-4 type-caption font-semibold text-[var(--ink)] outline-none hover:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)] [&::-webkit-details-marker]:hidden">
+              <span className="group-open:hidden">{`Show ${more.length} more`}</span>
+              <span className="hidden group-open:inline">Show fewer</span>
+            </summary>
+            <ul className="divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
+              {more.map((m) => (
+                <MerchantRow key={m.key} m={m} a={a} href={href} />
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -289,7 +352,7 @@ function Leader({ label, amount, currency, strong = false }: { label: string; am
   );
 }
 
-const rateText = (rate: number | null) => (rate == null ? "Rate not read" : `VAT ${percentText(rate)}`);
+const rateText = (rate: number | null) => (rate == null ? "Rate unknown" : `VAT ${percentText(rate)}`);
 
 /**
  * The VAT the receipts carry: never a VAT return, never "deductible"
@@ -302,9 +365,15 @@ function VatPanel({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
   const toCheckHref = toCheck ? href({ quality: "vat_to_check" }) : null;
   return (
     <section aria-labelledby="vat-title">
-      <SectionTitle id="vat-title">VAT on these receipts</SectionTitle>
-      <div className="space-y-2 rounded-[12px] bg-[var(--brand-tint)] px-3.5 py-3.5">
-        <Leader label="VAT on the receipts" amount={v.total} currency={a.currency} strong />
+      <SectionTitle id="vat-title">VAT</SectionTitle>
+      {/* Closed until asked: one line with the total, the detail on a tap. */}
+      <details className="group rounded-[12px] bg-[var(--brand-tint)]">
+        <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-3 rounded-[12px] px-3.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] [&::-webkit-details-marker]:hidden">
+          <span className="flex-1 text-[15px] font-bold text-[var(--ink)]">VAT on these receipts</span>
+          <span className="type-amount-row text-[var(--ink)]">{money(v.total, a.currency)}</span>
+          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90" />
+        </summary>
+      <div className="space-y-2 px-3.5 pb-3.5">
         {v.rates.map((r) => (
           <div key={String(r.rate)}>
             <Leader label={rateText(r.rate)} amount={r.vat} currency={a.currency} />
@@ -317,7 +386,7 @@ function VatPanel({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
         ))}
         {v.mode === "se" ? (
           <div className="space-y-2 border-t border-[var(--attention-mint)] pt-2">
-            {v.swedish != null ? <Leader label="At Swedish rates, confirmed" amount={v.swedish} currency={a.currency} /> : null}
+            {v.swedish != null ? <Leader label="Swedish rates, confirmed receipts" amount={v.swedish} currency={a.currency} /> : null}
             {v.representation ? <Leader label="Client entertainment" amount={v.representation} currency={a.currency} /> : null}
             {toCheck ? (
               <Maybe href={toCheckHref} className="-mx-2 flex min-h-11 items-center gap-1 rounded-[8px] px-2">
@@ -330,7 +399,7 @@ function VatPanel({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
         ) : null}
         <p className="pt-1 type-caption text-[var(--ink-muted)]">
           {v.mode === "se"
-            ? "What the receipts say, not your VAT return. What can be deducted depends on your VAT registration and on what each purchase was for: your accountant decides, client entertainment included. To check: receipts not confirmed yet, or a rate that isn't Swedish or couldn't be read."
+            ? "What the receipts say, not your VAT return: your accountant decides what can be deducted, client entertainment included. To check: receipts not confirmed yet, or a rate that isn't Swedish or couldn't be read."
             : "What the receipts say, not your VAT return. Your accountant decides what can be deducted."}
         </p>
         {v.withoutVat > 0 ? (
@@ -348,73 +417,50 @@ function VatPanel({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
           </p>
         ) : null}
       </div>
+      </details>
     </section>
   );
 }
 
-function Quality({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
-  const q = a.quality;
-  const rows = [
-    q.missingAmount > 0
-      ? { text: plural(q.missingAmount, "1 receipt without an amount", "{count} receipts without an amount"), to: href({ quality: "missing_amount" }) }
-      : null,
-    q.unconverted > 0
-      ? {
-          text: plural(q.unconverted, "1 receipt in another currency, not converted yet", "{count} receipts in another currency, not converted yet"),
-          to: href({ quality: "unconverted" }),
-        }
-      : null,
-    // Undated receipts are in no period, so there is no list to open here.
-    q.undated > 0 ? { text: plural(q.undated, "1 receipt without a date (in no period)", "{count} receipts without a date (in no period)"), to: null } : null,
-  ].filter((r): r is { text: string; to: string | null } => r != null);
-  if (rows.length === 0) return null;
+/** Receipts without a date are in no period: said once, under everything. */
+function Undated({ a }: { a: ReadyAnalytics }) {
+  const n = a.quality.undated;
+  if (n === 0) return null;
   return (
-    <section aria-labelledby="quality-title">
-      <SectionTitle id="quality-title">Not in these numbers</SectionTitle>
-      <ul className={`${CARD} divide-y divide-[var(--hairline)]`}>
-        {rows.map((r) => (
-          <li key={r.text}>
-            <Maybe href={r.to} className={ROW}>
-              <span className="flex-1 type-caption text-[var(--ink)]">{r.text}</span>
-              <Chevron show={r.to != null} />
-            </Maybe>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <p className="type-caption text-[var(--ink-muted)]">
+      {plural(n, "1 receipt has no date, so it isn't in any period.", "{count} receipts have no date, so they aren't in any period.")}
+    </p>
   );
 }
 
 export function InsightsBody({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
-  if (a.total.count === 0 && a.quality.missingAmount === 0 && a.total.unconverted.length === 0) {
+  if (a.total.count === 0) {
     return (
       <div className={`${CARD} mt-6 px-4 py-5`}>
         <p className="type-body-lg text-[var(--ink)]">Nothing in this period</p>
         <p className="mt-1 type-caption font-normal text-[var(--ink-muted)]">
-          Receipts dated in this period will show here, with where the money goes and the VAT on them.
+          Receipts dated in this period will show here: what you spent, how many receipts and in which categories.
         </p>
       </div>
     );
   }
   return (
     <div className="space-y-8">
-      <Hero a={a} href={href} />
       <div>
-        <BarChart a={a} />
+        <Summary a={a} href={href} />
         {a.total.count < 3 ? (
-          <div className="mt-4">
-            <p className="text-[15px] font-bold text-[var(--ink)]">A few more receipts first</p>
-            <p className="type-caption font-normal text-[var(--ink-muted)]">
-              Charts and findings start making sense from about three receipts in a period.
-            </p>
-          </div>
+          <p className="mt-2 type-caption text-[var(--ink-muted)]">Add a few more receipts to see a clearer picture.</p>
         ) : null}
       </div>
-      <Findings a={a} href={href} />
       <Categories a={a} href={href} />
+      <section aria-labelledby="time-title">
+        <SectionTitle id="time-title">Over time</SectionTitle>
+        <BarChart a={a} />
+      </section>
       <Merchants a={a} href={href} />
+      <Findings a={a} href={href} />
       <VatPanel a={a} href={href} />
-      <Quality a={a} href={href} />
+      <Undated a={a} />
     </div>
   );
 }

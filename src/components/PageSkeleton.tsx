@@ -98,10 +98,10 @@ export function GuideSkeleton() {
   );
 }
 
-/** Insights: the period switch, the hero and the chart's bars. */
+/** Analysis: the period switch, the summary and the chart's bars. */
 export function InsightsSkeleton() {
   return (
-    <Frame label="Loading your insights">
+    <Frame label="Loading your analysis">
       <Block className="mb-4 h-7 w-32" />
       <Block className="h-[54px] w-full rounded-[10px]" />
       <Block className="mx-auto mt-5 mb-6 h-5 w-36" />
@@ -117,7 +117,7 @@ export function InsightsSkeleton() {
   );
 }
 
-/** A list behind a number on Insights: the way back, a title, the cards. */
+/** A list behind a number on Analysis: the way back, a title, the cards. */
 export function ListSkeleton() {
   return (
     <Frame label="Loading the receipts">

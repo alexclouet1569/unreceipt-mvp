@@ -1,10 +1,10 @@
 "use client";
 
-// The Insights page's chart, hand-built in SVG (DESIGN.md "Charts and
-// Insights"), the same as the iPhone app's: weekly bars for a month (7-day
+// The Analysis page's chart, hand-built in SVG (DESIGN.md "Charts and
+// Analysis"), the same as the iPhone app's: weekly bars for a month (7-day
 // blocks from the 1st), Monday weeks for a quarter, months for a year.
-// The chosen period only (the change against the period before is the
-// hero's chip). Bars --ink-muted; the chosen bar (or the current one) is the
+// The chosen period only, no comparison with the one before; at rest the
+// readout names the highest bar, so the bars have a scale. Bars --ink-muted; the chosen bar (or the current one) is the
 // screen's one green; a hairline baseline, no grid, no axis numbers, no
 // gradients, no shadows.
 //
@@ -138,6 +138,10 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
     { text: money(a.buckets[i].amount), money: true },
   ];
   const parts = sel != null ? partsAt(sel) : null;
+  const highestParts: Part[] | null =
+    a.buckets[highest]?.amount > 0
+      ? [{ text: `Highest: ${label(highest, true)} · ` }, { text: money(a.buckets[highest].amount), money: true }]
+      : null;
   // Read out with nothing chosen: today's bar, or the last one.
   const resting = Math.max(0, today >= 0 ? today : visible - 1);
 
@@ -150,7 +154,7 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
 
   return (
     <div>
-      <Readout parts={parts} />
+      <Readout parts={parts ?? highestParts} />
       <div
         ref={ref}
         // One adjustable control, as on the iPhone: the summary is its name,

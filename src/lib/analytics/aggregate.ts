@@ -1,4 +1,4 @@
-// Everything the Insights screen shows for one period, from the user's
+// Everything the Analysis screen shows for one period, from the user's
 // converted receipt rows. Pure: the loader (./load.ts) reads and converts,
 // this only adds up, so every number is tested in isolation.
 
@@ -147,6 +147,7 @@ export function buildAnalytics(
       name: [...v.spellings].sort((a, b) => b[1] - a[1])[0][0] || key,
       amount: round2(v.amount),
       count: v.count,
+      share: totalAmount > 0 ? Math.round((v.amount / totalAmount) * 1000) / 1000 : 0,
       previous: hasPrevious ? round2(prevByMerchant.get(key) ?? 0) : null,
     }))
     .sort((a, b) => b.amount - a.amount || b.count - a.count)

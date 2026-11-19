@@ -1,26 +1,29 @@
-// The Insights chart, drawn with react-native-svg (no chart library, no
-// native change). DESIGN.md "Charts and Insights": the chosen period only
-// (the change against the period before is the hero's chip, not a second
-// set of bars); bars in --ink-muted, the bar you're on (or the current one)
+// The Analysis charts, drawn with react-native-svg (no chart library, no
+// native change). DESIGN.md "Charts and Analysis". The bars: the chosen
+// period only (no comparison with the period before); at rest the readout
+// names the highest bar, so the bars have a scale; bars in --ink-muted, the bar you're on (or the current one)
 // in --brand-action; no gradients, no shadows, amounts in Geist Mono. Slide sideways to read a
 // bar (a tick in the hand per bar); VoiceOver swipes up and down through
 // them. The chart grows in once per period.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, PanResponder, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Line, Rect } from "react-native-svg";
+import { AccessibilityInfo, PanResponder, Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from "react-native";
+import Svg, { Circle, G, Line, Rect } from "react-native-svg";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { fill, locale, s } from "../../i18n";
 import { formatMoney } from "../../lib/format";
 import {
   bucketLabel,
+  donutSegments,
+  fillParts,
   partsText,
   todayIndex,
   type Part,
   type ReadyAnalytics,
 } from "../../lib/insights";
 import { durations, fonts, space, useColors } from "../../theme";
+import { Money } from "../Money";
 import { Text } from "../Text";
 import { Parts } from "./Parts";
 
@@ -148,6 +151,11 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
   const parts: Part[] | null =
     sel != null ? [{ text: `${label(sel, true)} · ` }, { text: money(a.buckets[sel].amount), money: true }] : null;
   const readout = spoken(parts);
+  // At rest: the highest bar, which gives the bars their scale.
+  const resting: Part[] | null =
+    a.buckets[highest]?.amount > 0
+      ? fillParts(s.insights.chartHighest, { label: label(highest, true) }, { amount: money(a.buckets[highest].amount) })
+      : null;
 
   const slot = width / Math.max(1, n);
   // Few bars (a month's 7-day blocks) stay slim, so five don't read as blocks.
@@ -159,7 +167,7 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
 
   return (
     <View style={styles.wrap}>
-      <Readout parts={parts} />
+      <Readout parts={parts ?? resting} />
       <View
         onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
         style={styles.plot}
@@ -208,8 +216,103 @@ export function BarChart({ a }: { a: ReadyAnalytics }) {
   );
 }
 
+const DONUT = 168;
+const STROKE = 22;
+const R = (DONUT - STROKE) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * R;
+
+export type DonutSlice = { key: string; share: number; color: string };
+
+/**
+ * One ring, one fixed colour per category, 2 pt gaps. The centre says the
+ * total, or the slice tapped (its amount and share); a second tap goes
+ * back. Hidden from VoiceOver: the rows under it carry every number.
+ */
+export function Donut({
+  slices,
+  amount,
+  currency,
+  caption,
+  selected,
+  onSelect,
+}: {
+  slices: DonutSlice[];
+  amount: number;
+  currency: string;
+  caption: string;
+  selected: string | null;
+  onSelect: (key: string | null) => void;
+}) {
+  const colors = useColors();
+  const segs = donutSegments(
+    slices.map((x) => x.share),
+    CIRCUMFERENCE,
+    2,
+  );
+  const tap = (e: GestureResponderEvent) => {
+    const x = e.nativeEvent.locationX - DONUT / 2;
+    const y = e.nativeEvent.locationY - DONUT / 2;
+    const d = Math.hypot(x, y);
+    // Only on the ring itself (with a little slack for a thumb).
+    if (d < R - STROKE || d > DONUT / 2 + 6) return onSelect(null);
+    // Clockwise from the top, as the ring is drawn.
+    const turn = (Math.atan2(y, x) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI);
+    const at = (turn / (2 * Math.PI)) * CIRCUMFERENCE;
+    const i = segs.findIndex((seg, n) => at >= seg.offset && (n === segs.length - 1 || at < segs[n + 1].offset));
+    const key = i >= 0 ? slices[i].key : null;
+    void Haptics.selectionAsync();
+    onSelect(key === selected ? null : key);
+  };
+  return (
+    <Pressable
+      onPress={tap}
+      style={styles.donut}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Svg width={DONUT} height={DONUT}>
+        <G rotation={-90} origin={`${DONUT / 2}, ${DONUT / 2}`}>
+          <Circle cx={DONUT / 2} cy={DONUT / 2} r={R} fill="none" stroke={colors.hairline} strokeWidth={STROKE} />
+          {segs.map((seg, i) => (
+            <Circle
+              key={slices[i].key}
+              cx={DONUT / 2}
+              cy={DONUT / 2}
+              r={R}
+              fill="none"
+              stroke={slices[i].color}
+              strokeWidth={STROKE}
+              strokeDasharray={`${seg.length} ${CIRCUMFERENCE - seg.length}`}
+              strokeDashoffset={-seg.offset}
+              opacity={selected != null && selected !== slices[i].key ? 0.35 : 1}
+            />
+          ))}
+        </G>
+      </Svg>
+      <View style={styles.centre} pointerEvents="none">
+        <Money amount={amount} currency={currency} size="card" fit />
+        <Text variant="caption" color={colors.inkMuted} style={styles.centreCaption} numberOfLines={2} maxFontSizeMultiplier={1.1}>
+          {caption}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap: { marginHorizontal: space.lg, marginTop: space.lg },
+  donut: { width: DONUT, height: DONUT, alignSelf: "center" },
+  centre: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: STROKE + 8,
+  },
+  centreCaption: { textAlign: "center", marginTop: 2 },
+  wrap: { marginHorizontal: space.lg },
   readout: { minHeight: 38, justifyContent: "flex-end", marginBottom: space.xs },
   plot: { height: HEIGHT },
   labels: { height: 16, marginTop: space.xs },

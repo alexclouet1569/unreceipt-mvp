@@ -16,7 +16,7 @@ export type NavTab = { href: string; label: string; icon: LucideIcon };
 
 export const APP_TABS: NavTab[] = [
   { href: "/app", label: "Receipts", icon: Receipt },
-  { href: "/app/insights", label: "Insights", icon: ChartColumn },
+  { href: "/app/insights", label: "Analysis", icon: ChartColumn },
   { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 

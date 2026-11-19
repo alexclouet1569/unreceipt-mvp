@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   bucketLabel,
   categoryColor,
-  changeText,
+  donutSegments,
   fillParts,
   insightFilter,
   insightText,
   periodSearch,
   periodTitle,
-  previousLabel,
   shiftPeriod,
   type ReadyAnalytics,
 } from "../display";
@@ -54,25 +53,23 @@ describe("periods", () => {
     expect(shiftPeriod(a, -1)).toEqual({ kind: "custom", from: "2026-09-21", to: "2026-09-30" });
   });
 
-  it("names periods and the one before", () => {
+  it("names periods", () => {
     expect(periodTitle({ kind: "month", key: "2026-11", from: "2026-11-01", to: "2026-11-30" })).toBe("November 2026");
     expect(periodTitle({ kind: "quarter", key: "2026-Q4", from: "2026-10-01", to: "2026-12-31" })).toBe("Q4 2026");
     expect(periodTitle({ kind: "custom", key: "x", from: "2025-12-03", to: "2026-01-19" })).toBe("3 Dec 2025 – 19 Jan 2026");
-    expect(previousLabel(analytics({}))).toBe("October");
-    expect(
-      previousLabel(
-        analytics({ key: "2026-01", from: "2026-01-01", previous: { from: "2025-12-01", to: "2025-12-31" } }),
-      ),
-    ).toBe("Dec 2025");
   });
 });
 
 describe("texts", () => {
-  it("writes a neutral change, or nothing without a base", () => {
-    expect(changeText(112, 100)).toBe("+12%");
-    expect(changeText(95, 100)).toBe("-5%");
-    expect(changeText(100, 0)).toBeNull();
-    expect(changeText(100, null)).toBeNull();
+  it("lays the donut's segments end to end with gaps between them", () => {
+    const segs = donutSegments([0.5, 0.3, 0.2], 100, 2);
+    expect(segs.map((s) => s.offset)).toEqual([0, 50, 80]);
+    expect(segs.map((s) => Math.round(s.length * 10) / 10)).toEqual([48, 28, 18]);
+    // One category fills the ring, with no gap.
+    expect(donutSegments([1], 100, 2)).toEqual([{ length: 100, offset: 0 }]);
+    // A sliver stays visible; nothing to draw without amounts.
+    expect(donutSegments([0.999, 0.001], 100, 2)[1].length).toBe(1.5);
+    expect(donutSegments([0, 0], 100, 2)).toEqual([]);
   });
 
   it("keeps amounts as their own parts (Geist Mono in sentences)", () => {

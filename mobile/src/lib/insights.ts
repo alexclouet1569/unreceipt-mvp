@@ -118,32 +118,25 @@ export function rangeLabel(from: string, to: string, locale: Locale, s: Strings)
   return fill(s.insights.rangeLabel, { from: left, to: right });
 }
 
-/** The previous period in short words, for "vs October". */
-export function previousLabel(a: ReadyAnalytics, locale: Locale, s: Strings): string {
-  const prev = a.period.previous;
-  switch (a.period.kind) {
-    case "month":
-      return capital(fmt(prev.from, locale, prev.from.slice(0, 4) === a.period.from.slice(0, 4) ? { month: "long" } : { month: "short", year: "numeric" }));
-    case "quarter": {
-      const q = Math.floor((Number(prev.from.slice(5, 7)) - 1) / 3) + 1;
-      return fill(s.insights.quarterLabel, { q: String(q), year: prev.from.slice(0, 4) });
-    }
-    case "year":
-      return prev.from.slice(0, 4);
-    case "custom":
-      return s.insights.periodBefore;
-  }
-}
-
-/** "+12 %", "−8 %" in the app's language, or null when there is nothing to compare. */
-export function changeText(current: number, previous: number | null, locale: Locale): string | null {
-  if (previous == null || previous <= 0) return null;
-  const change = current / previous - 1;
-  return numberFormat(INTL_LOCALE[locale], {
-    style: "percent",
-    maximumFractionDigits: Math.abs(change) < 0.1 ? 1 : 0,
-    signDisplay: "exceptZero",
-  }).format(change);
+/**
+ * The donut's rings: one stroke segment per share, laid end to end round a
+ * circle of `circumference`, with `gap` left between neighbours (none when
+ * there is a single segment). `offset` is where each starts along the
+ * circle; a tiny share keeps a visible sliver. Same as the website's
+ * (src/lib/analytics/display.ts).
+ */
+export function donutSegments(shares: number[], circumference: number, gap: number): { length: number; offset: number }[] {
+  const total = shares.reduce((sum, v) => sum + Math.max(0, v), 0);
+  if (total <= 0) return [];
+  const many = shares.filter((v) => v > 0).length > 1;
+  let at = 0;
+  return shares.map((v) => {
+    const full = (Math.max(0, v) / total) * circumference;
+    const length = many ? Math.max(1.5, full - gap) : full;
+    const seg = { length, offset: at };
+    at += full;
+    return seg;
+  });
 }
 
 /** "42 %" of a share between 0 and 1. */

@@ -5,13 +5,12 @@ import {
   categoryColor,
   fillParts,
   bucketLabel,
-  changeText,
+  donutSegments,
   insightFilter,
   insightText,
   periodCacheKey,
   periodQueryString,
   periodTitle,
-  previousLabel,
   rangeLabel,
   shiftPeriod,
   todayIndex,
@@ -81,10 +80,6 @@ describe("periods", () => {
     expect(periodTitle({ kind: "quarter", key: "2026-Q4", from: "2026-10-01", to: "2026-12-31" }, "en", en)).toBe("Q4 2026");
     expect(periodTitle({ kind: "quarter", key: "2026-Q4", from: "2026-10-01", to: "2026-12-31" }, "sv", sv)).toBe("Kv 4 2026");
     expect(rangeLabel("2025-12-03", "2026-01-19", "en", en)).toBe("3 Dec 2025 – 19 Jan 2026");
-    expect(previousLabel(analytics({}), "en", en)).toBe("October");
-    expect(previousLabel(analytics({ key: "2026-01", from: "2026-01-01", previous: { from: "2025-12-01", to: "2025-12-31" } }), "en", en)).toBe(
-      "Dec 2025",
-    );
   });
 
   it("finds today's bar only in the current period", () => {
@@ -94,12 +89,13 @@ describe("periods", () => {
 });
 
 describe("numbers", () => {
-  it("says the change, or nothing without a base", () => {
-    expect(changeText(112, 100, "en")).toBe("+12%");
-    expect(changeText(80, 100, "sv")).toMatch(/^[−-]20\s?%$/);
-    expect(changeText(100, 0, "en")).toBeNull();
-    expect(changeText(100, null, "en")).toBeNull();
-    expect(changeText(100, 100, "en")).toBe("0%");
+  it("lays the donut's segments end to end with gaps between them", () => {
+    const segs = donutSegments([0.5, 0.3, 0.2], 100, 2);
+    expect(segs.map((x) => x.offset)).toEqual([0, 50, 80]);
+    expect(segs.map((x) => Math.round(x.length * 10) / 10)).toEqual([48, 28, 18]);
+    expect(donutSegments([1], 100, 2)).toEqual([{ length: 100, offset: 0 }]);
+    expect(donutSegments([0.999, 0.001], 100, 2)[1].length).toBe(1.5);
+    expect(donutSegments([0, 0], 100, 2)).toEqual([]);
   });
 
   it("labels bars", () => {

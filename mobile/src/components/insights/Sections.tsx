@@ -1,16 +1,16 @@
-// The Insights screen below the chart: where the money goes (one stacked
-// bar + a row per category), the top merchants, the findings, the VAT on
-// the receipts and what isn't in the numbers. Hairline cards, no shadow;
-// mint only for the VAT panel (DESIGN.md); amounts in Geist Mono.
+// The Analysis screen under the summary: by category (a donut + a row per
+// category), the top merchants, the highlights, the VAT on the receipts
+// (closed until asked) and the receipts in no period. Hairline cards, no
+// shadow; mint only for the VAT panel (DESIGN.md); amounts in Geist Mono.
 
-import { StyleSheet, View } from "react-native";
+import { useState } from "react";
+import { View } from "react-native";
 import { SymbolView } from "expo-symbols";
 import type { AnalyticsCategory, AnalyticsInsight, AnalyticsMerchant } from "@/lib/mobile/types";
 import { fill, locale, s } from "../../i18n";
 import { formatMoney } from "../../lib/format";
 import {
   categoryColor,
-  changeText,
   fillParts,
   insightFilter,
   insightText,
@@ -25,6 +25,7 @@ import { fonts, radius, space, makeStyles, useColors, useScheme } from "../../th
 import { Money } from "../Money";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
+import { Donut } from "./Charts";
 import { Parts } from "./Parts";
 
 export function SectionTitle({ children }: { children: string }) {
@@ -88,12 +89,10 @@ function Row({
   );
 }
 
-function detailLine(count: number, share: number | null, current: number, previous: number | null): string {
-  const parts = [plural(count, s.insights.receiptsOne, s.insights.receiptsOther)];
-  if (share != null) parts.push(shareText(share, locale));
-  const change = changeText(current, previous, locale);
-  if (change) parts.push(change);
-  return parts.join(" · ");
+/** "42 % · 3 receipts" under a category's or a merchant's name. */
+function detailLine(count: number, share: number | null): string {
+  const receipts = plural(count, s.insights.receiptsOne, s.insights.receiptsOther);
+  return share != null && share > 0 ? `${shareText(share, locale)} · ${receipts}` : receipts;
 }
 
 export function Categories({
@@ -105,27 +104,38 @@ export function Categories({
 }) {
   const scheme = useScheme();
   const styles = useStyles();
+  const [selected, setSelected] = useState<string | null>(null);
   const shown = a.categories.filter((c) => c.count > 0);
   if (shown.length === 0) return null;
   const withAmount = shown.filter((c) => c.amount > 0);
+  const picked = withAmount.find((c) => c.category === selected) ?? null;
   return (
     <View>
       <SectionTitle>{s.insights.whereTitle}</SectionTitle>
-      {withAmount.length > 0 ? (
-        <View style={styles.stack} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          {withAmount.map((c) => (
-            <View key={c.category} style={{ flex: Math.max(c.share, 0.01), backgroundColor: categoryColor(c.category, scheme) }} />
-          ))}
-        </View>
-      ) : null}
       <View style={styles.card}>
+        {withAmount.length > 0 ? (
+          <View style={styles.donutWrap}>
+            <Donut
+              slices={withAmount.map((c) => ({ key: c.category, share: c.share, color: categoryColor(c.category, scheme) }))}
+              amount={picked ? picked.amount : a.total.amount}
+              currency={a.currency}
+              caption={
+                picked
+                  ? `${s.categories[picked.category]} · ${shareText(picked.share, locale)}`
+                  : plural(withAmount.length, s.insights.categoriesOne, s.insights.categoriesOther)
+              }
+              selected={picked?.category ?? null}
+              onSelect={setSelected}
+            />
+          </View>
+        ) : null}
         {shown.map((c, i) => {
-          const detail = detailLine(c.count, c.amount > 0 ? c.share : null, c.amount, c.previous);
+          const detail = detailLine(c.count, c.amount > 0 ? c.share : null);
           const name = s.categories[c.category];
           return (
             <Row
               key={c.category}
-              first={i === 0}
+              first={i === 0 && withAmount.length === 0}
               left={<View style={[styles.dot, { backgroundColor: categoryColor(c.category, scheme) }]} />}
               title={name}
               detail={detail}
@@ -141,16 +151,24 @@ export function Categories({
   );
 }
 
+/** Top merchants shown before "Show more" (all of them when only one more would hide). */
+const MERCHANTS_SHOWN = 5;
+
 export function Merchants({ a, onOpen }: { a: ReadyAnalytics; onOpen: (m: AnalyticsMerchant) => void }) {
   const styles = useStyles();
   const colors = useColors();
+  const [all, setAll] = useState(false);
   if (a.merchants.length === 0) return null;
+  const more = a.merchants.length > MERCHANTS_SHOWN + 1 ? a.merchants.length - MERCHANTS_SHOWN : 0;
+  const list = all || more === 0 ? a.merchants : a.merchants.slice(0, MERCHANTS_SHOWN);
   return (
     <View>
       <SectionTitle>{s.insights.merchantsTitle}</SectionTitle>
       <View style={styles.card}>
-        {a.merchants.map((m, i) => {
-          const detail = detailLine(m.count, null, m.amount, m.previous);
+        {list.map((m, i) => {
+          // Answers cached before merchants carried a share: worked out here.
+          const share = m.share ?? (a.total.amount > 0 ? m.amount / a.total.amount : 0);
+          const detail = detailLine(m.count, share);
           return (
             <Row
               key={m.key}
@@ -171,6 +189,19 @@ export function Merchants({ a, onOpen }: { a: ReadyAnalytics; onOpen: (m: Analyt
             />
           );
         })}
+        {more > 0 ? (
+          <PressableScale
+            scaleTo={0.99}
+            onPress={() => setAll((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: all }}
+            style={[styles.more, styles.divider]}
+          >
+            <Text variant="caption" color={colors.ink} style={styles.moreText}>
+              {all ? s.insights.showFewer : fill(s.insights.showMore, { count: more })}
+            </Text>
+          </PressableScale>
+        ) : null}
       </View>
     </View>
   );
@@ -256,13 +287,30 @@ const rateText = (rate: number | null) =>
 export function VatPanel({ a, onToCheck }: { a: ReadyAnalytics; onToCheck: () => void }) {
   const styles = useStyles();
   const colors = useColors();
+  // Closed until asked: one line with the total, the detail on a tap.
+  const [open, setOpen] = useState(false);
   const v = a.vat;
   if (v.total === 0 && v.withoutVat === 0 && v.foreign === 0) return null;
   return (
     <View>
-      <SectionTitle>{s.insights.vatTitle}</SectionTitle>
-      <View style={styles.vat}>
-        <Leader label={s.insights.vatTotal} amount={v.total} currency={a.currency} strong />
+      <SectionTitle>{s.insights.vatSection}</SectionTitle>
+      <View style={[styles.vat, open && styles.vatOpen]}>
+        <PressableScale
+          scaleTo={0.99}
+          onPress={() => setOpen((o) => !o)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`${s.insights.vatTitle}: ${formatMoney(v.total, a.currency, locale)}`}
+          style={styles.vatHead}
+        >
+          <Text variant="merchant" style={styles.leaderLabel}>
+            {s.insights.vatTitle}
+          </Text>
+          <Money amount={v.total} currency={a.currency} size="row" />
+          <SymbolView name={open ? "chevron.down" : "chevron.right"} size={12} weight="semibold" tintColor={colors.inkMuted} />
+        </PressableScale>
+        {open ? (
+          <>
         {v.rates.map((r) => (
           <View key={String(r.rate)} style={styles.rateRow}>
             <Leader label={rateText(r.rate)} amount={r.vat} currency={a.currency} />
@@ -311,64 +359,22 @@ export function VatPanel({ a, onToCheck }: { a: ReadyAnalytics; onToCheck: () =>
             {plural(v.foreign, s.insights.vatForeignOne, s.insights.vatForeignOther)}
           </Text>
         ) : null}
+          </>
+        ) : null}
       </View>
     </View>
   );
 }
 
-export function Quality({
-  a,
-  onOpen,
-}: {
-  a: ReadyAnalytics;
-  onOpen: (which: "missing_amount" | "unconverted") => void;
-}) {
+/** Receipts without a date are in no period: said once, under everything. */
+export function Undated({ a }: { a: ReadyAnalytics }) {
   const styles = useStyles();
   const colors = useColors();
-  const q = a.quality;
-  const items: { key: string; text: string; open?: () => void }[] = [];
-  if (q.missingAmount > 0)
-    items.push({
-      key: "m",
-      text: plural(q.missingAmount, s.insights.qualityMissingOne, s.insights.qualityMissingOther),
-      open: () => onOpen("missing_amount"),
-    });
-  if (q.unconverted > 0)
-    items.push({
-      key: "u",
-      text: plural(q.unconverted, s.insights.qualityUnconvertedOne, s.insights.qualityUnconvertedOther),
-      open: () => onOpen("unconverted"),
-    });
-  if (q.undated > 0) items.push({ key: "d", text: plural(q.undated, s.insights.qualityUndatedOne, s.insights.qualityUndatedOther) });
-  if (items.length === 0) return null;
+  if (a.quality.undated === 0) return null;
   return (
-    <View>
-      <SectionTitle>{s.insights.qualityTitle}</SectionTitle>
-      <View style={styles.card}>
-        {items.map((it, i) =>
-          it.open ? (
-            <PressableScale
-              key={it.key}
-              scaleTo={0.99}
-              onPress={it.open}
-              accessibilityRole="button"
-              style={[styles.qualityRow, i > 0 && styles.divider]}
-            >
-              <Text variant="body" style={styles.middle}>
-                {it.text}
-              </Text>
-              <Chevron />
-            </PressableScale>
-          ) : (
-            <View key={it.key} style={[styles.qualityRow, i > 0 && styles.divider]}>
-              <Text variant="body" color={colors.inkMuted} style={styles.middle}>
-                {it.text}
-              </Text>
-            </View>
-          ),
-        )}
-      </View>
-    </View>
+    <Text variant="caption" color={colors.inkMuted} style={styles.undated}>
+      {plural(a.quality.undated, s.insights.qualityUndatedOne, s.insights.qualityUndatedOther)}
+    </Text>
   );
 }
 
@@ -385,15 +391,9 @@ const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 60, paddingVertical: 10, paddingHorizontal: 14 },
   divider: { borderTopWidth: 1, borderTopColor: colors.hairline },
   middle: { flex: 1, gap: 2 },
-  stack: {
-    flexDirection: "row",
-    height: 10,
-    borderRadius: 5,
-    overflow: "hidden",
-    marginHorizontal: space.lg,
-    marginBottom: space.md,
-    gap: 2,
-  },
+  donutWrap: { paddingVertical: space.lg, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  more: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+  moreText: { fontFamily: fonts.semibold },
   dot: { width: 12, height: 12, borderRadius: 6 },
   block: { width: 36, height: 36, borderRadius: radius.md, alignItems: "center", justifyContent: "center" },
   initials: { fontFamily: fonts.bold, fontSize: 13 },
@@ -422,9 +422,12 @@ const useStyles = makeStyles((colors) => ({
     marginHorizontal: space.lg,
     backgroundColor: colors.brandTint,
     borderRadius: radius.lg,
-    padding: space.lg,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.sm,
     gap: space.sm,
   },
+  vatOpen: { paddingBottom: space.lg },
+  vatHead: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 52 },
   leader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: space.md },
   leaderLabel: { flexShrink: 1 },
   rateRow: { gap: 0 },
@@ -438,5 +441,5 @@ const useStyles = makeStyles((colors) => ({
   },
   toCheck: { minHeight: 44, justifyContent: "center" },
   vatNote: { marginTop: space.xs },
-  qualityRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 52, paddingVertical: 10, paddingHorizontal: 14 },
+  undated: { marginHorizontal: space.lg, marginTop: space.xl },
 }));

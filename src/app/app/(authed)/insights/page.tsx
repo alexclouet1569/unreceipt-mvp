@@ -8,8 +8,8 @@ import { InsightsBody, type DrillHref } from "./InsightsView";
 import { PeriodHeader } from "./PeriodHeader";
 import { PendingBody, PeriodScope } from "./PeriodPending";
 
-// Spending by period (DESIGN.md "Charts and Insights"): the same engine as
-// the iPhone app's Insights tab (src/lib/analytics, AGENTS.md "Insights"),
+// Spending by period (DESIGN.md "Charts and Analysis"): the same engine as
+// the iPhone app's Analysis tab (src/lib/analytics, AGENTS.md "Analysis"),
 // read on the server. The period is in the address (?period=&anchor= or
 // &from=&to=); without one, the month that holds today.
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export default async function InsightsPage({ searchParams }: Props) {
   if (!limited.ok) {
     return (
       <div className="mx-auto max-w-[540px] px-4 py-6">
-        <h1 className="mb-4 type-display-lg text-[var(--ink)]">Insights</h1>
+        <h1 className="mb-4 type-display-lg text-[var(--ink)]">Analysis</h1>
         <p role="alert" className="rounded-[10px] bg-[var(--attention-tint)] px-3 py-2 text-[14px] font-semibold text-[var(--attention-deep)]">
           Too many requests in a short time. Try again in a minute.
         </p>
@@ -77,7 +77,7 @@ export default async function InsightsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto max-w-[540px] px-4 py-6 pb-[calc(env(safe-area-inset-bottom,0px)+var(--tabbar-h)+48px)]">
-      <h1 className="mb-4 type-display-lg text-[var(--ink)]">Insights</h1>
+      <h1 className="mb-4 type-display-lg text-[var(--ink)]">Analysis</h1>
       <PeriodScope>
         <PeriodHeader a={a} />
         <div className="mt-6">

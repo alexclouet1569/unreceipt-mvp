@@ -1,6 +1,7 @@
-// Insights: where the money goes. A period (month, quarter, year or any
-// dates), its total against the period before and last year, the chart,
-// what's worth knowing, categories, merchants and the VAT on the receipts.
+// Analysis (the "insights" tab): for a period (month, quarter, year or any
+// dates) what was spent and how many receipts, by category, over time, the
+// top merchants, highlights and the VAT on the receipts. No comparison with
+// earlier periods on screen: the arrows and a sideways swipe show them.
 // Every number opens the receipts behind it. Opens on the saved answer,
 // refreshes behind it; a new period keeps the old numbers dimmed until
 // its own arrive, so the screen never blanks.
@@ -16,7 +17,7 @@ import { BarChart } from "../../../components/insights/Charts";
 import { Hero } from "../../../components/insights/Hero";
 import { PeriodHeader } from "../../../components/insights/PeriodHeader";
 import { Segmented } from "../../../components/insights/Segmented";
-import { Categories, Findings, Merchants, Quality, VatPanel } from "../../../components/insights/Sections";
+import { Categories, Findings, Merchants, SectionTitle, Undated, VatPanel } from "../../../components/insights/Sections";
 import { useBreathing } from "../../../components/Skeleton";
 import { Text } from "../../../components/Text";
 import { locale, s } from "../../../i18n";
@@ -27,6 +28,7 @@ import {
   insightFilter,
   insightText,
   periodQueryString,
+  plural,
   periodTitle,
   shiftPeriod,
   type PeriodQuery,
@@ -236,34 +238,43 @@ export default function Insights() {
     );
   } else {
     const empty = a.total.count === 0;
-    body = (
+    body = empty ? (
       <Animated.View entering={FadeIn.duration(durations.medium)} style={stale && styles.stale}>
-        <Hero a={a} onOpen={() => drill({}, periodTitle(a.period, locale, s))} />
-        {empty ? (
-          <View style={styles.empty}>
-            <Text variant="bodyLg">{s.insights.emptyTitle}</Text>
-            <Text variant="body" color={colors.inkMuted}>
-              {s.insights.emptyBody}
-            </Text>
-          </View>
-        ) : (
-          <>
-            <BarChart a={a} />
-            {a.total.count < 3 ? (
-              <View style={styles.few}>
-                <Text variant="merchant">{s.insights.fewTitle}</Text>
-                <Text variant="caption" color={colors.inkMuted}>
-                  {s.insights.fewBody}
-                </Text>
-              </View>
-            ) : null}
-            <Findings a={a} onOpen={openFinding} />
-            <Categories a={a} onOpen={(c) => drill({ category: c.category }, s.categories[c.category])} />
-            <Merchants a={a} onOpen={(m) => drill({ merchant: m.key }, m.name)} />
-            <VatPanel a={a} onToCheck={() => drill({ quality: "vat_to_check" }, s.insights.vatToCheck)} />
-          </>
-        )}
-        <Quality a={a} onOpen={(which) => drill({ quality: which }, s.insights.qualityTitle)} />
+        <View style={styles.empty}>
+          <Text variant="bodyLg">{s.insights.emptyTitle}</Text>
+          <Text variant="body" color={colors.inkMuted}>
+            {s.insights.emptyBody}
+          </Text>
+        </View>
+      </Animated.View>
+    ) : (
+      <Animated.View entering={FadeIn.duration(durations.medium)} style={stale && styles.stale}>
+        <Hero
+          a={a}
+          onOpen={() => drill({}, periodTitle(a.period, locale, s))}
+          onFilter={(which) =>
+            drill(
+              { quality: which },
+              which === "to_confirm"
+                ? plural(a.total.toConfirm, s.insights.toConfirmOne, s.insights.toConfirmOther)
+                : which === "missing_amount"
+                  ? plural(a.quality.missingAmount, s.insights.qualityMissingOne, s.insights.qualityMissingOther)
+                  : s.insights.listTitle,
+            )
+          }
+        />
+        {a.total.count < 3 ? (
+          <Text variant="caption" color={colors.inkMuted} style={styles.few}>
+            {s.insights.fewBody}
+          </Text>
+        ) : null}
+        <Categories a={a} onOpen={(c) => drill({ category: c.category }, s.categories[c.category])} />
+        <SectionTitle>{s.insights.timeTitle}</SectionTitle>
+        <BarChart a={a} />
+        <Merchants a={a} onOpen={(m) => drill({ merchant: m.key }, m.name)} />
+        <Findings a={a} onOpen={openFinding} />
+        <VatPanel a={a} onToCheck={() => drill({ quality: "vat_to_check" }, s.insights.vatToCheck)} />
+        <Undated a={a} />
       </Animated.View>
     );
   }
@@ -335,7 +346,7 @@ const useStyles = makeStyles((colors) => ({
     borderColor: colors.hairline,
     borderRadius: radius.lg,
   },
-  few: { marginHorizontal: space.lg, marginTop: space.lg, gap: 2 },
+  few: { marginHorizontal: space.lg, marginTop: space.sm },
   skeleton: { marginHorizontal: space.lg, marginTop: space.lg, gap: space.md },
   bone: { backgroundColor: colors.skeleton, borderRadius: 6 },
   bars: { flexDirection: "row", alignItems: "flex-end", gap: 8, height: 100, marginVertical: space.md },

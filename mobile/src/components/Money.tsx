@@ -8,16 +8,23 @@ import { moneyParts } from "../lib/format";
 import { type, useColors } from "../theme";
 import { Text } from "./Text";
 
-type Size = "row" | "card" | "display";
+type Size = "row" | "card" | "figure" | "display";
 
-const VALUE = { row: type.amountRow, card: type.amountXl, display: type.amountDisplay } as const;
-const CURRENCY_SIZE: Record<Size, number> = { row: 11, card: 11, display: 13 };
+const VALUE = { row: type.amountRow, card: type.amountXl, figure: type.amountDisplay, display: type.amountDisplay } as const;
+const CURRENCY_SIZE: Record<Size, number> = { row: 11, card: 11, figure: 12, display: 13 };
 
 /** DESIGN.md "Digital receipt": 40, then 32 and 26 for long amounts. */
 function displaySize(text: string): number {
   if (text.length > 12) return 26;
   if (text.length > 9) return 32;
   return 40;
+}
+
+/** Half a card's width (the Analysis summary): 28, then 24 and 20 for long amounts. */
+function figureSize(text: string): number {
+  if (text.length > 10) return 20;
+  if (text.length > 7) return 24;
+  return 28;
 }
 
 export function Money({
@@ -48,12 +55,14 @@ export function Money({
     );
   }
   const p = moneyParts(amount, currency, locale);
-  const px = displaySize(sizeFor != null ? moneyParts(sizeFor, currency, locale).value : p.value);
-  const value = size === "display" ? { ...base, fontSize: px, lineHeight: px * 1.05, letterSpacing: -0.02 * px } : base;
+  const sized = sizeFor != null ? moneyParts(sizeFor, currency, locale).value : p.value;
+  const px = size === "figure" ? figureSize(sized) : displaySize(sized);
+  const value =
+    size === "display" || size === "figure" ? { ...base, fontSize: px, lineHeight: px * 1.05, letterSpacing: -0.02 * px } : base;
   const small = { fontFamily: base.fontFamily, fontSize: CURRENCY_SIZE[size] };
   // Already large on the detail: grow less with the user's text size; in a
   // narrow box (fit) too, so the digits stay whole.
-  const scale = size === "display" ? 1.1 : fit ? 1.2 : 1.4;
+  const scale = size === "display" || size === "figure" ? 1.1 : fit ? 1.2 : 1.4;
   // A narrow box steps long amounts down to 12 pt, as the website's stat card.
   const fitted =
     fit && `${p.prefix}${p.value}${p.suffix}`.length > 11 ? { fontSize: 12, lineHeight: 18 } : null;

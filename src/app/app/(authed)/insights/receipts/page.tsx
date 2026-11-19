@@ -17,7 +17,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import type { ReceiptCategory } from "@/lib/types";
 import { DrillList } from "./DrillList";
 
-// The receipts behind a number on the Insights page (a category, a
+// The receipts behind a number on the Analysis page (a category, a
 // merchant, a finding, the VAT to check), newest first, at most 200. Each
 // opens the same receipt sheet as /app.
 export const dynamic = "force-dynamic";
@@ -92,7 +92,7 @@ export default async function InsightsReceiptsPage({ searchParams }: Props) {
         className="-ml-2 inline-flex h-11 items-center gap-1 rounded-[10px] px-2 text-[14px] font-semibold text-[var(--ink-muted)] outline-none transition-colors duration-100 hover:text-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
       >
         <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-        Insights
+        Analysis
       </Link>
       <h1 className="mt-1 type-display-lg text-[var(--ink)]">
         {titleFor(filter, result && !("state" in result) ? result.rows.map((r) => r.merchant_name ?? "").filter(Boolean) : [])}

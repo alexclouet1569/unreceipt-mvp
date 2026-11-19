@@ -19,7 +19,7 @@ import { DemoNotice, TourBar, TourEnd, useDemoLinkGuard, useDemoRequestHref, typ
 import { addToPayBack, DEMO_APPROVAL_QUEUE, DEMO_PAY_BACK, DemoTeam } from "./_demo-team";
 
 // Public guided tour for a client company: the real receipts screen and
-// capture sheet with sample receipts, Insights, the owner's Team screen
+// capture sheet with sample receipts, Analysis, the owner's Team screen
 // with employees' receipts to approve, then the accountant's invite.
 // Nothing is saved: /api/ocr, /api/capture, /api/capture/scan(/original),
 // /api/receipts/<id>/decision, /api/team/reimbursements and
@@ -40,8 +40,8 @@ const STEPS: TourStep[] = [
     ),
   },
   {
-    title: "Where it goes",
-    text: "This month's spending, where it goes and the VAT on the receipts, added up for you. Try Quarter or Year.",
+    title: "Your analysis",
+    text: "What you spent this month, how many receipts and in which categories, added up for you. Try Quarter or Year.",
   },
   {
     title: "Your team's receipts",
@@ -234,7 +234,7 @@ const num = (v: FormDataEntryValue | null) =>
   typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : null;
 
 /**
- * The Insights page for the tour's sample receipts, added up in the browser
+ * The Analysis page for the tour's sample receipts, added up in the browser
  * by the real engine (src/lib/analytics/aggregate.ts): no route is called.
  * The numbers don't open anything here (there is no receipts page in the tour).
  */
@@ -247,7 +247,7 @@ function DemoInsights({ receipts, period }: { receipts: Receipt[]; period: Perio
   const href = (q: PeriodQuery) => `/demo/company?step=3&${periodSearch(q)}`;
   return (
     <main className="mx-auto max-w-[540px] px-4 py-6 pb-16">
-      <h1 className="mb-4 type-display-lg text-[var(--ink)]">Insights</h1>
+      <h1 className="mb-4 type-display-lg text-[var(--ink)]">Analysis</h1>
       <PeriodScope>
         <PeriodHeader a={a} href={href} dates={{ action: "/demo/company", keep: { step: "3" } }} />
         <div className="mt-6">

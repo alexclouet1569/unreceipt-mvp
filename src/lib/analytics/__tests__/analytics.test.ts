@@ -262,9 +262,9 @@ describe("buildAnalytics", () => {
       row({ merchant_name: "Clas Ohlson", total: 300 }),
     ];
     const a = buildAnalytics(rows, "SEK", month("2026-11"), today);
-    expect(a.merchants.map((m) => [m.name, m.amount, m.count])).toEqual([
-      ["Clas Ohlson", 300, 1],
-      ["ICA Kvantum", 175, 3],
+    expect(a.merchants.map((m) => [m.name, m.amount, m.count, m.share])).toEqual([
+      ["Clas Ohlson", 300, 1, 0.632],
+      ["ICA Kvantum", 175, 3, 0.368],
     ]);
   });
 

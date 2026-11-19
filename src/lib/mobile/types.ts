@@ -186,7 +186,7 @@ export type OlderSummary = {
   all: MoneyLine[];
 };
 
-// ── Insights (GET /api/mobile/analytics) ──────────────────────────────
+// ── Analysis, formerly Insights (GET /api/mobile/analytics) ──────────────────────────────
 
 export type AnalyticsPeriodKind = "month" | "quarter" | "year" | "custom";
 export type AnalyticsGranularity = "day" | "week" | "month";
@@ -212,6 +212,8 @@ export type AnalyticsMerchant = {
   name: string;
   amount: number;
   count: number;
+  /** 0–1 of the period's total (absent from answers cached before 2026-11-19). */
+  share?: number;
   previous: number | null;
 };
 

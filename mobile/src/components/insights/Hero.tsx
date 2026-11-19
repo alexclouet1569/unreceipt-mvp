@@ -1,89 +1,134 @@
-// The period's total, large in mono, rolling to each new value; under it
-// the change against the period before and last year (neutral ink: more
-// spending isn't "bad"), and what the total includes or leaves out.
+// The top of the Analysis screen: what was spent and how many receipts,
+// side by side and the same size (DESIGN.md "Charts and Analysis"); under
+// them, only when it applies, what the total still waits for or leaves out,
+// each opening its receipts. No comparison with earlier periods: the arrows
+// and a sideways swipe show them.
 
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { fill, locale, s } from "../../i18n";
 import { formatMoney } from "../../lib/format";
-import { changeText, fillParts, plural, previousLabel, type ReadyAnalytics } from "../../lib/insights";
+import { fillParts, plural, type Part, type ReadyAnalytics } from "../../lib/insights";
 import { useAnimatedNumber } from "../../lib/useAnimatedNumber";
-import { radius, space, makeStyles, useColors } from "../../theme";
+import { fonts, radius, space, makeStyles, useColors } from "../../theme";
 import { Money } from "../Money";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
 import { Parts } from "./Parts";
 
-function Chip({ text }: { text: string }) {
-  const styles = useStyles();
-  const colors = useColors();
-  return (
-    <View style={styles.chip}>
-      <Text variant="caption" color={colors.ink} numberOfLines={2}>
-        {text}
-      </Text>
-    </View>
-  );
-}
+export type SummaryFilter = "to_confirm" | "missing_amount" | "unconverted";
 
-/** The total, its comparisons and what it includes; tapping it opens the period's receipts. */
-export function Hero({ a, onOpen }: { a: ReadyAnalytics; onOpen: () => void }) {
+/** The period's two figures and what they wait for; each opens the receipts behind it. */
+export function Hero({
+  a,
+  onOpen,
+  onFilter,
+}: {
+  a: ReadyAnalytics;
+  onOpen: () => void;
+  onFilter: (which: SummaryFilter) => void;
+}) {
   const styles = useStyles();
   const colors = useColors();
   const shown = useAnimatedNumber(a.total.amount);
-  const vsPrevious = changeText(a.total.amount, a.compare.previous, locale);
-  const vsLastYear = changeText(a.total.amount, a.compare.lastYear, locale);
+  const count = useAnimatedNumber(a.total.count);
+  const total = formatMoney(a.total.amount, a.currency, locale);
+  const receipts = plural(a.total.count, s.insights.receiptsOne, s.insights.receiptsOther);
   const unconverted = a.total.unconverted.map((l) => formatMoney(l.amount, l.currency, locale)).join(s.receipts.totalJoin);
-  const spoken = `${s.insights.spent}: ${a.total.estimate ? fill(s.summary.about, { amount: formatMoney(a.total.amount, a.currency, locale) }) : formatMoney(a.total.amount, a.currency, locale)}`;
+
+  const notes: { key: SummaryFilter; parts: Part[] }[] = [];
+  if (a.total.toConfirm > 0) {
+    notes.push({ key: "to_confirm", parts: [{ text: plural(a.total.toConfirm, s.insights.toConfirmOne, s.insights.toConfirmOther) }] });
+  }
+  if (a.quality.missingAmount > 0) {
+    notes.push({
+      key: "missing_amount",
+      parts: [{ text: plural(a.quality.missingAmount, s.insights.qualityMissingOne, s.insights.qualityMissingOther) }],
+    });
+  }
+  if (unconverted) notes.push({ key: "unconverted", parts: fillParts(s.insights.notConverted, {}, { amounts: unconverted }) });
 
   return (
-    <View style={styles.hero}>
-      <Text variant="micro" color={colors.inkMuted}>
-        {s.insights.spent}
-      </Text>
-      <PressableScale
-        scaleTo={0.985}
-        disabled={a.total.count === 0}
-        onPress={onOpen}
-        accessibilityRole="button"
-        accessibilityLabel={spoken}
-        style={styles.amount}
-      >
-        {a.total.estimate ? (
-          <Text variant="amountDisplay" color={colors.inkMuted} style={styles.approx} maxFontSizeMultiplier={1.1}>
-            {s.receipts.approx}
+    <View style={styles.card}>
+      <View style={styles.figures}>
+        <PressableScale
+          scaleTo={0.985}
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={`${s.insights.spent}: ${a.total.estimate ? fill(s.summary.about, { amount: total }) : total}`}
+          style={styles.figure}
+        >
+          <Text variant="micro" color={colors.inkMuted}>
+            {s.insights.spent}
           </Text>
-        ) : null}
-        {/* The size follows the final value, so it doesn't jump mid-roll. */}
-        <Money amount={shown} currency={a.currency} size="display" sizeFor={a.total.amount} />
-      </PressableScale>
-      {vsPrevious || vsLastYear ? (
-        <View style={styles.chips}>
-          {vsPrevious ? <Chip text={fill(s.insights.vs, { change: vsPrevious, period: previousLabel(a, locale, s) })} /> : null}
-          {vsLastYear && a.period.kind !== "year" ? <Chip text={fill(s.insights.vsLastYear, { change: vsLastYear })} /> : null}
-        </View>
-      ) : null}
-      <Text variant="caption" color={colors.inkMuted} style={styles.meta}>
-        {plural(a.total.count, s.insights.receiptsOne, s.insights.receiptsOther)}
-        {a.total.toConfirm > 0 ? ` · ${plural(a.total.toConfirm, s.insights.toConfirmOne, s.insights.toConfirmOther)}` : ""}
-      </Text>
-      {unconverted ? <Parts parts={fillParts(s.insights.notConverted, {}, { amounts: unconverted })} amountColor={colors.inkMuted} /> : null}
+          <View style={styles.value}>
+            {a.total.estimate ? (
+              <Text style={styles.approx} color={colors.inkMuted} maxFontSizeMultiplier={1.1}>
+                {s.receipts.approx}
+              </Text>
+            ) : null}
+            <Money amount={shown} currency={a.currency} size="figure" sizeFor={a.total.amount} />
+          </View>
+        </PressableScale>
+        <View style={styles.rule} />
+        <PressableScale
+          scaleTo={0.985}
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={receipts}
+          style={styles.figure}
+        >
+          <Text variant="micro" color={colors.inkMuted}>
+            {s.insights.receiptsLabel}
+          </Text>
+          {/* A count is not money: Manrope, the same size as the amount beside it. */}
+          <Text style={styles.count} color={colors.ink} numberOfLines={1} maxFontSizeMultiplier={1.1}>
+            {String(Math.round(count))}
+          </Text>
+        </PressableScale>
+      </View>
+      {notes.map((n) => (
+        <PressableScale
+          key={n.key}
+          scaleTo={0.99}
+          onPress={() => onFilter(n.key)}
+          accessibilityRole="button"
+          accessibilityLabel={n.parts.map((p) => p.text).join("")}
+          style={styles.note}
+        >
+          <Parts parts={n.parts} color={colors.ink} style={styles.noteText} />
+          <SymbolView name="chevron.right" size={12} weight="semibold" tintColor={colors.inkFaint} />
+        </PressableScale>
+      ))}
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  hero: { marginHorizontal: space.lg, marginTop: space.lg, gap: space.xs },
-  amount: { flexDirection: "row", alignItems: "baseline" },
-  approx: { fontSize: 26 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.xs },
-  chip: {
-    maxWidth: "100%",
+  card: {
+    marginHorizontal: space.lg,
+    marginTop: space.lg,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    borderRadius: radius.full,
-    paddingHorizontal: space.md,
-    paddingVertical: 4,
+    borderRadius: radius.lg,
+    overflow: "hidden",
   },
-  meta: { marginTop: space.xs },
+  figures: { flexDirection: "row" },
+  figure: { flex: 1, minHeight: 96, justifyContent: "center", gap: space.xs, paddingHorizontal: space.lg, paddingVertical: 14 },
+  rule: { width: 1, backgroundColor: colors.hairline },
+  value: { flexDirection: "row", alignItems: "baseline", gap: 2 },
+  approx: { fontFamily: fonts.mono, fontSize: 22 },
+  count: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 30, letterSpacing: -0.56 },
+  note: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    minHeight: 44,
+    paddingHorizontal: space.lg,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+  },
+  noteText: { flex: 1 },
 }));

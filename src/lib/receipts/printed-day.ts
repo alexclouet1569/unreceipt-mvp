@@ -1,4 +1,4 @@
-// A receipt's day is the date printed on it (AGENTS.md "Insights" → Day
+// A receipt's day is the date printed on it (AGENTS.md "Analysis" → Day
 // rule): `receipt_date`, else the date part of `purchased_at`. purchased_at
 // holds the receipt's own clock time written with a "Z" (and edits pin it to
 // noon of the chosen day), so it is NOT a real UTC instant: shifting it into
