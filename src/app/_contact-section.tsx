@@ -5,9 +5,10 @@ import type { DemoRequestCopy } from "./_demo-request-copy";
 import { DemoRequestForm } from "./_demo-request-form";
 
 /**
- * The contact block at the end of the home and audience pages: the same
- * form as the demo request page (a demo or another request), next to a few
- * words and a small link for those who'd rather sign up on their own.
+ * The demo block at the end of the home and audience pages: the same demo
+ * form as the demo request page (its title links to the contact page for
+ * anything else), next to a few words and a small link for those who'd
+ * rather sign up on their own.
  * No hooks, so the landing page (a client component) and the audience
  * pages (server components) both render it; it takes one language's copy
  * as props, so the other languages never reach the browser.

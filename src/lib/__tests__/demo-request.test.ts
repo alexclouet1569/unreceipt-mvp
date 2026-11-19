@@ -179,12 +179,17 @@ describe("the contact form at the end of the pages", () => {
     }
   });
 
-  it("asks for a demo by default and offers another request", () => {
+  it("asks for a demo only, and sends anything else to the contact page", () => {
+    const form = read("src/app/_demo-request-form.tsx");
+    expect(form).toContain('kind: "demo"');
+    expect(form).toContain('pagePath("contact", locale)');
+    expect(form).not.toContain('name="kind"');
     for (const locale of DEMO_REQUEST_LOCALES) {
-      const kinds = DEMO_REQUEST_COPY[locale].form.kinds;
-      expect(kinds.demo.length).toBeGreaterThan(0);
-      expect(kinds.question.length).toBeGreaterThan(0);
+      const { contactLead, contactLink } = DEMO_REQUEST_COPY[locale].form;
+      expect(contactLead.length).toBeGreaterThan(0);
+      expect(contactLink.length).toBeGreaterThan(0);
     }
+    // The route still takes a demo with no kind (older clients).
     const parsed = demoRequestSchema.safeParse({
       name: "Maja",
       company: "Nordljus AB",

@@ -6,20 +6,20 @@ import {
   BOOKKEEPING_OPTIONS,
   DEMO_REQUEST_LIMITS as L,
   EMPLOYEE_BANDS,
-  REQUEST_KINDS,
   demoBookingUrl,
   type DemoRequestLocale,
-  type RequestKind,
 } from "@/lib/demo-request";
+import { pagePath } from "@/lib/marketing-pages";
 import { cn } from "@/lib/utils";
 import type { DemoRequestCopy } from "./_demo-request-copy";
 import { pageProps, trackEvent } from "@/lib/tracking/events";
 
-// The contact form: a demo request or another request (`kind`), on the demo
-// request pages and at the end of the home and audience pages. Posts to
+// The demo request form, on the demo request pages and at the end of the
+// home and audience pages. Demo only since 2026-11-19: anything else goes to
+// the contact page, which a line under the title links to. Posts to
 // /api/demo-request (same host: the apex in production) and then shows the
-// thank-you state; after a demo request, a "Choose a time" link to the
-// booking page when NEXT_PUBLIC_DEMO_BOOKING_URL is set. It gets one
+// thank-you state, with a "Choose a time" link to the booking page when
+// NEXT_PUBLIC_DEMO_BOOKING_URL is set. It gets one
 // language's copy as props (the server picks it), so the browser never
 // downloads the other languages. The
 // booking page is a link, not an embed, so the CSP stays as it is.
@@ -69,8 +69,6 @@ export function DemoRequestForm({
   const t = copy.form;
   const sentCopy = copy.sent;
   const Heading = headingLevel === 3 ? "h3" : "h2";
-  const [kind, setKind] = useState<RequestKind>("demo");
-  const isDemo = kind === "demo";
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<ErrorKind | null>(null);
   const [badFields, setBadFields] = useState<Set<FieldName>>(new Set());
@@ -99,7 +97,7 @@ export function DemoRequestForm({
     const text = (k: string) => String(data.get(k) ?? "");
     const accountant = text("hasAccountant");
     const payload = {
-      kind,
+      kind: "demo",
       name: text("name"),
       company: text("company"),
       email: text("email"),
@@ -145,7 +143,6 @@ export function DemoRequestForm({
   }
 
   if (status === "sent") {
-    const sentDemo = kind === "demo";
     return (
       <div className="text-center py-6" role="status">
         <CheckCircle2 className="w-12 h-12 text-[#1F9D63] mx-auto mb-4" aria-hidden="true" />
@@ -154,12 +151,10 @@ export function DemoRequestForm({
           tabIndex={-1}
           className="text-2xl font-extrabold text-[#303568] mb-2 scroll-mt-24 focus:outline-none"
         >
-          {sentDemo ? sentCopy.title : sentCopy.titleQuestion}
+          {sentCopy.title}
         </Heading>
         {confirmationSent ? <p className="text-[#303568]/75 mb-6">{sentCopy.text}</p> : <div className="mb-6" />}
-        {!sentDemo ? (
-          <p className="text-[#303568] font-semibold">{sentCopy.questionText}</p>
-        ) : booking ? (
+        {booking ? (
           <>
             <p className="text-[#303568] font-semibold mb-3">{sentCopy.bookLead}</p>
             <a
@@ -185,9 +180,6 @@ export function DemoRequestForm({
   const border = (name: FieldName) => (bad(name) ? "border-[#B42318] border-2" : "border-[#303568]/60");
   const errorId = (name: FieldName) => `${idPrefix}-${name}-error`;
   const id = (name: string) => `${idPrefix}-${name}`;
-  // The company questions qualify a demo; for another request they are
-  // optional, and the message is what's needed.
-  const qualifyHint = isDemo ? undefined : t.optionalForQuestion;
   const a11y = (name: FieldName) =>
     bad(name) ? { "aria-invalid": true as const, "aria-describedby": errorId(name) } : {};
   const fieldError = (name: FieldName) =>
@@ -199,26 +191,20 @@ export function DemoRequestForm({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="relative space-y-4">
-      <Heading className="text-xl font-extrabold text-[#303568]">{t.title}</Heading>
-
-      <fieldset>
-        <legend className={LABEL}>{t.kindLegend}</legend>
-        <div className="flex flex-col sm:flex-row gap-3">
-          {REQUEST_KINDS.map((k) => (
-            <label key={k} className={cn(CHOICE, "border-[#303568]/60")}>
-              <input
-                type="radio"
-                name="kind"
-                value={k}
-                checked={kind === k}
-                onChange={() => setKind(k)}
-                className="accent-[#1F9D63] w-4 h-4"
-              />
-              {t.kinds[k]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div>
+        <Heading className="text-xl font-extrabold text-[#303568]">{t.title}</Heading>
+        {/* Anything that isn't a demo goes to the contact page's short form. */}
+        <p className="mt-1 text-sm text-[#303568]/75">
+          {t.contactLead}{" "}
+          <a
+            href={pagePath("contact", locale)}
+            className="inline-flex items-center gap-1 font-semibold text-[#303568] underline underline-offset-2 hover:text-[#1A7F52] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303568]"
+          >
+            {t.contactLink}
+            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+          </a>
+        </p>
+      </div>
 
       <Field label={t.name} htmlFor={id("name")} error={fieldError("name")}>
         <input id={id("name")} name="name" required maxLength={L.name} autoComplete="name"
@@ -239,19 +225,19 @@ export function DemoRequestForm({
         </Field>
       </div>
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label={t.employees} hint={qualifyHint} htmlFor={id("employees")} error={fieldError("employees")}>
-          <select id={id("employees")} name="employees" required={isDemo} defaultValue=""
+        <Field label={t.employees} htmlFor={id("employees")} error={fieldError("employees")}>
+          <select id={id("employees")} name="employees" required defaultValue=""
             className={cn(FIELD, "h-12", border("employees"))} {...a11y("employees")}>
-            <option value="" disabled={isDemo}>{t.choose}</option>
+            <option value="" disabled>{t.choose}</option>
             {EMPLOYEE_BANDS.map((b) => (
               <option key={b} value={b}>{t.employeeOptions[b]}</option>
             ))}
           </select>
         </Field>
-        <Field label={t.bookkeeping} hint={qualifyHint} htmlFor={id("bookkeeping")} error={fieldError("bookkeeping")}>
-          <select id={id("bookkeeping")} name="bookkeeping" required={isDemo} defaultValue=""
+        <Field label={t.bookkeeping} htmlFor={id("bookkeeping")} error={fieldError("bookkeeping")}>
+          <select id={id("bookkeeping")} name="bookkeeping" required defaultValue=""
             className={cn(FIELD, "h-12", border("bookkeeping"))} {...a11y("bookkeeping")}>
-            <option value="" disabled={isDemo}>{t.choose}</option>
+            <option value="" disabled>{t.choose}</option>
             {BOOKKEEPING_OPTIONS.map((b) => (
               <option key={b} value={b}>{t.bookkeepingOptions[b]}</option>
             ))}
@@ -259,10 +245,7 @@ export function DemoRequestForm({
         </Field>
       </div>
       <fieldset {...(bad("hasAccountant") ? { "aria-describedby": errorId("hasAccountant") } : {})}>
-        <legend className={LABEL}>
-          {t.hasAccountant}
-          {qualifyHint ? <span className="font-normal text-[#303568]/70"> ({qualifyHint})</span> : null}
-        </legend>
+        <legend className={LABEL}>{t.hasAccountant}</legend>
         <div className="flex gap-3">
           {(["yes", "no"] as const).map((v) => (
             <label
@@ -272,16 +255,16 @@ export function DemoRequestForm({
                 border("hasAccountant")
               )}
             >
-              <input type="radio" name="hasAccountant" value={v} required={isDemo} className="accent-[#1F9D63] w-4 h-4" {...a11y("hasAccountant")} />
+              <input type="radio" name="hasAccountant" value={v} required className="accent-[#1F9D63] w-4 h-4" {...a11y("hasAccountant")} />
               {v === "yes" ? t.yes : t.no}
             </label>
           ))}
         </div>
         {fieldError("hasAccountant")}
       </fieldset>
-      <Field label={t.message} hint={isDemo ? t.optional : undefined} htmlFor={id("message")} error={fieldError("message")}>
-        <textarea id={id("message")} name="message" rows={4} maxLength={L.message} required={!isDemo}
-          placeholder={t.messagePlaceholders[kind]}
+      <Field label={t.message} hint={t.optional} htmlFor={id("message")} error={fieldError("message")}>
+        <textarea id={id("message")} name="message" rows={4} maxLength={L.message}
+          placeholder={t.messagePlaceholder}
           className={cn(FIELD, "py-3 resize-y", border("message"))} {...a11y("message")} />
       </Field>
 
