@@ -336,6 +336,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
     setOcrError(null);
     setUnhandledCurrency(null);
     setOcrFilled(false);
+    // What the previous photo read must not be saved with this one.
+    setSellerIds({ org: null, vat: null });
+    setCardLastFour(null);
+    setVatLines(null);
     const applied: OcrApplied = new Map();
     try {
       const fd = new FormData();
@@ -542,6 +546,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
     setUnhandledCurrency(null);
     setOcrFilled(false);
     setItems(null);
+    setSellerIds({ org: null, vat: null });
+    setCardLastFour(null);
+    setVatLines(null);
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -893,6 +900,15 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
                     ))}
                   </datalist>
                 </Row>
+                {cardLastFour ? (
+                  // Read from the photo; shown so a misread (a loyalty card,
+                  // a terminal number) can be removed before it is saved.
+                  <div className="flex min-h-[52px] items-center gap-3 px-4">
+                    <span className="w-[84px] shrink-0 text-[15px] font-semibold text-[var(--ink-muted)]">Card</span>
+                    <span className="flex-1 text-[15px] text-[var(--ink)]">Ending {cardLastFour}</span>
+                    <TextButton onClick={() => setCardLastFour(null)}>Remove</TextButton>
+                  </div>
+                ) : null}
               </div>
 
               {showNotes || form.notes ? (

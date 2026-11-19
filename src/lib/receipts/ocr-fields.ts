@@ -36,6 +36,26 @@ export function safeCardLastFour(v: unknown): string | null {
   return /^\d{4}$/.test(s) ? s : null;
 }
 
+/**
+ * An OCR answer as it may leave the server (/api/ocr): the payment method
+ * without anything that could be a card number and the card digits only as
+ * exactly four digits, so one rule decides what a browser ever receives.
+ */
+export function clientSafeOcr<T extends { payment_method?: string; card_last_four?: string }>(result: T): T {
+  const out = { ...result };
+  if ("payment_method" in out) {
+    const pm = safePaymentMethod(out.payment_method);
+    if (pm) out.payment_method = pm;
+    else delete out.payment_method;
+  }
+  if ("card_last_four" in out) {
+    const card = safeCardLastFour(out.card_last_four);
+    if (card) out.card_last_four = card;
+    else delete out.card_last_four;
+  }
+  return out;
+}
+
 function finite(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }

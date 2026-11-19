@@ -21,6 +21,7 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
 import { usableVatLines } from "@/lib/receipts/receipt-fields";
+import { safeCardLastFour, safePaymentMethod } from "@/lib/receipts/ocr-fields";
 import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { Receipt, ReceiptItem } from "@/lib/types";
@@ -247,10 +248,8 @@ export function mergeExtraction(
       ? fresh.tax_rate
       : null
   );
-  writeIfBetter(
-    "payment_method",
-    typeof fresh.payment_method === "string" ? fresh.payment_method : null
-  );
+  writeIfBetter("payment_method", safePaymentMethod(fresh.payment_method));
+  writeIfBetter("card_last_four", safeCardLastFour(fresh.card_last_four));
   writeIfBetter(
     "seller_org_number",
     typeof fresh.seller_org_number === "string" ? fresh.seller_org_number.trim().slice(0, 20) : null

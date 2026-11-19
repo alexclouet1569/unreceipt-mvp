@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ATTACHMENT_CONFIDENCE_CAP, fieldsFromOcr, safeCardLastFour } from "@/lib/receipts/ocr-fields";
+import type { OcrResult } from "@/lib/ocr";
+import { ATTACHMENT_CONFIDENCE_CAP, clientSafeOcr, fieldsFromOcr, safeCardLastFour } from "@/lib/receipts/ocr-fields";
 
 describe("fieldsFromOcr", () => {
   it("maps a full answer and caps the confidence below the review threshold", () => {
@@ -85,5 +86,17 @@ describe("safeCardLastFour", () => {
     for (const bad of ["123", "12345", "4111111111111111", "****1234", "12a4", "", 1234, null, undefined]) {
       expect(safeCardLastFour(bad)).toBeNull();
     }
+  });
+});
+
+describe("clientSafeOcr", () => {
+  it("never sends a card number to the browser", () => {
+    expect(clientSafeOcr({ merchant: "ICA", payment_method: "VISA 4111 1111 1111 1111", card_last_four: "4111111111111111" })).toEqual({
+      merchant: "ICA",
+      payment_method: "VISA •••",
+    });
+    expect(clientSafeOcr({ payment_method: "Card", card_last_four: "4421" })).toEqual({ payment_method: "Card", card_last_four: "4421" });
+    const plain: OcrResult = { merchant: "ICA" };
+    expect(clientSafeOcr(plain)).toEqual({ merchant: "ICA" });
   });
 });

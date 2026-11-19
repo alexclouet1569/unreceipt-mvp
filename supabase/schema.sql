@@ -2299,3 +2299,25 @@ ALTER TABLE public.profiles
 
 REVOKE INSERT ON public.profiles FROM anon, authenticated;
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+
+-- =============================================================================
+-- 2026-11-19 — Card digits are four digits (src/lib/receipts/ocr-fields.ts)
+--
+-- Photo and PDF OCR now read the card's last four digits too, and an owner can
+-- correct them (PATCH /api/receipts/[id]). Every writer checks /^\d{4}$/; this
+-- holds the rule in the database as well, so a future writer that forgets
+-- can never store more of a card number. NOT VALID: checked on every new
+-- write without scanning existing rows (all written by the same checks).
+-- Idempotent.
+-- =============================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'receipts_card_last_four_format'
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_card_last_four_format
+      CHECK (card_last_four IS NULL OR card_last_four ~ '^[0-9]{4}$') NOT VALID;
+  END IF;
+END $$;

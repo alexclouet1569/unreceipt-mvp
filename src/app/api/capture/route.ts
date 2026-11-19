@@ -288,7 +288,8 @@ export async function POST(request: NextRequest) {
         .remove([uploadedPath])
         .catch(() => {});
     }
-    console.error("[/api/capture] insert failed:", insertError);
+    // The code only: a constraint error's details can echo the row.
+    console.error("[/api/capture] insert failed:", insertError?.code);
     return NextResponse.json(
       { error: "Couldn't save the receipt. Please try again." },
       { status: 500 }
