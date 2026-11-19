@@ -1,7 +1,10 @@
 // SERVER-ONLY. Wraps the Claude vision call used by /api/ocr to pre-fill
 // the capture form. Never import from a "use client" file — ANTHROPIC_API_KEY
 // is not NEXT_PUBLIC_*, so a stray client import resolves env to undefined
-// and getClient() throws fast rather than silently leaking the key.
+// and getClient() throws fast rather than silently leaking the key. `import
+// "server-only"` makes such an import fail the build (2026-11-18).
+
+import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { recordAiUsage, type AiArea } from "./ai-usage";

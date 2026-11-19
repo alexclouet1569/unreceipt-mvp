@@ -4,8 +4,12 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/** Join / Not me for a waiting firm seat (POST /api/firm-join). */
-export function JoinAnswer({ firmName }: { firmName: string }) {
+/**
+ * Join / Not me for a waiting firm seat (POST /api/firm-join). A company
+ * account can't join (`canJoin` false, one account, one role): it can only
+ * remove the invitation.
+ */
+export function JoinAnswer({ firmName, canJoin = true }: { firmName: string; canJoin?: boolean }) {
   const [busy, setBusy] = useState<"join" | "decline" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +23,7 @@ export function JoinAnswer({ firmName }: { firmName: string }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      const body = (await res.json().catch(() => ({}))) as { redirect?: string };
+      const body = (await res.json().catch(() => ({}))) as { redirect?: string; error?: string; message?: string };
       if (res.ok && body.redirect) {
         // Full navigation: /firm and /app read the new membership server-side.
         window.location.assign(body.redirect);
@@ -30,7 +34,9 @@ export function JoinAnswer({ firmName }: { firmName: string }) {
           ? "You were signed out. Sign in again and try once more."
           : res.status === 404
             ? "This invitation isn't there any more. Ask the firm to add you again."
-            : "Couldn't save. Try again."
+            : body.error === "company_account" && body.message
+              ? body.message
+              : "Couldn't save. Try again."
       );
     } catch {
       setError("Couldn't save. Check your connection and try again.");
@@ -41,13 +47,15 @@ export function JoinAnswer({ firmName }: { firmName: string }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" className="h-11" onClick={() => answer("join")} disabled={busy !== null}>
-          {busy === "join" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
-          Join {firmName}
-        </Button>
+        {canJoin ? (
+          <Button type="button" className="h-11" onClick={() => answer("join")} disabled={busy !== null}>
+            {busy === "join" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
+            Join {firmName}
+          </Button>
+        ) : null}
         <Button type="button" variant="outline" className="h-11" onClick={() => answer("decline")} disabled={busy !== null}>
           {busy === "decline" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
-          Not me
+          {canJoin ? "Not me" : "Remove invitation"}
         </Button>
       </div>
       {error ? (

@@ -769,8 +769,8 @@ export const sv: Strings = {
     inviteSavedTitle: "Sparad, mejlet skickades inte",
   },
   states: {
-    firmOnlyTitle: "Gå med i din byrå på webben först",
-    firmOnlyBody: "En redovisningsbyrå har lagt till din adress i sin personal. Öppna app.unreceipt.com på datorn och gå med: dina klienter visas sedan här också.",
+    firmOnlyTitle: "Svara på inbjudan på webben först",
+    firmOnlyBody: "Din adress har bjudits in för att arbeta som redovisningskonsult i UnReceipt. Öppna app.unreceipt.com och svara. Tackar du ja visas dina klienter här. Är den inte till dig, tacka nej där, så kan du använda appen för dina egna kvitton.",
     inactiveTitle: "Kontot är inte aktivt än",
     inactiveBody: "Dina kvitton är i säkerhet. Kontot har inte tillgång till appen än. Skriv till support@unreceipt.com så hjälper vi dig.",
     contactSupport: "Mejla support",

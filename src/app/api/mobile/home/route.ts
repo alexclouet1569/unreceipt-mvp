@@ -1,8 +1,11 @@
 // GET /api/mobile/home — the native iPhone app's home screen in one call
 // (mobile/, docs/plans/unreceipt-ios-native-plan.md). Same loader as the
 // website's /app page (src/lib/home/load-home.ts), so both follow the same
-// firm-only and subscription rules (a firm seat waiting for this address,
-// with no company, is firm_only too). The app signs in with
+// firm-only and subscription rules. A firm seat waiting for this address,
+// with no company, answers firm_only without a firm: the app says to join on
+// the website, and no company is created, which would make the account a
+// company account that can no longer join (src/lib/account-roles.ts). The
+// app signs in with
 // `Authorization: Bearer <access token>` (getServerUser()).
 
 import * as Sentry from "@sentry/nextjs";
@@ -28,11 +31,16 @@ export async function GET() {
   let body: MobileHome;
   try {
     // No Stripe session id: Checkout never runs inside the app.
-    const [home, membership] = await Promise.all([loadHome(user, null), getFirmMembership(user.id)]);
+    const [home, membership] = await Promise.all([
+      loadHome(user, null, { askAboutFirmSeat: true }),
+      getFirmMembership(user.id),
+    ]);
     // The Clients tab: a claimed seat only (a waiting one is joined on the web).
     const firm: MobileFirmRef | null = membership ? { name: membership.firmName, role: membership.role } : null;
     if (home.kind === "firm_only") {
       body = { state: "firm_only", email, firm };
+    } else if (home.kind === "firm_pending" || home.kind === "firm_request_pending") {
+      body = { state: "firm_only", email, firm: null };
     } else if (home.kind !== "ready") {
       body = { state: "inactive", email };
     } else {

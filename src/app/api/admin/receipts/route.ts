@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage } from "@/lib/usage";
 import { receiptOrganizationFor } from "@/lib/team/membership";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
+import { maskCardNumbersOrNull, safePaymentMethod } from "@/lib/receipts/card-numbers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,9 +75,9 @@ export async function POST(request: NextRequest) {
     tax_amount: data.tax_amount ?? null,
     tax_rate: data.tax_rate ?? null,
     receipt_date: data.date,
-    payment_method: data.payment_method ?? null,
+    payment_method: safePaymentMethod(data.payment_method),
     receipt_number: data.receipt_number ?? null,
-    notes: data.notes ?? null,
+    notes: maskCardNumbersOrNull(data.notes ?? null),
     source: "manual",
     is_verified: true,
   }).select("id").single();

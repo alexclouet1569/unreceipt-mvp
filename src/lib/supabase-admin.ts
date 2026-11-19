@@ -5,7 +5,11 @@
 // Defense in depth: SUPABASE_SERVICE_ROLE_KEY is intentionally NOT prefixed
 // with NEXT_PUBLIC_, so even if someone imports this from a client file by
 // accident, the env var resolves to undefined in the browser bundle and
-// getSupabaseAdmin() throws before any request goes out.
+// getSupabaseAdmin() throws before any request goes out. And since
+// 2026-11-18 `import "server-only"` makes such an import fail the build.
+// Node scripts that reach this file run with --conditions=react-server.
+
+import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 

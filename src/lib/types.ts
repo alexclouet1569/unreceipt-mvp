@@ -358,6 +358,14 @@ export interface FirmMember {
   created_at: string;
 }
 
+// Accounts allowed to be both a company account and a firm account
+// (2026-11-17, src/lib/account-roles.ts). Server-only; added by hand.
+export interface AccountRoleExemption {
+  user_id: string;
+  note: string | null;
+  created_at: string;
+}
+
 export type FirmClientStatus = "invited" | "active" | "revoked";
 
 // Who sent the invite: the firm (to a client's address) or the client

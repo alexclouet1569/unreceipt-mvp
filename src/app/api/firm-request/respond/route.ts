@@ -27,6 +27,7 @@ import { normalizedSessionEmail } from "@/lib/email-address";
 import { isInviteExpired } from "@/lib/firm/invites";
 import { sendLinkConfirmation } from "@/lib/firm/link-emails";
 import { isAcceptableDisplayName } from "@/lib/firm/names";
+import { checkMayJoinFirm, COMPANY_ACCOUNT } from "@/lib/account-roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -118,6 +119,22 @@ export async function POST(request: NextRequest) {
         },
         { status: 409 }
       );
+    }
+    // One account, one role: a company account can't set up a firm. The
+    // invite is bound to this address, so the client has to invite another.
+    const may = await checkMayJoinFirm(user.id);
+    if (may === "blocked") {
+      return NextResponse.json(
+        {
+          error: COMPANY_ACCOUNT,
+          message:
+            "This account is for a company's receipts, so it can't also be an accounting firm. Ask your client to invite another email address of yours.",
+        },
+        { status: 409 }
+      );
+    }
+    if (may === "error") {
+      return NextResponse.json({ error: "Couldn't accept. Try again." }, { status: 500 });
     }
   }
 

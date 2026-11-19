@@ -8,7 +8,10 @@ const state = vi.hoisted(() => ({
   insert: { data: null as unknown, error: null as Result["error"] },
   membershipCount: { count: 0 as number | null, error: null as Result["error"] },
   calls: [] as Array<{ table: string; op: string; payload?: unknown }>,
+  mayHaveCompany: "ok" as "ok" | "blocked" | "error",
 }));
+
+vi.mock("@/lib/account-roles", () => ({ checkMayHaveCompany: async () => state.mayHaveCompany }));
 
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
@@ -62,6 +65,7 @@ import {
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
+  state.mayHaveCompany = "ok";
   state.orgReads = [];
   state.profile = { data: null, error: null };
   state.insert = { data: null, error: null };
@@ -144,6 +148,18 @@ describe("getOrCreateDefaultOrganization", () => {
 
     expect(await getOrCreateDefaultOrganization(USER_ID)).toBe("org-winner");
     expect(state.calls.filter((c) => c.op === "upsert")).toHaveLength(1);
+  });
+
+  it("never creates a company for an accounting-firm account (one account, one role)", async () => {
+    state.mayHaveCompany = "blocked";
+    expect(await getOrCreateDefaultOrganization("u1")).toBeNull();
+    expect(state.calls).toEqual([]);
+  });
+
+  it("leaves the decision to the database when the role check can't read", async () => {
+    state.mayHaveCompany = "error";
+    state.insert = { data: { id: "org-new" }, error: null };
+    expect(await getOrCreateDefaultOrganization("u1")).toBe("org-new");
   });
 
   it("returns null on any other insert failure", async () => {

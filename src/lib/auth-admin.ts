@@ -26,3 +26,17 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 
   return allowed.includes(email.trim().toLowerCase());
 }
+
+/** Where an admin without a second sign-in step is sent to set one up or use it. */
+export const ADMIN_MFA_PATH = "/admin/mfa";
+
+/**
+ * True when the session's verified JWT claims say the user passed a second
+ * sign-in step (Supabase MFA: `aal` is "aal2" after a TOTP code). Admins can
+ * read every customer's data, so a stolen password or email code alone must
+ * not be enough. Pure; pass claims from `auth.getClaims()`, never from an
+ * unverified token.
+ */
+export function hasSecondFactor(claims: Record<string, unknown> | null | undefined): boolean {
+  return claims?.aal === "aal2";
+}

@@ -31,6 +31,7 @@ import {
   isAllowedUploadType,
 } from "@/lib/receipts/upload-limits";
 import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
+import { maskCardNumbersOrNull } from "@/lib/receipts/card-numbers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -257,7 +258,7 @@ export async function POST(request: NextRequest) {
       total: data.amount,
       receipt_date: data.receipt_date,
       purchased_at: purchasedAt,
-      notes: data.notes?.trim() || null,
+      notes: maskCardNumbersOrNull(data.notes?.trim() || null),
       tax_amount: data.tax_amount ?? null,
       tax_rate: data.tax_rate ?? null,
       seller_org_number: data.seller_org_number ?? null,

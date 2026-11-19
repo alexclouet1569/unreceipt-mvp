@@ -20,7 +20,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { extractReceipt, type OcrMediaType, type OcrResult } from "@/lib/ocr";
 import { computeReceiptStatus } from "@/lib/receipts/status";
-import { usableVatLines } from "@/lib/receipts/receipt-fields";
+import { usableItems, usableVatLines } from "@/lib/receipts/receipt-fields";
 import { safeCardLastFour, safePaymentMethod } from "@/lib/receipts/ocr-fields";
 import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
@@ -248,7 +248,11 @@ export function mergeExtraction(
       ? fresh.tax_rate
       : null
   );
-  writeIfBetter("payment_method", safePaymentMethod(fresh.payment_method));
+  writeIfBetter(
+    "payment_method",
+    // Masked like every other OCR path: never a full card number.
+    safePaymentMethod(fresh.payment_method)
+  );
   writeIfBetter("card_last_four", safeCardLastFour(fresh.card_last_four));
   writeIfBetter(
     "seller_org_number",
@@ -267,9 +271,12 @@ export function mergeExtraction(
 
   // Items: always backfill if the row currently has none. If it already
   // has some, only overwrite when the new extraction wins on confidence.
+  // usableItems() checks each line with ReceiptItemSchema, which caps the
+  // label and masks card numbers in it.
+  const usable = usableItems(fresh.items);
   const freshItems: ReceiptItem[] | null =
-    Array.isArray(fresh.items) && fresh.items.length > 0
-      ? fresh.items.map((it) => ({
+    usable
+      ? usable.map((it) => ({
           label: it.label,
           qty: it.qty ?? null,
           unit_amount: it.unit_amount ?? null,

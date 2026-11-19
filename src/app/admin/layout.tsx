@@ -14,7 +14,10 @@ export const metadata = ROOT_METADATA;
  * server-side re-check that actually protects the data.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdminPage();
+  // The allowlist only: /admin/mfa (where the second sign-in step is set up
+  // or entered) renders inside this layout. Every admin page calls
+  // requireAdminPage() itself, which also requires that step.
+  await requireAdminPage({ allowWithoutMfa: true });
 
   return (
     <ProductDocument>

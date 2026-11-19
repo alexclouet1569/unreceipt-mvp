@@ -11,6 +11,7 @@ import { isSameHost } from "@/lib/same-origin";
 import { getServerUser } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getOrCreateDefaultOrganization } from "@/lib/organizations";
+import { checkMayHaveCompany, FIRM_ACCOUNT, FIRM_ACCOUNT_MESSAGE } from "@/lib/account-roles";
 import { chosenCountry } from "@/lib/country";
 import { rateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { normalizeAddress } from "@/lib/email-address";
@@ -52,6 +53,10 @@ export async function POST(request: NextRequest) {
   const limited = await rateLimit("accountantInvite", user.id);
   if (!limited.ok) return rateLimitedResponse(limited.retryAfterSeconds);
 
+  // One account, one role: a firm account never gets a company.
+  if ((await checkMayHaveCompany(user.id)) === "blocked") {
+    return NextResponse.json({ error: FIRM_ACCOUNT_MESSAGE, code: FIRM_ACCOUNT }, { status: 409 });
+  }
   const organizationId = await getOrCreateDefaultOrganization(user.id, { country: chosenCountry(user) });
   if (!organizationId) {
     return NextResponse.json({ error: "Couldn't set up your company. Try again." }, { status: 500 });

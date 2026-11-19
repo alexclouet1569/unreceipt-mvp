@@ -26,7 +26,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-import { isAdminEmail } from "@/lib/auth-admin";
+import { ADMIN_MFA_PATH, hasSecondFactor, isAdminEmail } from "@/lib/auth-admin";
 import { INDEXNOW_KEY } from "@/lib/indexnow";
 import { MARKETING_PATHS, demoRequestPath } from "@/lib/marketing-pages";
 
@@ -305,6 +305,19 @@ async function adminGate(request: NextRequest) {
 
   if (!isAdminEmail(user?.email)) {
     return forbid(request, isApiPath);
+  }
+
+  // A second sign-in step (TOTP, `aal2`) is required everywhere except the
+  // page where the admin sets it up or enters the code. requireAdmin()
+  // checks the same thing behind this; this check only saves the round trip.
+  if (request.nextUrl.pathname !== ADMIN_MFA_PATH) {
+    const { data, error } = await supabase.auth.getClaims();
+    if (error || !hasSecondFactor(data?.claims as Record<string, unknown> | undefined)) {
+      const res = isApiPath
+        ? NextResponse.json({ error: "mfa_required" }, { status: 403 })
+        : NextResponse.redirect(new URL(ADMIN_MFA_PATH, request.url));
+      return applyRefresh(res, refresh);
+    }
   }
 
   // requireAdmin() behind this reads the rotated session from the request.

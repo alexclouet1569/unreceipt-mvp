@@ -59,6 +59,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });
   }
   if (existing) return NextResponse.json({ error: "This address is already in a firm." }, { status: 409 });
+  // One account, one role (src/lib/account-roles.ts): an address with a
+  // company account could never join. Admin only: a firm admin adding staff
+  // must not learn whether an address has an account.
+  const { data: hasCompany, error: companyError } = await db.rpc("company_account_for_address", { addr: email });
+  if (companyError) {
+    console.error("[/api/admin/firms] company lookup failed", companyError.code);
+    return NextResponse.json({ error: "Couldn't save. Try again." }, { status: 500 });
+  }
+  if (hasCompany === true) {
+    return NextResponse.json(
+      {
+        error:
+          "This address already has a company account, so it can't also be an accounting firm. Ask the accountant for another email address.",
+      },
+      { status: 409 }
+    );
+  }
 
   const { data: firm, error: firmError } = await db.from("firms").insert({ name }).select("id, country").single();
   if (firmError || !firm) {

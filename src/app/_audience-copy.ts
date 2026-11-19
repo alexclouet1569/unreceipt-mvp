@@ -206,7 +206,7 @@ const accountantsEn: AudienceCopy = {
     },
     {
       q: "Who can see a client's receipts?",
-      a: "Only the client itself and your firm's staff, and only for companies linked to your firm. Receipts are read by AI, not by people: UnReceipt's own staff look at a client's receipts only when the client asks for support, for security, or when the law requires it. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
+      a: "Only the client itself and your firm's staff, and only for companies linked to your firm. A link exists only once the invited side has accepted it, signed in with the address the invite was sent to, and the client gets an email confirming every new link. Receipts are stored in the EU, in Frankfurt.",
     },
     {
       q: "Can I change the category or account of a receipt?",
@@ -355,7 +355,7 @@ const accountantsSv: AudienceCopy = {
     },
     {
       q: "Vem kan se klientens kvitton?",
-      a: "Bara klienten själv och byråns personal, och bara för företag som är kopplade till byrån. Kvittona läses av AI, inte av människor: UnReceipts egen personal tittar på en klients kvitton bara om klienten ber om support, av säkerhetsskäl eller när lagen kräver det. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
+      a: "Bara klienten själv och byråns personal, och bara för företag som är kopplade till byrån. En koppling finns först när den inbjudna parten har accepterat, inloggad med adressen som inbjudan skickades till, och klienten får ett mejl som bekräftar varje ny koppling. Kvittona lagras inom EU, i Frankfurt.",
     },
     {
       q: "Kan jag ändra kategori eller konto på ett kvitto?",
@@ -502,7 +502,7 @@ const accountantsFr: AudienceCopy = {
     },
     {
       q: "Qui peut voir les reçus d’un client ?",
-      a: "Seuls le client lui-même et les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Les reçus sont lus par une IA, pas par des personnes : l’équipe UnReceipt ne consulte les reçus d’un client que s’il demande de l’aide, pour des raisons de sécurité ou si la loi l’exige. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
+      a: "Seuls le client lui-même et les collaborateurs de votre cabinet, et seulement pour les entreprises reliées au cabinet. Un lien n’existe qu’une fois accepté par la partie invitée, connectée avec l’adresse à laquelle l’invitation a été envoyée, et le client reçoit un e-mail qui confirme chaque nouveau lien. Les reçus sont hébergés dans l’UE, à Francfort.",
     },
     {
       q: "UnReceipt remplace-t-il le ticket papier ?",
