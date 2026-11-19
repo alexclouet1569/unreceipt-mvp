@@ -56,7 +56,7 @@ export function partialAttachmentFields(
     merchant_vat_number: read.merchant_vat_number,
     vat_lines: null,
     payment_method: read.payment_method,
-    card_last_four: null,
+    card_last_four: read.card_last_four,
     category: read.category,
     parse_confidence: read.parse_confidence,
   };

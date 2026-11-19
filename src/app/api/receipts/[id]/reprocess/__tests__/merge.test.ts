@@ -75,6 +75,7 @@ describe("mergeExtraction", () => {
       tax_amount: 23.31,
       tax_rate: 12,
       payment_method: "card",
+      card_last_four: "4421",
       items: [
         { label: "Bröd", qty: null, unit_amount: null, total_amount: 45 },
         { label: "Mjölk", qty: 2, unit_amount: 15, total_amount: 30 },
@@ -91,6 +92,7 @@ describe("mergeExtraction", () => {
     expect(patch.tax_amount).toBe(23.31);
     expect(patch.tax_rate).toBe(12);
     expect(patch.payment_method).toBe("card");
+    expect(patch.card_last_four).toBe("4421");
     expect(patch.items).toHaveLength(2);
     expect(patch.parse_confidence).toBe(0.92);
     // A re-run fills the fields but never confirms: only the owner does.
@@ -258,5 +260,16 @@ describe("mergeExtraction", () => {
     expect(patch).not.toHaveProperty("merchant_name");
     expect(patch).not.toHaveProperty("total");
     expect(patch.tax_amount).toBe(24);
+  });
+
+  it("never writes more than a card's last four digits", () => {
+    const { patch } = mergeExtraction(baseRow(), {
+      merchant: "ICA",
+      payment_method: "VISA 4111 1111 1111 1111",
+      card_last_four: "4111111111111111",
+      confidence: 0.9,
+    });
+    expect(patch.payment_method).toBe("VISA •••");
+    expect(patch).not.toHaveProperty("card_last_four");
   });
 });

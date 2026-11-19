@@ -5,6 +5,7 @@ import { LOCALE_HOME, type Locale } from "@/lib/locale";
 import { MARKETING_PAGES, pageLanguages, pagePath, type MarketingPageId } from "@/lib/marketing-pages";
 import { PLANS } from "@/lib/plans";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
+import { LINKEDIN_URL } from "@/lib/support-contact";
 
 /**
  * Search-engine and AI-assistant facing facts about UnReceipt. Every claim
@@ -164,9 +165,9 @@ const AUDIENCES = [
  * UnReceipt's own profiles elsewhere (LinkedIn company page, Crunchbase…),
  * listed as `sameAs` on the Organization so search engines and AI
  * assistants tie them to this site. Only real, live profiles owned by
- * UnReceipt; empty until the LinkedIn company page exists (2026-11-17).
+ * UnReceipt: the LinkedIn company page since 2026-11-19.
  */
-export const SAME_AS: readonly string[] = [];
+export const SAME_AS: readonly string[] = [LINKEDIN_URL];
 
 export function organizationNode() {
   return {

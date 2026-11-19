@@ -8,6 +8,7 @@ import {
   subscriptionRequiredResponse,
 } from "@/lib/subscription-gate";
 import { MAX_PDF_PAGES, pdfPageCount } from "@/lib/receipts/pdf-pages";
+import { clientSafeOcr } from "@/lib/receipts/ocr-fields";
 import { STAGING_BUCKET, stagedPathFor } from "@/lib/receipts/staging";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import {
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
       return streamedResponse(base64, type as OcrMediaType, request.signal, stage);
     }
     const result = await extractReceipt(base64, type as OcrMediaType);
-    return NextResponse.json(result);
+    return NextResponse.json(clientSafeOcr(result));
   } catch (err) {
     console.error("[/api/ocr] extract failed:", err);
     Sentry.captureException(err, { tags: { area: "ocr" } });
@@ -177,7 +178,7 @@ function streamedResponse(
             const key = JSON.stringify(fields);
             if (key !== lastSent && key !== "{}") {
               lastSent = key;
-              send({ type: "partial", fields });
+              send({ type: "partial", fields: clientSafeOcr(fields) });
             }
           },
           abort.signal,
@@ -185,7 +186,7 @@ function streamedResponse(
         // Before the result: the sheet stops reading at the result line.
         const path = await staged;
         if (path) send({ type: "staged", path });
-        send({ type: "result", result: call.result });
+        send({ type: "result", result: clientSafeOcr(call.result) });
       } catch (err) {
         // Nobody will save this photo: don't keep the stored copy.
         void staged.then((path) => {

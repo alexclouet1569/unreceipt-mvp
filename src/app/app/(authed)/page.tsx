@@ -107,6 +107,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       mailboxProviders={mailboxProviders}
       connectedMailboxes={connectedMailboxes}
       liveUpdatesUserId={user.id}
+      searchable
     />
     </>
   );

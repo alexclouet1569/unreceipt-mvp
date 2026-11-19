@@ -19,6 +19,36 @@ export const ATTACHMENT_CONFIDENCE_CAP = UNTRUSTED_EXTRACTION_CONFIDENCE_CAP;
 import { safePaymentMethod } from "./card-numbers";
 export { safePaymentMethod };
 
+/**
+ * The card's last four digits, only as exactly four digits: anything
+ * longer or shorter could be part of a full card number or another code.
+ */
+export function safeCardLastFour(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return /^\d{4}$/.test(s) ? s : null;
+}
+
+/**
+ * An OCR answer as it may leave the server (/api/ocr): the payment method
+ * without anything that could be a card number and the card digits only as
+ * exactly four digits, so one rule decides what a browser ever receives.
+ */
+export function clientSafeOcr<T extends { payment_method?: string; card_last_four?: string }>(result: T): T {
+  const out = { ...result };
+  if ("payment_method" in out) {
+    const pm = safePaymentMethod(out.payment_method);
+    if (pm) out.payment_method = pm;
+    else delete out.payment_method;
+  }
+  if ("card_last_four" in out) {
+    const card = safeCardLastFour(out.card_last_four);
+    if (card) out.card_last_four = card;
+    else delete out.card_last_four;
+  }
+  return out;
+}
+
 function finite(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
@@ -74,7 +104,7 @@ export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null 
     vat_lines: vatLines,
     category,
     payment_method: safePaymentMethod(result.payment_method),
-    card_last_four: null,
+    card_last_four: safeCardLastFour(result.card_last_four),
     notes: null,
     items: items
       ? items.map((it) => ({

@@ -222,6 +222,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
   // Bookkeeping fields read by OCR and passed through unchanged: the
   // seller's org.nr / VAT no. and the VAT split per rate.
   const [sellerIds, setSellerIds] = useState<{ org: string | null; vat: string | null }>({ org: null, vat: null });
+  // The card's last four digits as OCR read them; saved with the receipt.
+  const [cardLastFour, setCardLastFour] = useState<string | null>(null);
   const [vatLines, setVatLines] = useState<OcrVatLine[] | null>(null);
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
   // True while the line items are still being read after the total and date
@@ -252,6 +254,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
       setShowNotes(false);
       setItems(null);
       setSellerIds({ org: null, vat: null });
+      setCardLastFour(null);
       setVatLines(null);
       setSavedReceipt(null);
     }
@@ -333,6 +336,10 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
     setOcrError(null);
     setUnhandledCurrency(null);
     setOcrFilled(false);
+    // What the previous photo read must not be saved with this one.
+    setSellerIds({ org: null, vat: null });
+    setCardLastFour(null);
+    setVatLines(null);
     const applied: OcrApplied = new Map();
     try {
       const fd = new FormData();
@@ -391,6 +398,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
         org: typeof data.seller_org_number === "string" ? data.seller_org_number.trim().slice(0, 20) : null,
         vat: typeof data.seller_vat_number === "string" ? data.seller_vat_number.trim().slice(0, 32) : null,
       });
+      setCardLastFour(
+        typeof data.card_last_four === "string" && /^\d{4}$/.test(data.card_last_four.trim())
+          ? data.card_last_four.trim()
+          : null
+      );
       setVatLines(Array.isArray(data.vat_lines) && data.vat_lines.length > 0 ? data.vat_lines : null);
       applyOcrFields(data, applied);
       // The VAT printed on the receipt beats one we'd work out.
@@ -534,6 +546,9 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
     setUnhandledCurrency(null);
     setOcrFilled(false);
     setItems(null);
+    setSellerIds({ org: null, vat: null });
+    setCardLastFour(null);
+    setVatLines(null);
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -570,6 +585,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
       }
       if (sellerIds.org) fd.append("seller_org_number", sellerIds.org);
       if (sellerIds.vat) fd.append("merchant_vat_number", sellerIds.vat);
+      if (cardLastFour) fd.append("card_last_four", cardLastFour);
       if (includeVat && vatLines && vatLines.length > 0) {
         fd.append("vat_lines", JSON.stringify(vatLines));
       }
@@ -884,6 +900,24 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
                     ))}
                   </datalist>
                 </Row>
+                {cardLastFour ? (
+                  // Read from the photo; shown so a misread (a loyalty card,
+                  // a terminal number) can be removed before it is saved.
+                  <div className="flex min-h-[52px] items-center gap-3 px-4">
+                    <span className="w-[84px] shrink-0 text-[15px] font-semibold text-[var(--ink-muted)]">Card</span>
+                    <span className="flex-1 text-[16px] font-bold text-[var(--ink)] tabular-nums">Ending {cardLastFour}</span>
+                    <TextButton
+                      ariaLabel={`Remove card ending ${cardLastFour}`}
+                      onClick={() => {
+                        setCardLastFour(null);
+                        // The row goes away: focus moves to the payment field above it.
+                        document.getElementById("cd-payment-method")?.focus();
+                      }}
+                    >
+                      Remove
+                    </TextButton>
+                  </div>
+                ) : null}
               </div>
 
               {showNotes || form.notes ? (
@@ -1351,15 +1385,18 @@ function TextButton({
   onClick,
   children,
   buttonRef,
+  ariaLabel,
 }: {
   onClick: () => void;
   children: ReactNode;
   buttonRef?: Ref<HTMLButtonElement>;
+  ariaLabel?: string;
 }) {
   return (
     <button
       ref={buttonRef}
       type="button"
+      aria-label={ariaLabel}
       onClick={onClick}
       className="flex h-11 items-center gap-2 rounded-[10px] px-1 text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getServerUser: vi.fn(),
   analyticsAccess: vi.fn(),
   loadOlderReceipts: vi.fn(),
+  searchReceipts: vi.fn(),
   ensureHomeAmounts: vi.fn(),
   rateLimit: vi.fn(),
 }));
@@ -14,6 +15,10 @@ vi.mock("@/lib/analytics/load", () => ({ analyticsAccess: mocks.analyticsAccess 
 vi.mock("@/lib/home/load-home", async (orig) => ({
   ...(await orig<typeof import("@/lib/home/load-home")>()),
   loadOlderReceipts: mocks.loadOlderReceipts,
+}));
+vi.mock("@/lib/home/search", async (orig) => ({
+  ...(await orig<typeof import("@/lib/home/search")>()),
+  searchReceipts: mocks.searchReceipts,
 }));
 vi.mock("@/lib/fx", () => ({ ensureHomeAmounts: mocks.ensureHomeAmounts }));
 vi.mock("@/lib/rate-limit", () => ({
@@ -52,6 +57,7 @@ beforeEach(() => {
   mocks.rateLimit.mockResolvedValue({ ok: true });
   mocks.analyticsAccess.mockResolvedValue({ kind: "ready", home: "SEK", country: "SE" });
   mocks.loadOlderReceipts.mockResolvedValue({ receipts: [row], hasMore: true });
+  mocks.searchReceipts.mockResolvedValue({ receipts: [row], hasMore: false });
   mocks.ensureHomeAmounts.mockImplementation(async (rows: Receipt[]) => rows);
 });
 
@@ -133,5 +139,43 @@ describe("list cursor", () => {
     expect(afterCursorFilter({ purchasedAt: null, createdAt: "2026-01-05T12:00:01Z", id })).toBe(
       'and(purchased_at.is.null,or(created_at.lt."2026-01-05T12:00:01Z",and(created_at.eq."2026-01-05T12:00:01Z",id.lt."' + id + '")))',
     );
+  });
+
+  describe("search and month filter", () => {
+    it("starts a search without a cursor and continues it with one", async () => {
+      const res = await GET(req("?q=sj&month=2025-03"));
+      expect(res.status).toBe(200);
+      expect(mocks.rateLimit).toHaveBeenCalledWith("receiptSearch", USER.id);
+      expect(mocks.searchReceipts).toHaveBeenCalledWith(
+        USER.id,
+        { text: "sj", amount: null, period: { from: "2025-03-01", to: "2025-03-31" } },
+        null,
+      );
+      expect(mocks.loadOlderReceipts).not.toHaveBeenCalled();
+      const body = await res.json();
+      expect(body.hasMore).toBe(false);
+      expect(body.receipts[0]).not.toHaveProperty("verification_code");
+
+      await GET(req(`?q=495&after=${encodeURIComponent(KEY)}`));
+      expect(mocks.searchReceipts).toHaveBeenLastCalledWith(
+        USER.id,
+        { text: "495", amount: 495, period: null },
+        expect.objectContaining({ id: "22222222-2222-4222-8222-222222222222" }),
+      );
+    });
+
+    it("refuses a malformed period or cursor before reading anything", async () => {
+      for (const q of ["?month=2025-13", "?year=99", "?q=sj&after=nope"]) {
+        expect((await GET(req(q))).status, q).toBe(400);
+      }
+      expect(mocks.searchReceipts).not.toHaveBeenCalled();
+      expect(mocks.rateLimit).not.toHaveBeenCalled();
+    });
+
+    it("gives nothing without access", async () => {
+      mocks.analyticsAccess.mockResolvedValue({ kind: "inactive" });
+      expect((await GET(req("?q=sj"))).status).toBe(403);
+      expect(mocks.searchReceipts).not.toHaveBeenCalled();
+    });
   });
 });

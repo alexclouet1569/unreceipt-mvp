@@ -36,6 +36,9 @@ export interface OcrResult {
   seller_vat_number?: string;
   vat_lines?: OcrVatLine[];
   payment_method?: string;
+  // The last four digits of a masked card number printed on the receipt
+  // ("************1234"): which card paid, never more of the number.
+  card_last_four?: string;
   // Every line item visible on the receipt — what makes the digital
   // copy usable as proof of payment instead of just a summary.
   items?: OcrItem[];
@@ -88,6 +91,7 @@ Extract fields from the user's receipt image and return ONLY valid JSON matching
   "seller_org_number": "<the seller's organisation number exactly as printed, e.g. 556677-8899 (Sweden: 'Org.nr', 'Orgnr'), or omit>",
   "seller_vat_number": "<the seller's VAT / momsreg.nr exactly as printed, e.g. SE556677889901, or omit>",
   "payment_method": "<e.g. card, cash, klarna, swish, or omit>",
+  "card_last_four": "<the last 4 digits of the masked card number printed on the receipt, e.g. 1234 from ************1234, or omit>",
   "items": [
     {
       "label": "<exact line label, preserve original language>",
@@ -105,6 +109,7 @@ Rules:
 - amount is the FINAL TOTAL paid, not subtotal.
 - vat_lines: Swedish receipts often print a VAT table ("Moms 25% 100,00 25,00", "12%", "6%"). Give one entry per rate with the net and VAT amounts as printed; omit the array when only one total VAT figure is shown (use tax_amount/tax_rate then). The sum of vat_lines[].vat must equal tax_amount.
 - seller_org_number / seller_vat_number: copy exactly as printed, never derive one from the other or invent one.
+- card_last_four: only the 4 digits that end the masked number of the payment card that paid this purchase ("************1234", "XXXX XXXX XXXX 1234", "Kort: ...1234"). Never a loyalty, member, bonus or gift card number (e.g. "ICA-kort", "Coop medlemsnr", "Bonuskort"), never digits from a terminal id, reference, approval code or phone number. Omit it when no masked payment card number is printed or when several cards paid.
 - currency: infer from the currency symbol or code (€=EUR, £=GBP, zł=PLN, Kč=CZK, Ft=HUF, ₺/TL=TRY, ₴/грн=UAH, ₽=RUB, KM=BAM, Lekë=ALL). Signs shared by several countries follow the country the receipt is from (address, language, VAT or company number): "kr" is SEK, or NOK, DKK, ISK for Norway, Denmark, Iceland (MVA/CVR/kennitala), default SEK; "lei" is RON, or MDL for Moldova; "Fr."/"CHF" is CHF for Switzerland or Liechtenstein ("F CFP" is XPF); "$" is USD unless the receipt is Canadian, Australian or another dollar country (then that code, e.g. CAD); "лв" is BGN only on Bulgarian receipts dated 2025 or earlier (Bulgaria uses EUR since 2026). When no sign is printed, use the currency of the country the receipt is from; default to SEK for Swedish-looking receipts. A currency outside the list: give its ISO code anyway (e.g. JPY), never a listed one instead.
 - category: pick the closest match from the allowed list, default to "other" if unclear.
 - items: extract EVERY line on the receipt — this is what turns the digital copy into a true replacement for the paper one (so the customer can use it as proof of payment for finance/VAT). For a supermarket receipt that means every product line (Red Bull, carrots, milk). For a restaurant receipt that's every dish + drink. Use the EXACT label as printed (preserve the original language). Omit "items" entirely when there's no itemized breakdown (single-line transfers, fuel-only receipts). Never invent items.

@@ -2545,3 +2545,118 @@ UPDATE storage.buckets
          'image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'message/rfc822'
        ]
  WHERE id = 'receipt-originals';
+
+-- =============================================================================
+-- 2026-11-19 — Card digits are four digits (src/lib/receipts/ocr-fields.ts)
+--
+-- Photo and PDF OCR now read the card's last four digits too, and an owner can
+-- correct them (PATCH /api/receipts/[id]). Every writer checks /^\d{4}$/; this
+-- holds the rule in the database as well, so a future writer that forgets
+-- can never store more of a card number. NOT VALID: checked on every new
+-- write without scanning existing rows (all written by the same checks).
+-- Idempotent.
+-- =============================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'receipts_card_last_four_format'
+  ) THEN
+    ALTER TABLE public.receipts
+      ADD CONSTRAINT receipts_card_last_four_format
+      CHECK (card_last_four IS NULL OR card_last_four ~ '^[0-9]{4}$') NOT VALID;
+  END IF;
+END $$;
+
+-- =============================================================================
+-- 2026-11-19 — Receipt search (src/lib/home/search.ts)
+--
+-- Pilot feedback: "type in the expense and the receipt pops up". One user's
+-- receipts whose merchant, note, card digits or any line item contains the
+-- typed text, or
+-- whose amount (as printed, or converted to the company's currency) equals a
+-- typed number, optionally limited to a range of days. A receipt's day is its
+-- printed date, else the date part of purchased_at (as Insights). Same order
+-- and keyset cursor as the home list (purchased_at DESC NULLS LAST,
+-- created_at DESC, id DESC), so "Load more" pages through results the same
+-- way.
+--
+-- Called only by the server with the service role, which passes the signed-in
+-- user's id: no grant to anon or authenticated. The text is matched literally
+-- (\, % and _ are escaped here, at most 100 characters). No new index: a
+-- user's receipts are reached through receipts_user_id_purchased_at_idx and
+-- scanned; add a pg_trgm index if one account grows past ~50,000 receipts.
+-- Apply before deploying the search routes. Idempotent.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.search_receipts(
+  p_user_id UUID,
+  p_query TEXT,
+  p_amount NUMERIC,
+  p_from DATE,
+  p_to DATE,
+  p_after_purchased_at TIMESTAMPTZ,
+  p_after_created_at TIMESTAMPTZ,
+  p_after_id UUID,
+  p_limit INTEGER
+)
+RETURNS SETOF public.receipts
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH params AS (
+    SELECT CASE
+      WHEN p_query IS NULL OR btrim(p_query) = '' THEN NULL
+      ELSE '%' || replace(replace(replace(left(btrim(p_query), 100), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+    END AS pat
+  )
+  SELECT r.*
+  FROM public.receipts AS r, params
+  WHERE r.user_id = p_user_id
+    AND (
+      (params.pat IS NULL AND p_amount IS NULL)
+      OR (
+        params.pat IS NOT NULL
+        AND (
+          r.merchant_name ILIKE params.pat
+          OR r.notes ILIKE params.pat
+          OR r.card_last_four ILIKE params.pat
+          OR (
+            jsonb_typeof(r.items) = 'array'
+            AND EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(r.items) AS it
+              WHERE jsonb_typeof(it) = 'object' AND it->>'label' ILIKE params.pat
+            )
+          )
+        )
+      )
+      OR (p_amount IS NOT NULL AND (r.total = p_amount OR r.home_total = p_amount))
+    )
+    AND (p_from IS NULL OR COALESCE(r.receipt_date, (r.purchased_at AT TIME ZONE 'UTC')::date) >= p_from)
+    AND (p_to IS NULL OR COALESCE(r.receipt_date, (r.purchased_at AT TIME ZONE 'UTC')::date) <= p_to)
+    AND (
+      p_after_created_at IS NULL
+      OR (
+        p_after_purchased_at IS NULL
+        AND r.purchased_at IS NULL
+        AND (r.created_at, r.id) < (p_after_created_at, p_after_id)
+      )
+      OR (
+        p_after_purchased_at IS NOT NULL
+        AND (
+          r.purchased_at < p_after_purchased_at
+          OR (r.purchased_at = p_after_purchased_at AND (r.created_at, r.id) < (p_after_created_at, p_after_id))
+          OR r.purchased_at IS NULL
+        )
+      )
+    )
+  ORDER BY r.purchased_at DESC NULLS LAST, r.created_at DESC, r.id DESC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit, 50), 1), 101);
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.search_receipts(UUID, TEXT, NUMERIC, DATE, DATE, TIMESTAMPTZ, TIMESTAMPTZ, UUID, INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.search_receipts(UUID, TEXT, NUMERIC, DATE, DATE, TIMESTAMPTZ, TIMESTAMPTZ, UUID, INTEGER)
+  TO service_role;
