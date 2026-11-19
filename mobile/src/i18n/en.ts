@@ -601,6 +601,7 @@ export const en = {
     listEmpty: "No receipts here.",
     truncated: "Showing the latest 200.",
     receiptsLabel: "Receipts",
+    openHint: "Shows the receipts",
     timeTitle: "Over time",
     vatSection: "VAT",
     categoriesOne: "1 category",

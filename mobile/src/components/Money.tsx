@@ -20,10 +20,14 @@ function displaySize(text: string): number {
   return 40;
 }
 
-/** Half a card's width (the Analysis summary): 28, then 24 and 20 for long amounts. */
-function figureSize(text: string): number {
-  if (text.length > 10) return 20;
-  if (text.length > 7) return 24;
+/**
+ * Half a card's width (the Analysis summary, ~145 pt): 28, then 22 and 18,
+ * from the whole amount as shown (currency and "≈" included), so it never
+ * cuts a digit; the count beside it takes the same size.
+ */
+export function figureSize(shown: string): number {
+  if (shown.length > 11) return 18;
+  if (shown.length > 8) return 22;
   return 28;
 }
 
@@ -34,6 +38,7 @@ export function Money({
   color: colorProp,
   fit = false,
   sizeFor,
+  figurePx,
 }: {
   amount: number | null;
   currency: string;
@@ -43,6 +48,8 @@ export function Money({
   fit?: boolean;
   /** Display size: step down by this amount instead of `amount` (a rolling number keeps one size). */
   sizeFor?: number;
+  /** Figure size: the size its caller chose (the Analysis summary sizes both of its figures at once). */
+  figurePx?: number;
 }) {
   const colors = useColors();
   const color = colorProp ?? colors.ink;
@@ -55,8 +62,11 @@ export function Money({
     );
   }
   const p = moneyParts(amount, currency, locale);
-  const sized = sizeFor != null ? moneyParts(sizeFor, currency, locale).value : p.value;
-  const px = size === "figure" ? figureSize(sized) : displaySize(sized);
+  const sizedParts = sizeFor != null ? moneyParts(sizeFor, currency, locale) : p;
+  const px =
+    size === "figure"
+      ? (figurePx ?? figureSize(`${sizedParts.prefix}${sizedParts.value}${sizedParts.suffix}`))
+      : displaySize(sizedParts.value);
   const value =
     size === "display" || size === "figure" ? { ...base, fontSize: px, lineHeight: px * 1.05, letterSpacing: -0.02 * px } : base;
   const small = { fontFamily: base.fontFamily, fontSize: CURRENCY_SIZE[size] };
@@ -75,11 +85,11 @@ export function Money({
         </Text>
       ) : null}
       <Text
-        style={[value, fitted, styles.tabular, fit && styles.shrink]}
+        style={[value, fitted, styles.tabular, (fit || size === "figure") && styles.shrink]}
         color={color}
         numberOfLines={1}
-        adjustsFontSizeToFit={fit}
-        minimumFontScale={fit ? 0.75 : undefined}
+        adjustsFontSizeToFit={fit || size === "figure"}
+        minimumFontScale={fit || size === "figure" ? 0.75 : undefined}
         maxFontSizeMultiplier={scale}
       >
         {p.value}

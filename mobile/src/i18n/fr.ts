@@ -599,6 +599,7 @@ export const fr: Strings = {
     listEmpty: "Aucun reçu ici.",
     truncated: "Les 200 plus récents.",
     receiptsLabel: "Reçus",
+    openHint: "Affiche les reçus",
     timeTitle: "Évolution",
     vatSection: "TVA",
     categoriesOne: "1 catégorie",

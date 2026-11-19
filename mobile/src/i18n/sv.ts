@@ -599,6 +599,7 @@ export const sv: Strings = {
     listEmpty: "Inga kvitton här.",
     truncated: "Visar de senaste 200.",
     receiptsLabel: "Kvitton",
+    openHint: "Visar kvittona",
     timeTitle: "Över tid",
     vatSection: "Moms",
     categoriesOne: "1 kategori",

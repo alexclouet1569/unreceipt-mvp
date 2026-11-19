@@ -85,12 +85,38 @@ function Chevron({ show }: { show: boolean }) {
 const CARD = "overflow-hidden rounded-[12px] border border-[var(--hairline)] bg-card";
 const ROW = "flex min-h-[56px] items-center gap-3 px-3.5 py-3";
 
+/**
+ * The summary's one size, chosen from the whole amount ("≈" and currency
+ * included) so it fits half the card at 390px (~146px of Geist Mono, about
+ * 0.6em a character) without wrapping; the count beside it takes the same.
+ */
+function figureSize(total: string): string {
+  if (total.length <= 7) return "text-[30px]";
+  if (total.length <= 10) return "text-[22px]";
+  if (total.length <= 13) return "text-[18px]";
+  return "text-[15px]";
+}
+
 /** One of the summary's two figures: a label and a big value, opening the receipts. */
-function Figure({ label, value, mono, approx, to, aria }: { label: string; value: string; mono: boolean; approx?: boolean; to: string | null; aria: string }) {
-  // Half a card's width: long amounts step down rather than wrap.
-  const size = value.length > 12 ? "text-[18px]" : value.length > 8 ? "text-[22px]" : "text-[30px]";
+function Figure({
+  label,
+  value,
+  mono,
+  size,
+  approx,
+  to,
+  aria,
+}: {
+  label: string;
+  value: string;
+  mono: boolean;
+  size: string;
+  approx?: boolean;
+  to: string | null;
+  aria: string;
+}) {
   return (
-    <Maybe href={to} label={aria} className="flex min-h-[96px] flex-col justify-center gap-1 px-4 py-3.5">
+    <Maybe href={to} label={aria} className="flex min-h-[96px] min-w-0 flex-col justify-center gap-1 px-4 py-3.5">
       <span className="type-micro text-[var(--ink-muted)]">{label}</span>
       <span className="flex items-baseline gap-1 whitespace-nowrap leading-[1.1]">
         {approx ? (
@@ -151,6 +177,7 @@ function Summary({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
       to: href({ quality: "unconverted" }),
     });
   }
+  const size = figureSize(`${a.total.estimate ? "≈" : ""}${total}`);
   return (
     <section aria-label="This period" className={CARD}>
       <div className="grid grid-cols-2 divide-x divide-[var(--hairline)]">
@@ -158,11 +185,12 @@ function Summary({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
           label="Spent"
           value={total}
           mono
+          size={size}
           approx={a.total.estimate}
           to={all}
           aria={`Spent: ${a.total.estimate ? "about " : ""}${total}. Show the receipts.`}
         />
-        <Figure label="Receipts" value={String(a.total.count)} mono={false} to={all} aria={`${count}. Show them.`} />
+        <Figure label="Receipts" value={String(a.total.count)} mono={false} size={size} to={all} aria={`${count}. Show them.`} />
       </div>
       {notes.length > 0 ? (
         <ul className="divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
@@ -371,7 +399,7 @@ function VatPanel({ a, href }: { a: ReadyAnalytics; href: DrillHref }) {
         <summary className="flex min-h-[52px] cursor-pointer list-none items-center gap-3 rounded-[12px] px-3.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] [&::-webkit-details-marker]:hidden">
           <span className="flex-1 text-[15px] font-bold text-[var(--ink)]">VAT on these receipts</span>
           <span className="type-amount-row text-[var(--ink)]">{money(v.total, a.currency)}</span>
-          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform group-open:rotate-90" />
+          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--ink-muted)] transition-transform duration-100 ease-[cubic-bezier(0.32,0.72,0,1)] group-open:rotate-90" />
         </summary>
       <div className="space-y-2 px-3.5 pb-3.5">
         {v.rates.map((r) => (

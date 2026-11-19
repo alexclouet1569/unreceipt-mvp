@@ -11,7 +11,7 @@ import { formatMoney } from "../../lib/format";
 import { fillParts, plural, type Part, type ReadyAnalytics } from "../../lib/insights";
 import { useAnimatedNumber } from "../../lib/useAnimatedNumber";
 import { fonts, radius, space, makeStyles, useColors } from "../../theme";
-import { Money } from "../Money";
+import { figureSize, Money } from "../Money";
 import { PressableScale } from "../PressableScale";
 import { Text } from "../Text";
 import { Parts } from "./Parts";
@@ -34,6 +34,8 @@ export function Hero({
   const count = useAnimatedNumber(a.total.count);
   const total = formatMoney(a.total.amount, a.currency, locale);
   const receipts = plural(a.total.count, s.insights.receiptsOne, s.insights.receiptsOther);
+  // One size for both figures, from the amount as shown ("≈" included).
+  const px = figureSize(`${a.total.estimate ? "≈" : ""}${total.replace(/\s/g, " ")}`);
   const unconverted = a.total.unconverted.map((l) => formatMoney(l.amount, l.currency, locale)).join(s.receipts.totalJoin);
 
   const notes: { key: SummaryFilter; parts: Part[] }[] = [];
@@ -56,6 +58,7 @@ export function Hero({
           onPress={onOpen}
           accessibilityRole="button"
           accessibilityLabel={`${s.insights.spent}: ${a.total.estimate ? fill(s.summary.about, { amount: total }) : total}`}
+          accessibilityHint={s.insights.openHint}
           style={styles.figure}
         >
           <Text variant="micro" color={colors.inkMuted}>
@@ -63,11 +66,11 @@ export function Hero({
           </Text>
           <View style={styles.value}>
             {a.total.estimate ? (
-              <Text style={styles.approx} color={colors.inkMuted} maxFontSizeMultiplier={1.1}>
+              <Text style={[styles.approx, { fontSize: px, lineHeight: px * 1.05 }]} color={colors.inkMuted} maxFontSizeMultiplier={1.1}>
                 {s.receipts.approx}
               </Text>
             ) : null}
-            <Money amount={shown} currency={a.currency} size="figure" sizeFor={a.total.amount} />
+            <Money amount={shown} currency={a.currency} size="figure" figurePx={px} />
           </View>
         </PressableScale>
         <View style={styles.rule} />
@@ -76,13 +79,19 @@ export function Hero({
           onPress={onOpen}
           accessibilityRole="button"
           accessibilityLabel={receipts}
+          accessibilityHint={s.insights.openHint}
           style={styles.figure}
         >
           <Text variant="micro" color={colors.inkMuted}>
             {s.insights.receiptsLabel}
           </Text>
           {/* A count is not money: Manrope, the same size as the amount beside it. */}
-          <Text style={styles.count} color={colors.ink} numberOfLines={1} maxFontSizeMultiplier={1.1}>
+          <Text
+            style={[styles.count, { fontSize: px, lineHeight: px * 1.08, letterSpacing: -0.02 * px }]}
+            color={colors.ink}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.1}
+          >
             {String(Math.round(count))}
           </Text>
         </PressableScale>
@@ -118,8 +127,8 @@ const useStyles = makeStyles((colors) => ({
   figure: { flex: 1, minHeight: 96, justifyContent: "center", gap: space.xs, paddingHorizontal: space.lg, paddingVertical: 14 },
   rule: { width: 1, backgroundColor: colors.hairline },
   value: { flexDirection: "row", alignItems: "baseline", gap: 2 },
-  approx: { fontFamily: fonts.mono, fontSize: 22 },
-  count: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 30, letterSpacing: -0.56 },
+  approx: { fontFamily: fonts.mono },
+  count: { fontFamily: fonts.bold },
   note: {
     flexDirection: "row",
     alignItems: "center",
