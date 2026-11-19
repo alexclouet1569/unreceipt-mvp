@@ -21,6 +21,10 @@ It replaces the Capacitor shell (`ios/`, `capacitor.config.ts`, `native/`), whic
 
 Business rules stay on the server. The app shows what `/api/mobile/*` returns, so the website and the app can't disagree.
 
+## Native modules of our own
+
+`modules/` holds the app's own Expo modules, linked by Expo's autolinking like any package (`npx expo-modules-autolinking resolve --platform apple` lists them). `modules/receipt-crop` (Swift, Apple's Vision and Core Image) crops a camera photo to the receipt before it is sent; its JavaScript side (`index.ts`) returns the photo as taken when the module is missing (an update on an older build) or fails. Swift can't be compiled on Linux: a change there is only checked by the next EAS build, so try it on a phone from TestFlight (receipts on a table, crumpled, long, on white paper).
+
 ## Settings
 
 Three public values: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY` (the publishable key, the same one every browser gets). Cloud builds read them from `eas.json`. For `npx expo start` or `expo export` on a computer, put the same three lines in `mobile/.env` (git ignores `.env` files repo-wide). Nothing secret ever goes in the app.
