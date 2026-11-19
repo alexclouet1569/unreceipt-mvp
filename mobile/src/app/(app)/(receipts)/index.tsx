@@ -21,6 +21,8 @@ import { readOnboarded, writeOnboarded } from "../../../lib/cache";
 import { useAuth } from "../../../auth/AuthProvider";
 import { PilotBox } from "../../../components/PilotBox";
 import { StatCards } from "../../../components/StatCards";
+import { SearchPeriod } from "../../../components/SearchPeriod";
+import { useReceiptSearch } from "../../../lib/useReceiptSearch";
 import { ViewToggle, type ListView } from "../../../components/ViewToggle";
 import { ForwardingCard } from "../../../components/ForwardingCard";
 import { PendingRow } from "../../../components/PendingRow";
@@ -40,7 +42,7 @@ import { approvalView } from "../../../lib/approval";
 import { buildSections } from "../../../lib/sections";
 import { applyFilter, categoryCounts, categorySections, type ListFilter, type PeriodKey, type TotalLine } from "../../../lib/summary";
 import { formatMoney } from "../../../lib/format";
-import { durations, radius, space, makeStyles, useColors } from "../../../theme";
+import { durations, fonts, radius, space, makeStyles, useColors } from "../../../theme";
 
 function Notice({ text }: { text: string }) {
   const styles = useStyles();
@@ -269,8 +271,19 @@ export default function Receipts() {
   const [period, setPeriod] = useState<PeriodKey | null>(null);
   const [chosenFilter, setFilter] = useState<ListFilter>("all");
   const [view, setView] = useState<ListView>("date");
-  const counts = useMemo(() => (receipts ? categoryCounts(receipts) : []), [receipts]);
-  const toConfirm = useMemo(() => (receipts ?? []).filter((r) => r.status === "pending_review").length, [receipts]);
+  // Searching (the header's search bar, the period chip), the list shows the
+  // server's matches, which reach past the newest 50; the stat cards keep
+  // counting everything. A change to the list's own rows asks again.
+  const search = useReceiptSearch(home?.state === "ready" ? home.receipts : null);
+  const listReceipts = useMemo(
+    () => (search.active ? (search.receipts ?? []) : receipts),
+    [search.active, search.receipts, receipts],
+  );
+  const counts = useMemo(() => (listReceipts ? categoryCounts(listReceipts) : []), [listReceipts]);
+  const toConfirm = useMemo(
+    () => (listReceipts ?? []).filter((r) => r.status === "pending_review").length,
+    [listReceipts],
+  );
   // Only the newest list: a page of older receipts isn't "new arrivals".
   const freshIds = useFreshIds(home?.state === "ready" ? home.receipts : null);
   // VoiceOver hears what "Show older receipts" did (iOS has no live regions).
@@ -290,7 +303,7 @@ export default function Receipts() {
   const { remove } = actions;
   const openReceipt = useCallback((id: string) => router.push({ pathname: "/receipt/[id]", params: { id } }), []);
   const deleteReceipt = useCallback((id: string) => remove(id), [remove]);
-  const filtered = useMemo(() => applyFilter(receipts ?? [], chosenFilter), [receipts, chosenFilter]);
+  const filtered = useMemo(() => applyFilter(listReceipts ?? [], chosenFilter), [listReceipts, chosenFilter]);
   const homeCurrency = home?.state === "ready" ? home.homeCurrency : "SEK";
   const sections = useMemo((): ListSection[] => {
     if (!receipts || onboarding != null) return [];
@@ -393,6 +406,47 @@ export default function Receipts() {
                   period={period ?? ""}
                   onPeriod={setPeriod}
                 />
+                <SearchPeriod
+                  receipts={home.receipts}
+                  older={home.older}
+                  period={search.period}
+                  onChange={(p) => {
+                    closeOpenSwipe();
+                    search.setPeriod(p);
+                  }}
+                />
+                {search.active ? (
+                  <View style={styles.searchStatus}>
+                    <Text
+                      variant="caption"
+                      color={search.failed ? colors.attentionDeep : colors.inkMuted}
+                      style={styles.searchText}
+                    >
+                      {search.failed
+                        ? s.search.failed
+                        : search.receipts == null
+                          ? s.search.searching
+                          : search.receipts.length === 0
+                            ? s.search.none
+                            : search.receipts.length === 1
+                              ? s.search.countOne
+                              : fill(search.hasMore ? s.search.countMore : s.search.countMany, {
+                                  count: search.receipts.length,
+                                })}
+                    </Text>
+                    <PressableScale
+                      scaleTo={0.94}
+                      onPress={search.clear}
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      style={styles.searchClear}
+                    >
+                      <Text variant="caption" color={colors.inkMuted} style={styles.searchClearText}>
+                        {s.search.clear}
+                      </Text>
+                    </PressableScale>
+                  </View>
+                ) : null}
                 <ViewToggle
                   view={view}
                   onChange={(v) => {
@@ -402,7 +456,7 @@ export default function Receipts() {
                 />
                 <CategoryChips
                   counts={counts}
-                  total={receipts?.length ?? home.receipts.length}
+                  total={listReceipts?.length ?? home.receipts.length}
                   toConfirm={toConfirm}
                   selected={filtered.filter}
                   onSelect={(f) => {
@@ -415,9 +469,19 @@ export default function Receipts() {
             <PendingList />
           </View>
         }
-        ListEmptyComponent={pending.length === 0 && onboarding == null ? <Empty address={home.forwardingEmail} email={home.email} /> : undefined}
+        ListEmptyComponent={
+          pending.length === 0 && onboarding == null && !search.active ? (
+            <Empty address={home.forwardingEmail} email={home.email} />
+          ) : undefined
+        }
         ListFooterComponent={
-          onboarding == null && older.hasMore && home.receipts.length > 0 ? (
+          search.active ? (
+            search.hasMore ? (
+              <View style={styles.more}>
+                <Button kind="outline" label={s.search.showMore} busy={search.loading} onPress={search.loadMore} />
+              </View>
+            ) : undefined
+          ) : onboarding == null && older.hasMore && home.receipts.length > 0 ? (
             <View style={styles.more}>
               {older.failed ? (
                 <Text variant="caption" color={colors.attentionDeep} style={styles.center}>
@@ -464,7 +528,22 @@ export default function Receipts() {
   // The list fills the screen; the scan button and the Undo bar float over it.
   return (
     <View style={styles.fill}>
-      <Stack.Screen options={{ headerRight: () => <PhotosButton onPress={() => void pickPhotos()} /> }} />
+      <Stack.Screen
+        options={{
+          headerRight: () => <PhotosButton onPress={() => void pickPhotos()} />,
+          // Hidden until there is a list to search.
+          headerSearchBarOptions:
+            home?.state === "ready" && home.receipts.length > 0 && onboarding == null
+              ? {
+                  placeholder: s.search.placeholder,
+                  autoCapitalize: "none",
+                  tintColor: colors.brandAction,
+                  onChangeText: (e) => search.setQ(e.nativeEvent.text),
+                  onCancelButtonPress: () => search.setQ(""),
+                }
+              : undefined,
+        }}
+      />
       {body}
       {/* Hidden during the first run: each of its steps has its own action. */}
       {onboarding == null ? <ScanButton onScan={() => void scan()} onScanSeveral={() => void scanSeveral()} onPickPhotos={() => void pickPhotos()} /> : null}
@@ -475,6 +554,16 @@ export default function Receipts() {
 
 const useStyles = makeStyles((colors) => ({
   more: { marginHorizontal: space.lg, marginTop: space.md, gap: space.sm },
+  searchStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    marginHorizontal: space.lg,
+    minHeight: 44,
+  },
+  searchText: { flex: 1 },
+  searchClear: { minHeight: 44, minWidth: 44, alignItems: "center", justifyContent: "center" },
+  searchClearText: { fontFamily: fonts.semibold },
   fill: { flex: 1 },
   // Room under the last card for the scan button.
   content: { paddingBottom: SCAN_BUTTON_SPACE + space.lg },

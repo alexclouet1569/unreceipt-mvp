@@ -321,3 +321,59 @@ describe("new receipts by themselves", () => {
     expect(JSON.parse(window.localStorage.getItem("unreceipt:new-receipts:u1")!)).toEqual({ after: "2026-11-14T10:00:00.000Z", opened: [] });
   });
 });
+
+describe("Dashboard search", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("isn't offered without `searchable` (demo tour, tests)", () => {
+    render(<Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} homeCurrency="SEK" />);
+    expect(screen.queryByRole("search")).toBeNull();
+  });
+
+  it("asks the server once typing settles, shows the matches and clears back to the list", async () => {
+    const older = receipt({ id: "old", merchant_name: "ICA Maxi", receipt_date: "2025-03-02", created_at: "2025-03-02T12:00:00Z" });
+    const fetchMock = vi.fn(async () => Response.json({ receipts: [older], hasMore: false }));
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState(null, "", "/app?mailbox=connected");
+    const user = userEvent.setup();
+    render(<Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} homeCurrency="SEK" searchable />);
+
+    await user.type(await screen.findByRole("searchbox", { name: "Search receipts" }), "ica");
+    expect(await screen.findByText("ICA Maxi")).toBeInTheDocument();
+    // One request for the settled text, not one per letter.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/receipts/search?q=ica");
+    expect(screen.queryByText("Kafé Ett")).toBeNull();
+    expect(screen.getByText("1 receipt")).toBeInTheDocument();
+    expect(window.location.search).toBe("?mailbox=connected&q=ica");
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(await screen.findByText("Kafé Ett")).toBeInTheDocument();
+    expect(screen.queryByText("ICA Maxi")).toBeNull();
+    expect(window.location.search).toBe("?mailbox=connected");
+  });
+
+  it("filters by a month from the menu and pages with Show more", async () => {
+    const page1 = { receipts: [receipt({ id: "p1", merchant_name: "Oct One", created_at: "2026-10-02T12:00:00Z" })], hasMore: true };
+    const page2 = { receipts: [receipt({ id: "p2", merchant_name: "Oct Two", created_at: "2026-10-01T12:00:00Z" })], hasMore: false };
+    const fetchMock = vi.fn(async (url: string) => Response.json(String(url).includes("after=") ? page2 : page1));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<Dashboard userEmail="me@example.com" receipts={RECEIPTS} forwardingEmail={null} homeCurrency="SEK" searchable />);
+
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Period" }), "2026-10");
+    expect(await screen.findByText("Oct One")).toBeInTheDocument();
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/receipts/search?month=2026-10");
+
+    await user.click(screen.getByRole("button", { name: "Show more" }));
+    expect(await screen.findByText("Oct Two")).toBeInTheDocument();
+    expect(screen.getByText("Oct One")).toBeInTheDocument();
+    expect(String(fetchMock.mock.calls[1][0])).toBe(
+      `/api/receipts/search?month=2026-10&after=${encodeURIComponent("|2026-10-02T12:00:00Z|p1")}`,
+    );
+  });
+});

@@ -158,6 +158,13 @@ export const RATE_LIMITS = {
   // website tab and the iPhone app in the foreground. One rule, so a poll
   // costs one counter call; generous for several tabs plus the phone.
   receiptUpdates: [{ limit: 60, windowSeconds: 60 }],
+  // Receipt search and the month filter (GET /api/receipts/search and
+  // /api/mobile/receipts?q=): one query per pause in typing (the clients
+  // wait 300 ms), so a minute of fast typing stays far below the limit.
+  receiptSearch: [
+    { limit: 120, windowSeconds: 60 },
+    { limit: 3000, windowSeconds: 24 * 60 * 60 },
+  ],
   // A client saying "Yes, share" on a firm's join link (POST
   // /api/firm-connect): one company has one firm, so a few tries is plenty;
   // the code itself is 128 random bits, so this only stops a loop.
