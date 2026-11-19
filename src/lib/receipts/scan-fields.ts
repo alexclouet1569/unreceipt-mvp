@@ -10,7 +10,7 @@
 
 import { CATEGORY_KEYS, CURRENCY_OPTIONS } from "@/lib/receipt-format";
 import type { OcrResult } from "@/lib/ocr";
-import { fieldsFromOcr, ATTACHMENT_CONFIDENCE_CAP, safePaymentMethod } from "./ocr-fields";
+import { fieldsFromOcr, ATTACHMENT_CONFIDENCE_CAP, safeCardLastFour, safePaymentMethod } from "./ocr-fields";
 import type { ReceiptCategory } from "@/lib/types";
 
 export type ScanFields = {
@@ -26,6 +26,7 @@ export type ScanFields = {
   merchant_vat_number: string | null;
   vat_lines: unknown;
   payment_method: string | null;
+  card_last_four: string | null;
   items: unknown;
   parse_confidence: number;
 };
@@ -55,6 +56,7 @@ export function scanFields(ocr: OcrResult, homeCurrency: string): ScanFields | n
       merchant_vat_number: full.merchant_vat_number ?? null,
       vat_lines: full.vat_lines,
       payment_method: full.payment_method ?? null,
+      card_last_four: full.card_last_four ?? null,
       items: full.items,
       parse_confidence: Math.min(full.parse_confidence, ATTACHMENT_CONFIDENCE_CAP),
     };
@@ -96,6 +98,7 @@ export function scanFields(ocr: OcrResult, homeCurrency: string): ScanFields | n
     merchant_vat_number: text(ocr.seller_vat_number, 32),
     vat_lines: null,
     payment_method: safePaymentMethod(ocr.payment_method),
+    card_last_four: safeCardLastFour(ocr.card_last_four),
     items: null,
     parse_confidence: Math.max(0, Math.min(finite(ocr.confidence) ?? 0.5, ATTACHMENT_CONFIDENCE_CAP)),
   };

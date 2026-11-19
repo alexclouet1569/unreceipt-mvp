@@ -26,6 +26,16 @@ export function safePaymentMethod(v: unknown): string | null {
   return s || null;
 }
 
+/**
+ * The card's last four digits, only as exactly four digits: anything
+ * longer or shorter could be part of a full card number or another code.
+ */
+export function safeCardLastFour(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return /^\d{4}$/.test(s) ? s : null;
+}
+
 function finite(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
@@ -81,7 +91,7 @@ export function fieldsFromOcr(result: OcrResult): CanonicalReceiptFields | null 
     vat_lines: vatLines,
     category,
     payment_method: safePaymentMethod(result.payment_method),
-    card_last_four: null,
+    card_last_four: safeCardLastFour(result.card_last_four),
     notes: null,
     items: items
       ? items.map((it) => ({

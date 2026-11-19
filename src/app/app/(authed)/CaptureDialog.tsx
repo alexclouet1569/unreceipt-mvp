@@ -222,6 +222,8 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
   // Bookkeeping fields read by OCR and passed through unchanged: the
   // seller's org.nr / VAT no. and the VAT split per rate.
   const [sellerIds, setSellerIds] = useState<{ org: string | null; vat: string | null }>({ org: null, vat: null });
+  // The card's last four digits as OCR read them; saved with the receipt.
+  const [cardLastFour, setCardLastFour] = useState<string | null>(null);
   const [vatLines, setVatLines] = useState<OcrVatLine[] | null>(null);
   const [savedReceipt, setSavedReceipt] = useState<Receipt | null>(null);
   // True while the line items are still being read after the total and date
@@ -252,6 +254,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
       setShowNotes(false);
       setItems(null);
       setSellerIds({ org: null, vat: null });
+      setCardLastFour(null);
       setVatLines(null);
       setSavedReceipt(null);
     }
@@ -391,6 +394,11 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
         org: typeof data.seller_org_number === "string" ? data.seller_org_number.trim().slice(0, 20) : null,
         vat: typeof data.seller_vat_number === "string" ? data.seller_vat_number.trim().slice(0, 32) : null,
       });
+      setCardLastFour(
+        typeof data.card_last_four === "string" && /^\d{4}$/.test(data.card_last_four.trim())
+          ? data.card_last_four.trim()
+          : null
+      );
       setVatLines(Array.isArray(data.vat_lines) && data.vat_lines.length > 0 ? data.vat_lines : null);
       applyOcrFields(data, applied);
       // The VAT printed on the receipt beats one we'd work out.
@@ -570,6 +578,7 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
       }
       if (sellerIds.org) fd.append("seller_org_number", sellerIds.org);
       if (sellerIds.vat) fd.append("merchant_vat_number", sellerIds.vat);
+      if (cardLastFour) fd.append("card_last_four", cardLastFour);
       if (includeVat && vatLines && vatLines.length > 0) {
         fd.append("vat_lines", JSON.stringify(vatLines));
       }

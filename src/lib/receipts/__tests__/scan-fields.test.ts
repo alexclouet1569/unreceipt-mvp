@@ -66,3 +66,14 @@ describe("pdfPageCount", () => {
     expect(await pdfPageCount(Buffer.from("not a pdf"))).toBeNull();
   });
 });
+
+describe("scanFields card digits", () => {
+  it("keeps the card's last four on a full and a partial reading, and drops anything else", () => {
+    expect(
+      scanFields({ merchant: "ICA", amount: 99, currency: "SEK", receipt_date: "2026-11-01", card_last_four: "1234" }, "SEK")!
+        .card_last_four
+    ).toBe("1234");
+    expect(scanFields({ merchant: "ICA", card_last_four: "5678" }, "SEK")!.card_last_four).toBe("5678");
+    expect(scanFields({ merchant: "ICA", card_last_four: "4111111111111111" }, "SEK")!.card_last_four).toBeNull();
+  });
+});
