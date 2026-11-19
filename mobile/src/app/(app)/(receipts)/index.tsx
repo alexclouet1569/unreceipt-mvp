@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MobileReceipt } from "@/lib/mobile/types";
 import { AccessibilityInfo, RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { router, Stack } from "expo-router";
+import type { SearchBarCommands } from "react-native-screens";
 import { SymbolView } from "expo-symbols";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BrandMark } from "../../../components/Brand";
@@ -275,10 +276,35 @@ export default function Receipts() {
   // server's matches, which reach past the newest 50; the stat cards keep
   // counting everything. A change to the list's own rows asks again.
   const search = useReceiptSearch(home?.state === "ready" ? home.receipts : null);
+  // The header's search bar keeps its own text: Clear empties it too.
+  const searchBar = useRef<SearchBarCommands | null>(null);
+  const clearSearch = useCallback(() => {
+    searchBar.current?.clearText();
+    searchBar.current?.blur();
+    search.clear();
+  }, [search]);
+  // Until the first answer the list stays as it was, so it never blinks empty.
   const listReceipts = useMemo(
-    () => (search.active ? (search.receipts ?? []) : receipts),
+    () => (search.active && search.receipts ? search.receipts : receipts),
     [search.active, search.receipts, receipts],
   );
+  // VoiceOver hears each settled answer (iOS has no live regions), not every keystroke.
+  const searchStatus = !search.active
+    ? null
+    : search.failed
+      ? s.search.failed
+      : search.receipts == null
+        ? s.search.searching
+        : search.receipts.length === 0
+          ? s.search.none
+          : search.receipts.length === 1
+            ? s.search.countOne
+            : fill(search.hasMore ? s.search.countMore : s.search.countMany, { count: search.receipts.length });
+  useEffect(() => {
+    if (searchStatus && !search.loading && searchStatus !== s.search.searching) {
+      AccessibilityInfo.announceForAccessibility(searchStatus);
+    }
+  }, [searchStatus, search.loading]);
   const counts = useMemo(() => (listReceipts ? categoryCounts(listReceipts) : []), [listReceipts]);
   const toConfirm = useMemo(
     () => (listReceipts ?? []).filter((r) => r.status === "pending_review").length,
@@ -422,21 +448,11 @@ export default function Receipts() {
                       color={search.failed ? colors.attentionDeep : colors.inkMuted}
                       style={styles.searchText}
                     >
-                      {search.failed
-                        ? s.search.failed
-                        : search.receipts == null
-                          ? s.search.searching
-                          : search.receipts.length === 0
-                            ? s.search.none
-                            : search.receipts.length === 1
-                              ? s.search.countOne
-                              : fill(search.hasMore ? s.search.countMore : s.search.countMany, {
-                                  count: search.receipts.length,
-                                })}
+                      {searchStatus}
                     </Text>
                     <PressableScale
                       scaleTo={0.94}
-                      onPress={search.clear}
+                      onPress={clearSearch}
                       accessibilityRole="button"
                       hitSlop={8}
                       style={styles.searchClear}
@@ -535,6 +551,7 @@ export default function Receipts() {
           headerSearchBarOptions:
             home?.state === "ready" && home.receipts.length > 0 && onboarding == null
               ? {
+                  ref: searchBar,
                   placeholder: s.search.placeholder,
                   autoCapitalize: "none",
                   tintColor: colors.brandAction,

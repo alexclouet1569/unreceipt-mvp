@@ -110,9 +110,24 @@ export function Dashboard({
   // newest 50 the page holds); the stat cards keep counting everything.
   // The server's rows changing (an edit, a delete, a new receipt) asks again.
   const search = useReceiptSearch(searchable, serverReceipts);
+  // Show more goes away with the last page: focus moves to the status line
+  // instead of falling to the page.
+  const showMoreRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchStatusRef = useRef<HTMLParagraphElement>(null);
+  const showMorePressed = useRef(false);
+  const hasMore = search.active && Boolean(search.results?.hasMore);
+  useEffect(() => {
+    if (hasMore || !showMorePressed.current) return;
+    showMorePressed.current = false;
+    const focus = document.activeElement;
+    if (!focus || focus === document.body) searchStatusRef.current?.focus();
+  }, [hasMore]);
+  // Until the first answer the list stays as it was (dimmed), so it never
+  // blinks empty.
   const listReceipts = useMemo(() => {
-    if (!search.active) return receipts;
-    const found = search.results?.receipts ?? [];
+    if (!search.active || !search.results) return receipts;
+    const found = search.results.receipts;
     return deletedIds.size ? found.filter((r) => !deletedIds.has(r.id)) : found;
   }, [search.active, search.results, receipts, deletedIds]);
 
@@ -252,10 +267,12 @@ export function Dashboard({
   }, [listReceipts]);
 
   // A category filter whose last receipt was deleted (or isn't among the
-  // matches) falls back to all.
+  // matches) falls back to all; so does Review needed when no match needs
+  // review (its chip is gone, so it couldn't be switched off).
   const filter: Filter =
-    chosenFilter.startsWith("category:") &&
-    !listReceipts.some((r) => `category:${r.category}` === chosenFilter)
+    (chosenFilter.startsWith("category:") &&
+      !listReceipts.some((r) => `category:${r.category}` === chosenFilter)) ||
+    (chosenFilter === "review" && search.active && reviewCount === 0)
       ? "all"
       : chosenFilter;
 
@@ -314,6 +331,18 @@ export function Dashboard({
     const totals = formatLines(mergeLines(own, rest, baseCurrency));
     return { baseCurrency, count, verified, periods, selected, totals };
   }, [receipts, homeCurrency, today, period, older]);
+
+  // The search's period menu: only months that have receipts (the total
+  // card also offers this month when it has none).
+  const searchMonths = useMemo(() => {
+    if (!stats.periods) return [];
+    const used = new Set(Object.keys(older?.months ?? {}));
+    for (const r of receipts) {
+      const k = receiptMonthKey(r);
+      if (k) used.add(k);
+    }
+    return stats.periods.filter((p) => used.has(p.key)).map((p) => ({ key: p.key, label: p.short }));
+  }, [stats.periods, receipts, older]);
 
   const groupedReceipts = useMemo(() => {
     if (view === "category") {
@@ -410,13 +439,17 @@ export function Dashboard({
               )}
             </div>
 
-            {searchable && stats.periods ? (
-              <ReceiptSearchBar
-                search={search}
-                months={stats.periods.filter((p) => p.key !== "all").map((p) => ({ key: p.key, label: p.label }))}
-              />
+            {searchable ? (
+              <>
+                <ReceiptSearchBar search={search} months={searchMonths} inputRef={searchInputRef} />
+                <ReceiptSearchStatus
+                  search={search}
+                  shown={listReceipts.length}
+                  statusRef={searchStatusRef}
+                  onCleared={() => searchInputRef.current?.focus()}
+                />
+              </>
             ) : null}
-            {search.active ? <ReceiptSearchStatus search={search} shown={listReceipts.length} /> : null}
 
             <ViewToggle view={view} onChange={setView} />
 
@@ -473,6 +506,10 @@ export function Dashboard({
               </p>
             ) : null}
 
+            <div
+              aria-busy={search.loading || undefined}
+              className={search.loading ? "opacity-60 transition-opacity" : "transition-opacity"}
+            >
             {groupedReceipts.map(({ label, items, total }) => (
               <section key={label} className="mb-5">
                 <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 type-micro text-[var(--ink-muted)]">
@@ -507,13 +544,20 @@ export function Dashboard({
                 </div>
               </section>
             ))}
+            </div>
 
             {search.active && search.results?.hasMore ? (
               <button
+                ref={showMoreRef}
                 type="button"
-                onClick={search.loadMore}
-                disabled={search.loading}
-                className="mx-auto flex h-11 items-center rounded-[10px] border border-[var(--hairline)] bg-card px-4 text-[15px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:text-[var(--ink-muted)]"
+                onClick={() => {
+                  if (search.loading) return;
+                  showMorePressed.current = true;
+                  search.loadMore();
+                }}
+                // Stays focusable while loading, so focus isn't dropped.
+                aria-disabled={search.loading || undefined}
+                className="mx-auto flex h-11 items-center rounded-[10px] border border-[var(--hairline)] bg-card px-4 text-[15px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:text-[var(--ink-muted)]"
               >
                 {search.loading ? "Loading…" : "Show more"}
               </button>

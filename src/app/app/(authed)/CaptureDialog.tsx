@@ -905,8 +905,17 @@ export function CaptureDialog({ open, onOpenChange, onSaved, homeCurrency }: Cap
                   // a terminal number) can be removed before it is saved.
                   <div className="flex min-h-[52px] items-center gap-3 px-4">
                     <span className="w-[84px] shrink-0 text-[15px] font-semibold text-[var(--ink-muted)]">Card</span>
-                    <span className="flex-1 text-[15px] text-[var(--ink)]">Ending {cardLastFour}</span>
-                    <TextButton onClick={() => setCardLastFour(null)}>Remove</TextButton>
+                    <span className="flex-1 text-[16px] font-bold text-[var(--ink)] tabular-nums">Ending {cardLastFour}</span>
+                    <TextButton
+                      ariaLabel={`Remove card ending ${cardLastFour}`}
+                      onClick={() => {
+                        setCardLastFour(null);
+                        // The row goes away: focus moves to the payment field above it.
+                        document.getElementById("cd-payment-method")?.focus();
+                      }}
+                    >
+                      Remove
+                    </TextButton>
                   </div>
                 ) : null}
               </div>
@@ -1376,15 +1385,18 @@ function TextButton({
   onClick,
   children,
   buttonRef,
+  ariaLabel,
 }: {
   onClick: () => void;
   children: ReactNode;
   buttonRef?: Ref<HTMLButtonElement>;
+  ariaLabel?: string;
 }) {
   return (
     <button
       ref={buttonRef}
       type="button"
+      aria-label={ariaLabel}
       onClick={onClick}
       className="flex h-11 items-center gap-2 rounded-[10px] px-1 text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >

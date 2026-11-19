@@ -336,7 +336,7 @@ describe("Dashboard search", () => {
 
   it("asks the server once typing settles, shows the matches and clears back to the list", async () => {
     const older = receipt({ id: "old", merchant_name: "ICA Maxi", receipt_date: "2025-03-02", created_at: "2025-03-02T12:00:00Z" });
-    const fetchMock = vi.fn(async () => Response.json({ receipts: [older], hasMore: false }));
+    const fetchMock = vi.fn(async (url: string) => Response.json({ receipts: url ? [older] : [], hasMore: false }));
     vi.stubGlobal("fetch", fetchMock);
     window.history.replaceState(null, "", "/app?mailbox=connected");
     const user = userEvent.setup();
@@ -353,6 +353,8 @@ describe("Dashboard search", () => {
 
     await user.click(screen.getByRole("button", { name: "Clear" }));
     expect(await screen.findByText("Kafé Ett")).toBeInTheDocument();
+    // The Clear button went away with the search: focus is back in the field.
+    expect(document.activeElement).toBe(screen.getByRole("searchbox", { name: "Search receipts" }));
     expect(screen.queryByText("ICA Maxi")).toBeNull();
     expect(window.location.search).toBe("?mailbox=connected");
   });

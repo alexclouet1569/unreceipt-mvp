@@ -8,7 +8,7 @@
 // typing never reloads the page. Off in the demo tour and the tests
 // (`enabled`), which make no requests.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Search } from "lucide-react";
 import type { Receipt } from "@/lib/types";
 
@@ -150,22 +150,36 @@ export function useReceiptSearch(enabled: boolean, refreshKey: unknown): Receipt
     setQuery({ q: "", period: "" });
   }, []);
 
-  return { q, period, setQ: setQState, setPeriod, clear, active, results, loading, error, loadMore };
+  return {
+    q,
+    period,
+    setQ: setQState,
+    setPeriod,
+    clear,
+    active,
+    results,
+    loading,
+    error,
+    loadMore,
+  };
 }
 
 export type PeriodOption = { key: string; label: string };
 
 /**
- * The search field and the period menu above the list. `periods` are the
- * months that have receipts (newest first), with a year of their own when
- * the receipts span more than one year.
+ * The search field and the period menu above the list. `months` are the
+ * months that have receipts (newest first; empty until the browser knows
+ * them), with a year of their own when the receipts span more than one.
  */
 export function ReceiptSearchBar({
   search,
   months,
+  inputRef,
 }: {
   search: ReceiptSearchState;
   months: PeriodOption[];
+  /** Clear puts focus back in the field. */
+  inputRef: RefObject<HTMLInputElement | null>;
 }) {
   const years = [...new Set(months.map((m) => m.key.slice(0, 4)))];
   return (
@@ -177,6 +191,7 @@ export function ReceiptSearchBar({
           aria-hidden="true"
         />
         <input
+          ref={inputRef}
           type="search"
           value={search.q}
           onChange={(e) => search.setQ(e.target.value)}
@@ -191,8 +206,9 @@ export function ReceiptSearchBar({
           enterKeyHint="search"
           autoComplete="off"
           spellCheck={false}
-          // 16px so iOS Safari doesn't zoom in on focus.
-          className="h-11 w-full rounded-[10px] border border-[var(--hairline)] bg-card pr-3 pl-10 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus-visible:border-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          // 16px so iOS Safari doesn't zoom in on focus. WebKit's own tiny
+          // clear button is hidden: Clear and Escape do that.
+          className="h-11 w-full rounded-[10px] border border-[var(--hairline)] bg-card pr-3 pl-10 text-[16px] text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] focus-visible:border-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] [&::-webkit-search-cancel-button]:appearance-none"
         />
       </label>
       <label className="shrink-0">
@@ -200,7 +216,8 @@ export function ReceiptSearchBar({
         <select
           value={search.period}
           onChange={(e) => search.setPeriod(e.target.value)}
-          className="h-11 max-w-[150px] rounded-[10px] border border-[var(--hairline)] bg-card px-3 text-[15px] font-semibold text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          // 16px so iOS doesn't zoom when the menu opens.
+          className="h-11 max-w-[150px] rounded-[10px] border border-[var(--hairline)] bg-card px-3 text-[16px] font-semibold text-[var(--ink)] outline-none focus-visible:border-[var(--ink)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         >
           <option value="">Any time</option>
           {years.length > 1
@@ -221,8 +238,25 @@ export function ReceiptSearchBar({
   );
 }
 
-/** One line under the bar while searching: how many, still looking, or what went wrong. */
-export function ReceiptSearchStatus({ search, shown }: { search: ReceiptSearchState; shown: number }) {
+/**
+ * One line under the bar while searching: how many, still looking, or what
+ * went wrong. The status element stays in the page while nothing is
+ * searched, so the first "Searching…" is announced too.
+ */
+export function ReceiptSearchStatus({
+  search,
+  shown,
+  statusRef,
+  onCleared,
+}: {
+  search: ReceiptSearchState;
+  shown: number;
+  /** Focus lands here when Show more goes away. */
+  statusRef: RefObject<HTMLParagraphElement | null>;
+  /** After Clear: the line goes away, so focus goes back to the field. */
+  onCleared: () => void;
+}) {
+  if (!search.active) return <p ref={statusRef} role="status" tabIndex={-1} className="sr-only" />;
   let text: string;
   if (search.error) text = search.error;
   else if (search.results == null) text = "Searching…";
@@ -230,12 +264,20 @@ export function ReceiptSearchStatus({ search, shown }: { search: ReceiptSearchSt
   else text = `${shown}${search.results.hasMore ? "+" : ""} ${shown === 1 ? "receipt" : "receipts"}`;
   return (
     <div className="mb-3 flex min-h-11 items-center justify-between gap-3">
-      <p role="status" className="type-caption text-[var(--ink-muted)]">
+      <p
+        ref={statusRef}
+        role="status"
+        tabIndex={-1}
+        className={search.error ? "type-caption text-[var(--attention-deep)] outline-none" : "type-caption text-[var(--ink-muted)] outline-none"}
+      >
         {text}
       </p>
       <button
         type="button"
-        onClick={search.clear}
+        onClick={() => {
+          search.clear();
+          onCleared();
+        }}
         className="h-11 shrink-0 rounded-[10px] px-1 text-[15px] font-semibold text-[var(--ink-muted)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         Clear

@@ -20,7 +20,7 @@ import {
 } from "@expo/ui/swift-ui/modifiers";
 import type { MobileReceipt, OlderSummary } from "@/lib/mobile/types";
 import { locale, s } from "../i18n";
-import { ALL_TIME, periodsFor } from "../lib/summary";
+import { ALL_TIME, periodsFor, receiptMonthKey } from "../lib/summary";
 import { fonts, radius, space, makeStyles, useColors, useScheme } from "../theme";
 import { Text } from "./Text";
 
@@ -40,8 +40,14 @@ export function SearchPeriod({
   const colors = useColors();
   const scheme = useScheme();
   const options = useMemo(() => {
-    const months = periodsFor(receipts, locale, "", new Date(), Object.keys(older?.months ?? {})).filter(
-      (p) => p.key !== ALL_TIME,
+    // Only months that have receipts (the total box also offers this month).
+    const used = new Set(Object.keys(older?.months ?? {}));
+    for (const r of receipts) {
+      const k = receiptMonthKey(r);
+      if (k) used.add(k);
+    }
+    const months = periodsFor(receipts, locale, "", new Date(), [...used]).filter(
+      (p) => p.key !== ALL_TIME && used.has(p.key),
     );
     const years = [...new Set(months.map((m) => m.key.slice(0, 4)))];
     return [
