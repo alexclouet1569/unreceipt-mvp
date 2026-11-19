@@ -387,6 +387,12 @@ export default function PrivacyPage() {
             nothing in your browser and keeps no personal data or IP address.
             It counts visits, the website that sent you and clicks on a few
             buttons (create an account, book a demo, send the contact form).
+            To leave your own visits out of Vercel Web Analytics and
+            Plausible (Speed Insights, which only measures how fast pages
+            load, still runs), open any page with{" "}
+            <code>?analytics=off</code> at the end of its address: your
+            browser then keeps one note for that site saying so
+            (<code>?analytics=on</code> removes it).
           </p>
         </Section>
 

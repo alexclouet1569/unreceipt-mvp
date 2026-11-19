@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { setEventSender } from "@/lib/tracking/events";
 import { handleFunnelClick, type FirstVisit } from "@/lib/tracking/links";
 import { cleanPlausiblePayload, plausibleAllowed, plausibleUrl } from "@/lib/tracking/where";
+import { applyOptOutFromUrl, withoutOptOutParam, type OptOutChange } from "@/lib/tracking/opt-out";
 
 // Mounted once in the root layout (demo-funnel strategy, Step 2).
 //
@@ -21,11 +22,18 @@ import { cleanPlausiblePayload, plausibleAllowed, plausibleUrl } from "@/lib/tra
 //    events to plausible.io. Pageviews are sent here; every request (the
 //    tracker's own engagement pings too) goes through transformRequest,
 //    which keeps the path and utm_* only.
+// 3. "Don't count my visits": ?analytics=off (or =on) on any page sets this
+//    browser's flag for this host (src/lib/tracking/opt-out.ts), says so for
+//    a few seconds and drops the parameter from the address bar. Plausible's
+//    tracker and Vercel's beforeSend both read the flag.
 
 // Where this document was first opened, kept in memory (no storage): the
 // demo tours change step without a page load, and the source their sign-up
 // link carries is the one their first URL brought from the marketing site.
 let firstVisit: FirstVisit | null = null;
+
+// What this document's ?analytics= asked for; undefined until read.
+let optOutChange: OptOutChange | null | undefined;
 
 type Tracker = typeof import("@plausible-analytics/tracker");
 let tracker: Promise<Tracker | null> | null = null;
@@ -47,8 +55,36 @@ function startPlausible(domain: string): Promise<Tracker | null> {
   return tracker;
 }
 
+const OPT_OUT_NOTICE: Record<OptOutChange, string> = {
+  off: "Your visits on this site aren't counted in this browser any more.",
+  on: "Your visits on this site are counted again in this browser.",
+};
+
 export function FunnelTracking({ plausibleDomain }: { plausibleDomain: string | null }) {
   const pathname = usePathname();
+  const [optOutNotice, setOptOutNotice] = useState<OptOutChange | null>(null);
+
+  useEffect(() => {
+    // Before the pageview below: an opted-out first visit is never sent.
+    // Read once per document (React may run this effect twice in dev).
+    if (optOutChange === undefined) {
+      optOutChange = applyOptOutFromUrl(window.location.href);
+      const clean = withoutOptOutParam(window.location.href);
+      if (clean) window.history.replaceState(window.history.state, "", clean);
+    }
+    const change = optOutChange;
+    if (!change) return;
+    // Shown after this paint (setState outside the effect body), hidden after 8 s.
+    const show = window.setTimeout(() => setOptOutNotice(change), 0);
+    const hide = window.setTimeout(() => {
+      optOutChange = null;
+      setOptOutNotice(null);
+    }, 8000);
+    return () => {
+      window.clearTimeout(show);
+      window.clearTimeout(hide);
+    };
+  }, []);
 
   useEffect(() => {
     if (!firstVisit) firstVisit = { href: window.location.href, referrer: document.referrer };
@@ -77,5 +113,13 @@ export function FunnelTracking({ plausibleDomain }: { plausibleDomain: string | 
     });
   }, [plausibleDomain, pathname]);
 
-  return null;
+  if (!optOutNotice) return null;
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm rounded-xl border border-hairline bg-card px-4 py-3 text-center text-sm text-foreground"
+    >
+      {OPT_OUT_NOTICE[optOutNotice]}
+    </div>
+  );
 }

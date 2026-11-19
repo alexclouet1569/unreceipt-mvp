@@ -48,6 +48,30 @@ export default async function AdminPilotPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardContent className="py-4 space-y-2">
+          <h2 className="text-sm font-semibold">Leave your own visits out of the analytics</h2>
+          <p className="text-xs text-muted-foreground">
+            Open both links once in every browser you use (laptop, phone): Vercel Analytics and Plausible then stop counting
+            that browser on that site. It lasts until the browser&apos;s site data is cleared; a private window is always
+            counted. Visits already counted stay in the totals.
+          </p>
+          <ul className="text-sm space-y-1">
+            <li>
+              <a className="underline" href="https://unreceipt.com/?analytics=off" target="_blank" rel="noopener">
+                Website: unreceipt.com
+              </a>{" "}
+              <span className="text-xs text-muted-foreground">(count me again: ?analytics=on)</span>
+            </li>
+            <li>
+              <a className="underline" href="https://app.unreceipt.com/admin/pilot?analytics=off">
+                App: app.unreceipt.com
+              </a>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
       <Card data-testid="pilot-ai-cost">
         <CardContent className="py-4 space-y-1">
           <h2 className="text-sm font-semibold">AI this month</h2>
