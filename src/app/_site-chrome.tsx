@@ -12,7 +12,7 @@ import {
   type MarketingPageId,
 } from "@/lib/marketing-pages";
 import { SHOW_PRICES } from "@/lib/pricing-visibility";
-import { SUPPORT_MAILTO } from "@/lib/support-contact";
+import { LINKEDIN_URL, SUPPORT_MAILTO } from "@/lib/support-contact";
 import { cn } from "@/lib/utils";
 import { SITE_COPY } from "./_site-copy";
 import { HeaderShell } from "./_header-shell";
@@ -283,7 +283,10 @@ export function SiteFooter({ locale }: { locale: Locale }) {
   const others = LOCALES.filter((l) => l !== locale);
   const guidePaper = MARKETING_PAGES.guidePaper.paths[locale];
   const guideOutlays = MARKETING_PAGES.guideOutlays.paths[locale];
-  const columns: { title: string; links: { label: string; href: string; lang?: Locale; track?: TrackedLinkAttrs }[] }[] = [
+  const columns: {
+    title: string;
+    links: { label: string; href: string; lang?: Locale; track?: TrackedLinkAttrs; external?: boolean }[];
+  }[] = [
     {
       title: t.footer.product,
       links: [
@@ -320,6 +323,8 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         // No hrefLang here: the footer's hreflang links are its language switch.
         { label: t.nav.bookDemo, href: demoRequestPath(locale), track: trackedLink("cta_demo_page") },
         { label: t.footer.contact, href: SUPPORT_MAILTO },
+        // The same word in every language.
+        { label: "LinkedIn", href: LINKEDIN_URL, external: true },
         { label: t.footer.privacy, href: "/privacy" },
         ...others.map((l) => ({ label: LOCALE_NAME[l].label, href: LOCALE_HOME[l], lang: l })),
       ],
@@ -352,6 +357,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
                       href={link.href}
                       {...(link.lang ? { hrefLang: link.lang, lang: link.lang } : {})}
                       {...link.track}
+                      {...(link.external ? { rel: "noopener" } : {})}
                       className="block text-sm text-white/50 hover:text-white transition-colors py-2"
                     >
                       {link.label}
