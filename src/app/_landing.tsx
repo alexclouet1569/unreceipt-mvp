@@ -278,7 +278,8 @@ export function LandingView({
                 <div className="w-[260px] h-[520px] bg-[#303568] rounded-[3rem] p-3 shadow-2xl shadow-black/30 relative animate-[phoneFloat_6s_ease-in-out_infinite]">
                   <div className="w-full h-full bg-white rounded-[2.25rem] overflow-hidden relative">
                     {/* Status bar */}
-                    <div className="h-12 bg-[#27BE7B] flex items-center justify-center">
+                    {/* Text at the bottom of the bar, below the notch (which covers its top 24px). */}
+                    <div className="h-12 bg-[#27BE7B] flex items-end justify-center pb-1.5">
                       <span className="text-white text-xs font-bold tracking-wider">UNRECEIPT</span>
                     </div>
                     <div className="p-4 space-y-3">
