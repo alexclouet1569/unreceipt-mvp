@@ -1,14 +1,22 @@
-// SERVER-ONLY. Fortnox's OAuth 2.0 (authorization code, confidential
-// client): the consent URL, the code exchange, the refresh and the revoke.
+// SERVER-ONLY. Fortnox's OAuth 2.0 for a *service account*
+// (fortnox.se/developer: "Get Authorization-Code", "Get Access-Token using
+// Client-Credentials", checked 2026-11-20):
 //
-// * Access tokens live 1 hour; refresh tokens 45 days and are ROTATED on
-//   every refresh: the old one stops working once a new one is issued.
-//   tokens.ts refreshes only under a database lock for that reason.
-// * The person who approves on Fortnox's screen must be a system
-//   administrator of that Fortnox company.
-// * FORTNOX_CLIENT_ID / FORTNOX_CLIENT_SECRET come from the integration in
-//   Fortnox's Developer Portal; the redirect URI registered there must be
-//   exactly redirectUri() below.
+//   1. connect: the company's system administrator approves UnReceipt on
+//      Fortnox's screen (authorization code, account_type=service, PKCE S256).
+//      Fortnox creates a user inside the company dedicated to UnReceipt, so
+//      the connection doesn't depend on one person staying at the company.
+//   2. we exchange the code once, only to read the company's TenantId and
+//      check which company it is. The refresh token is never stored.
+//   3. from then on: grant_type=client_credentials with the TenantId header
+//      gives an access token (1 h) whenever one is needed. Nothing to rotate,
+//      nothing that a lost answer can break.
+//
+// The integration in Fortnox's Developer Portal must have "service account"
+// ("Only administrator") and PKCE turned on, the scopes below and the
+// redirect URI exactly as redirectUri(). FORTNOX_CLIENT_ID / _SECRET come
+// from there. The company ends the connection itself in Fortnox →
+// Integrationer.
 
 import "server-only";
 
@@ -20,16 +28,21 @@ export const FORTNOX_REVOKE_URL = "https://apps.fortnox.se/oauth-v1/revoke";
 
 // bookkeeping: vouchers, accounts, financial years. inbox: upload the
 // receipt file. connectfile: attach it to the voucher. companyinformation:
-// the company's name and org number, shown before anything is posted.
-// settings: the locked period.
+// the company's name, org number and TenantId. settings: the locked period
+// and the company settings.
 export const FORTNOX_SCOPES = ["bookkeeping", "inbox", "connectfile", "companyinformation", "settings"] as const;
 
 const TOKEN_TIMEOUT_MS = 15_000;
 
 export class FortnoxOAuthError extends Error {
   constructor(
-    /** invalid_grant: the refresh token is dead, the company must reconnect. */
-    readonly code: "invalid_grant" | "not_configured" | "unavailable" | "bad_response" | "scope_missing",
+    /**
+     * consent_gone: the company removed UnReceipt in Fortnox (or the grant is
+     * otherwise refused): it must connect again. not_configured / unavailable
+     * / bad_response / scope_missing: ours or Fortnox's problem, not the
+     * company's.
+     */
+    readonly code: "consent_gone" | "not_configured" | "unavailable" | "bad_response" | "scope_missing",
   ) {
     super(`fortnox oauth: ${code}`);
     this.name = "FortnoxOAuthError";
@@ -47,11 +60,13 @@ function credentials(): { id: string; secret: string } {
   return { id, secret };
 }
 
+const basic = (id: string, secret: string) => `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
+
 export function redirectUri(): string {
   return absoluteAppUrl("/api/accounting/fortnox/callback");
 }
 
-export function authUrl(state: string): string {
+export function authUrl(state: string, codeChallenge: string): string {
   const { id } = credentials();
   const params = new URLSearchParams({
     client_id: id,
@@ -60,28 +75,37 @@ export function authUrl(state: string): string {
     state,
     access_type: "offline",
     response_type: "code",
+    account_type: "service",
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
   });
   return `${FORTNOX_AUTH_URL}?${params}`;
 }
 
-export type FortnoxTokens = {
+export type FortnoxGrant = {
   accessToken: string;
-  refreshToken: string;
+  /** Only to revoke a grant we won't keep; never stored. */
+  refreshToken: string | null;
   /** Epoch ms. */
   expiresAt: number;
   scopes: string[];
 };
 
-async function tokenRequest(form: Record<string, string>, fetchImpl: typeof fetch): Promise<FortnoxTokens> {
+async function tokenRequest(
+  form: Record<string, string>,
+  extraHeaders: Record<string, string>,
+  fetchImpl: typeof fetch,
+): Promise<FortnoxGrant> {
   const { id, secret } = credentials();
   let res: Response;
   try {
     res = await fetchImpl(FORTNOX_TOKEN_URL, {
       method: "POST",
       headers: {
-        Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
+        Authorization: basic(id, secret),
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
+        ...extraHeaders,
       },
       body: new URLSearchParams(form),
       signal: AbortSignal.timeout(TOKEN_TIMEOUT_MS),
@@ -92,41 +116,66 @@ async function tokenRequest(form: Record<string, string>, fetchImpl: typeof fetc
   }
   const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!res.ok) {
-    if (res.status >= 500) throw new FortnoxOAuthError("unavailable");
-    // invalid_grant: expired, revoked, already rotated or a used code. Any
-    // other refusal (invalid_client after a bad secret rotation) is ours to
-    // fix, not every company's to reconnect.
-    if (body?.error === "invalid_grant") throw new FortnoxOAuthError("invalid_grant");
+    if (res.status >= 500 || res.status === 429) throw new FortnoxOAuthError("unavailable");
+    // Only invalid_grant means one company's consent is gone (UnReceipt
+    // removed in Fortnox, the code used twice). invalid_client,
+    // unauthorized_client (RFC 6749: this client may not use this grant, e.g.
+    // "service account" switched off in the Developer Portal) and anything
+    // else are our configuration: never a reason to disconnect every company.
+    const error = typeof body?.error === "string" ? body.error : "";
+    if (error === "invalid_grant") throw new FortnoxOAuthError("consent_gone");
     throw new FortnoxOAuthError("bad_response");
   }
   const accessToken = typeof body?.access_token === "string" ? body.access_token : "";
-  const refreshToken = typeof body?.refresh_token === "string" ? body.refresh_token : "";
+  const refreshToken = typeof body?.refresh_token === "string" && body.refresh_token ? body.refresh_token : null;
   const expiresIn = typeof body?.expires_in === "number" ? body.expires_in : Number(body?.expires_in);
-  if (!accessToken || !refreshToken || !Number.isFinite(expiresIn) || expiresIn <= 0) {
-    throw new FortnoxOAuthError("bad_response");
-  }
+  if (!accessToken || !Number.isFinite(expiresIn) || expiresIn <= 0) throw new FortnoxOAuthError("bad_response");
   const scopes = typeof body?.scope === "string" ? body.scope.split(/\s+/).filter(Boolean) : [];
   return { accessToken, refreshToken, expiresAt: Date.now() + expiresIn * 1000, scopes };
 }
 
-export async function exchangeCode(code: string, fetchImpl: typeof fetch = fetch): Promise<FortnoxTokens> {
-  const tokens = await tokenRequest(
-    { grant_type: "authorization_code", code, redirect_uri: redirectUri() },
+/** The one code exchange of a connect flow (with the PKCE verifier). */
+export async function exchangeCode(code: string, codeVerifier: string, fetchImpl: typeof fetch = fetch): Promise<FortnoxGrant> {
+  const grant = await tokenRequest(
+    { grant_type: "authorization_code", code, redirect_uri: redirectUri(), code_verifier: codeVerifier },
+    {},
     fetchImpl,
   );
   // A permission unticked on the consent screen: we couldn't post.
-  if (tokens.scopes.length > 0 && !FORTNOX_SCOPES.every((s) => tokens.scopes.includes(s))) {
+  if (grant.scopes.length > 0 && !FORTNOX_SCOPES.every((s) => grant.scopes.includes(s))) {
     throw new FortnoxOAuthError("scope_missing");
   }
-  return tokens;
+  return grant;
 }
 
-export async function refreshTokens(refreshToken: string, fetchImpl: typeof fetch = fetch): Promise<FortnoxTokens> {
-  return tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken }, fetchImpl);
+/** An access token for a connected company: client credentials + its TenantId. */
+export async function clientCredentialsToken(tenantId: string, fetchImpl: typeof fetch = fetch): Promise<FortnoxGrant> {
+  if (!/^[0-9]{1,20}$/.test(tenantId)) throw new FortnoxOAuthError("bad_response");
+  return tokenRequest({ grant_type: "client_credentials", scope: FORTNOX_SCOPES.join(" ") }, { TenantId: tenantId }, fetchImpl);
 }
 
-/** Best effort: true when Fortnox confirmed the revoke. */
-export async function revokeRefreshToken(refreshToken: string, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+/**
+ * The TenantId inside a Fortnox access token (a JWT with a tenantId claim,
+ * fortnox.se/developer). The token comes straight from Fortnox's token
+ * endpoint over TLS, so reading the claim without verifying the signature
+ * only saves a request; callers fall back to the API when it is missing.
+ */
+export function tenantIdFromToken(accessToken: string): string | null {
+  const parts = accessToken.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as Record<string, unknown>;
+    const raw = payload.tenantId ?? payload.tenant_id ?? payload.TenantId;
+    const id = typeof raw === "number" ? String(raw) : typeof raw === "string" ? raw : "";
+    return /^[0-9]{1,20}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Best effort: gives back a grant we won't keep (a refused connect). */
+export async function revokeRefreshToken(refreshToken: string | null, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  if (!refreshToken) return false;
   let id: string;
   let secret: string;
   try {
@@ -137,10 +186,7 @@ export async function revokeRefreshToken(refreshToken: string, fetchImpl: typeof
   try {
     const res = await fetchImpl(FORTNOX_REVOKE_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { Authorization: basic(id, secret), "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ token: refreshToken, token_type_hint: "refresh_token" }),
       signal: AbortSignal.timeout(TOKEN_TIMEOUT_MS),
       cache: "no-store",

@@ -1,16 +1,15 @@
 // SERVER-ONLY. Account deletion: the Fortnox connection of the user's own
-// company goes with the company (ON DELETE CASCADE), but the grant at
-// Fortnox would stay. This gives it back first, best effort (never throws):
-// a Fortnox that is down leaves a grant the company's administrator can
-// remove under Fortnox → Integrationer.
+// company goes with the company (ON DELETE CASCADE). A Fortnox service
+// account holds no token on our side, so there is nothing to give back here:
+// without the row, UnReceipt can't ask for a token for that company any more.
+// The company removes UnReceipt in Fortnox → Integrationer to end the
+// consent on Fortnox's side too (the disconnect screen says so).
 
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AccountingConnection } from "@/lib/types";
-import { decryptAccountingToken } from "./crypto";
-import { revokeRefreshToken } from "./fortnox/oauth";
 
+/** Deletes the own company's Fortnox connection first; never throws. Returns how many. */
 export async function disconnectAccountingFor(userId: string, supabase: SupabaseClient): Promise<number> {
   try {
     const { data: orgs, error } = await supabase.from("organizations").select("id").eq("default_for_user_id", userId);
@@ -22,19 +21,9 @@ export async function disconnectAccountingFor(userId: string, supabase: Supabase
         "organization_id",
         orgs.map((o) => o.id as string),
       )
-      .select("organization_id, refresh_token_enc");
+      .select("id");
     if (delError) return 0;
-    const rows = (data ?? []) as Pick<AccountingConnection, "organization_id" | "refresh_token_enc">[];
-    await Promise.all(
-      rows.map(async (row) => {
-        try {
-          await revokeRefreshToken(decryptAccountingToken(row.refresh_token_enc, row.organization_id));
-        } catch {
-          // Unreadable token: nothing to revoke.
-        }
-      }),
-    );
-    return rows.length;
+    return (data ?? []).length;
   } catch {
     return 0;
   }

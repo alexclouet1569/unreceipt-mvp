@@ -89,6 +89,8 @@ const FORTNOX_RESULT_TEXT: Record<string, string> = {
   not_configured: "Fortnox isn't available yet.",
   scope_missing: "Every permission is needed on Fortnox's screen. Start again and keep them all.",
   wrong_company: "That Fortnox company has another org number than this company. Choose the right one.",
+  company_taken: "That Fortnox company is already connected to another company in UnReceipt.",
+  no_tenant: "Fortnox didn't say which company was connected. Try again, or contact us.",
   rate_limited: "Many tries in a short time. Try again later.",
   provider_unavailable: "Fortnox didn't answer. Try again later.",
 };

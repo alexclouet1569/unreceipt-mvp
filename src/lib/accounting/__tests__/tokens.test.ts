@@ -1,143 +1,73 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { encryptAccountingToken, decryptAccountingToken } from "@/lib/accounting/crypto";
-import { FortnoxOAuthError, type FortnoxTokens } from "@/lib/accounting/fortnox/oauth";
-import { getAccessToken, ReconnectRequiredError, type TokenStore } from "@/lib/accounting/tokens";
-import type { AccountingConnection } from "@/lib/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FortnoxOAuthError, type FortnoxGrant } from "@/lib/accounting/fortnox/oauth";
+import { _resetTokenCacheForTests, forgetAccessToken, getAccessToken, ReconnectRequiredError } from "@/lib/accounting/tokens";
 
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn(), captureMessage: vi.fn() }));
 
-const ORG = "org-1";
 const NOW = Date.parse("2026-11-20T10:00:00Z");
+const CONN = { id: "conn-1", tenant_id: "1234567", grant_id: "grant-1", status: "active" as const };
 
-beforeAll(() => {
-  process.env.INTEGRATION_TOKEN_KEY = Buffer.alloc(32, 7).toString("base64");
-});
-
-function memoryStore(row: Partial<AccountingConnection>) {
-  const state: AccountingConnection = {
-    id: "conn-1",
-    organization_id: ORG,
-    provider: "fortnox",
-    refresh_token_enc: encryptAccountingToken("refresh-1", ORG),
-    access_token_enc: null,
-    access_expires_at: null,
-    refresh_lock_until: null,
-    refreshed_at: new Date(NOW).toISOString(),
-    status: "active",
-    company_name: null,
-    company_org_number: null,
-    connected_by: null,
-    grant_id: "grant-1",
-    confirmed_at: null,
-    confirmed_by: null,
-    last_error: null,
-    created_at: "",
-    updated_at: "",
-    ...row,
-  };
-  const store: TokenStore = {
-    async read() {
-      return { ...state };
-    },
-    async claimLock(_id, expected, nowIso, untilIso) {
-      if (state.status !== "active" || state.refresh_token_enc !== expected) return false;
-      if (state.refresh_lock_until && state.refresh_lock_until >= nowIso) return false;
-      state.refresh_lock_until = untilIso;
-      return true;
-    },
-    async saveTokens(_id, expected, values) {
-      if (state.refresh_token_enc !== expected || !state.refresh_lock_until) return false;
-      Object.assign(state, values, { refresh_lock_until: null });
-      return true;
-    },
-    async releaseLock() {
-      state.refresh_lock_until = null;
-    },
-    async markNeedsReconnect(_id, code) {
-      state.status = "needs_reconnect";
-      state.last_error = code;
-    },
-  };
-  return { state, store };
+function grant(n: number, ttlMs = 3_600_000): FortnoxGrant {
+  return { accessToken: `access-${n}`, refreshToken: null, expiresAt: NOW + ttlMs, scopes: [] };
 }
 
-function tokens(n: number): FortnoxTokens {
-  return { accessToken: `access-${n}`, refreshToken: `refresh-${n}`, expiresAt: NOW + 3600_000, scopes: [] };
-}
+describe("getAccessToken (service account: client credentials + TenantId)", () => {
+  beforeEach(() => _resetTokenCacheForTests());
 
-const instant = async () => undefined;
-
-describe("getAccessToken", () => {
-  it("uses a stored access token that is still valid", async () => {
-    const { store } = memoryStore({
-      access_token_enc: encryptAccountingToken("access-0", ORG),
-      access_expires_at: new Date(NOW + 30 * 60_000).toISOString(),
-    });
-    const refresh = vi.fn();
-    await expect(getAccessToken("conn-1", { store, refresh, now: () => NOW })).resolves.toBe("access-0");
-    expect(refresh).not.toHaveBeenCalled();
+  it("asks Fortnox with the company's TenantId and reuses the token until a minute before it expires", async () => {
+    const fetchToken = vi.fn(async () => grant(1));
+    const markNeedsReconnect = vi.fn();
+    let now = NOW;
+    const deps = { fetchToken, markNeedsReconnect, now: () => now };
+    await expect(getAccessToken(CONN, deps)).resolves.toBe("access-1");
+    await expect(getAccessToken(CONN, deps)).resolves.toBe("access-1");
+    expect(fetchToken).toHaveBeenCalledTimes(1);
+    expect(fetchToken).toHaveBeenCalledWith("1234567");
+    now = NOW + 3_600_000 - 30_000;
+    fetchToken.mockResolvedValueOnce(grant(2, 2 * 3_600_000));
+    await expect(getAccessToken(CONN, deps)).resolves.toBe("access-2");
   });
 
-  it("refreshes an expiring token and stores the rotated pair", async () => {
-    const { store, state } = memoryStore({
-      access_token_enc: encryptAccountingToken("access-0", ORG),
-      access_expires_at: new Date(NOW + 30_000).toISOString(),
-    });
-    const refresh = vi.fn(async (rt: string) => {
-      expect(rt).toBe("refresh-1");
-      return tokens(2);
-    });
-    await expect(getAccessToken("conn-1", { store, refresh, now: () => NOW, sleep: instant })).resolves.toBe("access-2");
-    expect(decryptAccountingToken(state.refresh_token_enc, ORG)).toBe("refresh-2");
-    expect(state.refresh_lock_until).toBeNull();
+  it("never reuses a token for another Fortnox company or after a forced refresh", async () => {
+    const fetchToken = vi.fn(async (tenant: string) => grant(tenant === "999" ? 9 : 1));
+    const deps = { fetchToken, markNeedsReconnect: vi.fn(), now: () => NOW };
+    await getAccessToken(CONN, deps);
+    await expect(getAccessToken({ ...CONN, tenant_id: "999" }, deps)).resolves.toBe("access-9");
+    fetchToken.mockResolvedValueOnce(grant(3));
+    await expect(getAccessToken(CONN, { ...deps, forceRefresh: true })).resolves.toBe("access-3");
+    forgetAccessToken("conn-1");
+    await getAccessToken(CONN, deps);
+    expect(fetchToken).toHaveBeenCalledTimes(4);
   });
 
-  it("refreshes once when two callers need a token at the same time", async () => {
-    const { store } = memoryStore({});
-    let release!: () => void;
-    const gate = new Promise<void>((r) => (release = r));
-    const refresh = vi.fn(async () => {
-      await gate;
-      return tokens(3);
+  it("marks the connection for reconnecting when the company removed UnReceipt in Fortnox", async () => {
+    const markNeedsReconnect = vi.fn(async () => undefined);
+    const fetchToken = vi.fn(async () => {
+      throw new FortnoxOAuthError("consent_gone");
     });
-    const a = getAccessToken("conn-1", { store, refresh, now: () => NOW, sleep: () => new Promise((r) => setTimeout(r, 1)) });
-    const b = getAccessToken("conn-1", { store, refresh, now: () => NOW, sleep: () => new Promise((r) => setTimeout(r, 1)) });
-    await new Promise((r) => setTimeout(r, 5));
-    release();
-    await expect(Promise.all([a, b])).resolves.toEqual(["access-3", "access-3"]);
-    expect(refresh).toHaveBeenCalledTimes(1);
+    await expect(getAccessToken(CONN, { fetchToken, markNeedsReconnect, now: () => NOW })).rejects.toBeInstanceOf(
+      ReconnectRequiredError,
+    );
+    // Only for the tenant and grant asked for: a reconnect meanwhile stays active.
+    expect(markNeedsReconnect).toHaveBeenCalledWith(CONN);
   });
 
-  it("marks the connection for reconnecting when Fortnox refuses the refresh token", async () => {
-    const { store, state } = memoryStore({});
-    const refresh = vi.fn(async () => {
-      throw new FortnoxOAuthError("invalid_grant");
+  it("doesn't blame the company for Fortnox being down", async () => {
+    const markNeedsReconnect = vi.fn();
+    const fetchToken = vi.fn(async () => {
+      throw new FortnoxOAuthError("unavailable");
     });
-    await expect(getAccessToken("conn-1", { store, refresh, now: () => NOW })).rejects.toBeInstanceOf(ReconnectRequiredError);
-    expect(state.status).toBe("needs_reconnect");
+    await expect(getAccessToken(CONN, { fetchToken, markNeedsReconnect, now: () => NOW })).rejects.toMatchObject({
+      reason: "provider",
+    });
+    expect(markNeedsReconnect).not.toHaveBeenCalled();
   });
 
-  it("gives back the new grant when the connection was replaced during the refresh", async () => {
-    const { store, state } = memoryStore({});
-    const refresh = vi.fn(async () => {
-      // A reconnect lands meanwhile.
-      state.refresh_token_enc = encryptAccountingToken("refresh-other", ORG);
-      return tokens(5);
-    });
-    const revoke = vi.fn(async () => true);
-    await expect(getAccessToken("conn-1", { store, refresh, revoke, now: () => NOW, sleep: instant })).rejects.toMatchObject({
-      reason: "gone",
-    });
-    expect(revoke).toHaveBeenCalledWith("refresh-5");
-    expect(decryptAccountingToken(state.refresh_token_enc, ORG)).toBe("refresh-other");
-  });
-
-  it("after a 401, refreshes instead of reusing the refused token", async () => {
-    const { store } = memoryStore({
-      access_token_enc: encryptAccountingToken("access-0", ORG),
-      access_expires_at: new Date(NOW + 30 * 60_000).toISOString(),
-    });
-    const refresh = vi.fn(async () => tokens(4));
-    await expect(getAccessToken("conn-1", { store, refresh, now: () => NOW, forceRefresh: true })).resolves.toBe("access-4");
+  it("refuses a connection that needs reconnecting without asking Fortnox", async () => {
+    const fetchToken = vi.fn();
+    await expect(
+      getAccessToken({ ...CONN, status: "needs_reconnect" }, { fetchToken, markNeedsReconnect: vi.fn() }),
+    ).rejects.toBeInstanceOf(ReconnectRequiredError);
+    expect(fetchToken).not.toHaveBeenCalled();
   });
 });

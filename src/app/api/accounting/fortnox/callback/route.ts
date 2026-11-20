@@ -9,16 +9,19 @@
 // company whose org number differs from one UnReceipt knows (the company's
 // own, or the one the firm typed for the client: a firm admin can reach many
 // clients' Fortnox, the wrong one is an easy mistake). Only then save the
-// connection, encrypted: confirmed when a known number matched, otherwise
+// connection (only the company's TenantId: service account, no token is
+// stored): confirmed when a known number matched, otherwise
 // waiting for a person to confirm the company (PATCH /api/accounting/fortnox).
-// Never logs the code or tokens.
+// A refused connect never revokes anything: with a service account there is
+// one consent per Fortnox company for the whole integration, which another
+// UnReceipt company may be using; the company ends it in Fortnox →
+// Integrationer. Never logs the code or tokens.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
-import { decryptAccountingToken } from "@/lib/accounting/crypto";
 import { fortnoxCaller } from "@/lib/accounting/fortnox/api";
-import { forgetContext, readCompany } from "@/lib/accounting/fortnox/context";
-import { exchangeCode, FortnoxOAuthError, revokeRefreshToken } from "@/lib/accounting/fortnox/oauth";
+import { forgetContext, readCompany, readTenantId } from "@/lib/accounting/fortnox/context";
+import { clientCredentialsToken, exchangeCode, FortnoxOAuthError, tenantIdFromToken } from "@/lib/accounting/fortnox/oauth";
 import {
   accountingCookieName,
   accountingCookieOptions,
@@ -29,7 +32,8 @@ import {
   type FortnoxResultReason,
 } from "@/lib/accounting/oauth";
 import { AccountingAccessError, organizationActor } from "@/lib/accounting/permissions";
-import { getConnection, saveConnection } from "@/lib/accounting/store";
+import { getConnection, saveConnection, TenantTakenError } from "@/lib/accounting/store";
+import { forgetAccessToken } from "@/lib/accounting/tokens";
 import { bindingMatches } from "@/lib/oauth/flow";
 import { noStore } from "@/lib/mailboxes/start-flow";
 import { getServerUser } from "@/lib/supabase-server";
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
 
   let tokens;
   try {
-    tokens = await exchangeCode(code);
+    tokens = await exchangeCode(code, pending.code_verifier);
   } catch (err) {
     if (err instanceof FortnoxOAuthError && err.code === "scope_missing") return fail(target, "scope_missing");
     if (err instanceof FortnoxOAuthError && err.code === "unavailable") return fail(target, "provider_unavailable");
@@ -84,13 +88,37 @@ export async function GET(request: NextRequest) {
     return fail(target, "exchange_failed");
   }
 
+  // Which Fortnox company: its name and org number, and its TenantId (from
+  // the token, else from the company settings). Only the TenantId is kept:
+  // later tokens come from the client credentials + it.
   let company: { name: string | null; orgNumber: string | null };
+  let tenantId: string | null;
   try {
-    company = await readCompany(fortnoxCaller(tokens.accessToken, `new:${pending.organization_id}`));
+    const call = fortnoxCaller(tokens.accessToken, `new:${pending.organization_id}`);
+    company = await readCompany(call);
+    tenantId = tenantIdFromToken(tokens.accessToken) ?? (await readTenantId(call));
   } catch (err) {
     Sentry.captureException(err, { tags: { area: "accounting", step: "company_info" } });
-    await revokeRefreshToken(tokens.refreshToken);
     return fail(target, "provider_unavailable");
+  }
+  if (!tenantId) {
+    Sentry.captureMessage("fortnox: no tenant id after connect", { tags: { area: "accounting", step: "tenant_id" } });
+    return fail(target, "no_tenant");
+  }
+
+  // Prove the stored TenantId is the one that works: a client-credentials
+  // token for it must reach the very same company (org number and name).
+  // Also catches an integration whose service account isn't switched on.
+  try {
+    const check = await clientCredentialsToken(tenantId);
+    const seen = await readCompany(fortnoxCaller(check.accessToken, `check:${pending.organization_id}`));
+    if (seen.orgNumber !== company.orgNumber || seen.name !== company.name) {
+      Sentry.captureMessage("fortnox: tenant id reaches another company", { tags: { area: "accounting", step: "tenant_check" } });
+      return fail(target, "no_tenant");
+    }
+  } catch (err) {
+    Sentry.captureException(err, { tags: { area: "accounting", step: "tenant_check" } });
+    return fail(target, err instanceof FortnoxOAuthError && err.code === "unavailable" ? "provider_unavailable" : "no_tenant");
   }
 
   // The org numbers UnReceipt knows for this company: its own, and the one
@@ -103,14 +131,12 @@ export async function GET(request: NextRequest) {
     supabase.from("firm_clients").select("client_org_number").eq("organization_id", pending.organization_id).eq("status", "active"),
   ]);
   if (orgError || linkError) {
-    await revokeRefreshToken(tokens.refreshToken);
     return fail(target, "server_error");
   }
   const known = [org?.org_number as string | null | undefined, ...(links ?? []).map((l) => l.client_org_number as string | null)]
     .map((n) => (n ?? "").replace(/\D/g, ""))
     .filter((n) => n.length > 0);
   if (known.length > 0 && (!company.orgNumber || known.some((n) => !sameOrgNumber(n, company.orgNumber)))) {
-    await revokeRefreshToken(tokens.refreshToken);
     return fail(target, "wrong_company");
   }
   const confirmed = known.length > 0;
@@ -120,23 +146,19 @@ export async function GET(request: NextRequest) {
     await saveConnection({
       organizationId: pending.organization_id,
       userId: user.id,
-      tokens,
+      tenantId,
       companyName: company.name,
       companyOrgNumber: company.orgNumber,
       confirmed,
     });
     if (previous) {
       forgetContext(previous.id);
-      // The replaced grant is no longer used: give it back (best effort).
-      try {
-        await revokeRefreshToken(decryptAccountingToken(previous.refresh_token_enc, pending.organization_id));
-      } catch {
-        // An unreadable old token: nothing to revoke.
-      }
+      forgetAccessToken(previous.id);
     }
   } catch (err) {
+    // That Fortnox company already books for another UnReceipt company.
+    if (err instanceof TenantTakenError) return fail(target, "company_taken");
     Sentry.captureException(err, { tags: { area: "accounting", step: "save_connection" } });
-    await revokeRefreshToken(tokens.refreshToken);
     return fail(target, "server_error");
   }
   return finish(target, { status: "connected" });

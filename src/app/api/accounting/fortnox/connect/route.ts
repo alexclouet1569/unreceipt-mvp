@@ -11,7 +11,6 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
-import { integrationKeyConfigured } from "@/lib/accounting/crypto";
 import { authUrl, fortnoxConfigured } from "@/lib/accounting/fortnox/oauth";
 import {
   accountingCookieName,
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest) {
   if (!resolved) return fail(null, "not_allowed");
   const target: FlowTarget = { actor: resolved.actor.kind, organizationId: resolved.organizationId };
 
-  if (!fortnoxConfigured() || !integrationKeyConfigured()) return fail(target, "not_configured");
+  if (!fortnoxConfigured()) return fail(target, "not_configured");
 
   const limited = await rateLimit("accountingConnect", user.id);
   if (!limited.ok) return fail(target, "rate_limited");
@@ -63,7 +62,7 @@ export async function GET(request: NextRequest) {
     return fail(target, "server_error");
   }
 
-  const res = noStore(NextResponse.redirect(authUrl(pending.state), 303));
+  const res = noStore(NextResponse.redirect(authUrl(pending.state, pending.codeChallenge), 303));
   res.cookies.set(accountingCookieName(pending.state), pending.bindingValue, accountingCookieOptions());
   return res;
 }

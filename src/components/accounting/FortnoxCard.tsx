@@ -25,6 +25,7 @@ export type FortnoxCardSummary = {
     companyName: string | null;
     orgNumber: string | null;
     confirmed: boolean;
+    grantId: string;
   } | null;
 };
 
@@ -134,10 +135,16 @@ export function FortnoxCard({
       const res = await fetch(`/api/accounting/fortnox${query}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({ confirm: true, grantId: conn?.grantId }),
       });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (res.ok) {
         setMessage({ ok: true, text: "Confirmed. Receipts can now be booked." });
+        router.refresh();
+      } else if (body.error === "company_taken") {
+        setMessage({ ok: false, text: "That Fortnox company is already connected to another company in UnReceipt. Disconnect and connect the right one." });
+      } else if (body.error === "changed") {
+        setMessage({ ok: false, text: "Fortnox was reconnected meanwhile. Reload the page and check the company again." });
         router.refresh();
       } else {
         setMessage({ ok: false, text: "Couldn't confirm. Try again." });
@@ -162,7 +169,7 @@ export function FortnoxCard({
           ok: true,
           text: body.revoked
             ? "Fortnox is disconnected."
-            : "Disconnected here. To be sure, also remove UnReceipt under Integrationer in Fortnox.",
+            : "Disconnected: UnReceipt no longer books for this company. To end the permission in Fortnox too, remove UnReceipt under Integrationer in Fortnox.",
         });
         router.refresh();
       }
@@ -198,7 +205,9 @@ export function FortnoxCard({
       <p className="type-body text-[var(--ink-muted)]">
         {conn
           ? active
-            ? `Connected to ${conn.companyName ?? "a Fortnox company"}${conn.orgNumber ? ` (${conn.orgNumber})` : ""}. Every confirmed receipt gets a proposed voucher; nothing is booked until a person approves it.`
+            ? conn.confirmed
+              ? `Connected to ${conn.companyName ?? "a Fortnox company"}${conn.orgNumber ? ` (${conn.orgNumber})` : ""}. Every confirmed receipt gets a proposed voucher; nothing is booked until a person approves it.`
+              : "Fortnox is connected. One last check before anything is booked:"
             : "The connection has expired. Connect again to keep booking receipts."
           : "Connect the company's Fortnox: UnReceipt proposes a voucher for every confirmed receipt, with the receipt attached, and books it when a person approves. A system administrator in Fortnox approves the connection."}
       </p>
@@ -268,7 +277,8 @@ export function FortnoxCard({
         confirming ? (
           <div className="space-y-2" role="group" aria-label="Disconnect Fortnox">
             <p className="type-body text-[var(--ink)]">
-              Disconnect Fortnox? New receipts won&apos;t get vouchers; vouchers already booked stay in Fortnox.
+              Disconnect Fortnox? UnReceipt stops booking for this company; vouchers already booked stay in Fortnox. To end the
+              permission on Fortnox&apos;s side too, remove UnReceipt under Integrationer in Fortnox.
             </p>
             <div className="flex gap-2">
               <Button type="button" variant="outline" className="flex-1 h-11" onClick={() => setConfirming(false)} disabled={busy !== null}>

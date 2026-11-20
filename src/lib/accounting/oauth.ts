@@ -13,6 +13,7 @@ import {
   bindingCookieOptionsFor,
   isWellFormedState,
   newBindingValue,
+  newPkce,
   newState,
   sha256Hex,
 } from "@/lib/oauth/flow";
@@ -32,6 +33,8 @@ export const FORTNOX_RESULT_REASONS = [
   "exchange_failed",
   "scope_missing",
   "wrong_company",
+  "company_taken",
+  "no_tenant",
   "rate_limited",
   "provider_unavailable",
   "server_error",
@@ -63,21 +66,23 @@ export async function createAccountingPending(
   supabase: SupabaseClient,
   input: { userId: string; organizationId: string; actor: "owner" | "firm" },
   now: number = Date.now(),
-): Promise<{ state: string; bindingValue: string } | null> {
+): Promise<{ state: string; bindingValue: string; codeChallenge: string } | null> {
   const state = newState();
   const bindingValue = newBindingValue();
+  const { verifier, challenge } = newPkce();
   const { error } = await supabase.from("accounting_oauth_pending").insert({
     nonce: state,
     user_id: input.userId,
     organization_id: input.organizationId,
     provider: "fortnox",
     actor: input.actor,
+    code_verifier: verifier,
     browser_binding: sha256Hex(bindingValue),
     created_at: new Date(now).toISOString(),
     expires_at: new Date(now + ACCOUNTING_PENDING_TTL_MS).toISOString(),
   });
   if (error) return null;
-  return { state, bindingValue };
+  return { state, bindingValue, codeChallenge: challenge };
 }
 
 /** Takes the row out (delete … returning): a state works once. */
@@ -90,7 +95,7 @@ export async function takeAccountingPending(
     .from("accounting_oauth_pending")
     .delete()
     .eq("nonce", state)
-    .select("nonce, user_id, organization_id, provider, actor, browser_binding, created_at, expires_at");
+    .select("nonce, user_id, organization_id, provider, actor, code_verifier, browser_binding, created_at, expires_at");
   if (error) return { ok: false };
   return { ok: true, row: ((data ?? []) as AccountingOAuthPending[])[0] ?? null };
 }

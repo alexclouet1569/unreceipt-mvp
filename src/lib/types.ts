@@ -537,12 +537,9 @@ export interface AccountingConnection {
   id: string;
   organization_id: string;
   provider: AccountingProviderId;
-  // "v1.<iv>.<tag>.<ciphertext>", AAD bound to organization_id.
-  refresh_token_enc: string;
-  access_token_enc: string | null;
-  access_expires_at: string | null;
-  refresh_lock_until: string | null;
-  refreshed_at: string;
+  // Fortnox's id of the company (service account: tokens come from the
+  // client credentials + this, nothing else is stored).
+  tenant_id: string;
   status: AccountingConnectionStatus;
   company_name: string | null;
   company_org_number: string | null;
@@ -575,6 +572,7 @@ export interface AccountingOAuthPending {
   organization_id: string;
   provider: AccountingProviderId;
   actor: "owner" | "firm";
+  code_verifier: string;
   browser_binding: string;
   created_at: string;
   expires_at: string;

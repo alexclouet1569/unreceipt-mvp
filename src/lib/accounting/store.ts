@@ -8,9 +8,6 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { AccountingConnection, AccountingSettings } from "@/lib/types";
-import { encryptAccountingToken } from "./crypto";
-import type { FortnoxTokens } from "./fortnox/oauth";
-import type { TokenStore } from "./tokens";
 
 export class AccountingStoreError extends Error {
   constructor(step: string, code?: string | null) {
@@ -35,12 +32,20 @@ export async function getConnection(
   return (data as AccountingConnection | null) ?? null;
 }
 
+/** That Fortnox company is already connected to another UnReceipt company. */
+export class TenantTakenError extends Error {
+  constructor() {
+    super("this Fortnox company is connected to another company");
+    this.name = "TenantTakenError";
+  }
+}
+
 /** Saves (or replaces, on reconnect) the organisation's Fortnox connection. */
 export async function saveConnection(
   input: {
     organizationId: string;
     userId: string;
-    tokens: FortnoxTokens;
+    tenantId: string;
     companyName: string | null;
     companyOrgNumber: string | null;
     /** The Fortnox company's org number matched the one UnReceipt knows. */
@@ -48,19 +53,14 @@ export async function saveConnection(
   },
   client?: SupabaseClient,
 ): Promise<void> {
-  const { organizationId, tokens } = input;
   const now = new Date().toISOString();
   const { error } = await db(client)
     .from("accounting_connections")
     .upsert(
       {
-        organization_id: organizationId,
+        organization_id: input.organizationId,
         provider: "fortnox",
-        refresh_token_enc: encryptAccountingToken(tokens.refreshToken, organizationId),
-        access_token_enc: encryptAccountingToken(tokens.accessToken, organizationId),
-        access_expires_at: new Date(tokens.expiresAt).toISOString(),
-        refresh_lock_until: null,
-        refreshed_at: now,
+        tenant_id: input.tenantId,
         status: "active",
         company_name: input.companyName,
         company_org_number: input.companyOrgNumber,
@@ -73,6 +73,7 @@ export async function saveConnection(
       },
       { onConflict: "organization_id,provider" },
     );
+  if (error?.code === "23505") throw new TenantTakenError();
   if (error) throw new AccountingStoreError("save_connection", error.code);
 }
 
@@ -119,69 +120,41 @@ export async function saveSettings(
   return data as AccountingSettings;
 }
 
-/** The Supabase-backed TokenStore used by tokens.ts. */
-export function supabaseTokenStore(client?: SupabaseClient): TokenStore {
-  const c = () => db(client);
-  return {
-    async read(id) {
-      const { data, error } = await c().from("accounting_connections").select("*").eq("id", id).maybeSingle();
-      if (error) throw new AccountingStoreError("read_tokens", error.code);
-      return (data as AccountingConnection | null) ?? null;
-    },
-    async claimLock(id, expectedRefreshEnc, nowIso, untilIso) {
-      const { data, error } = await c()
-        .from("accounting_connections")
-        .update({ refresh_lock_until: untilIso })
-        .eq("id", id)
-        .eq("refresh_token_enc", expectedRefreshEnc)
-        .eq("status", "active")
-        // Quoted: a timestamp holds ":" and ".", which PostgREST's logic
-        // trees would otherwise have to guess at.
-        .or(`refresh_lock_until.is.null,refresh_lock_until.lt."${nowIso}"`)
-        .select("id");
-      if (error) throw new AccountingStoreError("claim_lock", error.code);
-      return (data ?? []).length === 1;
-    },
-    async saveTokens(id, expectedRefreshEnc, values) {
-      // Only over the grant this refresh started from, still locked: a
-      // reconnect or a disconnect meanwhile wins (0 rows).
-      const { data, error } = await c()
-        .from("accounting_connections")
-        .update({ ...values, refresh_lock_until: null, last_error: null })
-        .eq("id", id)
-        .eq("refresh_token_enc", expectedRefreshEnc)
-        .not("refresh_lock_until", "is", null)
-        .select("id");
-      if (error) throw new AccountingStoreError("save_tokens", error.code);
-      return (data ?? []).length === 1;
-    },
-    async releaseLock(id) {
-      const { error } = await c().from("accounting_connections").update({ refresh_lock_until: null }).eq("id", id);
-      if (error) throw new AccountingStoreError("release_lock", error.code);
-    },
-    async markNeedsReconnect(id, code) {
-      const { error } = await c()
-        .from("accounting_connections")
-        .update({ status: "needs_reconnect", last_error: code, refresh_lock_until: null, access_token_enc: null })
-        .eq("id", id);
-      if (error) throw new AccountingStoreError("mark_reconnect", error.code);
-    },
-  };
+/** Fortnox refused the company's consent: it must connect again. */
+export async function markNeedsReconnect(
+  conn: Pick<AccountingConnection, "id" | "tenant_id" | "grant_id">,
+  client?: SupabaseClient,
+): Promise<void> {
+  // Only the grant the refusal was for: a reconnect saved meanwhile (new
+  // tenant or grant on the same row) stays active.
+  const { error } = await db(client)
+    .from("accounting_connections")
+    .update({ status: "needs_reconnect", last_error: "consent_gone" })
+    .eq("id", conn.id)
+    .eq("tenant_id", conn.tenant_id)
+    .eq("grant_id", conn.grant_id);
+  if (error) throw new AccountingStoreError("mark_reconnect", error.code);
 }
 
 /** A person confirmed the Fortnox company is this company's. */
 export async function confirmConnection(
   organizationId: string,
   userId: string,
+  grantId: string,
   client?: SupabaseClient,
 ): Promise<AccountingConnection | null> {
+  // Only the connection the person saw (grant_id): a reconnect meanwhile
+  // must be confirmed on its own.
   const { data, error } = await db(client)
     .from("accounting_connections")
     .update({ confirmed_at: new Date().toISOString(), confirmed_by: userId })
     .eq("organization_id", organizationId)
     .eq("provider", "fortnox")
     .eq("status", "active")
+    .eq("grant_id", grantId)
     .select("*");
+  // Another company has already confirmed this Fortnox company.
+  if (error?.code === "23505") throw new TenantTakenError();
   if (error) throw new AccountingStoreError("confirm", error.code);
   return ((data ?? []) as AccountingConnection[])[0] ?? null;
 }

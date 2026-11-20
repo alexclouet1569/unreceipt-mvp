@@ -2723,16 +2723,19 @@ ALTER TABLE public.demo_requests
 -- account, input VAT, payment account, the receipt file attached) and a
 -- person approves it before it is posted to the company's own Fortnox.
 --
--- accounting_connections: one Fortnox company per organisation. Fortnox
---   rotates the refresh token on EVERY use (and it lives 45 days), so the
---   access token is stored too (encrypted, ~1 h) and a refresh happens only
---   under the compare-and-set lock refresh_lock_until: two instances
---   refreshing at once would leave one of them with a dead token.
+-- accounting_connections: one Fortnox company per organisation, connected as
+--   a Fortnox *service account* (account_type=service): the company's system
+--   administrator approves once, and from then on the server gets a short-
+--   lived access token with its client credentials and the company's TenantId
+--   (grant_type=client_credentials). No token is stored: only the TenantId,
+--   which is useless without the client secret held in the environment. One
+--   Fortnox company is linked to one UnReceipt company at most.
 -- accounting_settings: the voucher series and the accounts a payment is
 --   credited to (company card or bank, employee outlay), set per company
 --   with its accountant.
--- accounting_oauth_pending: one row per connect flow in progress (state +
---   the sha256 of a browser-binding cookie), single use, 10 minutes.
+-- accounting_oauth_pending: one row per connect flow in progress (state, the
+--   PKCE verifier and the sha256 of a browser-binding cookie), single use,
+--   10 minutes.
 -- booking_proposals: one per receipt. proposed → approved → posting →
 --   posted; `unknown` when Fortnox may have created the voucher but we
 --   couldn't read the answer: it is reconciled (search for the marker in the
@@ -2750,13 +2753,8 @@ CREATE TABLE IF NOT EXISTS public.accounting_connections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('fortnox')),
-  refresh_token_enc TEXT NOT NULL CHECK (refresh_token_enc ~ '^v[0-9]+\.'),
-  access_token_enc TEXT CHECK (access_token_enc IS NULL OR access_token_enc ~ '^v[0-9]+\.'),
-  access_expires_at TIMESTAMPTZ,
-  refresh_lock_until TIMESTAMPTZ,
-  -- When the refresh token was last rotated; the daily job refreshes a
-  -- connection idle for 30 days so the 45-day token never lapses.
-  refreshed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Fortnox's id of the company (TenantId, "DatabaseNumber").
+  tenant_id TEXT NOT NULL CHECK (tenant_id ~ '^[0-9]{1,20}$'),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'needs_reconnect')),
   company_name TEXT CHECK (company_name IS NULL OR char_length(company_name) <= 200),
   company_org_number TEXT CHECK (company_org_number IS NULL OR company_org_number ~ '^[0-9-]{6,20}$'),
@@ -2776,8 +2774,11 @@ CREATE TABLE IF NOT EXISTS public.accounting_connections (
 
 CREATE UNIQUE INDEX IF NOT EXISTS accounting_connections_org_provider_unique
   ON public.accounting_connections(organization_id, provider);
-CREATE INDEX IF NOT EXISTS accounting_connections_refreshed_idx
-  ON public.accounting_connections(status, refreshed_at);
+-- A Fortnox company books for one UnReceipt company only, once confirmed: an
+-- unconfirmed connection (possibly the wrong company, picked by mistake)
+-- never blocks the right company from connecting its own Fortnox.
+CREATE UNIQUE INDEX IF NOT EXISTS accounting_connections_provider_tenant_unique
+  ON public.accounting_connections(provider, tenant_id) WHERE confirmed_at IS NOT NULL;
 
 ALTER TABLE public.accounting_connections ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.accounting_connections FROM anon, authenticated;
@@ -2816,6 +2817,8 @@ CREATE TABLE IF NOT EXISTS public.accounting_oauth_pending (
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('fortnox')),
   actor TEXT NOT NULL CHECK (actor IN ('owner', 'firm')),
+  -- PKCE (S256): the verifier sent with the code exchange.
+  code_verifier TEXT NOT NULL CHECK (char_length(code_verifier) BETWEEN 43 AND 128),
   browser_binding TEXT NOT NULL CHECK (browser_binding ~ '^[0-9a-f]{64}$'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL

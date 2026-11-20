@@ -1,23 +1,25 @@
 // DELETE /api/accounting/fortnox[?org=<organizationId>] — disconnects a
-// company's Fortnox: the row goes (tokens with it) and the grant is revoked
-// at Fortnox (best effort). Proposals and posted vouchers stay: what is in
-// Fortnox stays in Fortnox. Same rights as connecting.
+// company's Fortnox: the row goes, so UnReceipt can't ask for a token for it
+// any more (service account: no token is stored). The consent itself is
+// ended by the company in Fortnox → Integrationer, which the screen says
+// (revoked: false). Proposals and posted vouchers stay: what is in Fortnox
+// stays in Fortnox. Same rights as connecting.
 //
 // GET  /api/accounting/fortnox[?org=…] — the connection as shown in
 // Settings and on a client's page: status and Fortnox company, never tokens.
 //
-// PATCH /api/accounting/fortnox[?org=…] { confirm: true } — a person
+// PATCH /api/accounting/fortnox[?org=…] { confirm: true, grantId } — a person
 // confirms the connected Fortnox company is this company ("Book into
 // <company> (<org number>)?"), needed when UnReceipt knew no org number to
 // check it against. The company's org number is then filled in from Fortnox
 // when it was empty, so a later reconnect is checked automatically.
 
 import { NextResponse, type NextRequest } from "next/server";
-import { decryptAccountingToken } from "@/lib/accounting/crypto";
 import { forgetContext } from "@/lib/accounting/fortnox/context";
-import { fortnoxConfigured, revokeRefreshToken } from "@/lib/accounting/fortnox/oauth";
+import { fortnoxConfigured } from "@/lib/accounting/fortnox/oauth";
+import { forgetAccessToken } from "@/lib/accounting/tokens";
 import { AccountingAccessError, resolveOrganization } from "@/lib/accounting/permissions";
-import { AccountingStoreError, confirmConnection, deleteConnection, getConnection } from "@/lib/accounting/store";
+import { AccountingStoreError, confirmConnection, deleteConnection, getConnection, TenantTakenError } from "@/lib/accounting/store";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { isSameHost } from "@/lib/same-origin";
@@ -61,6 +63,7 @@ export async function GET(request: NextRequest) {
         : null,
     });
   } catch (err) {
+    if (err instanceof TenantTakenError) return json({ error: "company_taken" }, 409);
     if (err instanceof AccountingStoreError) return json({ error: "server_error" }, 500);
     throw err;
   }
@@ -82,15 +85,11 @@ export async function DELETE(request: NextRequest) {
     if (err instanceof AccountingStoreError) return json({ error: "server_error" }, 500);
     throw err;
   }
-  if (!deleted) return json({ ok: true, revoked: false });
-  forgetContext(deleted.id);
-  let revoked = false;
-  try {
-    revoked = await revokeRefreshToken(decryptAccountingToken(deleted.refresh_token_enc, r.organizationId));
-  } catch {
-    revoked = false;
+  if (deleted) {
+    forgetContext(deleted.id);
+    forgetAccessToken(deleted.id);
   }
-  return json({ ok: true, revoked });
+  return json({ ok: true, revoked: false });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -100,11 +99,13 @@ export async function PATCH(request: NextRequest) {
   if ("error" in r) return r.error;
   const limited = await rateLimit("accountingSettings", r.user.id);
   if (!limited.ok) return json({ error: "rate_limited" }, 429);
-  const body = (await request.json().catch(() => null)) as { confirm?: unknown } | null;
-  if (body?.confirm !== true) return json({ error: "bad_request" }, 400);
+  const body = (await request.json().catch(() => null)) as { confirm?: unknown; grantId?: unknown } | null;
+  const grantId = typeof body?.grantId === "string" ? body.grantId : "";
+  if (body?.confirm !== true || !/^[0-9a-f-]{36}$/i.test(grantId)) return json({ error: "bad_request" }, 400);
   try {
-    const conn = await confirmConnection(r.organizationId, r.user.id);
-    if (!conn) return json({ error: "not_connected" }, 409);
+    // Only the connection the person saw: a reconnect meanwhile answers 409.
+    const conn = await confirmConnection(r.organizationId, r.user.id, grantId);
+    if (!conn) return json({ error: "changed" }, 409);
     if (conn.company_org_number) {
       const { error } = await getSupabaseAdmin()
         .from("organizations")

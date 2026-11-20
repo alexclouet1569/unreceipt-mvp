@@ -32,7 +32,7 @@ import {
   storedVoucher,
   updateProposal,
 } from "./proposals";
-import { getConnection, getSettings, supabaseTokenStore } from "./store";
+import { getConnection, getSettings, markNeedsReconnect } from "./store";
 import { getAccessToken, ReconnectRequiredError, TokenUnavailableError } from "./tokens";
 import type { BookingBlock, BookingContext, BookingNote, BookingSettings, FortnoxAccount } from "./types";
 
@@ -102,7 +102,7 @@ export class BookingError extends Error {
 // Fortnox access
 
 async function callerFor(conn: AccountingConnection, forceRefresh = false): Promise<FortnoxCaller> {
-  const token = await getAccessToken(conn.id, { store: supabaseTokenStore(), forceRefresh });
+  const token = await getAccessToken(conn, { markNeedsReconnect: (c) => markNeedsReconnect(c), forceRefresh });
   return fortnoxCaller(token, conn.id);
 }
 

@@ -14,7 +14,7 @@ import { z } from "zod";
 import { fortnoxCaller } from "@/lib/accounting/fortnox/api";
 import { loadBookingContext } from "@/lib/accounting/fortnox/context";
 import { AccountingAccessError, resolveOrganization } from "@/lib/accounting/permissions";
-import { AccountingStoreError, getConnection, getSettings, saveSettings, supabaseTokenStore } from "@/lib/accounting/store";
+import { AccountingStoreError, getConnection, getSettings, markNeedsReconnect, saveSettings } from "@/lib/accounting/store";
 import { getAccessToken } from "@/lib/accounting/tokens";
 import type { BookingContext } from "@/lib/accounting/types";
 import { rateLimit } from "@/lib/rate-limit";
@@ -54,7 +54,7 @@ async function contextFor(organizationId: string): Promise<BookingContext | null
   const conn = await getConnection(organizationId);
   if (!conn || conn.status !== "active") return null;
   try {
-    const token = await getAccessToken(conn.id, { store: supabaseTokenStore() });
+    const token = await getAccessToken(conn, { markNeedsReconnect: (c) => markNeedsReconnect(c) });
     return await loadBookingContext(conn.id, fortnoxCaller(token, conn.id));
   } catch {
     return null;

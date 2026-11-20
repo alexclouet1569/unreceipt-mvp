@@ -5,7 +5,6 @@
 
 import "server-only";
 
-import { integrationKeyConfigured } from "./crypto";
 import { fortnoxConfigured } from "./fortnox/oauth";
 import { getConnection } from "./store";
 
@@ -16,11 +15,13 @@ export type FortnoxSummary = {
     companyName: string | null;
     orgNumber: string | null;
     confirmed: boolean;
+    /** The grant shown; confirming names it, so a reconnect meanwhile isn't confirmed blind. */
+    grantId: string;
   } | null;
 };
 
 export async function loadFortnoxSummary(organizationId: string | null): Promise<FortnoxSummary> {
-  const configured = fortnoxConfigured() && integrationKeyConfigured();
+  const configured = fortnoxConfigured();
   if (!configured || !organizationId) return { configured, connection: null };
   try {
     const conn = await getConnection(organizationId);
@@ -32,6 +33,7 @@ export async function loadFortnoxSummary(organizationId: string | null): Promise
             companyName: conn.company_name,
             orgNumber: conn.company_org_number,
             confirmed: Boolean(conn.confirmed_at),
+            grantId: conn.grant_id,
           }
         : null,
     };

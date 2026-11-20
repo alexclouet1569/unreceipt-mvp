@@ -13,11 +13,19 @@ UnReceipt captured, read and organised receipts, then stopped: the firm exported
 
 ## Phase 0: founder actions (before the code can be used)
 
-1. Ask Fortnox for a developer licence (launch plan action 9). In the Developer Portal create the integration with scopes `bookkeeping`, `inbox`, `connectfile`, `companyinformation`, `settings` and the redirect URI `https://app.unreceipt.com/api/accounting/fortnox/callback`. Get a test company.
-2. Ask Fortnox: can a pilot customer connect an unpublished integration? What does the partner agreement require (security whitepaper, review time, "buy via Fortnox")? Does the customer's licence need anything?
-3. Find 3 pilot companies on Fortnox, ideally through the pilot accounting firm. Ask that accountant for each company's voucher series, the account card payments come from (1930 or a card liability account), and the account employee outlays are paid back from (2890/2820).
-4. Set `FORTNOX_CLIENT_ID`, `FORTNOX_CLIENT_SECRET`, `INTEGRATION_TOKEN_KEY` in Vercel and apply the 2026-11-20 schema block.
-5. Keep the website saying "no Fortnox integration" until a pilot company has posted through it in production.
+Checked on fortnox.se/developer, 2026-11-20: no Fortnox approval is needed to build and test. There is no plain API key (the fixed access token was retired on 2025-04-30); every company's Fortnox administrator approves UnReceipt once.
+
+1. Create a free developer account (apps.fortnox.se/integration-developer/signup) and a test company in the Developer Portal.
+2. Create the integration: scopes bookkeeping, inbox, connectfile, companyinformation, settings; **service account** on ("Only administrator": the connection belongs to the company, not to one person); **PKCE** required; redirect URI `https://app.unreceipt.com/api/accounting/fortnox/callback` (and the preview URL while testing).
+3. Put the client ID and secret in Vercel (Preview first), never in a chat or a commit. Apply the 2026-11-20 schema block.
+4. Connect the test company from Settings, then run `scripts/fortnox-smoke.ts <tenantId>` and, on the test company only, `--post`.
+5. Ask Fortnox one thing: may pilot companies connect the integration before it is published in the marketplace? (Publishing needs their review: pitch, a landing page about the integration, a checklist meeting.)
+6. Find 3 pilot companies on Fortnox and get from their accountant: voucher series, payment accounts, whether the company deducts VAT.
+7. Keep the website saying "no Fortnox integration" until a pilot company has posted through it in production.
+
+## Dependency on Fortnox (founder concern, 2026-11-20)
+
+Posting into Fortnox always depends on Fortnox's API. What keeps UnReceipt independent: capture, reading, approval, the archive and the agent's decision live in UnReceipt and produce a plain voucher; only `src/lib/accounting/fortnox/` speaks Fortnox. A SIE voucher file (no API, no approval, for any Swedish system) is the planned fallback channel.
 
 ## What was built (Phase 1)
 

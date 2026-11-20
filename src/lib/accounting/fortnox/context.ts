@@ -101,3 +101,15 @@ export async function loadBookingContext(
   cache.set(connectionId, { at: now, value });
   return value;
 }
+
+/**
+ * The company's TenantId from Fortnox's company settings ("DatabaseNumber",
+ * fortnox.se/developer, client credentials guide), for when the access
+ * token doesn't carry it. Null when Fortnox doesn't say.
+ */
+export async function readTenantId(call: FortnoxCaller): Promise<string | null> {
+  const res = await call<{ CompanySettings?: { DatabaseNumber?: number | string } }>({ method: "GET", path: "/settings/company" });
+  const raw = res.CompanySettings?.DatabaseNumber;
+  const id = raw == null ? "" : String(raw);
+  return /^[0-9]{1,20}$/.test(id) ? id : null;
+}

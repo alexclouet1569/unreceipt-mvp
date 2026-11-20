@@ -24,7 +24,7 @@ vi.mock("@/lib/accounting/proposals", async (orig) => ({
 vi.mock("@/lib/accounting/store", () => ({
   getConnection: async () => ({ id: "conn-1", status: "active", organization_id: "org-1", grant_id: "grant-1", confirmed_at: "x" }),
   getSettings: async () => null,
-  supabaseTokenStore: () => ({}),
+  markNeedsReconnect: async () => undefined,
 }));
 vi.mock("@/lib/accounting/tokens", async (orig) => ({
   ...(await orig<typeof import("@/lib/accounting/tokens")>()),
