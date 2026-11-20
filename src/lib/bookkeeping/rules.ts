@@ -142,3 +142,41 @@ export const FALLBACK_HOME_CURRENCY = "EUR";
 
 // Without any sign of where a company is, it starts as before: Swedish.
 export const DEFAULT_COUNTRY = "SE";
+
+// ─── Booking agent (2026-11-20, src/lib/accounting/propose.ts) ─────────────
+//
+// What the agent may post to Fortnox without a person booking it by hand.
+// Conservative on purpose: when a rule can't be checked from the receipt,
+// it refuses (or keeps the VAT in the cost) rather than deduct.
+
+// A simplified invoice (förenklad faktura, which most till receipts are)
+// gives a right to deduct input VAT only up to 4,000 kr including VAT, from
+// 2025-01-01 (ML 2023:200 17 kap. 26 §, SFS 2024:942, prop. 2023/24:149;
+// Skatteverket "Momslagens regler om fakturering"). UNVERIFIED against the
+// primary text from this environment. Above it a full invoice naming the
+// buyer is needed, which the agent can't check: it refuses.
+export const SIMPLIFIED_INVOICE_MAX_SEK = 4000;
+
+// Expense accounts whose input VAT is never booked to 2640 automatically,
+// whatever the receipt's category: representation (6071, 6072), staff
+// representation (7631, 7632) and passenger cars (56xx, VAT limited or not
+// deductible, ML 13 kap., UNVERIFIED). BAS 2026 group numbers, UNVERIFIED
+// against bas.se. The VAT stays in the cost and a note says so.
+export const NO_AUTO_INPUT_VAT_ACCOUNT_PREFIXES = ["607", "763", "56"] as const;
+
+// A printed VAT rate must match the receipt's own net and VAT within this
+// many percentage points before input VAT is booked (a misread VAT amount
+// at a valid rate would otherwise pass). Wider than VAT_RATE_TOLERANCE_PP:
+// a receipt's lines are rounded one by one.
+export const VAT_RATE_CHECK_TOLERANCE_PP = 0.5;
+
+// Equipment (inventarier) worth more than half a price base amount should be
+// capitalised, not expensed (IL 18 kap. 4 §). Prisbasbelopp 2026: 59,200 kr
+// (UNVERIFIED, SFS 2025). The agent only adds a note above it.
+export const ASSET_NOTE_THRESHOLD_SEK = 29600;
+
+// Categories whose foreign purchases are typically services bought from
+// abroad (software, ads), where the buyer reports the VAT itself (reverse
+// charge, ML 2023:200 6 kap., UNVERIFIED paragraph): the agent refuses them
+// so the accountant books the reverse charge.
+export const REVERSE_CHARGE_CATEGORIES = ["software", "other"] as const;

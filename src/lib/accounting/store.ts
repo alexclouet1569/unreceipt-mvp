@@ -4,6 +4,7 @@
 
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { AccountingConnection, AccountingSettings } from "@/lib/types";
@@ -42,6 +43,8 @@ export async function saveConnection(
     tokens: FortnoxTokens;
     companyName: string | null;
     companyOrgNumber: string | null;
+    /** The Fortnox company's org number matched the one UnReceipt knows. */
+    confirmed: boolean;
   },
   client?: SupabaseClient,
 ): Promise<void> {
@@ -62,6 +65,10 @@ export async function saveConnection(
         company_name: input.companyName,
         company_org_number: input.companyOrgNumber,
         connected_by: input.userId,
+        // A new grant: proposals approved against the old one won't post.
+        grant_id: randomUUID(),
+        confirmed_at: input.confirmed ? now : null,
+        confirmed_by: input.confirmed ? input.userId : null,
         last_error: null,
       },
       { onConflict: "organization_id,provider" },
@@ -100,7 +107,7 @@ export async function getSettings(
 export async function saveSettings(
   organizationId: string,
   userId: string,
-  values: Pick<AccountingSettings, "voucher_series" | "credit_account_company" | "credit_account_employee">,
+  values: Pick<AccountingSettings, "voucher_series" | "credit_account_company" | "credit_account_employee" | "vat_status">,
   client?: SupabaseClient,
 ): Promise<AccountingSettings> {
   const { data, error } = await db(client)
@@ -135,12 +142,18 @@ export function supabaseTokenStore(client?: SupabaseClient): TokenStore {
       if (error) throw new AccountingStoreError("claim_lock", error.code);
       return (data ?? []).length === 1;
     },
-    async saveTokens(id, values) {
-      const { error } = await c()
+    async saveTokens(id, expectedRefreshEnc, values) {
+      // Only over the grant this refresh started from, still locked: a
+      // reconnect or a disconnect meanwhile wins (0 rows).
+      const { data, error } = await c()
         .from("accounting_connections")
         .update({ ...values, refresh_lock_until: null, last_error: null })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("refresh_token_enc", expectedRefreshEnc)
+        .not("refresh_lock_until", "is", null)
+        .select("id");
       if (error) throw new AccountingStoreError("save_tokens", error.code);
+      return (data ?? []).length === 1;
     },
     async releaseLock(id) {
       const { error } = await c().from("accounting_connections").update({ refresh_lock_until: null }).eq("id", id);
@@ -154,4 +167,21 @@ export function supabaseTokenStore(client?: SupabaseClient): TokenStore {
       if (error) throw new AccountingStoreError("mark_reconnect", error.code);
     },
   };
+}
+
+/** A person confirmed the Fortnox company is this company's. */
+export async function confirmConnection(
+  organizationId: string,
+  userId: string,
+  client?: SupabaseClient,
+): Promise<AccountingConnection | null> {
+  const { data, error } = await db(client)
+    .from("accounting_connections")
+    .update({ confirmed_at: new Date().toISOString(), confirmed_by: userId })
+    .eq("organization_id", organizationId)
+    .eq("provider", "fortnox")
+    .eq("status", "active")
+    .select("*");
+  if (error) throw new AccountingStoreError("confirm", error.code);
+  return ((data ?? []) as AccountingConnection[])[0] ?? null;
 }

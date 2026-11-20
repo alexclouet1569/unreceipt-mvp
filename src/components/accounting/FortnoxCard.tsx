@@ -20,10 +20,20 @@ import { cn } from "@/lib/utils";
 
 export type FortnoxCardSummary = {
   configured: boolean;
-  connection: { status: "active" | "needs_reconnect"; companyName: string | null; orgNumber: string | null } | null;
+  connection: {
+    status: "active" | "needs_reconnect";
+    companyName: string | null;
+    orgNumber: string | null;
+    confirmed: boolean;
+  } | null;
 };
 
-type Settings = { voucherSeries: string | null; creditAccountCompany: string | null; creditAccountEmployee: string | null };
+type Settings = {
+  voucherSeries: string | null;
+  creditAccountCompany: string | null;
+  creditAccountEmployee: string | null;
+  vatStatus: "full" | "none" | "partial" | null;
+};
 type Options = { voucherSeries: string[]; paymentAccounts: Array<{ number: string; name: string }> } | null;
 
 // As the mailbox Connect buttons (settings/mailboxes/ConnectButtons.tsx).
@@ -50,7 +60,7 @@ export function FortnoxCard({
   const [settings, setSettings] = useState<Settings | null>(null);
   const [options, setOptions] = useState<Options>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
-  const [busy, setBusy] = useState<"save" | "disconnect" | null>(null);
+  const [busy, setBusy] = useState<"save" | "disconnect" | "confirm" | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(result ?? null);
 
@@ -117,6 +127,27 @@ export function FortnoxCard({
     setBusy(null);
   };
 
+  const confirmCompany = async () => {
+    setBusy("confirm");
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/accounting/fortnox${query}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (res.ok) {
+        setMessage({ ok: true, text: "Confirmed. Receipts can now be booked." });
+        router.refresh();
+      } else {
+        setMessage({ ok: false, text: "Couldn't confirm. Try again." });
+      }
+    } catch {
+      setMessage({ ok: false, text: "Couldn't confirm. Check your connection." });
+    }
+    setBusy(null);
+  };
+
   const disconnect = async () => {
     setBusy("disconnect");
     setMessage(null);
@@ -177,6 +208,21 @@ export function FortnoxCard({
           <Link2 className="w-4 h-4" aria-hidden="true" />
           {conn ? "Reconnect Fortnox" : "Connect Fortnox"}
         </a>
+      ) : !conn?.confirmed ? (
+        <div className="space-y-2" role="group" aria-label="Confirm the Fortnox company">
+          <p className="type-body font-semibold text-[var(--attention-deep)]">
+            Book into {conn?.companyName ?? "this Fortnox company"}
+            {conn?.orgNumber ? ` (${conn.orgNumber})` : ""}?
+          </p>
+          <p className="type-body text-[var(--ink)]">
+            UnReceipt couldn&apos;t check the org number. Confirm it is this company&apos;s Fortnox before anything is booked; if not,
+            disconnect and connect the right one.
+          </p>
+          <Button type="button" variant="outline" className="w-full h-11" onClick={confirmCompany} disabled={busy !== null}>
+            {busy === "confirm" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
+            Yes, this is the right company
+          </Button>
+        </div>
       ) : loadState === "loading" ? (
         <div className="space-y-3" aria-hidden="true">
           <div className="skeleton h-11 w-full rounded-[10px]" />
@@ -202,7 +248,15 @@ export function FortnoxCard({
           )}
           {field("creditAccountCompany", "Paid with the company's card or account", accountChoices)}
           {field("creditAccountEmployee", "Paid by an employee (to pay back)", accountChoices)}
-          <p className="type-caption text-[var(--ink-muted)]">Ask your accountant which ones to use, for example 1930 and 2890.</p>
+          {field("vatStatus", "Does the company deduct VAT?", [
+            { value: "full", label: "Yes, VAT-registered with full deduction" },
+            { value: "none", label: "No: not VAT-registered or VAT-exempt" },
+            { value: "partial", label: "Partly (mixed business)" },
+          ])}
+          <p className="type-caption text-[var(--ink-muted)]">
+            Ask your accountant which ones to use, for example 1930 and 2890. Receipts with VAT aren&apos;t proposed until the VAT question
+            is answered.
+          </p>
           <Button type="button" variant="outline" className="w-full h-11" onClick={save} disabled={busy !== null}>
             {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
             Save Fortnox settings

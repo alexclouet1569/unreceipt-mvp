@@ -33,10 +33,14 @@ export type BookingContext = {
   voucherSeries: readonly string[];
 };
 
+/** May the company deduct input VAT (accounting_settings.vat_status)? */
+export type VatStatus = "full" | "none" | "partial";
+
 export type BookingSettings = {
   voucherSeries: string | null;
   creditAccountCompany: string | null;
   creditAccountEmployee: string | null;
+  vatStatus: VatStatus | null;
 };
 
 /**
@@ -47,6 +51,15 @@ export type BookingBlock =
   | "not_confirmed"
   | "not_approved"
   | "already_booked"
+  | "already_exported"
+  | "no_merchant"
+  | "paid_by_missing"
+  | "vat_status_missing"
+  | "vat_partial"
+  | "over_simplified_invoice"
+  | "reverse_charge_check"
+  | "fx_bank_amount_needed"
+  | "account_not_cost"
   | "company_not_sek"
   | "settings_missing"
   | "series_unknown"
@@ -65,13 +78,27 @@ export type BookingBlock =
 
 /** Things a person should know before approving. */
 export type BookingNote =
-  // A foreign receipt converted at the ECB rate of the day, not the bank's.
-  | "fx_estimate"
-  // Representation booked whole on the non-deductible account: VAT on up to
-  // 300 kr per person may be deductible, the accountant decides.
+  // Representation booked whole on the non-deductible account: part of the
+  // VAT may be deductible, the accountant decides.
   | "representation_vat"
+  // The chosen account (representation, passenger car…) never gets input
+  // VAT automatically: it stays in the cost.
+  | "restricted_account_vat"
   // Foreign VAT isn't Swedish input VAT: it stays in the cost.
   | "foreign_vat_in_cost"
+  // The company isn't VAT-registered (settings): VAT stays in the cost.
+  | "vat_not_deducted"
+  // A SEK receipt where no VAT was read: booked whole as cost.
+  | "no_vat_read"
+  // Meals and transport may be private, staff or car costs.
+  | "check_deductibility"
+  // Above half a price base amount: maybe equipment to capitalise.
+  | "possible_asset"
+  // Fortnox gets UnReceipt's digital receipt, not the original (an email,
+  // a typed receipt): the original stays in UnReceipt.
+  | "digital_copy"
+  // Nobody said who paid: shown with the company account, to be chosen.
+  | "paid_by_assumed"
   // The account was chosen by the model, not by a rule or the company's history.
   | "model_choice";
 

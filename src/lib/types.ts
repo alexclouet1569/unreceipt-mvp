@@ -547,6 +547,12 @@ export interface AccountingConnection {
   company_name: string | null;
   company_org_number: string | null;
   connected_by: string | null;
+  // New for every grant saved; proposals are posted only into theirs.
+  grant_id: string;
+  // Nothing is posted before the Fortnox company is confirmed (org number
+  // matched, or a person confirmed it).
+  confirmed_at: string | null;
+  confirmed_by: string | null;
   last_error: string | null;
   created_at: string;
   updated_at: string;
@@ -557,6 +563,7 @@ export interface AccountingSettings {
   voucher_series: string | null;
   credit_account_company: string | null;
   credit_account_employee: string | null;
+  vat_status: "full" | "none" | "partial" | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
@@ -591,6 +598,7 @@ export interface BookingProposalRow {
   edited: boolean;
   approved_by: string | null;
   approved_at: string | null;
+  grant_id: string | null;
   posting_started_at: string | null;
   marker: string;
   fortnox_voucher_series: string | null;

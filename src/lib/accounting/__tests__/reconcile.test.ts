@@ -22,7 +22,7 @@ vi.mock("@/lib/accounting/proposals", async (orig) => ({
   claimForPosting: m.claimForPosting,
 }));
 vi.mock("@/lib/accounting/store", () => ({
-  getConnection: async () => ({ id: "conn-1", status: "active", organization_id: "org-1" }),
+  getConnection: async () => ({ id: "conn-1", status: "active", organization_id: "org-1", grant_id: "grant-1", confirmed_at: "x" }),
   getSettings: async () => null,
   supabaseTokenStore: () => ({}),
 }));
@@ -72,6 +72,7 @@ function row(over: Partial<BookingProposalRow>): BookingProposalRow {
     edited: false,
     approved_by: "user-1",
     approved_at: null,
+    grant_id: "grant-1",
     posting_started_at: null,
     marker: "UnReceipt aaaaaaaaaaaa",
     fortnox_voucher_series: null,
@@ -124,6 +125,12 @@ describe("reconcileProposal", () => {
     );
     expect(m.findVoucherByMarker).toHaveBeenCalled();
     expect(m.postVoucher).not.toHaveBeenCalled();
+  });
+
+  it("never decides from another company's ledger after a reconnect", async () => {
+    await expect(reconcileProposal(row({ grant_id: "grant-old" }), NOW)).resolves.toBe("connection_changed");
+    expect(m.findVoucherByMarker).not.toHaveBeenCalled();
+    expect(m.updateProposal).not.toHaveBeenCalled();
   });
 
   it("leaves a fresh post alone", async () => {

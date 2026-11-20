@@ -283,7 +283,8 @@ describe("buildExport", () => {
     expect(res.receiptCount).toBe(2);
     expect(res.missing).toBe(0);
     expect(state.eqs).toEqual([["organization_id", ORG], ["status", "verified"]]);
-    expect(state.isNull).toEqual(["exported_at"]);
+    // Not exported yet, and not booked by the agent (it would be typed in twice).
+    expect(state.isNull).toEqual(["exported_at", "booked_at"]);
     // Only receipts the firm may see: a mailbox receipt waits for the owner.
     expect(state.ors[0]).toBe(FIRM_VISIBLE_FILTER);
     // The ZIP belongs to the staff member, keyed by client.

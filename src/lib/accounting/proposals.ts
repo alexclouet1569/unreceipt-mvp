@@ -104,6 +104,7 @@ export async function approveProposal(
     notes: string[];
     edited: boolean;
     approvedBy: string;
+    grantId: string;
   },
   client?: SupabaseClient,
 ): Promise<BookingProposalRow | null> {
@@ -118,6 +119,7 @@ export async function approveProposal(
       edited: input.edited,
       approved_by: input.approvedBy,
       approved_at: new Date().toISOString(),
+      grant_id: input.grantId,
       error_code: null,
     })
     .eq("receipt_id", input.receiptId)
@@ -176,4 +178,14 @@ export async function proposalsNeedingAttention(olderThanIso: string, client?: S
     .limit(100);
   if (error) throw new ProposalStoreError("attention", error.code);
   return (data ?? []) as BookingProposalRow[];
+}
+
+/**
+ * True when the receipt's voucher is (or may be) in Fortnox: approved,
+ * posting, posted or unknown. Such a receipt keeps what was booked: no edit
+ * (but a note), no re-run, no delete. Throws on a database error.
+ */
+export async function isInFortnox(receiptId: string, client?: SupabaseClient): Promise<boolean> {
+  const row = await getProposal(receiptId, client);
+  return Boolean(row && row.status !== "proposed" && row.status !== "failed");
 }

@@ -11,7 +11,12 @@ import { getConnection } from "./store";
 
 export type FortnoxSummary = {
   configured: boolean;
-  connection: { status: "active" | "needs_reconnect"; companyName: string | null; orgNumber: string | null } | null;
+  connection: {
+    status: "active" | "needs_reconnect";
+    companyName: string | null;
+    orgNumber: string | null;
+    confirmed: boolean;
+  } | null;
 };
 
 export async function loadFortnoxSummary(organizationId: string | null): Promise<FortnoxSummary> {
@@ -21,7 +26,14 @@ export async function loadFortnoxSummary(organizationId: string | null): Promise
     const conn = await getConnection(organizationId);
     return {
       configured,
-      connection: conn ? { status: conn.status, companyName: conn.company_name, orgNumber: conn.company_org_number } : null,
+      connection: conn
+        ? {
+            status: conn.status,
+            companyName: conn.company_name,
+            orgNumber: conn.company_org_number,
+            confirmed: Boolean(conn.confirmed_at),
+          }
+        : null,
     };
   } catch {
     return { configured, connection: null };

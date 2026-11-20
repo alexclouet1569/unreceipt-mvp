@@ -13,7 +13,12 @@
 import * as Sentry from "@sentry/nextjs";
 import type { AccountingConnection } from "@/lib/types";
 import { decryptAccountingToken, encryptAccountingToken } from "./crypto";
-import { FortnoxOAuthError, refreshTokens as defaultRefresh, type FortnoxTokens } from "./fortnox/oauth";
+import {
+  FortnoxOAuthError,
+  refreshTokens as defaultRefresh,
+  revokeRefreshToken,
+  type FortnoxTokens,
+} from "./fortnox/oauth";
 
 const EARLY_MS = 60_000;
 const LOCK_MS = 30_000;
@@ -23,10 +28,12 @@ const MAX_ROUNDS = 40;
 export type TokenStore = {
   read(id: string): Promise<AccountingConnection | null>;
   claimLock(id: string, expectedRefreshEnc: string, nowIso: string, untilIso: string): Promise<boolean>;
+  /** False when the row no longer holds `expectedRefreshEnc` (reconnected or disconnected meanwhile). */
   saveTokens(
     id: string,
+    expectedRefreshEnc: string,
     values: { refresh_token_enc: string; access_token_enc: string; access_expires_at: string; refreshed_at: string },
-  ): Promise<void>;
+  ): Promise<boolean>;
   releaseLock(id: string): Promise<void>;
   markNeedsReconnect(id: string, code: string): Promise<void>;
 };
@@ -48,6 +55,7 @@ export class TokenUnavailableError extends Error {
 export type TokenDeps = {
   store: TokenStore;
   refresh?: (refreshToken: string) => Promise<FortnoxTokens>;
+  revoke?: (refreshToken: string) => Promise<boolean>;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   /** Force a refresh even when the stored access token looks valid (after a 401). */
@@ -57,6 +65,7 @@ export type TokenDeps = {
 export async function getAccessToken(connectionId: string, deps: TokenDeps): Promise<string> {
   const { store } = deps;
   const refresh = deps.refresh ?? ((t: string) => defaultRefresh(t));
+  const revoke = deps.revoke ?? ((t: string) => revokeRefreshToken(t));
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const force = deps.forceRefresh ?? false;
@@ -115,9 +124,15 @@ export async function getAccessToken(connectionId: string, deps: TokenDeps): Pro
     let saved = false;
     for (let i = 0; i < 3 && !saved; i++) {
       try {
-        await store.saveTokens(connectionId, values);
+        if (!(await store.saveTokens(connectionId, row.refresh_token_enc, values))) {
+          // Reconnected or disconnected while we refreshed: the new grant
+          // belongs to nobody. Give it back and stop.
+          await revoke(tokens.refreshToken).catch(() => false);
+          throw new TokenUnavailableError("gone");
+        }
         saved = true;
       } catch (err) {
+        if (err instanceof TokenUnavailableError) throw err;
         if (i === 2) {
           console.error("[accounting] rotated Fortnox token not saved");
           Sentry.captureException(err, { tags: { area: "accounting", step: "token_rotate" }, level: "fatal" });

@@ -154,11 +154,14 @@ export default function PrivacyPage() {
             <li>
               <strong>To book receipts in your Fortnox</strong>, if your
               company or its accounting firm connects Fortnox: we read the
-              company&apos;s chart of accounts, financial years and voucher
-              series, propose a voucher for each confirmed receipt (an AI
-              model may suggest the expense account from your own chart of
-              accounts), and only when a person approves it do we send the
-              voucher and the receipt file to your Fortnox. Fortnox is your
+              company&apos;s name and org number, chart of accounts, financial
+              years, voucher series and locked period, propose a voucher for
+              each confirmed receipt (an AI model may suggest the expense
+              account from your own chart of accounts), and only when a
+              person approves it do we send the voucher and the receipt file
+              to your Fortnox. If Fortnox&apos;s answer is lost, we read that
+              day&apos;s vouchers in the series to find ours, so it is never
+              booked twice. Fortnox is your
               own bookkeeping system, not our processor. Legal basis:
               contract performance (you asked for it). You can disconnect in
               Settings at any time; what was already booked stays in Fortnox.
@@ -267,7 +270,10 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Anthropic</strong> — the Claude AI model that reads
-              receipt images and emails to extract their fields.
+              receipt images and emails to extract their fields, and, if you
+              connect Fortnox, suggests an expense account from the
+              receipt&apos;s merchant, category and item lines and your chart
+              of accounts.
             </li>
             <li>
               <strong>Google Cloud</strong> — only if you connect Gmail:

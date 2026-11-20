@@ -28,6 +28,7 @@ type Proposal = {
 type Item = {
   receiptId: string;
   merchant: string | null;
+  paidBy: "employee" | "company" | null;
   total: number | null;
   currency: string;
   state:
@@ -55,6 +56,8 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   // The account each ready voucher will be booked on (the agent's, unless changed).
   const [accounts, setAccounts] = useState<Record<string, string>>({});
+  // For the chosen receipts that don't say who paid: one answer for them all.
+  const [paidBy, setPaidBy] = useState<"employee" | "company" | null>(null);
   const base = `/api/firm/clients/${encodeURIComponent(organizationId)}/booking`;
 
   const load = async () => {
@@ -91,6 +94,7 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
         receiptId: i.receiptId,
         account: accounts[i.receiptId],
         expectedUpdatedAt: (i.state as { proposal: Proposal }).proposal.updatedAt,
+        ...(i.paidBy ? {} : paidBy ? { paidBy } : {}),
       }))
       .filter((i) => /^\d{4}$/.test(i.account ?? ""));
     if (items.length === 0) return;
@@ -140,7 +144,9 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
     setBusy(false);
   };
 
-  const chosen = Object.keys(selected).filter((id) => selected[id]).length;
+  const chosenIds = Object.keys(selected).filter((id) => selected[id]);
+  const chosen = chosenIds.length;
+  const unknownPayer = (batch?.items ?? []).some((i) => selected[i.receiptId] && !i.paidBy);
 
   return (
     <section
@@ -241,7 +247,32 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
           {batch.more ? (
             <p className="type-caption text-[var(--ink-muted)]">More receipts are being prepared: refresh to see them.</p>
           ) : null}
-          <Button type="button" className="w-full h-11" onClick={approve} disabled={busy || chosen === 0}>
+          {unknownPayer ? (
+            <fieldset className="space-y-1">
+              <legend className="type-caption font-semibold text-[var(--ink-muted)] mb-1">
+                Who paid for the chosen receipts that don&apos;t say?
+              </legend>
+              {(
+                [
+                  ["company", "The company's card or account"],
+                  ["employee", "Someone's own money (to pay back)"],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2 min-h-11 type-body text-[var(--ink)]">
+                  <input
+                    type="radio"
+                    name={`batch-paid-by-${organizationId}`}
+                    value={value}
+                    checked={paidBy === value}
+                    onChange={() => setPaidBy(value)}
+                    className="size-4 accent-[var(--ink)]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+          <Button type="button" className="w-full h-11" onClick={approve} disabled={busy || chosen === 0 || (unknownPayer && !paidBy)}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
             {chosen === 0 ? "Choose vouchers to approve" : `Approve and book ${chosen} in Fortnox`}
           </Button>

@@ -40,6 +40,7 @@ const BodySchema = z.object({
         receiptId: z.string().refine(isUuid),
         account: z.string().regex(/^[0-9]{4}$/),
         expectedUpdatedAt: z.string().min(10).max(40),
+        paidBy: z.enum(["employee", "company"]).optional(),
       }),
     )
     .min(1)
@@ -106,13 +107,20 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       items.push({
         receiptId: receipt.id,
         merchant: receipt.merchant_name,
+        paidBy: receipt.paid_by ?? null,
         total: receipt.total,
         currency: receipt.currency,
         state,
       });
       const kind = (state as { kind?: string } | null)?.kind;
       // Not connected or unavailable: every other receipt would say the same.
-      if (kind === "not_connected" || kind === "needs_reconnect" || kind === "not_configured" || kind === "unavailable") {
+      if (
+        kind === "not_connected" ||
+        kind === "needs_reconnect" ||
+        kind === "confirm_company" ||
+        kind === "not_configured" ||
+        kind === "unavailable"
+      ) {
         return json({ connection: kind, items: [], more: false });
       }
     }
@@ -157,6 +165,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
           userId: g.ctx.user.id,
           account: item.account,
           expectedUpdatedAt: item.expectedUpdatedAt,
+          paidBy: item.paidBy ?? null,
           post: false,
         }),
       );
@@ -164,7 +173,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       if (err instanceof BookingError) {
         refused.push({ receiptId: item.receiptId, error: err.code, blocks: err.blocks.length ? err.blocks : undefined });
         // The connection is gone or Fortnox is down: the rest would fail too.
-        if (["not_connected", "needs_reconnect", "unavailable"].includes(err.code)) break;
+        if (["not_connected", "needs_reconnect", "confirm_company", "unavailable"].includes(err.code)) break;
       } else {
         Sentry.captureException(err, { tags: { area: "accounting", step: "firm_batch_approve" } });
         refused.push({ receiptId: item.receiptId, error: "server_error" });

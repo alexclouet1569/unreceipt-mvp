@@ -34,8 +34,10 @@ const RECEIPT: ProposalReceipt = {
   purchased_at: null,
   bas_account: null,
   booked_at: null,
-  paid_by: null,
+  paid_by: "company",
   approval_status: null,
+  exported_at: null,
+  merchant_vat_number: null,
 };
 
 function input(over: Partial<ProposalInput> = {}, receipt: Partial<ProposalReceipt> = {}): ProposalInput {
@@ -43,7 +45,7 @@ function input(over: Partial<ProposalInput> = {}, receipt: Partial<ProposalRecei
     receipt: { ...RECEIPT, ...receipt },
     companyCurrency: "SEK",
     context: ctx(),
-    settings: { voucherSeries: "UL", creditAccountCompany: "1930", creditAccountEmployee: "2890" },
+    settings: { voucherSeries: "UL", creditAccountCompany: "1930", creditAccountEmployee: "2890", vatStatus: "full" },
     ...over,
   };
 }
@@ -76,7 +78,7 @@ describe("proposeBooking", () => {
 
   it("splits a receipt with 12% and 25% lines into one input VAT row", () => {
     const p = proposal({}, {
-      total: 224,
+      total: 222,
       tax_amount: 34,
       tax_rate: null,
       vat_lines: [
@@ -85,9 +87,9 @@ describe("proposeBooking", () => {
       ],
     });
     expect(p.voucher.rows).toEqual([
-      { account: "6110", debit: 190, credit: 0 },
+      { account: "6110", debit: 188, credit: 0 },
       { account: "2640", debit: 34, credit: 0 },
-      { account: "1930", debit: 0, credit: 224 },
+      { account: "1930", debit: 0, credit: 222 },
     ]);
   });
 
@@ -105,26 +107,26 @@ describe("proposeBooking", () => {
     expect(p.notes).toContain("representation_vat");
   });
 
-  it("keeps foreign VAT in the cost and flags an ECB estimate", () => {
+  it("books a foreign receipt at the bank's amount, foreign VAT in the cost", () => {
     const p = proposal({}, {
       currency: "EUR",
       total: 50,
       tax_amount: 10,
       home_currency: "SEK",
       home_total: 572.4,
-      fx_source: "ecb",
+      fx_source: "manual",
     });
     expect(p.voucher.rows).toEqual([
       { account: "6110", debit: 572.4, credit: 0 },
       { account: "1930", debit: 0, credit: 572.4 },
     ]);
-    expect(p.notes).toEqual(expect.arrayContaining(["fx_estimate", "foreign_vat_in_cost"]));
-    expect(p.confidence).toBeCloseTo(0.65);
+    expect(p.notes).toContain("foreign_vat_in_cost");
   });
 
-  it("uses the bank amount without the estimate note", () => {
-    const p = proposal({}, { currency: "EUR", tax_amount: null, home_currency: "SEK", home_total: 570, fx_source: "manual" });
-    expect(p.notes).not.toContain("fx_estimate");
+  it("refuses an ECB estimate: the bank amount comes first", () => {
+    expect(blocks({}, { currency: "EUR", total: 50, tax_amount: null, home_currency: "SEK", home_total: 572.4, fx_source: "ecb" })).toEqual([
+      "fx_bank_amount_needed",
+    ]);
   });
 
   it("prefers a person's choice, then the firm's, then memory, then the category", () => {
@@ -140,7 +142,7 @@ describe("proposeBooking", () => {
     expect(blocks({ context: c }, { bas_account: "5420" })).toEqual(["account_inactive"]);
   });
 
-  it("asks the model for 'other', and validates its answer", () => {
+  it("asks the model for 'other' (a SEK receipt), and validates its answer", () => {
     expect(proposeBooking(input({}, { category: "other" })).kind).toBe("needs_model");
     const p = proposal({ modelChoice: { account: "6540", reason: "IT-tjänster", confidence: 0.95 } }, { category: "other" });
     expect(p).toMatchObject({ debitAccount: "6540", source: "model", reason: "IT-tjänster" });
@@ -157,13 +159,13 @@ describe("proposeBooking", () => {
     expect(blocks({}, { booked_at: "2026-11-13T10:00:00Z" })).toContain("already_booked");
     expect(blocks({ companyCurrency: "EUR" })).toContain("company_not_sek");
     expect(blocks({ settings: null })).toContain("settings_missing");
-    expect(blocks({ settings: { voucherSeries: "Z", creditAccountCompany: "1930", creditAccountEmployee: null } })).toContain(
+    expect(blocks({ settings: { voucherSeries: "Z", creditAccountCompany: "1930", creditAccountEmployee: null, vatStatus: "full" } })).toContain(
       "series_unknown",
     );
     expect(blocks({}, { receipt_date: null, purchased_at: null })).toContain("no_date");
     expect(blocks({}, { receipt_date: "2026-06-30" })).toContain("period_locked");
     expect(blocks({}, { receipt_date: "2027-01-02" })).toContain("no_financial_year");
-    expect(blocks({}, { currency: "EUR", home_total: null })).toContain("no_sek_amount");
+    expect(blocks({}, { currency: "EUR", home_total: null, category: "meals" })).toContain("no_sek_amount");
     expect(blocks({}, { total: -125, tax_amount: -25 })).toContain("refund");
   });
 
@@ -198,6 +200,100 @@ describe("proposeBooking", () => {
       { account: "2640", debit: 19.98, credit: 0 },
       { account: "1930", debit: 0, credit: 99.9 },
     ]);
+  });
+});
+
+describe("proposeBooking: VAT only when it may be deducted (compliance review 2026-11-20)", () => {
+  it("keeps VAT out of 2640 on a representation or car account, whatever the category", () => {
+    const c = ctx();
+    (c.accounts as Map<string, FortnoxAccount>).set("6072", { number: "6072", description: "", active: true });
+    (c.accounts as Map<string, FortnoxAccount>).set("5611", { number: "5611", description: "", active: true });
+    const viaMemory = proposal({ context: c, memoryAccount: "6072" }, { category: "meals" });
+    expect(viaMemory.voucher.rows).toEqual([
+      { account: "6072", debit: 125, credit: 0 },
+      { account: "1930", debit: 0, credit: 125 },
+    ]);
+    expect(viaMemory.notes).toContain("restricted_account_vat");
+    const viaModel = proposal(
+      { context: c, modelChoice: { account: "5611", reason: "Drivmedel", confidence: 0.8 } },
+      { category: "other" },
+    );
+    expect(viaModel.voucher.rows.some((r) => r.account === "2640")).toBe(false);
+  });
+
+  it("asks whether the company deducts VAT before booking any", () => {
+    const s = { voucherSeries: "UL", creditAccountCompany: "1930", creditAccountEmployee: "2890" };
+    expect(blocks({ settings: { ...s, vatStatus: null } })).toEqual(["vat_status_missing"]);
+    expect(blocks({ settings: { ...s, vatStatus: "partial" } })).toEqual(["vat_partial"]);
+    const none = proposal({ settings: { ...s, vatStatus: "none" } });
+    expect(none.voucher.rows).toEqual([
+      { account: "6110", debit: 125, credit: 0 },
+      { account: "1930", debit: 0, credit: 125 },
+    ]);
+    expect(none.notes).toContain("vat_not_deducted");
+  });
+
+  it("deducts VAT on a simplified invoice up to 4,000 kr, not above", () => {
+    expect(proposal({}, { total: 4000, tax_amount: 800, tax_rate: 25 }).voucher.rows[1]).toEqual({
+      account: "2640",
+      debit: 800,
+      credit: 0,
+    });
+    expect(blocks({}, { total: 4000.01, tax_amount: 800, tax_rate: 25 })).toEqual(["over_simplified_invoice"]);
+  });
+
+  it("refuses a VAT amount that doesn't match its rate", () => {
+    expect(blocks({}, { total: 125, tax_amount: 50, tax_rate: 25 })).toEqual(["vat_inconsistent"]);
+  });
+
+  it("books a SEK receipt without VAT whole, and says no VAT was read", () => {
+    const p = proposal({}, { tax_amount: null, tax_rate: null });
+    expect(p.voucher.rows).toEqual([
+      { account: "6110", debit: 125, credit: 0 },
+      { account: "1930", debit: 0, credit: 125 },
+    ]);
+    expect(p.notes).toContain("no_vat_read");
+  });
+
+  it("refuses possible reverse charge", () => {
+    expect(blocks({}, { currency: "USD", category: "software", home_currency: "SEK", home_total: 200, fx_source: "manual", tax_amount: null })).toEqual([
+      "reverse_charge_check",
+    ]);
+    expect(blocks({}, { tax_amount: null, tax_rate: null, merchant_vat_number: "IE6388047V" })).toEqual(["reverse_charge_check"]);
+  });
+
+  it("refuses an exported receipt (it may be in Fortnox already) and one without a merchant", () => {
+    expect(blocks({}, { exported_at: "2026-11-15T10:00:00Z" })).toEqual(["already_exported"]);
+    expect(blocks({}, { merchant_name: "  " })).toContain("no_merchant");
+  });
+
+  it("asks who paid: shown as the company's until approval, required at approval", () => {
+    const p = proposal({}, { paid_by: null });
+    expect(p.notes).toContain("paid_by_assumed");
+    expect(blocks({ requirePaidBy: true }, { paid_by: null })).toEqual(["paid_by_missing"]);
+    expect(proposal({ requirePaidBy: true, paidBy: "employee" }, { paid_by: null }).voucher.rows.at(-1)).toEqual({
+      account: "2890",
+      debit: 0,
+      credit: 125,
+    });
+  });
+
+  it("only debits expense accounts", () => {
+    expect(blocks({ personAccount: "1930" })).toEqual(["account_not_cost"]);
+    expect(blocks({ personAccount: "2640" })).toEqual(["account_not_cost"]);
+  });
+
+  it("flags meals, large amounts and a digital copy", () => {
+    expect(proposal({}, { category: "meals", total: 112, tax_amount: 12, tax_rate: 12 }).notes).toContain("check_deductibility");
+    expect(proposal({}, { total: 37500, tax_amount: null, tax_rate: null }).notes).toContain("possible_asset");
+    expect(proposal({ originalAttached: false }).notes).toContain("digital_copy");
+  });
+
+  it("checks the year's and the locked period's edges, and impossible dates", () => {
+    expect(proposal({}, { receipt_date: "2026-12-31" }).voucher.financialYearId).toBe(7);
+    expect(blocks({}, { receipt_date: "2027-01-01" })).toContain("no_financial_year");
+    expect(proposal({}, { receipt_date: "2026-07-01" }).voucher.transactionDate).toBe("2026-07-01");
+    expect(blocks({}, { receipt_date: "2026-02-31" })).toContain("no_date");
   });
 });
 

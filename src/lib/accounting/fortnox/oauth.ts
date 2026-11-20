@@ -93,10 +93,10 @@ async function tokenRequest(form: Record<string, string>, fetchImpl: typeof fetc
   const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!res.ok) {
     if (res.status >= 500) throw new FortnoxOAuthError("unavailable");
-    // invalid_grant: expired, revoked, already rotated or a used code.
-    if (body?.error === "invalid_grant" || res.status === 400 || res.status === 401) {
-      throw new FortnoxOAuthError("invalid_grant");
-    }
+    // invalid_grant: expired, revoked, already rotated or a used code. Any
+    // other refusal (invalid_client after a bad secret rotation) is ours to
+    // fix, not every company's to reconnect.
+    if (body?.error === "invalid_grant") throw new FortnoxOAuthError("invalid_grant");
     throw new FortnoxOAuthError("bad_response");
   }
   const accessToken = typeof body?.access_token === "string" ? body.access_token : "";

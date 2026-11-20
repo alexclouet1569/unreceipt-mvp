@@ -2,7 +2,7 @@
 //      receipt: not connected, what stands in the way, or the proposed
 //      voucher (built on first view by someone who may approve), or what
 //      was posted.
-// POST /api/receipts/<id>/booking { account, expectedUpdatedAt } — approve
+// POST /api/receipts/<id>/booking { account, expectedUpdatedAt, paidBy? } — approve
 //      the proposal the person saw, with the expense account they chose,
 //      and post it to the company's Fortnox. 409 when it changed meanwhile
 //      or the rules now refuse it.
@@ -35,6 +35,8 @@ const json = (body: unknown, status = 200) =>
 const BodySchema = z.object({
   account: z.string().regex(/^[0-9]{4}$/),
   expectedUpdatedAt: z.string().min(10).max(40),
+  // Who paid, when the receipt doesn't say yet (the agent never assumes it).
+  paidBy: z.enum(["employee", "company"]).optional(),
 });
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -68,6 +70,7 @@ function bookingErrorResponse(err: BookingError) {
       return json({ error: "blocked", blocks: err.blocks }, 409);
     case "not_connected":
     case "needs_reconnect":
+    case "confirm_company":
     case "no_company":
       return json({ error: err.code }, 409);
     default:
@@ -106,6 +109,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       userId: a.user.id,
       account: parsed.data.account,
       expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+      paidBy: parsed.data.paidBy ?? null,
     });
     return json({ proposal: proposalView(row) });
   } catch (err) {

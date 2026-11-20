@@ -31,7 +31,7 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import { editMarker } from "@/lib/receipts/edits";
-import { getProposal } from "@/lib/accounting/proposals";
+import { isInFortnox } from "@/lib/accounting/proposals";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import {
@@ -162,15 +162,13 @@ export async function PATCH(
   // that were booked: Fortnox can't take them back, so an edit here would
   // only make the two disagree. A note may still be added.
   if (Object.keys(patch).some((key) => key !== "notes")) {
-    let booking;
+    let booked;
     try {
-      booking = await getProposal(id);
+      booked = await isInFortnox(id);
     } catch {
       return NextResponse.json({ error: "lookup failed" }, { status: 500 });
     }
-    if (booking && booking.status !== "proposed" && booking.status !== "failed") {
-      return NextResponse.json({ error: "booked_in_fortnox" }, { status: 409 });
-    }
+    if (booked) return NextResponse.json({ error: "booked_in_fortnox" }, { status: 409 });
   }
 
   // Build the update payload + the prospective post-patch view for the
@@ -388,6 +386,14 @@ export async function DELETE(
   // company's record now (src/lib/team/rules.ts).
   if (!ownerMayDelete(row.approval_status as Receipt["approval_status"])) {
     return NextResponse.json({ error: "in_approval" }, { status: 409 });
+  }
+  // The underlag of a voucher in Fortnox (or on its way): deleting it would
+  // also drop the only record of the voucher, and a re-capture could be
+  // booked twice.
+  try {
+    if (await isInFortnox(id)) return NextResponse.json({ error: "booked_in_fortnox" }, { status: 409 });
+  } catch {
+    return NextResponse.json({ error: "lookup failed" }, { status: 500 });
   }
 
   // Files first: if storage fails, the row is still there and the user

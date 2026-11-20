@@ -250,6 +250,12 @@ export const RATE_LIMITS = {
     { limit: 60, windowSeconds: 60 * 60 },
     { limit: 300, windowSeconds: 24 * 60 * 60 },
   ],
+  // The same Claude calls per person, across every company they book for
+  // (an accountant with many clients).
+  bookingModelUser: [
+    { limit: 60, windowSeconds: 60 * 60 },
+    { limit: 300, windowSeconds: 24 * 60 * 60 },
+  ],
   // Approving posts to Fortnox (4 calls each, Fortnox allows 25 per 5 s).
   bookingApprove: [
     { limit: 300, windowSeconds: 60 * 60 },

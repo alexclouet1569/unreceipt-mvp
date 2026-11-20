@@ -2761,6 +2761,14 @@ CREATE TABLE IF NOT EXISTS public.accounting_connections (
   company_name TEXT CHECK (company_name IS NULL OR char_length(company_name) <= 200),
   company_org_number TEXT CHECK (company_org_number IS NULL OR company_org_number ~ '^[0-9-]{6,20}$'),
   connected_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  -- A new id for every grant saved (connect, reconnect): an approved
+  -- voucher is posted only into the grant it was approved against.
+  grant_id UUID NOT NULL DEFAULT gen_random_uuid(),
+  -- Set when the Fortnox company's org number matched the one UnReceipt
+  -- knows, or a person confirmed "book into <company>": nothing is posted
+  -- before.
+  confirmed_at TIMESTAMPTZ,
+  confirmed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   last_error TEXT CHECK (last_error IS NULL OR last_error ~ '^[a-z0-9_]{1,64}$'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -2784,6 +2792,11 @@ CREATE TABLE IF NOT EXISTS public.accounting_settings (
   voucher_series TEXT CHECK (voucher_series IS NULL OR voucher_series ~ '^[A-Z0-9]{1,4}$'),
   credit_account_company TEXT CHECK (credit_account_company IS NULL OR credit_account_company ~ '^[0-9]{4}$'),
   credit_account_employee TEXT CHECK (credit_account_employee IS NULL OR credit_account_employee ~ '^[0-9]{4}$'),
+  -- May the company deduct input VAT? 'full': VAT-registered with full
+  -- deduction (2640 is booked); 'none': not registered or VAT-exempt (VAT
+  -- stays in the cost); 'partial': mixed business (receipts with VAT are
+  -- booked by hand). NULL until someone answers: nothing with VAT is proposed.
+  vat_status TEXT CHECK (vat_status IS NULL OR vat_status IN ('full', 'none', 'partial')),
   updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -2833,6 +2846,8 @@ CREATE TABLE IF NOT EXISTS public.booking_proposals (
   edited BOOLEAN NOT NULL DEFAULT false,
   approved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   approved_at TIMESTAMPTZ,
+  -- accounting_connections.grant_id at approval: posted only into it.
+  grant_id UUID,
   posting_started_at TIMESTAMPTZ,
   -- The text written into the voucher's description so a lost answer can be
   -- found again in Fortnox ("UnReceipt <12 hex>").

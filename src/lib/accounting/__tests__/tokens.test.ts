@@ -27,6 +27,9 @@ function memoryStore(row: Partial<AccountingConnection>) {
     company_name: null,
     company_org_number: null,
     connected_by: null,
+    grant_id: "grant-1",
+    confirmed_at: null,
+    confirmed_by: null,
     last_error: null,
     created_at: "",
     updated_at: "",
@@ -42,8 +45,10 @@ function memoryStore(row: Partial<AccountingConnection>) {
       state.refresh_lock_until = untilIso;
       return true;
     },
-    async saveTokens(_id, values) {
+    async saveTokens(_id, expected, values) {
+      if (state.refresh_token_enc !== expected || !state.refresh_lock_until) return false;
       Object.assign(state, values, { refresh_lock_until: null });
+      return true;
     },
     async releaseLock() {
       state.refresh_lock_until = null;
@@ -110,6 +115,21 @@ describe("getAccessToken", () => {
     });
     await expect(getAccessToken("conn-1", { store, refresh, now: () => NOW })).rejects.toBeInstanceOf(ReconnectRequiredError);
     expect(state.status).toBe("needs_reconnect");
+  });
+
+  it("gives back the new grant when the connection was replaced during the refresh", async () => {
+    const { store, state } = memoryStore({});
+    const refresh = vi.fn(async () => {
+      // A reconnect lands meanwhile.
+      state.refresh_token_enc = encryptAccountingToken("refresh-other", ORG);
+      return tokens(5);
+    });
+    const revoke = vi.fn(async () => true);
+    await expect(getAccessToken("conn-1", { store, refresh, revoke, now: () => NOW, sleep: instant })).rejects.toMatchObject({
+      reason: "gone",
+    });
+    expect(revoke).toHaveBeenCalledWith("refresh-5");
+    expect(decryptAccountingToken(state.refresh_token_enc, ORG)).toBe("refresh-other");
   });
 
   it("after a 401, refreshes instead of reusing the refused token", async () => {

@@ -56,7 +56,7 @@ vi.mock("@/lib/supabase-admin", () => ({
 // The booking agent's state (src/lib/accounting/proposals.ts): none by default.
 const bookingMock = vi.hoisted(() => ({ status: null as string | null }));
 vi.mock("@/lib/accounting/proposals", () => ({
-  getProposal: async () => (bookingMock.status ? { status: bookingMock.status } : null),
+  isInFortnox: async () => Boolean(bookingMock.status && !["proposed", "failed"].includes(bookingMock.status)),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({

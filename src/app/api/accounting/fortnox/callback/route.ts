@@ -6,9 +6,12 @@
 // started in another browser (binding cookie) or by another signed-in user;
 // re-check that the user may still act for the company; then exchange the
 // code, read the Fortnox company's name and org number, and refuse a Fortnox
-// company whose org number differs from the one UnReceipt knows (a firm
-// admin can reach many clients' Fortnox: the wrong one is an easy mistake).
-// Only then save the connection, encrypted. Never logs the code or tokens.
+// company whose org number differs from one UnReceipt knows (the company's
+// own, or the one the firm typed for the client: a firm admin can reach many
+// clients' Fortnox, the wrong one is an easy mistake). Only then save the
+// connection, encrypted: confirmed when a known number matched, otherwise
+// waiting for a person to confirm the company (PATCH /api/accounting/fortnox).
+// Never logs the code or tokens.
 
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
@@ -90,19 +93,27 @@ export async function GET(request: NextRequest) {
     return fail(target, "provider_unavailable");
   }
 
-  const { data: org, error: orgError } = await supabase
-    .from("organizations")
-    .select("org_number")
-    .eq("id", pending.organization_id)
-    .maybeSingle();
-  if (orgError) {
+  // The org numbers UnReceipt knows for this company: its own, and the one
+  // the firm typed when it added the client. Any of them differing from the
+  // Fortnox company's is refused; one matching confirms the connection;
+  // none known leaves it unconfirmed until a person confirms "book into
+  // <company> (<org number>)" (nothing is posted before).
+  const [{ data: org, error: orgError }, { data: links, error: linkError }] = await Promise.all([
+    supabase.from("organizations").select("org_number").eq("id", pending.organization_id).maybeSingle(),
+    supabase.from("firm_clients").select("client_org_number").eq("organization_id", pending.organization_id).eq("status", "active"),
+  ]);
+  if (orgError || linkError) {
     await revokeRefreshToken(tokens.refreshToken);
     return fail(target, "server_error");
   }
-  if (org?.org_number && company.orgNumber && !sameOrgNumber(org.org_number, company.orgNumber)) {
+  const known = [org?.org_number as string | null | undefined, ...(links ?? []).map((l) => l.client_org_number as string | null)]
+    .map((n) => (n ?? "").replace(/\D/g, ""))
+    .filter((n) => n.length > 0);
+  if (known.length > 0 && (!company.orgNumber || known.some((n) => !sameOrgNumber(n, company.orgNumber)))) {
     await revokeRefreshToken(tokens.refreshToken);
     return fail(target, "wrong_company");
   }
+  const confirmed = known.length > 0;
 
   try {
     const previous = await getConnection(pending.organization_id);
@@ -112,6 +123,7 @@ export async function GET(request: NextRequest) {
       tokens,
       companyName: company.name,
       companyOrgNumber: company.orgNumber,
+      confirmed,
     });
     if (previous) {
       forgetContext(previous.id);

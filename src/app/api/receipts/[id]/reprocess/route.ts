@@ -8,6 +8,7 @@
 // user_id) and writes the merged update through the service-role admin
 // client so we can also re-download from the private storage bucket.
 
+import { isInFortnox } from "@/lib/accounting/proposals";
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser, getUserSupabase } from "@/lib/supabase-server";
@@ -88,6 +89,12 @@ export async function POST(
   }
   if (!row) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  // A receipt booked in Fortnox keeps what was booked (src/lib/accounting/).
+  try {
+    if (await isInFortnox(id)) return NextResponse.json({ error: "booked_in_fortnox" }, { status: 409 });
+  } catch {
+    return NextResponse.json({ error: "read failed" }, { status: 500 });
   }
 
   const artifact = resolveArtifact(row);

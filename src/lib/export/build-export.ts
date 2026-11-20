@@ -134,7 +134,10 @@ async function loadReceipts(
   // "Not exported yet" means ready receipts the firm hasn't booked from:
   // a receipt still in review has no PDF and would otherwise be stamped
   // before it was even complete, and then never reappear.
-  if (unexportedOnly) query = query.is("exported_at", null).eq("status", "verified");
+  // A receipt the booking agent already posted to Fortnox (booked_at set
+  // with no export) isn't offered again either: typing it in by hand
+  // would book it twice.
+  if (unexportedOnly) query = query.is("exported_at", null).is("booked_at", null).eq("status", "verified");
   const range = periodRange(period);
   if (range) {
     const { start, end } = range;

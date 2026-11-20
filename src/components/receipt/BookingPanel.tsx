@@ -41,6 +41,7 @@ type View =
   | { kind: "unavailable" }
   | { kind: "waiting" }
   | { kind: "needs_reconnect"; canConnect: boolean }
+  | { kind: "confirm_company"; canConnect: boolean }
   | { kind: "blocked"; blocks: BookingBlock[]; canApprove: boolean }
   | { kind: "proposal"; proposal: ProposalView; canApprove: boolean; accounts: Array<{ number: string; name: string }> };
 
@@ -95,6 +96,8 @@ export function BookingPanel({
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState<View | null>(null);
   const [account, setAccount] = useState<string>("");
+  // Asked only when the receipt doesn't say who paid (note "paid_by_assumed").
+  const [paidBy, setPaidBy] = useState<"employee" | "company" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -147,6 +150,17 @@ export function BookingPanel({
       </Panel>
     );
   }
+  if (view.kind === "confirm_company") {
+    if (!view.canConnect) return null;
+    return (
+      <Panel attention>
+        <p className="text-[15px] font-semibold text-[var(--attention-deep)]">Confirm which Fortnox company to book into.</p>
+        <p className="type-body text-[var(--ink)]">
+          {viewer === "firm" ? "Confirm it in the Fortnox card on this client's page." : "Confirm it in Settings → Fortnox."}
+        </p>
+      </Panel>
+    );
+  }
   if (view.kind === "needs_reconnect") {
     return (
       <Panel attention>
@@ -183,15 +197,17 @@ export function BookingPanel({
       : r,
   );
 
+  const askPaidBy = p.notes.includes("paid_by_assumed");
+
   const approve = async () => {
-    if (busy || !account) return;
+    if (busy || !account || (askPaidBy && !paidBy)) return;
     setBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/receipts/${encodeURIComponent(receiptId)}/booking`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ account, expectedUpdatedAt: p.updatedAt }),
+        body: JSON.stringify({ account, expectedUpdatedAt: p.updatedAt, ...(askPaidBy && paidBy ? { paidBy } : {}) }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         proposal?: ProposalView;
@@ -210,7 +226,9 @@ export function BookingPanel({
           body.error === "changed"
             ? "This receipt changed meanwhile. Close it and open it again."
             : body.error === "needs_reconnect" || body.error === "not_connected"
-              ? "The Fortnox connection needs to be renewed in Settings."
+              ? "The Fortnox connection needs to be renewed."
+              : body.error === "confirm_company"
+                ? "Confirm which Fortnox company to book into first."
               : body.error === "rate_limited"
                 ? "Many bookings in a short time. Try again in a moment."
                 : "Couldn't book. Nothing was booked. Try again.",
@@ -273,9 +291,12 @@ export function BookingPanel({
         </tbody>
       </table>
 
-      {p.notes.length > 0 ? (
+      {askPaidBy && approvable ? (
+        <p className="type-caption text-[var(--ink-muted)]">The payment row follows who paid (the accounts in the Fortnox settings).</p>
+      ) : null}
+      {p.notes.filter((n) => n !== "paid_by_assumed").length > 0 ? (
         <ul className="space-y-1 type-caption text-[var(--ink-muted)]">
-          {p.notes.map((n) => (
+          {p.notes.filter((n) => n !== "paid_by_assumed").map((n) => (
             <li key={n}>{NOTE_MESSAGES[n] ?? n}</li>
           ))}
         </ul>
@@ -300,7 +321,36 @@ export function BookingPanel({
               </select>
             </label>
           ) : null}
-          <Button type="button" className="w-full h-11 gap-1.5" onClick={approve} disabled={busy || !account} data-testid="booking-approve">
+          {askPaidBy ? (
+            <fieldset className="space-y-1">
+              <legend className="type-caption font-semibold text-[var(--ink-muted)] mb-1">Who paid?</legend>
+              {(
+                [
+                  ["company", "The company's card or account"],
+                  ["employee", "Someone's own money (to pay back)"],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2 min-h-11 type-body text-[var(--ink)]">
+                  <input
+                    type="radio"
+                    name={`booking-paid-by-${receiptId}`}
+                    value={value}
+                    checked={paidBy === value}
+                    onChange={() => setPaidBy(value)}
+                    className="size-4 accent-[var(--ink)]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+          <Button
+            type="button"
+            className="w-full h-11 gap-1.5"
+            onClick={approve}
+            disabled={busy || !account || (askPaidBy && !paidBy)}
+            data-testid="booking-approve"
+          >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <BookCheck className="w-4 h-4" aria-hidden="true" />}
             {busy ? "Booking…" : "Approve and book in Fortnox"}
           </Button>

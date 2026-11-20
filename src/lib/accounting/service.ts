@@ -66,6 +66,8 @@ export type BookingView =
   | { kind: "not_configured" }
   | { kind: "not_connected"; canConnect: boolean }
   | { kind: "needs_reconnect"; canConnect: boolean }
+  // Connected, but nobody confirmed which Fortnox company: nothing is proposed.
+  | { kind: "confirm_company"; canConnect: boolean }
   | { kind: "unavailable" }
   | { kind: "waiting" }
   | { kind: "blocked"; blocks: BookingBlock[]; canApprove: boolean }
@@ -87,7 +89,8 @@ export class BookingError extends Error {
       | "changed"
       | "blocked"
       | "rate_limited"
-      | "no_company",
+      | "no_company"
+      | "confirm_company",
     readonly blocks: BookingBlock[] = [],
   ) {
     super(`booking: ${code}`);
@@ -140,6 +143,7 @@ function bookingSettings(row: Awaited<ReturnType<typeof getSettings>>): BookingS
     voucherSeries: row.voucher_series,
     creditAccountCompany: row.credit_account_company,
     creditAccountEmployee: row.credit_account_employee,
+    vatStatus: row.vat_status ?? null,
   };
 }
 
@@ -177,12 +181,20 @@ export function proposalView(row: BookingProposalRow, accounts?: ReadonlyMap<str
   };
 }
 
+const ATTACHABLE = ["image/jpeg", "image/png", "application/pdf"];
+
+/** True when Fortnox will get the receipt's original file (not UnReceipt's digital receipt). */
+export function originalIsAttachable(receipt: Receipt): boolean {
+  const original = originalFileOf(receipt);
+  return Boolean(original && ATTACHABLE.includes(original.kind));
+}
+
 /** The agent's decision for a receipt, asking the model when the rules can't. */
 async function decide(
   receipt: Receipt,
   organizationId: string,
   context: BookingContext,
-  personAccount: string | null,
+  opts: { personAccount: string | null; paidBy?: "employee" | "company" | null; requirePaidBy?: boolean; userId: string },
 ): Promise<ProposalResult> {
   const [currency, settingsRow, memoryAccount] = await Promise.all([
     companyCurrency(organizationId),
@@ -195,13 +207,20 @@ async function decide(
     context,
     settings: bookingSettings(settingsRow),
     memoryAccount,
-    personAccount,
+    personAccount: opts.personAccount,
+    paidBy: opts.paidBy ?? null,
+    requirePaidBy: opts.requirePaidBy ?? false,
+    originalAttached: originalIsAttachable(receipt),
   };
   const first = proposeBooking(base);
   if (first.kind !== "needs_model") return first;
 
-  const limited = await rateLimit("bookingModel", organizationId);
-  if (!limited.ok) return { kind: "blocked", blocks: ["no_account"] };
+  // Per company and per person: an accountant with many clients is capped too.
+  const [perCompany, perUser] = await Promise.all([
+    rateLimit("bookingModel", organizationId),
+    rateLimit("bookingModelUser", opts.userId),
+  ]);
+  if (!perCompany.ok || !perUser.ok) return { kind: "blocked", blocks: ["no_account"] };
   const modelChoice = await chooseAccountWithModel(receipt, context.accounts, await recentChoices(organizationId));
   if (!modelChoice) return { kind: "blocked", blocks: ["no_account"] };
   return proposeBooking({ ...base, modelChoice });
@@ -248,6 +267,7 @@ export async function loadBookingView(receipt: Receipt, userId: string): Promise
   const conn = await getConnection(organizationId);
   if (!conn) return { kind: "not_connected", canConnect };
   if (conn.status !== "active") return { kind: "needs_reconnect", canConnect };
+  if (!conn.confirmed_at) return { kind: "confirm_company", canConnect };
   if (!canApprove) {
     return existing
       ? { kind: "proposal", proposal: proposalView(existing), canApprove: false, accounts: [] }
@@ -274,7 +294,7 @@ export async function loadBookingView(receipt: Receipt, userId: string): Promise
     return { kind: "proposal", proposal: proposalView(existing, context.accounts), canApprove, accounts: costAccounts(context.accounts) };
   }
 
-  const result = await decide(receipt, organizationId, context, null);
+  const result = await decide(receipt, organizationId, context, { personAccount: null, userId });
   if (result.kind === "blocked") return { kind: "blocked", blocks: result.blocks, canApprove };
   if (result.kind === "needs_model") return { kind: "blocked", blocks: ["no_account"], canApprove };
   const row = await saveProposal({ receiptId: receipt.id, organizationId, proposal: result.proposal });
@@ -289,18 +309,29 @@ export async function loadBookingView(receipt: Receipt, userId: string): Promise
 // ---------------------------------------------------------------------------
 // Approve and post
 
+class FileUnavailableError extends Error {
+  constructor() {
+    super("receipt original unavailable");
+    this.name = "FileUnavailableError";
+  }
+}
+
+/**
+ * The file Fortnox gets as the voucher's underlag: the original photo or PDF
+ * byte for byte (a split scan's original is the whole scan, which is what
+ * was received). A failed download never falls back to something else:
+ * the post waits (FileUnavailableError). Only a receipt whose original
+ * Fortnox can't take (an email, a webp photo) or that has none (typed)
+ * gets UnReceipt's digital receipt, and the person saw a note saying so.
+ */
 async function receiptFile(receipt: Receipt): Promise<ReceiptFile> {
   const original = originalFileOf(receipt);
-  const usable = original && ["image/jpeg", "image/png", "application/pdf"].includes(original.kind);
-  if (original && usable) {
+  if (original && ATTACHABLE.includes(original.kind)) {
     const { data, error } = await getSupabaseAdmin().storage.from(original.bucket).download(original.path);
-    if (!error && data) {
-      const ext = original.kind === "application/pdf" ? "pdf" : original.kind === "image/png" ? "png" : "jpg";
-      return { bytes: new Uint8Array(await data.arrayBuffer()), name: `kvitto-${receipt.id.slice(0, 8)}.${ext}`, contentType: original.kind };
-    }
+    if (error || !data) throw new FileUnavailableError();
+    const ext = original.kind === "application/pdf" ? "pdf" : original.kind === "image/png" ? "png" : "jpg";
+    return { bytes: new Uint8Array(await data.arrayBuffer()), name: `kvitto-${receipt.id.slice(0, 8)}.${ext}`, contentType: original.kind };
   }
-  // An email, a webp photo, a typed receipt or an unreadable file: the
-  // digital receipt as a PDF (what the firm export carries too).
   const pdf = await renderToBuffer(createElement(ReceiptPdf, { receipt }) as never);
   return { bytes: new Uint8Array(pdf), name: `kvitto-${receipt.id.slice(0, 8)}.pdf`, contentType: "application/pdf" };
 }
@@ -363,11 +394,25 @@ export async function postApproved(row: BookingProposalRow): Promise<BookingProp
       await updateProposal(claimed.id, { status: "failed", error_code: !receipt ? "receipt_gone" : "not_connected" }, { fromStatus: ["posting"] });
       return getProposal(claimed.receipt_id);
     }
+    // Only into the Fortnox grant it was approved against: a reconnect (to
+    // another company, possibly) means a person approves again.
+    if (!conn.confirmed_at || !claimed.grant_id || conn.grant_id !== claimed.grant_id) {
+      await updateProposal(claimed.id, { status: "failed", error_code: "connection_changed" }, { fromStatus: ["posting"] });
+      return getProposal(claimed.receipt_id);
+    }
+    // The approver may still approve for this company (a firm link may have ended).
+    const approver = claimed.approved_by ? await organizationActor(claimed.approved_by, claimed.organization_id) : null;
+    if (!mayApprove(approver, await activeFirmOf(claimed.organization_id))) {
+      await updateProposal(claimed.id, { status: "failed", error_code: "approver_changed" }, { fromStatus: ["posting"] });
+      return getProposal(claimed.receipt_id);
+    }
     call = await callerFor(conn);
     file = await receiptFile(receipt);
   } catch (err) {
-    await backToApproved(err instanceof ReconnectRequiredError ? "needs_reconnect" : "prepare_failed");
-    Sentry.captureException(err, { tags: { area: "accounting", step: "prepare_post" } });
+    const code =
+      err instanceof ReconnectRequiredError ? "needs_reconnect" : err instanceof FileUnavailableError ? "file_unavailable" : "prepare_failed";
+    await backToApproved(code);
+    Sentry.captureException(err, { tags: { area: "accounting", step: "prepare_post", code } });
     return getProposal(claimed.receipt_id);
   }
 
@@ -401,6 +446,8 @@ export async function approveAndPost(input: {
   userId: string;
   account: string;
   expectedUpdatedAt: string;
+  /** Who paid, when the receipt doesn't say (the person approving answers). */
+  paidBy?: "employee" | "company" | null;
   post?: boolean;
 }): Promise<BookingProposalRow> {
   const { receipt, userId } = input;
@@ -417,6 +464,7 @@ export async function approveAndPost(input: {
   const conn = await getConnection(organizationId);
   if (!conn) throw new BookingError("not_connected");
   if (conn.status !== "active") throw new BookingError("needs_reconnect");
+  if (!conn.confirmed_at) throw new BookingError("confirm_company");
 
   let context: BookingContext;
   try {
@@ -424,7 +472,13 @@ export async function approveAndPost(input: {
   } catch (err) {
     throw asBookingError(err);
   }
-  const result = await decide(receipt, organizationId, context, input.account);
+  const paidBy = receipt.paid_by ?? input.paidBy ?? null;
+  const result = await decide(receipt, organizationId, context, {
+    personAccount: input.account,
+    paidBy,
+    requirePaidBy: true,
+    userId,
+  });
   if (result.kind !== "proposal") {
     throw new BookingError("blocked", result.kind === "blocked" ? result.blocks : ["no_account"]);
   }
@@ -440,8 +494,15 @@ export async function approveAndPost(input: {
     notes: result.proposal.notes,
     edited,
     approvedBy: userId,
+    grantId: conn.grant_id,
   });
   if (!approved) throw new BookingError("changed");
+
+  // The person said who paid: the receipt keeps the answer.
+  if (!receipt.paid_by && paidBy) {
+    const { error } = await getSupabaseAdmin().from("receipts").update({ paid_by: paidBy }).eq("id", receipt.id).is("paid_by", null);
+    if (error) console.error("[accounting] paid_by save failed", error.code);
+  }
 
   await rememberChoice(organizationId, receipt.merchant_name, input.account).catch(() => undefined);
 
@@ -478,6 +539,12 @@ export async function reconcileProposal(row: BookingProposalRow, now: number = D
   const voucher = storedVoucher(row);
 
   if (row.status === "unknown") {
+    // Reconnected since: the voucher, if any, is in the old grant's company.
+    // Never call it "not created" from another company's ledger.
+    if (!row.grant_id || row.grant_id !== conn.grant_id) {
+      Sentry.captureMessage("booking: unknown voucher after a reconnect", { tags: { area: "accounting", step: "reconcile" } });
+      return "connection_changed";
+    }
     const found = await readFortnox(conn, (call) => findVoucherByMarker(call, voucher, row.marker));
     if (found) {
       const fileConnected = row.fortnox_file_id

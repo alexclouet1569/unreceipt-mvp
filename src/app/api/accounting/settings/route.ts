@@ -2,7 +2,9 @@
 //       and, when Fortnox is connected, the choices read from it: voucher
 //       series and the balance-sheet accounts a payment can come from.
 // PATCH /api/accounting/settings[?org=…] { voucherSeries, creditAccountCompany,
-//       creditAccountEmployee } — saves them. Values are checked against the
+//       creditAccountEmployee, vatStatus } — saves them. vatStatus says
+//       whether the company deducts input VAT ("full" | "none" | "partial"):
+//       nothing with VAT is proposed until it is answered. Values are checked against the
 //       company's Fortnox when it can be read.
 //
 // Same rights as connecting (owner, or the linked firm's staff).
@@ -31,6 +33,7 @@ const BodySchema = z.object({
   voucherSeries: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,4}$/).nullable(),
   creditAccountCompany: Account.nullable(),
   creditAccountEmployee: Account.nullable(),
+  vatStatus: z.enum(["full", "none", "partial"]).nullable(),
 });
 
 async function resolve(request: NextRequest) {
@@ -63,6 +66,7 @@ function settingsBody(s: AccountingSettings | null) {
     voucherSeries: s?.voucher_series ?? null,
     creditAccountCompany: s?.credit_account_company ?? null,
     creditAccountEmployee: s?.credit_account_employee ?? null,
+    vatStatus: s?.vat_status ?? null,
   };
 }
 
@@ -117,6 +121,7 @@ export async function PATCH(request: NextRequest) {
       voucher_series: body.voucherSeries,
       credit_account_company: body.creditAccountCompany,
       credit_account_employee: body.creditAccountEmployee,
+      vat_status: body.vatStatus,
     });
     return json({ settings: settingsBody(saved) });
   } catch (err) {
