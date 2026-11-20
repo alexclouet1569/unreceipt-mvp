@@ -527,3 +527,87 @@ export interface DemoRequestRow {
   has_accountant: boolean | null;
   message: string | null;
 }
+
+// Booking agent (2026-11-20 block, src/lib/accounting/). All service-role
+// only: the routes return summaries, never the token columns.
+export type AccountingProviderId = "fortnox";
+export type AccountingConnectionStatus = "active" | "needs_reconnect";
+
+export interface AccountingConnection {
+  id: string;
+  organization_id: string;
+  provider: AccountingProviderId;
+  // "v1.<iv>.<tag>.<ciphertext>", AAD bound to organization_id.
+  refresh_token_enc: string;
+  access_token_enc: string | null;
+  access_expires_at: string | null;
+  refresh_lock_until: string | null;
+  refreshed_at: string;
+  status: AccountingConnectionStatus;
+  company_name: string | null;
+  company_org_number: string | null;
+  connected_by: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountingSettings {
+  organization_id: string;
+  voucher_series: string | null;
+  credit_account_company: string | null;
+  credit_account_employee: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AccountingOAuthPending {
+  nonce: string;
+  user_id: string;
+  organization_id: string;
+  provider: AccountingProviderId;
+  actor: "owner" | "firm";
+  browser_binding: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export type BookingStatus = "proposed" | "approved" | "posting" | "posted" | "unknown" | "failed";
+export type BookingSource = "override" | "memory" | "category" | "model" | "person";
+
+export interface BookingProposalRow {
+  id: string;
+  receipt_id: string;
+  organization_id: string;
+  provider: AccountingProviderId;
+  status: BookingStatus;
+  // ProposedVoucher (src/lib/accounting/types.ts).
+  voucher: unknown;
+  source: BookingSource;
+  confidence: number | null;
+  notes: string[];
+  proposed_account: string | null;
+  edited: boolean;
+  approved_by: string | null;
+  approved_at: string | null;
+  posting_started_at: string | null;
+  marker: string;
+  fortnox_voucher_series: string | null;
+  fortnox_voucher_number: number | null;
+  fortnox_financial_year: number | null;
+  fortnox_file_id: string | null;
+  file_connected: boolean;
+  error_code: string | null;
+  posted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MerchantAccountMemory {
+  organization_id: string;
+  merchant_key: string;
+  account: string;
+  uses: number;
+  last_used_at: string;
+}

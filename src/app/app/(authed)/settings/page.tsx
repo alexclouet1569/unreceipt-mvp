@@ -33,6 +33,9 @@ import { MailboxResultBanner } from "./mailboxes/MailboxResultBanner";
 import { loadMailboxes } from "./mailboxes/load";
 import { NO_PROVIDERS, anyProvider, parseMailboxResult } from "./mailboxes/copy";
 import { getEmployment } from "@/lib/team/membership";
+import { FortnoxCard } from "@/components/accounting/FortnoxCard";
+import { fortnoxResultText } from "@/lib/accounting/messages";
+import { loadFortnoxSummary } from "@/lib/accounting/summary";
 
 // Settings is reachable without an active subscription on purpose: a
 // lapsed customer must still be able to see their account, sign out and
@@ -87,13 +90,15 @@ async function loadUsage(userId: string): Promise<Usage | null> {
 type SettingsPageProps = {
   // ?mailbox=connected|error|cancelled&reason=<code>: where a Gmail /
   // Outlook connect flow ends (resultUrl() in src/lib/mailboxes/oauth.ts).
-  searchParams: Promise<{ mailbox?: string | string[]; reason?: string | string[] }>;
+  // ?fortnox=connected|error&reason=<code>: where "Connect Fortnox" ends
+  // (fortnoxResultUrl() in src/lib/accounting/oauth.ts).
+  searchParams: Promise<{ mailbox?: string | string[]; reason?: string | string[]; fortnox?: string | string[] }>;
 };
 
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const user = await getServerUser();
   if (!user) redirect("/app/login");
-  const { mailbox, reason } = await searchParams;
+  const { mailbox, reason, fortnox: fortnoxParam } = await searchParams;
   const mailboxResult = parseMailboxResult(mailbox, reason);
 
   const [
@@ -108,6 +113,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     firm,
     billingCustomer,
     mailboxes,
+    fortnox,
   ] = await Promise.all([
     loadProfile(user.id),
     getOrCreateAliasForUser(user.id),
@@ -124,6 +130,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     }),
     loadBillingCustomer(user.id),
     loadMailboxes(user.id),
+    getDefaultOrganizationId(user.id).then(loadFortnoxSummary),
   ]);
   // Owners run their team from /app/team; an approver decides there; an
   // employee sees whose team they are in.
@@ -312,6 +319,20 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           <SectionLabel id="accountant-heading">Your accountant</SectionLabel>
           <AccountantSection links={accountantLinks} />
         </section>
+
+        {/* The booking agent (src/lib/accounting/): the owner's own company.
+            Not for an employee (their receipts are the employer's) and not in
+            the Capacitor shell, where an OAuth flow can't finish. */}
+        {fortnox.configured && !employment && !nativeApp ? (
+          <FortnoxCard
+            org={null}
+            summary={fortnox}
+            result={fortnoxResultText(
+              typeof fortnoxParam === "string" ? fortnoxParam : null,
+              typeof reason === "string" ? reason : null,
+            )}
+          />
+        ) : null}
 
         <section aria-labelledby="account-heading">
           <SectionLabel id="account-heading">Account</SectionLabel>

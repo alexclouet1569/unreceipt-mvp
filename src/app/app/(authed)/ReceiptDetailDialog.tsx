@@ -17,6 +17,7 @@ import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import { BookReceiptControl } from "@/components/receipt/BookReceiptControl";
 import { BasAccountControl } from "@/components/receipt/BasAccountControl";
+import { BookingPanel } from "@/components/receipt/BookingPanel";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -51,6 +52,10 @@ type ReceiptDetailDialogProps = {
   // send, whose failure brings the receipt back. Without it (the firm
   // portal), the dialog waits for its own refresh as before.
   onChangeAction?: (change: ReceiptChange, commit?: () => Promise<void>) => void;
+  // The company has Fortnox connected: show the booking agent's panel
+  // (src/components/receipt/BookingPanel.tsx). Off by default, so the demo
+  // tours and lists without a connection make no request for it.
+  bookingEnabled?: boolean;
 };
 
 export function ReceiptDetailDialog({
@@ -58,6 +63,7 @@ export function ReceiptDetailDialog({
   onOpenChange,
   variant = "owner",
   onChangeAction,
+  bookingEnabled = false,
 }: ReceiptDetailDialogProps) {
   const isFirm = variant === "firm";
   const router = useRouter();
@@ -256,6 +262,9 @@ export function ReceiptDetailDialog({
             <div className="px-4 py-4 space-y-3 border-t border-[var(--hairline)]">
               {/* An employee's receipt: where it is in the approval, and Send. */}
               {!isFirm && receipt.approval_status ? <ApprovalPanel receipt={receipt} /> : null}
+              {/* The booking agent: a confirmed receipt's proposed Fortnox
+                  voucher (renders nothing without a Fortnox connection). */}
+              {bookingEnabled && receipt.status === "verified" ? <BookingPanel key={receipt.id} receiptId={receipt.id} /> : null}
               {couldReprocess ? (
                 <>
                   <Button

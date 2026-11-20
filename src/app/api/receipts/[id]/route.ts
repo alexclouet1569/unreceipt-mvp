@@ -31,6 +31,7 @@ import { isOwnedStoragePath } from "@/lib/receipts/storage-path";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { recordReceiptUsage, usageSource } from "@/lib/usage";
 import { editMarker } from "@/lib/receipts/edits";
+import { getProposal } from "@/lib/accounting/proposals";
 import { loadReceiptForActor, ReceiptAccessError } from "@/lib/receipts/access";
 import { vatLinesConsistent } from "@/lib/bookkeeping/vat-lines";
 import {
@@ -154,6 +155,21 @@ export async function PATCH(
     if (employment === undefined) return NextResponse.json({ error: "lookup failed" }, { status: 500 });
     if (employment?.organizationId !== existingRow.organization_id) {
       return NextResponse.json({ error: "left_team" }, { status: 409 });
+    }
+  }
+
+  // A receipt whose voucher is in Fortnox (or on its way) keeps the values
+  // that were booked: Fortnox can't take them back, so an edit here would
+  // only make the two disagree. A note may still be added.
+  if (Object.keys(patch).some((key) => key !== "notes")) {
+    let booking;
+    try {
+      booking = await getProposal(id);
+    } catch {
+      return NextResponse.json({ error: "lookup failed" }, { status: 500 });
+    }
+    if (booking && booking.status !== "proposed" && booking.status !== "failed") {
+      return NextResponse.json({ error: "booked_in_fortnox" }, { status: 409 });
     }
   }
 

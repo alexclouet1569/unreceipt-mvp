@@ -15,6 +15,9 @@ import { loadConnectedEmails, loadMailboxProviders } from "./settings/mailboxes/
 import { NO_PROVIDERS, anyProvider } from "./settings/mailboxes/copy";
 import { findWaitingTeamInvites } from "@/lib/team/invites";
 import { TeamNotice } from "./_team-notice";
+import { getEmployment } from "@/lib/team/membership";
+import { getDefaultOrganizationId } from "@/lib/organizations";
+import { loadFortnoxSummary } from "@/lib/accounting/summary";
 
 // The gate reads cookies + DB on every request — never cache.
 export const dynamic = "force-dynamic";
@@ -82,6 +85,13 @@ export default async function AppPage({ searchParams }: AppPageProps) {
 
   const inStoreApp = Boolean(await getNativeApp());
 
+  // The booking agent's panel in the receipt sheet: only when the company
+  // the receipts belong to (the employer for an employee) has Fortnox.
+  const bookingOrg = await getEmployment(user.id)
+    .then((e) => e?.organizationId ?? getDefaultOrganizationId(user.id))
+    .catch(() => null);
+  const bookingEnabled = (await loadFortnoxSummary(bookingOrg)).connection?.status === "active";
+
   // "Connect your email" (Gmail / Outlook) leads the first-run step and the
   // empty inbox when a provider is set up. Not in the Capacitor shell: the
   // provider's screen opens in Safari there, away from the cookie that
@@ -107,6 +117,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
       mailboxProviders={mailboxProviders}
       connectedMailboxes={connectedMailboxes}
       liveUpdatesUserId={user.id}
+      bookingEnabled={bookingEnabled}
       searchable
     />
     </>

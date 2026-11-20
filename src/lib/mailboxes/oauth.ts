@@ -14,7 +14,16 @@
 // never saves the mailbox in the callback: it parks the grant and hands the
 // app a one-time code to claim with its own sign-in (parked.ts).
 
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  bindingCookieNameFor,
+  bindingCookieOptionsFor,
+  bindingMatches,
+  isWellFormedState,
+  newBindingValue,
+  newPkce,
+  newState,
+  sha256Hex,
+} from "@/lib/oauth/flow";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { absoluteAppUrl } from "@/lib/app-url";
 import type { MailboxOAuthPending } from "@/lib/types";
@@ -24,51 +33,22 @@ export const PENDING_TTL_MS = 10 * 60 * 1000;
 export const APP_RETURN_URL = "unreceipt://mailboxes";
 export type OAuthClient = "web" | "app";
 
-const b64url = (bytes: Buffer) => bytes.toString("base64url");
-export const sha256Hex = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
-
-export function newState(): string {
-  return b64url(randomBytes(32));
-}
-
-export function newPkce(): { verifier: string; challenge: string } {
-  const verifier = b64url(randomBytes(32));
-  const challenge = b64url(createHash("sha256").update(verifier, "ascii").digest());
-  return { verifier, challenge };
-}
-
-export function newBindingValue(): string {
-  return b64url(randomBytes(32));
-}
+// The shared pieces live in src/lib/oauth/flow.ts; re-exported for the
+// mailbox code and its tests.
+export { bindingMatches, newBindingValue, newPkce, newState, sha256Hex };
 
 /**
  * One cookie per flow, named after the state's hash, so two flows started
  * in two tabs don't overwrite each other. Scoped to the callback path.
  */
 export function bindingCookieName(state: string): string {
-  return `mbx_${sha256Hex(state).slice(0, 16)}`;
+  return bindingCookieNameFor("mbx", state);
 }
 
 export const BINDING_COOKIE_PATH = "/api/mailboxes/callback";
 
 export function bindingCookieOptions(maxAgeSeconds = PENDING_TTL_MS / 1000) {
-  return {
-    httpOnly: true,
-    // Browsers treat localhost as secure; only `next dev` over plain http
-    // on another host would need it off.
-    secure: process.env.NODE_ENV !== "development",
-    sameSite: "lax" as const,
-    path: BINDING_COOKIE_PATH,
-    maxAge: maxAgeSeconds,
-  };
-}
-
-/** Constant-time check of the cookie against the stored hash. */
-export function bindingMatches(cookieValue: string | undefined, storedHash: string): boolean {
-  if (!cookieValue || !/^[0-9a-f]{64}$/.test(storedHash)) return false;
-  const a = Buffer.from(sha256Hex(cookieValue), "hex");
-  const b = Buffer.from(storedHash, "hex");
-  return a.length === b.length && timingSafeEqual(a, b);
+  return bindingCookieOptionsFor(BINDING_COOKIE_PATH, maxAgeSeconds);
 }
 
 export function redirectUri(provider: MailboxProviderId): string {
@@ -216,7 +196,7 @@ export async function takePending(
   supabase: SupabaseClient,
   state: string,
 ): Promise<{ ok: true; row: MailboxOAuthPending | null } | { ok: false }> {
-  if (!/^[A-Za-z0-9_-]{32,128}$/.test(state)) return { ok: true, row: null };
+  if (!isWellFormedState(state)) return { ok: true, row: null };
   const { data, error } = await supabase
     .from("mailbox_oauth_pending")
     .delete()

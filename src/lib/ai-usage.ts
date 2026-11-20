@@ -14,7 +14,15 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { after } from "next/server";
 import { getSupabaseAdmin } from "./supabase-admin";
 
-export type AiArea = "ocr" | "ocr_stream" | "capture_scan" | "reprocess" | "email_attachment" | "email_text" | "other";
+export type AiArea =
+  | "ocr"
+  | "ocr_stream"
+  | "capture_scan"
+  | "reprocess"
+  | "email_attachment"
+  | "email_text"
+  | "booking"
+  | "other";
 
 /**
  * USD per million tokens (Anthropic list prices, checked 2026-11-15). Cache

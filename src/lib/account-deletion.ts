@@ -36,6 +36,7 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { getStripe } from "./stripe";
 import { applyFirmExit, planFirmExit } from "./firm/account-exit";
 import { sendFirmClosedNotices } from "./firm/link-emails";
+import { disconnectAccountingFor } from "./accounting/teardown";
 import { disconnectAllMailboxes } from "./mailboxes/teardown";
 
 // Every bucket that stores files under `<user_id>/`.
@@ -263,6 +264,9 @@ export async function deleteAccount(
   } catch {
     console.error("[account-deletion] mailbox disconnect failed");
   }
+  // The own company's Fortnox grant, given back before the company goes
+  // (src/lib/accounting/teardown.ts; never throws).
+  await disconnectAccountingFor(userId, supabase);
 
   let removedFiles = await removeUserFiles(supabase, userId);
 

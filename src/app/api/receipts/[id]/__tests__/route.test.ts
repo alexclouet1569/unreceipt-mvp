@@ -53,6 +53,12 @@ vi.mock("@/lib/supabase-admin", () => ({
   }),
 }));
 
+// The booking agent's state (src/lib/accounting/proposals.ts): none by default.
+const bookingMock = vi.hoisted(() => ({ status: null as string | null }));
+vi.mock("@/lib/accounting/proposals", () => ({
+  getProposal: async () => (bookingMock.status ? { status: bookingMock.status } : null),
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   getServerUser: mocks.getServerUser,
   getUserSupabase: async () => userScopedClient(),
@@ -127,6 +133,37 @@ function params() {
 }
 
 describe("PATCH /api/receipts/[id]", () => {
+  afterEach(() => {
+    bookingMock.status = null;
+  });
+
+  it("refuses to change a receipt whose voucher is in Fortnox, but takes a note", async () => {
+    bookingMock.status = "posted";
+    const row = {
+      id: RECEIPT_ID,
+      user_id: USER_ID,
+      status: "verified",
+      merchant_name: "ICA",
+      purchased_at: "2026-11-02T12:00:00.000Z",
+      receipt_date: "2026-11-02",
+      total: 120,
+      currency: "SEK",
+      category: "meals",
+      parse_confidence: null,
+      edited_fields: null,
+      edit_history: null,
+    };
+    mocks.maybeSingle.mockResolvedValueOnce({ data: row, error: null });
+    const refused = await PATCH(req({ amount: 99 }), params());
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({ error: "booked_in_fortnox" });
+    expect(mocks.updateEq).not.toHaveBeenCalled();
+
+    mocks.maybeSingle.mockResolvedValueOnce({ data: row, error: null });
+    const note = await PATCH(req({ notes: "Kundlunch" }), params());
+    expect(note.status).toBe(200);
+  });
+
   it("returns 401 when no user session is present", async () => {
     mocks.getServerUser.mockResolvedValueOnce(null);
     const res = await PATCH(req({ merchant: "Uber" }), params());

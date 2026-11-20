@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const LAST_UPDATED = "2026-11-19";
+const LAST_UPDATED = "2026-11-20";
 const SUPPORT_EMAIL = "support@unreceipt.com";
 
 export default function PrivacyPage() {
@@ -150,6 +150,18 @@ export default function PrivacyPage() {
               email; we then stop reading and revoke our access at Google
               (Microsoft: we delete our access token and stop notifications;
               you can also remove UnReceipt from your Microsoft account).
+            </li>
+            <li>
+              <strong>To book receipts in your Fortnox</strong>, if your
+              company or its accounting firm connects Fortnox: we read the
+              company&apos;s chart of accounts, financial years and voucher
+              series, propose a voucher for each confirmed receipt (an AI
+              model may suggest the expense account from your own chart of
+              accounts), and only when a person approves it do we send the
+              voucher and the receipt file to your Fortnox. Fortnox is your
+              own bookkeeping system, not our processor. Legal basis:
+              contract performance (you asked for it). You can disconnect in
+              Settings at any time; what was already booked stays in Fortnox.
             </li>
             <li>
               <strong>To work with your accounting firm</strong>, if you

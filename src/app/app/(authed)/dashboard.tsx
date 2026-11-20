@@ -58,6 +58,9 @@ type DashboardProps = {
   // (use-receipt-updates.ts). Left out by the demo tour and the tests,
   // which make no requests.
   liveUpdatesUserId?: string | null;
+  // The company has Fortnox connected: the receipt sheet shows the booking
+  // agent's panel. Off in the demo tour and tests.
+  bookingEnabled?: boolean;
   // Search and the month filter (they ask /api/receipts/search). Left out by
   // the demo tour and the tests, which make no requests.
   searchable?: boolean;
@@ -82,6 +85,7 @@ export function Dashboard({
   mailboxProviders = NO_PROVIDERS,
   connectedMailboxes = [],
   liveUpdatesUserId = null,
+  bookingEnabled = false,
   searchable = false,
 }: DashboardProps) {
   const router = useRouter();
@@ -604,6 +608,7 @@ export function Dashboard({
         }}
       />
       <ReceiptDetailDialog
+        bookingEnabled={bookingEnabled}
         // The live row (after a refresh or an optimistic change), so Send for
         // approval or an edit shows in the open sheet; the copy saved on open
         // only until the list has it.

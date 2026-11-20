@@ -231,6 +231,30 @@ export const RATE_LIMITS = {
   // enough that a few IPs at their own daily cap (20) can't close the form
   // for real visitors; raise it once real traffic gets near it.
   demoRequestAll: [{ limit: 200, windowSeconds: 24 * 60 * 60 }],
+  // Booking agent (src/lib/accounting/). Starting a Fortnox connection:
+  // a reconnect or two, never a loop.
+  accountingConnect: [
+    { limit: 10, windowSeconds: 60 * 60 },
+    { limit: 30, windowSeconds: 24 * 60 * 60 },
+  ],
+  accountingSettings: [{ limit: 30, windowSeconds: 60 * 60 }],
+  // Opening a receipt's proposed booking reads the company's Fortnox (cached
+  // 10 min). An accountant going through a client's month opens many.
+  bookingView: [
+    { limit: 300, windowSeconds: 60 * 60 },
+    { limit: 1500, windowSeconds: 24 * 60 * 60 },
+  ],
+  // The model's account choice is a paid Claude call; per company, so the
+  // owner and the firm together can't exceed it.
+  bookingModel: [
+    { limit: 60, windowSeconds: 60 * 60 },
+    { limit: 300, windowSeconds: 24 * 60 * 60 },
+  ],
+  // Approving posts to Fortnox (4 calls each, Fortnox allows 25 per 5 s).
+  bookingApprove: [
+    { limit: 300, windowSeconds: 60 * 60 },
+    { limit: 1500, windowSeconds: 24 * 60 * 60 },
+  ],
 } satisfies Record<string, RateLimitRule[]>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

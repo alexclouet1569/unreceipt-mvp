@@ -2714,3 +2714,165 @@ ALTER TABLE public.demo_requests
       AND company IS NULL AND phone IS NULL AND employees IS NULL
       AND bookkeeping IS NULL AND has_accountant IS NULL)
   );
+
+-- =============================================================================
+-- 2026-11-20 — Booking agent: proposed vouchers posted to Fortnox
+--                (src/lib/accounting/)
+-- =============================================================================
+-- The agent turns a confirmed receipt into a balanced voucher (expense
+-- account, input VAT, payment account, the receipt file attached) and a
+-- person approves it before it is posted to the company's own Fortnox.
+--
+-- accounting_connections: one Fortnox company per organisation. Fortnox
+--   rotates the refresh token on EVERY use (and it lives 45 days), so the
+--   access token is stored too (encrypted, ~1 h) and a refresh happens only
+--   under the compare-and-set lock refresh_lock_until: two instances
+--   refreshing at once would leave one of them with a dead token.
+-- accounting_settings: the voucher series and the accounts a payment is
+--   credited to (company card or bank, employee outlay), set per company
+--   with its accountant.
+-- accounting_oauth_pending: one row per connect flow in progress (state +
+--   the sha256 of a browser-binding cookie), single use, 10 minutes.
+-- booking_proposals: one per receipt. proposed → approved → posting →
+--   posted; `unknown` when Fortnox may have created the voucher but we
+--   couldn't read the answer: it is reconciled (search for the marker in the
+--   voucher's description) before anything is retried, because a Fortnox
+--   voucher can't be deleted, only reversed. `failed` is a definite refusal
+--   (nothing was created) and may be approved again.
+-- merchant_account_memory: the account a company's people approved for a
+--   merchant, the agent's first choice next time. Explainable, deletable.
+--
+-- All five are service role only (RLS on, no policies): every read and write
+-- goes through the server routes. Rows cascade with the organisation (and a
+-- proposal with its receipt). Apply BEFORE deploying the booking code.
+
+CREATE TABLE IF NOT EXISTS public.accounting_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('fortnox')),
+  refresh_token_enc TEXT NOT NULL CHECK (refresh_token_enc ~ '^v[0-9]+\.'),
+  access_token_enc TEXT CHECK (access_token_enc IS NULL OR access_token_enc ~ '^v[0-9]+\.'),
+  access_expires_at TIMESTAMPTZ,
+  refresh_lock_until TIMESTAMPTZ,
+  -- When the refresh token was last rotated; the daily job refreshes a
+  -- connection idle for 30 days so the 45-day token never lapses.
+  refreshed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'needs_reconnect')),
+  company_name TEXT CHECK (company_name IS NULL OR char_length(company_name) <= 200),
+  company_org_number TEXT CHECK (company_org_number IS NULL OR company_org_number ~ '^[0-9-]{6,20}$'),
+  connected_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  last_error TEXT CHECK (last_error IS NULL OR last_error ~ '^[a-z0-9_]{1,64}$'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS accounting_connections_org_provider_unique
+  ON public.accounting_connections(organization_id, provider);
+CREATE INDEX IF NOT EXISTS accounting_connections_refreshed_idx
+  ON public.accounting_connections(status, refreshed_at);
+
+ALTER TABLE public.accounting_connections ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.accounting_connections FROM anon, authenticated;
+
+DROP TRIGGER IF EXISTS accounting_connections_set_updated_at ON public.accounting_connections;
+CREATE TRIGGER accounting_connections_set_updated_at
+  BEFORE UPDATE ON public.accounting_connections
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.accounting_settings (
+  organization_id UUID PRIMARY KEY REFERENCES public.organizations(id) ON DELETE CASCADE,
+  voucher_series TEXT CHECK (voucher_series IS NULL OR voucher_series ~ '^[A-Z0-9]{1,4}$'),
+  credit_account_company TEXT CHECK (credit_account_company IS NULL OR credit_account_company ~ '^[0-9]{4}$'),
+  credit_account_employee TEXT CHECK (credit_account_employee IS NULL OR credit_account_employee ~ '^[0-9]{4}$'),
+  updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.accounting_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.accounting_settings FROM anon, authenticated;
+
+DROP TRIGGER IF EXISTS accounting_settings_set_updated_at ON public.accounting_settings;
+CREATE TRIGGER accounting_settings_set_updated_at
+  BEFORE UPDATE ON public.accounting_settings
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.accounting_oauth_pending (
+  nonce TEXT PRIMARY KEY CHECK (char_length(nonce) BETWEEN 32 AND 128),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL CHECK (provider IN ('fortnox')),
+  actor TEXT NOT NULL CHECK (actor IN ('owner', 'firm')),
+  browser_binding TEXT NOT NULL CHECK (browser_binding ~ '^[0-9a-f]{64}$'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS accounting_oauth_pending_expires_idx
+  ON public.accounting_oauth_pending(expires_at);
+
+ALTER TABLE public.accounting_oauth_pending ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.accounting_oauth_pending FROM anon, authenticated;
+
+CREATE TABLE IF NOT EXISTS public.booking_proposals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  receipt_id UUID NOT NULL REFERENCES public.receipts(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL DEFAULT 'fortnox' CHECK (provider IN ('fortnox')),
+  status TEXT NOT NULL DEFAULT 'proposed'
+    CHECK (status IN ('proposed', 'approved', 'posting', 'posted', 'unknown', 'failed')),
+  -- The voucher as proposed (date, description, series, rows); see
+  -- ProposedVoucher in src/lib/accounting/types.ts.
+  voucher JSONB NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('override', 'memory', 'category', 'model', 'person')),
+  confidence NUMERIC(3, 2) CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+  notes TEXT[] NOT NULL DEFAULT '{}',
+  -- The expense account the agent first proposed, and whether a person
+  -- changed it before approving (the agent's accuracy metric).
+  proposed_account TEXT CHECK (proposed_account IS NULL OR proposed_account ~ '^[0-9]{4}$'),
+  edited BOOLEAN NOT NULL DEFAULT false,
+  approved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  posting_started_at TIMESTAMPTZ,
+  -- The text written into the voucher's description so a lost answer can be
+  -- found again in Fortnox ("UnReceipt <12 hex>").
+  marker TEXT NOT NULL CHECK (marker ~ '^UnReceipt [0-9a-f]{12}$'),
+  fortnox_voucher_series TEXT,
+  fortnox_voucher_number INTEGER,
+  fortnox_financial_year INTEGER,
+  fortnox_file_id TEXT,
+  file_connected BOOLEAN NOT NULL DEFAULT false,
+  error_code TEXT CHECK (error_code IS NULL OR error_code ~ '^[a-z0-9_]{1,64}$'),
+  posted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS booking_proposals_receipt_unique
+  ON public.booking_proposals(receipt_id);
+CREATE INDEX IF NOT EXISTS booking_proposals_org_status_idx
+  ON public.booking_proposals(organization_id, status);
+-- The daily job reconciles lost answers and files not yet attached.
+CREATE INDEX IF NOT EXISTS booking_proposals_attention_idx
+  ON public.booking_proposals(status, updated_at)
+  WHERE status IN ('posting', 'unknown') OR (status = 'posted' AND NOT file_connected);
+
+ALTER TABLE public.booking_proposals ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.booking_proposals FROM anon, authenticated;
+
+DROP TRIGGER IF EXISTS booking_proposals_set_updated_at ON public.booking_proposals;
+CREATE TRIGGER booking_proposals_set_updated_at
+  BEFORE UPDATE ON public.booking_proposals
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.merchant_account_memory (
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  merchant_key TEXT NOT NULL CHECK (char_length(merchant_key) BETWEEN 1 AND 120),
+  account TEXT NOT NULL CHECK (account ~ '^[0-9]{4}$'),
+  uses INTEGER NOT NULL DEFAULT 1 CHECK (uses >= 1),
+  last_used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, merchant_key)
+);
+
+ALTER TABLE public.merchant_account_memory ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.merchant_account_memory FROM anon, authenticated;

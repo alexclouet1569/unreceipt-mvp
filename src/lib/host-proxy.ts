@@ -59,6 +59,9 @@ const APP_ONLY_PREFIX = [
   "/api/checkout",
   "/api/billing",
   "/api/admin",
+  // Fortnox's connect flow sets its binding cookie here and Fortnox returns
+  // to the product host: both ends must be on one origin.
+  "/api/accounting",
 ];
 
 function isApexOnly(path: string): boolean {

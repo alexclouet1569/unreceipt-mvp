@@ -4,6 +4,8 @@
 // own both. Every link target comes from `hrefs`, so the demo can keep
 // navigation inside itself.
 
+import { FortnoxBatch } from "@/components/accounting/FortnoxBatch";
+import { FortnoxCard, type FortnoxCardSummary } from "@/components/accounting/FortnoxCard";
 import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { FirmHeader, FirmTabBar, type FirmLinks, type FirmTabKey } from "./_nav";
@@ -234,6 +236,7 @@ export function ClientView({
   bank,
   reminders,
   hrefs,
+  fortnox,
 }: {
   clientName: string;
   organizationId: string;
@@ -243,7 +246,10 @@ export function ClientView({
   bank: BankMonthView | null;
   reminders: ReminderState;
   hrefs: { back: string; month: (month: string) => string };
+  // The client's Fortnox (booking agent); absent in the demo tour.
+  fortnox?: { summary: FortnoxCardSummary; result: { ok: boolean; text: string } | null };
 }) {
+  const fortnoxActive = fortnox?.summary.connection?.status === "active";
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -279,7 +285,10 @@ export function ClientView({
         reviewCount={receipts.filter((r) => r.status === "pending_review").length}
       />
 
-      <FirmReceiptList receipts={receipts} />
+      {fortnox ? <FortnoxCard org={organizationId} summary={fortnox.summary} result={fortnox.result} /> : null}
+      {fortnoxActive ? <FortnoxBatch organizationId={organizationId} /> : null}
+
+      <FirmReceiptList receipts={receipts} bookingEnabled={fortnoxActive} />
     </div>
   );
 }

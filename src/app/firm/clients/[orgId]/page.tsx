@@ -5,6 +5,8 @@ import { ClientView } from "../../_views";
 import { notFound } from "next/navigation";
 import { ensureHomeAmounts, homeCurrencyOf } from "@/lib/fx";
 import { loadBankMonth } from "@/lib/bank/load";
+import { fortnoxResultText } from "@/lib/accounting/messages";
+import { loadFortnoxSummary } from "@/lib/accounting/summary";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +15,11 @@ export default async function FirmClientPage({
   searchParams,
 }: {
   params: Promise<{ orgId: string }>;
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; fortnox?: string; reason?: string }>;
 }) {
   const ctx = await requireFirmMemberPage();
   const { orgId } = await params;
-  const { month: requested } = await searchParams;
+  const { month: requested, fortnox: fortnoxResult, reason: fortnoxReason } = await searchParams;
   const month = resolveMonth(requested);
 
   let access;
@@ -28,10 +30,11 @@ export default async function FirmClientPage({
     throw err;
   }
 
-  const [loaded, home, reminders] = await Promise.all([
+  const [loaded, home, reminders, fortnox] = await Promise.all([
     loadClientMonthReceipts(access.organizationId, month),
     homeCurrencyOf(access.organizationId),
     loadReminderState(access.firmClientId, ctx.firmId, access.organizationId),
+    loadFortnoxSummary(access.organizationId),
   ]);
   // The client's own currency next to foreign amounts (src/lib/fx.ts).
   const [bank, receipts] = await Promise.all([
@@ -50,6 +53,7 @@ export default async function FirmClientPage({
       receipts={receipts}
       bank={bank}
       reminders={reminders}
+      fortnox={{ summary: fortnox, result: fortnoxResultText(fortnoxResult ?? null, fortnoxReason ?? null) }}
       hrefs={{
         back: `/firm/clients?month=${month}`,
         month: (m) => `/firm/clients/${access.organizationId}?month=${m}`,

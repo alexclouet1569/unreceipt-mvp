@@ -25,7 +25,7 @@ export function bucketOf(r: Pick<Receipt, "status" | "exported_at">): Exclude<Fi
  * detail dialog in its firm variant (complete review, download PDF, see the
  * original; no delete, no re-run).
  */
-export function FirmReceiptList({ receipts }: { receipts: Receipt[] }) {
+export function FirmReceiptList({ receipts, bookingEnabled = false }: { receipts: Receipt[]; bookingEnabled?: boolean }) {
   const [filter, setFilter] = useState<Filter>("all");
   // The id, not a copy: after a save (booked, completed) the dialog shows
   // the refreshed row from props instead of the one it was opened with.
@@ -73,6 +73,7 @@ export function FirmReceiptList({ receipts }: { receipts: Receipt[] }) {
       <ReceiptDetailDialog
         receipt={open}
         variant="firm"
+        bookingEnabled={bookingEnabled}
         onOpenChange={(isOpen) => {
           if (!isOpen) setOpenId(null);
         }}
