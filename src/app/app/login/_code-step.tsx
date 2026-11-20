@@ -12,6 +12,7 @@ import {
   inboxFor,
   isRateLimited,
   isUnreachable,
+  recentCodeWait,
   shake,
   UNREACHABLE,
   type AuthResult,
@@ -91,6 +92,11 @@ export function CodeStep({
     setResendNote("");
     setError("");
     const { error: resendError } = await resend();
+    if (resendError && recentCodeWait(resendError) !== null) {
+      setResendNote("We sent you a code less than a minute ago. Use that one.");
+      inputRef.current?.focus();
+      return;
+    }
     if (resendError) {
       setResendNote(
         isRateLimited(resendError)

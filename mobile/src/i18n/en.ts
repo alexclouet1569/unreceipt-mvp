@@ -30,6 +30,7 @@ export const en = {
     expiredCode: "That code has expired or was already used. Ask for a new one below.",
     resend: "Send a new code",
     resent: "New code sent. Use the latest email.",
+    recentCode: "We sent you a code less than a minute ago. Use that one.",
     changeEmail: "Use another email",
     privacyNote: "By continuing you accept how we handle your data.",
     privacyLink: "Privacy policy",

@@ -15,6 +15,7 @@ import {
   emailSchema,
   finishSignIn,
   isRateLimited,
+  recentCodeWait,
   isUnreachable,
   resendAsSignInCode,
   shake,
@@ -453,6 +454,11 @@ function SignInPanel({
       })
     );
     setSubmit("idle");
+    // A code went to this address under a minute ago: it still works.
+    if (error && recentCodeWait(error) !== null) {
+      onCodeSent(parsed.data);
+      return;
+    }
     if (error) {
       errors.failForm(
         isUnreachable(error)
@@ -692,6 +698,13 @@ function SignUpPanel({
       return res;
     });
 
+    // Signing up again under a minute later: the first confirmation code
+    // is still valid, so go and type it.
+    if (error && recentCodeWait(error) !== null) {
+      setSubmit("idle");
+      onCodeSent(parsed.data.email, false);
+      return;
+    }
     if (error) {
       setSubmit("idle");
       const msg = (error.message ?? "").toLowerCase();
@@ -714,6 +727,10 @@ function SignUpPanel({
         })
       );
       setSubmit("idle");
+      if (otpError && recentCodeWait(otpError) !== null) {
+        onCodeSent(parsed.data.email, true);
+        return;
+      }
       if (otpError) {
         errors.failForm(
           isUnreachable(otpError)

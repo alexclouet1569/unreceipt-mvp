@@ -286,6 +286,50 @@ describe("/app/login — email code", () => {
   });
 });
 
+describe("/app/login — a code already on its way", () => {
+  // Supabase's refusal when a code went to the same address under a minute ago.
+  const recent = {
+    status: 429,
+    code: "over_email_send_rate_limit",
+    message: "For security purposes, you can only request this after 42 seconds.",
+  };
+
+  it("goes on to the code step instead of stopping on the email form", async () => {
+    mocks.signInWithOtp.mockResolvedValue({ error: recent });
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@example.se");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
+  });
+
+  it("goes on to confirm when the sign-up is sent again within a minute", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: null, user: null }, error: recent });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup" });
+    await fillSignUp(user);
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+
+    expect(await screen.findByRole("heading", { name: /Confirm your email/i })).toBeInTheDocument();
+  });
+
+  it("still stops on the project-wide limit, when nothing was sent", async () => {
+    mocks.signInWithOtp.mockResolvedValue({
+      error: { status: 429, code: "over_email_send_rate_limit", message: "email rate limit exceeded" },
+    });
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@example.se");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    expect(await screen.findByText(/Wait a minute before asking for another/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/6-digit code/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("/app/login — create account", () => {
   it("rejects an empty full name and focuses it", async () => {
     const user = userEvent.setup();

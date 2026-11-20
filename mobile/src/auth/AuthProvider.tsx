@@ -7,16 +7,20 @@ import type { AuthError, Session } from "@supabase/supabase-js";
 import { API_URL } from "../config";
 import { finishSignIn } from "../lib/api";
 import { clearAll } from "../lib/cache";
+import { RESEND_AFTER_S, recentCodeWait } from "../lib/code-send";
 import { supabase } from "../lib/supabase";
 
-export type RequestResult = "sent" | "rateLimited" | "unreachable" | "failed";
+/** alreadySent: a code went to this address less than a minute ago; use it. */
+export type RequestResult = "sent" | "alreadySent" | "rateLimited" | "unreachable" | "failed";
+/** waitS: seconds until another code may be asked for (0 when none is waiting). */
+export type RequestOutcome = { result: RequestResult; waitS: number };
 export type VerifyResult = "ok" | "wrong" | "expired" | "unreachable";
 
 type AuthState = {
   status: "loading" | "signedOut" | "signedIn";
   userId: string | null;
   email: string | null;
-  requestCode: (email: string) => Promise<RequestResult>;
+  requestCode: (email: string) => Promise<RequestOutcome>;
   verifyCode: (email: string, code: string) => Promise<VerifyResult>;
   /** App Review's account only (REVIEW_EMAIL); everyone else uses the code. */
   signInWithPassword: (email: string, password: string) => Promise<"ok" | "wrong" | "unreachable">;
@@ -59,19 +63,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const requestCode = useCallback(async (email: string): Promise<RequestResult> => {
+  const requestCode = useCallback(async (email: string): Promise<RequestOutcome> => {
     // Never ask Supabase for a code without an address (it answers 400).
-    if (!email?.trim()) return "failed";
+    if (!email?.trim()) return { result: "failed", waitS: 0 };
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      // The email also carries a link; it opens the website, the code is
-      // what the app uses.
+      // The email carries only the code (supabase/templates/README.md).
       options: { emailRedirectTo: `${API_URL}/auth/callback?next=/app` },
     });
-    if (!error) return "sent";
-    if (isRateLimited(error)) return "rateLimited";
-    if (isUnreachable(error)) return "unreachable";
-    return "failed";
+    if (!error) return { result: "sent", waitS: RESEND_AFTER_S };
+    // Refused because a code went to this address under a minute ago: that
+    // code is valid, so the person goes on to type it.
+    const recent = recentCodeWait(error);
+    if (recent !== null) return { result: "alreadySent", waitS: recent };
+    if (isRateLimited(error)) return { result: "rateLimited", waitS: 0 };
+    if (isUnreachable(error)) return { result: "unreachable", waitS: 0 };
+    return { result: "failed", waitS: 0 };
   }, []);
 
   const verifyCode = useCallback(async (email: string, code: string): Promise<VerifyResult> => {

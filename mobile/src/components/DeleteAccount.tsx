@@ -109,8 +109,9 @@ export function DeleteAccount() {
           AccessibilityInfo.announceForAccessibility(s.deletion.reauthPasswordBody);
           return;
         }
-        const sent = email ? await requestCode(email) : "failed";
-        if (sent !== "sent") {
+        const sent = email ? (await requestCode(email)).result : "failed";
+        // alreadySent: a code went out under a minute ago and still works.
+        if (sent !== "sent" && sent !== "alreadySent") {
           setPhase("review");
           return fail(sent === "rateLimited" ? s.signIn.rateLimited : s.signIn.sendFailed);
         }
