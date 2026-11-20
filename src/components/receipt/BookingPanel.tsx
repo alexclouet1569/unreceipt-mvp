@@ -10,7 +10,7 @@
 // GET/POST /api/receipts/<id>/booking; the server decides who may approve
 // and checks everything again when approving.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,12 @@ const STATUS_LINE: Record<ProposalView["status"], string> = {
   posted: "Booked in Fortnox",
 };
 
+export type BookingPanelState = "approvable" | "in_fortnox" | "other";
+
+/** 16px on phones (iOS zooms into smaller fields), the focus ring of the other fields. */
+export const FIELD_CLASS =
+  "w-full h-11 rounded-[10px] border border-[var(--hairline)] bg-card px-3 text-base md:text-sm text-[var(--ink)] outline-none focus-visible:border-[var(--ring)] focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50";
+
 function Panel({ attention, children }: { attention?: boolean; children: React.ReactNode }) {
   return (
     <div
@@ -64,14 +70,29 @@ function Panel({ attention, children }: { attention?: boolean; children: React.R
       }}
       data-testid="booking-panel"
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--ink-muted)]">Fortnox</p>
+      <p className="type-micro uppercase tracking-[0.06em] text-[var(--ink-muted)]">Fortnox</p>
       {children}
     </div>
   );
 }
 
-export function BookingPanel({ receiptId }: { receiptId: string }) {
+export function BookingPanel({
+  receiptId,
+  viewer = "owner",
+  onStateChange,
+}: {
+  receiptId: string;
+  viewer?: "owner" | "firm";
+  /**
+   * "approvable": the panel offers Approve (the sheet's one green, so the
+   * sheet's own primary turns outline); "in_fortnox": approved or booked
+   * (the sheet hides its manual "Mark as booked"); "other": anything else.
+   */
+  onStateChange?: (state: BookingPanelState) => void;
+}) {
   const router = useRouter();
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState<View | null>(null);
   const [account, setAccount] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -86,6 +107,7 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
       .then((v) => {
         if (!alive) return;
         setView(v);
+        setLoaded(true);
         if (v?.kind === "proposal") setAccount(v.proposal.debitAccount ?? "");
       });
     return () => {
@@ -93,12 +115,35 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
     };
   }, [receiptId]);
 
+  const panelState: BookingPanelState =
+    view?.kind !== "proposal"
+      ? "other"
+      : view.proposal.status === "proposed" || view.proposal.status === "failed"
+        ? view.canApprove
+          ? "approvable"
+          : "other"
+        : "in_fortnox";
+  useEffect(() => {
+    onStateChange?.(panelState);
+  }, [panelState, onStateChange]);
+
+  // A placeholder of the panel's height while it loads, so the sheet's
+  // buttons don't jump under the finger when it appears.
+  if (!loaded) {
+    return (
+      <div className="rounded-[12px] px-4 py-3 space-y-2" style={{ border: "1px solid var(--hairline)" }} aria-hidden="true">
+        <div className="skeleton h-3 w-16 rounded" />
+        <div className="skeleton h-4 w-2/3 rounded" />
+        <div className="skeleton h-16 w-full rounded" />
+      </div>
+    );
+  }
   if (!view || view.kind === "not_configured" || view.kind === "not_connected" || view.kind === "waiting") return null;
 
   if (view.kind === "unavailable") {
     return (
       <Panel>
-        <p className="text-[14px] text-[var(--ink-muted)]">Fortnox can&apos;t be reached right now. Try again later.</p>
+        <p className="type-body text-[var(--ink-muted)]">Fortnox can&apos;t be reached right now. Try again later.</p>
       </Panel>
     );
   }
@@ -107,7 +152,9 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
       <Panel attention>
         <p className="text-[15px] font-semibold text-[var(--attention-deep)]">The Fortnox connection needs to be renewed.</p>
         {view.canConnect ? (
-          <p className="text-[14px] text-[var(--ink)]">Reconnect it in Settings → Fortnox.</p>
+          <p className="type-body text-[var(--ink)]">
+            {viewer === "firm" ? "Reconnect it in the Fortnox card on this client's page." : "Reconnect it in Settings → Fortnox."}
+          </p>
         ) : null}
       </Panel>
     );
@@ -117,7 +164,7 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
     return (
       <Panel attention>
         <p className="text-[15px] font-semibold text-[var(--attention-deep)]">Not ready to book in Fortnox</p>
-        <ul className="list-disc pl-5 space-y-1 text-[14px] text-[var(--ink)]">
+        <ul className="list-disc pl-5 space-y-1 type-body text-[var(--ink)]">
           {view.blocks.map((b) => (
             <li key={b}>{BLOCK_MESSAGES[b] ?? b}</li>
           ))}
@@ -154,6 +201,8 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
       if (res.ok && body.proposal) {
         setView({ ...view, proposal: body.proposal, canApprove: false });
         router.refresh();
+        // The button is gone: put focus on the outcome, which is announced.
+        requestAnimationFrame(() => statusRef.current?.focus());
       } else if (body.error === "blocked" && body.blocks?.length) {
         setError(body.blocks.map((b) => BLOCK_MESSAGES[b] ?? b).join(" "));
       } else {
@@ -177,27 +226,30 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
     <Panel attention={p.status === "failed" || p.status === "unknown"}>
       <div className="space-y-1">
         <p
+          ref={statusRef}
+          role="status"
+          tabIndex={-1}
           className={
             p.status === "failed"
-              ? "text-[15px] font-semibold text-[var(--attention-deep)]"
-              : "text-[15px] font-semibold text-[var(--ink)]"
+              ? "text-[15px] font-semibold text-[var(--attention-deep)] outline-none"
+              : "text-[15px] font-semibold text-[var(--ink)] outline-none"
           }
         >
           {STATUS_LINE[p.status]}
           {p.status === "posted" && p.voucherRef ? ` · ${p.voucherRef}` : ""}
         </p>
-        {failure ? <p className="text-[14px] text-[var(--ink)]">{failure}</p> : null}
-        {attachNote ? <p className="text-[14px] text-[var(--ink-muted)]">{attachNote}</p> : null}
-        <p className="text-[13px] text-[var(--ink-muted)]">
+        {failure ? <p className="type-body text-[var(--ink)]">{failure}</p> : null}
+        {attachNote ? <p className="type-body text-[var(--ink-muted)]">{attachNote}</p> : null}
+        <p className="type-caption text-[var(--ink-muted)]">
           {p.transactionDate} · series {p.series}
           {p.status === "proposed" || p.status === "failed" ? ` · ${SOURCE_LABEL[p.source] ?? ""}` : ""}
           {p.reason ? `: ${p.reason}` : ""}
         </p>
       </div>
 
-      <table className="w-full text-[14px]" data-testid="booking-rows">
+      <table className="w-full type-body" data-testid="booking-rows">
         <thead>
-          <tr className="text-[12px] text-[var(--ink-muted)]">
+          <tr className="type-caption text-[var(--ink-muted)]">
             <th className="text-left font-semibold py-1">Account</th>
             <th className="text-right font-semibold py-1">Debit</th>
             <th className="text-right font-semibold py-1">Credit</th>
@@ -210,10 +262,10 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
                 <span className="tabular-nums">{r.account}</span>
                 {r.name ? <span className="text-[var(--ink-muted)]"> {r.name}</span> : null}
               </td>
-              <td className="py-1.5 text-right font-mono tabular-nums whitespace-nowrap">
+              <td className="py-1.5 text-right type-amount-row tabular-nums whitespace-nowrap">
                 {r.debit > 0 ? formatAmount(r.debit, "SEK") : ""}
               </td>
-              <td className="py-1.5 text-right font-mono tabular-nums whitespace-nowrap">
+              <td className="py-1.5 text-right type-amount-row tabular-nums whitespace-nowrap">
                 {r.credit > 0 ? formatAmount(r.credit, "SEK") : ""}
               </td>
             </tr>
@@ -222,7 +274,7 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
       </table>
 
       {p.notes.length > 0 ? (
-        <ul className="space-y-1 text-[13px] text-[var(--ink-muted)]">
+        <ul className="space-y-1 type-caption text-[var(--ink-muted)]">
           {p.notes.map((n) => (
             <li key={n}>{NOTE_MESSAGES[n] ?? n}</li>
           ))}
@@ -233,9 +285,9 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
         <>
           {view.accounts.length > 0 ? (
             <label className="block space-y-1">
-              <span className="block text-[13px] font-semibold text-[var(--ink-muted)]">Expense account</span>
+              <span className="block type-caption font-semibold text-[var(--ink-muted)]">Expense account</span>
               <select
-                className="w-full h-11 rounded-[10px] border border-[var(--hairline)] bg-card px-3 text-[15px] text-[var(--ink)]"
+                className={FIELD_CLASS}
                 value={account}
                 onChange={(e) => setAccount(e.target.value)}
                 data-testid="booking-account"
@@ -252,7 +304,7 @@ export function BookingPanel({ receiptId }: { receiptId: string }) {
             {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <BookCheck className="w-4 h-4" aria-hidden="true" />}
             {busy ? "Booking…" : "Approve and book in Fortnox"}
           </Button>
-          <p className="text-[12px] text-[var(--ink-muted)]">
+          <p className="type-caption text-[var(--ink-muted)]">
             A voucher in Fortnox can&apos;t be deleted, only reversed. Check the accounts before approving.
           </p>
         </>

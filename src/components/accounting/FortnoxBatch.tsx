@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FIELD_CLASS } from "@/components/receipt/BookingPanel";
 import { BLOCK_MESSAGES, errorMessage } from "@/lib/accounting/messages";
 import type { BookingBlock } from "@/lib/accounting/types";
 import { formatAmount } from "@/lib/receipt-format";
@@ -107,9 +108,29 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
       } else {
         const n = body.approved?.length ?? 0;
         const refused = body.refused?.length ?? 0;
+        // Approved rows show "Booking…" at once, so nobody approves them twice.
+        const approvedIds = new Set(body.approved ?? []);
+        setBatch((b) =>
+          b
+            ? {
+                ...b,
+                items: b.items.map((item) =>
+                  approvedIds.has(item.receiptId) && item.state?.kind === "proposal"
+                    ? {
+                        ...item,
+                        state: {
+                          ...item.state,
+                          proposal: { ...(item.state as { proposal: Proposal }).proposal, status: "approved" as const },
+                        },
+                      }
+                    : item,
+                ),
+              }
+            : b,
+        );
         setMessage({
           ok: refused === 0,
-          text: `${n} voucher${n === 1 ? "" : "s"} approved and being booked in Fortnox.${refused ? ` ${refused} couldn't be approved: open them to see why.` : ""} Refresh in a moment to see the voucher numbers.`,
+          text: `${n} voucher${n === 1 ? "" : "s"} approved and being booked in Fortnox.${refused ? ` ${refused} couldn't be approved: open them in the receipts below to see why.` : ""} Refresh in a moment to see the voucher numbers.`,
         });
         setSelected({});
       }
@@ -122,9 +143,14 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
   const chosen = Object.keys(selected).filter((id) => selected[id]).length;
 
   return (
-    <section className="rounded-[12px] border border-[var(--hairline)] bg-card px-4 py-4 space-y-3" data-testid="fortnox-batch">
+    <section
+      className="bg-card space-y-3"
+      style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "14px 16px" }}
+      data-testid="fortnox-batch"
+      aria-labelledby={`fortnox-batch-${organizationId}`}
+    >
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "17px" }}>
+        <h2 id={`fortnox-batch-${organizationId}`} className="font-display font-bold text-[var(--ink)] text-base">
           Book in Fortnox
         </h2>
         {batch ? (
@@ -141,9 +167,9 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
           {loading ? "Preparing vouchers…" : "Show vouchers to book"}
         </Button>
       ) : batch.connection !== "active" ? (
-        <p className="text-[14px] text-[var(--ink-muted)]">Fortnox isn&apos;t connected for this client, or can&apos;t be reached right now.</p>
+        <p className="type-body text-[var(--ink-muted)]">Fortnox isn&apos;t connected for this client, or can&apos;t be reached right now.</p>
       ) : batch.items.length === 0 ? (
-        <p className="text-[14px] text-[var(--ink-muted)]">Nothing to book: every confirmed receipt is booked.</p>
+        <p className="type-body text-[var(--ink-muted)]">Nothing to book: every confirmed receipt is booked.</p>
       ) : (
         <>
           <ul className="divide-y divide-[var(--hairline)]">
@@ -155,38 +181,49 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
               const id = `batch-${item.receiptId}`;
               return (
                 <li key={item.receiptId} className="py-2 space-y-1">
-                  <div className="flex items-center gap-3 min-h-11">
-                    {ready ? (
-                      <input
-                        id={id}
-                        type="checkbox"
-                        className="size-5 accent-[var(--brand-action)]"
-                        checked={Boolean(selected[item.receiptId])}
-                        onChange={(e) => setSelected((s) => ({ ...s, [item.receiptId]: e.target.checked ? "1" : "" }))}
-                      />
+                  {(() => {
+                    const text = (
+                      <>
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate type-body text-[var(--ink)]">{item.merchant ?? "Receipt"}</span>
+                          <span className="block type-caption text-[var(--ink-muted)]">
+                            {proposal
+                              ? `${STATE_TEXT[proposal.status]}${proposal.voucherRef ? ` · ${proposal.voucherRef}` : ""}${
+                                  proposal.status === "failed" ? ` · ${errorMessage(proposal.errorCode)}` : ""
+                                }`
+                              : blocks
+                                ? blocks.map((b) => BLOCK_MESSAGES[b] ?? b).join(" ")
+                                : "Open it in the receipts below to see why it can't be booked yet."}
+                          </span>
+                        </span>
+                        <span className="type-amount-row tabular-nums text-[var(--ink)] whitespace-nowrap">
+                          {proposal ? formatAmount(proposal.totalSek, "SEK") : formatAmount(item.total, item.currency)}
+                        </span>
+                      </>
+                    );
+                    // The whole row is the tap target when it can be chosen.
+                    return ready ? (
+                      <label htmlFor={id} className="flex items-center gap-3 min-h-11 cursor-pointer">
+                        <input
+                          id={id}
+                          type="checkbox"
+                          className="size-5 accent-[var(--ink)]"
+                          checked={Boolean(selected[item.receiptId])}
+                          onChange={(e) => setSelected((s) => ({ ...s, [item.receiptId]: e.target.checked ? "1" : "" }))}
+                        />
+                        {text}
+                      </label>
                     ) : (
-                      <span className="size-5" aria-hidden="true" />
-                    )}
-                    <label htmlFor={ready ? id : undefined} className="flex-1 min-w-0">
-                      <span className="block truncate text-[15px] text-[var(--ink)]">{item.merchant ?? "Receipt"}</span>
-                      <span className="block text-[13px] text-[var(--ink-muted)]">
-                        {proposal
-                          ? `${STATE_TEXT[proposal.status]}${proposal.voucherRef ? ` · ${proposal.voucherRef}` : ""}${
-                              proposal.status === "failed" ? ` · ${errorMessage(proposal.errorCode)}` : ""
-                            }`
-                          : blocks
-                            ? blocks.map((b) => BLOCK_MESSAGES[b] ?? b).join(" ")
-                            : "Open the receipt to see why it can't be booked yet."}
-                      </span>
-                    </label>
-                    <span className="font-mono tabular-nums text-[14px] text-[var(--ink)] whitespace-nowrap">
-                      {proposal ? formatAmount(proposal.totalSek, "SEK") : formatAmount(item.total, item.currency)}
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-3 min-h-11">
+                        <span className="size-5 shrink-0" aria-hidden="true" />
+                        {text}
+                      </div>
+                    );
+                  })()}
                   {ready && batch.accounts && batch.accounts.length > 0 ? (
                     <select
                       aria-label={`Expense account for ${item.merchant ?? "this receipt"}`}
-                      className="ml-8 h-11 w-[calc(100%-2rem)] rounded-[10px] border border-[var(--hairline)] bg-card px-3 text-[14px] text-[var(--ink)]"
+                      className={`ml-8 !w-[calc(100%-2rem)] ${FIELD_CLASS}`}
                       value={accounts[item.receiptId] ?? ""}
                       onChange={(e) => setAccounts((a) => ({ ...a, [item.receiptId]: e.target.value }))}
                     >
@@ -202,13 +239,13 @@ export function FortnoxBatch({ organizationId }: { organizationId: string }) {
             })}
           </ul>
           {batch.more ? (
-            <p className="text-[13px] text-[var(--ink-muted)]">More receipts are being prepared: refresh to see them.</p>
+            <p className="type-caption text-[var(--ink-muted)]">More receipts are being prepared: refresh to see them.</p>
           ) : null}
           <Button type="button" className="w-full h-11" onClick={approve} disabled={busy || chosen === 0}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
             {chosen === 0 ? "Choose vouchers to approve" : `Approve and book ${chosen} in Fortnox`}
           </Button>
-          <p className="text-[12px] text-[var(--ink-muted)]">
+          <p className="type-caption text-[var(--ink-muted)]">
             A voucher in Fortnox can&apos;t be deleted, only reversed. Check the accounts before approving.
           </p>
         </>

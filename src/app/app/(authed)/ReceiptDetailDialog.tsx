@@ -17,7 +17,7 @@ import { ReceiptDetailCard } from "@/components/receipt/ReceiptDetailCard";
 import { OriginalSourceViewer } from "@/components/receipt/OriginalSourceViewer";
 import { BookReceiptControl } from "@/components/receipt/BookReceiptControl";
 import { BasAccountControl } from "@/components/receipt/BasAccountControl";
-import { BookingPanel } from "@/components/receipt/BookingPanel";
+import { BookingPanel, type BookingPanelState } from "@/components/receipt/BookingPanel";
 import {
   CATEGORY_CONFIG,
   CATEGORY_KEYS,
@@ -73,6 +73,13 @@ export function ReceiptDetailDialog({
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessError, setReprocessError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // The booking panel offers "Approve and book": that is the sheet's one
+  // green, so Download PDF turns outline meanwhile.
+  const [bookingState, setBookingState] = useState<BookingPanelState>("other");
+  const bookingApprovable = bookingState === "approvable";
+  // Approve in the panel, or already in Fortnox: the manual BAS account and
+  // "Mark as booked" would be a second, conflicting way to book.
+  const bookingOwnsIt = bookingState !== "other";
   // Cancel unmounts the form; send focus back to the Edit button.
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
@@ -92,6 +99,7 @@ export function ReceiptDetailDialog({
     setReprocessing(false);
     setReprocessError(null);
     setEditing(false);
+    setBookingState("other");
   }
 
   const open = receipt !== null;
@@ -264,7 +272,14 @@ export function ReceiptDetailDialog({
               {!isFirm && receipt.approval_status ? <ApprovalPanel receipt={receipt} /> : null}
               {/* The booking agent: a confirmed receipt's proposed Fortnox
                   voucher (renders nothing without a Fortnox connection). */}
-              {bookingEnabled && receipt.status === "verified" ? <BookingPanel key={receipt.id} receiptId={receipt.id} /> : null}
+              {bookingEnabled && receipt.status === "verified" ? (
+                <BookingPanel
+                  key={receipt.id}
+                  receiptId={receipt.id}
+                  viewer={variant}
+                  onStateChange={setBookingState}
+                />
+              ) : null}
               {couldReprocess ? (
                 <>
                   <Button
@@ -310,7 +325,7 @@ export function ReceiptDetailDialog({
                     download
                     data-testid="receipt-download-link"
                     className={
-                      !isFirm && canSendForApproval(receipt)
+                      (!isFirm && canSendForApproval(receipt)) || bookingApprovable
                         ? "w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card text-[var(--ink)] text-[14px] font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                         : "w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-action-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     }
@@ -330,13 +345,18 @@ export function ReceiptDetailDialog({
                     Edit receipt
                   </Button>
                   ) : null}
-                  {isFirm ? (
+                  {/* While the booking panel offers a voucher or the receipt is
+                      in Fortnox, it picks the account and books: a manual
+                      account or "Mark as booked" (whose undo can't undo
+                      Fortnox) would conflict. A receipt the agent refuses
+                      (a refund, say) keeps them. */}
+                  {isFirm && !bookingOwnsIt ? (
                     <BasAccountControl
                       key={`${receipt.id}:${receipt.bas_account ?? ""}:${receipt.category}`}
                       receipt={receipt}
                     />
                   ) : null}
-                  {isFirm ? <BookReceiptControl receipt={receipt} /> : null}
+                  {isFirm && !bookingOwnsIt ? <BookReceiptControl receipt={receipt} /> : null}
                 </>
               )}
 

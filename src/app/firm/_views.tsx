@@ -285,7 +285,7 @@ export function ClientView({
         reviewCount={receipts.filter((r) => r.status === "pending_review").length}
       />
 
-      {fortnox ? <FortnoxCard org={organizationId} summary={fortnox.summary} result={fortnox.result} /> : null}
+      {fortnox ? <FortnoxCard org={organizationId} summary={fortnox.summary} result={fortnox.result} variant="firm" /> : null}
       {fortnoxActive ? <FortnoxBatch organizationId={organizationId} /> : null}
 
       <FirmReceiptList receipts={receipts} bookingEnabled={fortnoxActive} />

@@ -8,11 +8,15 @@
 //
 // Connect is a plain link (the CSP's form-action 'self' would block a form
 // POST that redirects to Fortnox). Everything is checked again server-side.
+// Outline buttons only: in Settings, as every section; the green stays the
+// receipt sheet's Approve.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Link2, Loader2, Unplug } from "lucide-react";
+import { Link2, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FIELD_CLASS } from "@/components/receipt/BookingPanel";
+import { cn } from "@/lib/utils";
 
 export type FortnoxCardSummary = {
   configured: boolean;
@@ -22,44 +26,75 @@ export type FortnoxCardSummary = {
 type Settings = { voucherSeries: string | null; creditAccountCompany: string | null; creditAccountEmployee: string | null };
 type Options = { voucherSeries: string[]; paymentAccounts: Array<{ number: string; name: string }> } | null;
 
-const inputClass =
-  "w-full h-11 rounded-[10px] border border-[var(--hairline)] bg-card px-3 text-[15px] text-[var(--ink)]";
+// As the mailbox Connect buttons (settings/mailboxes/ConnectButtons.tsx).
+const OUTLINE_LINK =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[var(--hairline)] bg-card px-4 type-body font-semibold text-[var(--ink)] outline-none transition-colors duration-100 hover:bg-[var(--surface)] focus-visible:border-[var(--ring)] focus-visible:ring-3 focus-visible:ring-[var(--ring)]/50";
 
 export function FortnoxCard({
   org,
   summary,
   result,
+  variant = "settings",
 }: {
   /** The client's organisation id in the firm portal; null for the owner's own company. */
   org: string | null;
   summary: FortnoxCardSummary;
   result?: { ok: boolean; text: string } | null;
+  /** "settings": a section of /app/settings (micro label above the card); "firm": a card of the client page. */
+  variant?: "settings" | "firm";
 }) {
   const router = useRouter();
   const query = org ? `?org=${encodeURIComponent(org)}` : "";
   const conn = summary.connection;
+  const active = conn?.status === "active";
   const [settings, setSettings] = useState<Settings | null>(null);
   const [options, setOptions] = useState<Options>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [busy, setBusy] = useState<"save" | "disconnect" | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(result ?? null);
 
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/accounting/settings${query}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      return (await res.json()) as { settings: Settings; options: Options };
+    } catch {
+      return null;
+    }
+  }, [query]);
+
   useEffect(() => {
-    if (!conn || conn.status !== "active") return;
+    if (!active) return;
     let alive = true;
-    fetch(`/api/accounting/settings${query}`, { cache: "no-store" })
-      .then(async (res) => (res.ok ? ((await res.json()) as { settings: Settings; options: Options }) : null))
-      .catch(() => null)
-      .then((body) => {
-        if (!alive || !body) return;
-        setSettings(body.settings);
-        setOptions(body.options);
-      });
+    void loadSettings().then((body) => {
+      if (!alive) return;
+      if (!body || !body.options) {
+        setLoadState("error");
+        return;
+      }
+      setSettings(body.settings);
+      setOptions(body.options);
+      setLoadState("ready");
+    });
     return () => {
       alive = false;
     };
-  }, [conn, query]);
+  }, [active, loadSettings]);
 
   if (!summary.configured) return null;
+
+  const retry = async () => {
+    setLoadState("loading");
+    const body = await loadSettings();
+    if (!body || !body.options) {
+      setLoadState("error");
+      return;
+    }
+    setSettings(body.settings);
+    setOptions(body.options);
+    setLoadState("ready");
+  };
 
   const save = async () => {
     if (!settings) return;
@@ -91,6 +126,7 @@ export function FortnoxCard({
       if (!res.ok) {
         setMessage({ ok: false, text: "Couldn't disconnect. Try again." });
       } else {
+        setConfirming(false);
         setMessage({
           ok: true,
           text: body.revoked
@@ -107,9 +143,9 @@ export function FortnoxCard({
 
   const field = (key: keyof Settings, label: string, choices: Array<{ value: string; label: string }>) => (
     <label className="block space-y-1">
-      <span className="block text-[13px] font-semibold text-[var(--ink-muted)]">{label}</span>
+      <span className="block type-caption font-semibold text-[var(--ink-muted)]">{label}</span>
       <select
-        className={inputClass}
+        className={FIELD_CLASS}
         value={settings?.[key] ?? ""}
         onChange={(e) => setSettings((s) => (s ? { ...s, [key]: e.target.value || null } : s))}
       >
@@ -124,63 +160,84 @@ export function FortnoxCard({
   );
 
   const accountChoices = (options?.paymentAccounts ?? []).map((a) => ({ value: a.number, label: `${a.number} ${a.name}` }));
+  const titleId = `fortnox-card-title${org ? `-${org}` : ""}`;
 
-  return (
-    <section
-      className="rounded-[12px] border border-[var(--hairline)] bg-card px-4 py-4 space-y-3"
-      data-testid="fortnox-card"
-      aria-labelledby="fortnox-card-title"
-    >
-      <div className="space-y-1">
-        <h2 id="fortnox-card-title" className="font-display font-bold text-[var(--ink)]" style={{ fontSize: "17px" }}>
-          Fortnox
-        </h2>
-        <p className="text-[14px] text-[var(--ink-muted)]">
-          {conn
-            ? conn.status === "active"
-              ? `Connected to ${conn.companyName ?? "a Fortnox company"}${conn.orgNumber ? ` (${conn.orgNumber})` : ""}. Every confirmed receipt gets a proposed voucher; nothing is booked until a person approves it.`
-              : "The connection has expired. Connect again to keep booking receipts."
-            : "Connect the company's Fortnox: UnReceipt proposes a voucher for every confirmed receipt, with the receipt attached, and books it when a person approves. A system administrator in Fortnox approves the connection."}
-        </p>
-      </div>
+  const body = (
+    <>
+      <p className="type-body text-[var(--ink-muted)]">
+        {conn
+          ? active
+            ? `Connected to ${conn.companyName ?? "a Fortnox company"}${conn.orgNumber ? ` (${conn.orgNumber})` : ""}. Every confirmed receipt gets a proposed voucher; nothing is booked until a person approves it.`
+            : "The connection has expired. Connect again to keep booking receipts."
+          : "Connect the company's Fortnox: UnReceipt proposes a voucher for every confirmed receipt, with the receipt attached, and books it when a person approves. A system administrator in Fortnox approves the connection."}
+      </p>
 
-      {!conn || conn.status !== "active" ? (
-        <a
-          href={`/api/accounting/fortnox/connect${query}`}
-          className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary text-primary-foreground text-[14px] font-semibold transition-colors hover:bg-[var(--brand-action-deep)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          data-testid="fortnox-connect"
-        >
+      {!active ? (
+        <a href={`/api/accounting/fortnox/connect${query}`} className={cn(OUTLINE_LINK, "w-full")} data-testid="fortnox-connect">
           <Link2 className="w-4 h-4" aria-hidden="true" />
           {conn ? "Reconnect Fortnox" : "Connect Fortnox"}
         </a>
-      ) : null}
-
-      {conn?.status === "active" ? (
-        settings && options ? (
-          <div className="space-y-3">
-            {field(
-              "voucherSeries",
-              "Voucher series",
-              options.voucherSeries.map((s) => ({ value: s, label: s })),
-            )}
-            {field("creditAccountCompany", "Paid with the company's card or account", accountChoices)}
-            {field("creditAccountEmployee", "Paid by an employee (to pay back)", accountChoices)}
-            <p className="text-[12px] text-[var(--ink-muted)]">Ask your accountant which ones to use, for example 1930 and 2890.</p>
-            <Button type="button" className="w-full h-11" onClick={save} disabled={busy !== null}>
-              {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
-              Save Fortnox settings
-            </Button>
-          </div>
-        ) : (
-          <p className="text-[14px] text-[var(--ink-muted)]">Reading the settings from Fortnox…</p>
-        )
-      ) : null}
+      ) : loadState === "loading" ? (
+        <div className="space-y-3" aria-hidden="true">
+          <div className="skeleton h-11 w-full rounded-[10px]" />
+          <div className="skeleton h-11 w-full rounded-[10px]" />
+          <div className="skeleton h-11 w-full rounded-[10px]" />
+        </div>
+      ) : loadState === "error" ? (
+        <div className="space-y-2">
+          <p role="alert" className="type-body font-semibold text-[var(--attention-deep)]">
+            Couldn&apos;t read the settings from Fortnox.
+          </p>
+          <Button type="button" variant="outline" className="w-full h-11 gap-1.5" onClick={retry}>
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {field(
+            "voucherSeries",
+            "Voucher series",
+            (options?.voucherSeries ?? []).map((s) => ({ value: s, label: s })),
+          )}
+          {field("creditAccountCompany", "Paid with the company's card or account", accountChoices)}
+          {field("creditAccountEmployee", "Paid by an employee (to pay back)", accountChoices)}
+          <p className="type-caption text-[var(--ink-muted)]">Ask your accountant which ones to use, for example 1930 and 2890.</p>
+          <Button type="button" variant="outline" className="w-full h-11" onClick={save} disabled={busy !== null}>
+            {busy === "save" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : null}
+            Save Fortnox settings
+          </Button>
+        </div>
+      )}
 
       {conn ? (
-        <Button type="button" variant="outline" className="w-full h-11 gap-1.5" onClick={disconnect} disabled={busy !== null}>
-          {busy === "disconnect" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Unplug className="w-4 h-4" aria-hidden="true" />}
-          Disconnect Fortnox
-        </Button>
+        confirming ? (
+          <div className="space-y-2" role="group" aria-label="Disconnect Fortnox">
+            <p className="type-body text-[var(--ink)]">
+              Disconnect Fortnox? New receipts won&apos;t get vouchers; vouchers already booked stay in Fortnox.
+            </p>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1 h-11" onClick={() => setConfirming(false)} disabled={busy !== null}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 h-11 gap-1.5 text-[var(--destructive)]"
+                onClick={disconnect}
+                disabled={busy !== null}
+              >
+                {busy === "disconnect" ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Unplug className="w-4 h-4" aria-hidden="true" />}
+                Disconnect
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button type="button" variant="outline" className="w-full h-11 gap-1.5" onClick={() => setConfirming(true)} disabled={busy !== null}>
+            <Unplug className="w-4 h-4" aria-hidden="true" />
+            Disconnect Fortnox
+          </Button>
+        )
       ) : null}
 
       {message ? (
@@ -195,6 +252,32 @@ export function FortnoxCard({
           {message.text}
         </p>
       ) : null}
+    </>
+  );
+
+  if (variant === "settings") {
+    return (
+      <section aria-labelledby={titleId} data-testid="fortnox-card">
+        <h2 id={titleId} className="type-micro uppercase tracking-[0.06em] text-[var(--ink-muted)] mb-2">
+          Fortnox
+        </h2>
+        <div className="bg-card space-y-3" style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "12px 14px" }}>
+          {body}
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section
+      className="bg-card space-y-3"
+      style={{ border: "1px solid var(--hairline)", borderRadius: "12px", padding: "14px 16px" }}
+      data-testid="fortnox-card"
+      aria-labelledby={titleId}
+    >
+      <h2 id={titleId} className="font-display font-bold text-[var(--ink)] text-base">
+        Fortnox
+      </h2>
+      {body}
     </section>
   );
 }
