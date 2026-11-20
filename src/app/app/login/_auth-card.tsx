@@ -171,7 +171,6 @@ export function AuthCard({
               <CodeStep
                 email={pendingCode.email}
                 purpose={pendingCode.purpose}
-                inStoreApp={inStoreApp}
                 next={next}
                 resend={resendFor(pendingCode)}
                 onChangeEmail={() => {

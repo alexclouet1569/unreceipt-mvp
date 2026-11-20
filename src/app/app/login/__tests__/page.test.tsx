@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
@@ -272,7 +272,7 @@ describe("/app/login — email code", () => {
     expect(mocks.verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("follows a link confirmed in another tab", async () => {
+  it("never mentions a link: the email carries the code only", async () => {
     mocks.signInWithOtp.mockResolvedValue({ error: null });
     const user = userEvent.setup();
     renderCard();
@@ -281,13 +281,8 @@ describe("/app/login — email code", () => {
     await user.click(screen.getByRole("button", { name: /Email me a code/i }));
     await screen.findByLabelText(/6-digit code/i);
 
-    mocks.getSession.mockResolvedValue({
-      data: { session: { user: { email: "alex@example.se" } } },
-    });
-    await act(async () => {
-      document.dispatchEvent(new Event("visibilitychange"));
-    });
-    await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith("/app"));
+    // Mail filters open links in emails and spend the code (supabase/templates/README.md).
+    expect(screen.queryByText(/button|link/i)).not.toBeInTheDocument();
   });
 });
 
@@ -443,7 +438,7 @@ describe("/app/login — inside the store apps", () => {
     expect(screen.queryByText(/No card needed/)).not.toBeInTheDocument();
   });
 
-  it("asks for the code, because the email's button opens the browser", async () => {
+  it("asks for the code without mentioning an email button", async () => {
     mocks.signInWithOtp.mockResolvedValue({ error: null });
     const user = userEvent.setup();
     renderCard({ inStoreApp: true });
@@ -452,8 +447,8 @@ describe("/app/login — inside the store apps", () => {
     await user.type(screen.getByLabelText(/Email address/i), "alex@gmail.com");
     await user.click(screen.getByRole("button", { name: /Email me a code/i }));
 
-    expect(await screen.findByText(/signs you in to your browser, not to the app/)).toBeInTheDocument();
-    expect(screen.queryByText(/even on another device/)).not.toBeInTheDocument();
+    expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
+    expect(screen.queryByText(/button in the email|signs you in to your browser/)).not.toBeInTheDocument();
   });
 });
 
