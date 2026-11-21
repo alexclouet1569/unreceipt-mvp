@@ -89,6 +89,9 @@ export function isRateLimited(error: AuthError): boolean {
  * limit exceeded") sent nothing and returns null. The iPhone app has the
  * same rule in mobile/src/lib/code-send.ts.
  */
+/** Shown on the code step when the last code is still on its way (iPhone app: signIn.recentCode). */
+export const RECENT_CODE_NOTE = "We sent you a code less than a minute ago. Use the latest email.";
+
 export function recentCodeWait(error: { message?: string } | null | undefined): number | null {
   const match = /only request this after (\d+) seconds?/i.exec(error?.message ?? "");
   if (!match) return null;

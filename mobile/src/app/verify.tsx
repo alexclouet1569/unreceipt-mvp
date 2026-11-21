@@ -48,6 +48,13 @@ export default function Verify() {
   const shake = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 
+  // Arriving on a code sent under a minute ago: say no new email is coming.
+  useEffect(() => {
+    if (params.recent === "1") AccessibilityInfo.announceForAccessibility(s.signIn.recentCode);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (wait <= 0) return;
     const t = setTimeout(() => setWait((w) => w - 1), 1000);

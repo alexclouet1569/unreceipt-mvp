@@ -51,8 +51,8 @@ type AuthCardProps = {
   notice: string | null;
   /**
    * Inside the store apps (src/lib/native-app.ts): no link out to the
-   * marketing site (it has prices; App Store 3.1.3(f)), and sign-in by the
-   * 6-digit code, because the email's button opens the browser, not the app.
+   * marketing site (it has prices; App Store 3.1.3(f)). Sign-in is by the
+   * 6-digit code everywhere: the email carries no link.
    */
   inStoreApp?: boolean;
   /**
@@ -74,7 +74,13 @@ type AuthCardProps = {
 // The screen still reads as a sign-up (nothing reveals the account exists),
 // but "Send again" must ask for a sign-in code: Supabase sends nothing on a
 // sign-up resend for a confirmed address.
-type PendingCode = { email: string; purpose: "signup" | "signin"; existingAccount?: boolean };
+type PendingCode = {
+  email: string;
+  purpose: "signup" | "signin";
+  existingAccount?: boolean;
+  /** A code went out under a minute ago: seconds until another may be sent. */
+  recentWait?: number;
+};
 type EntryFocus = "first" | "email" | null;
 // country: "" until chosen (pre-filled from the browser once it is known),
 // a country code, or OTHER_COUNTRY.
@@ -173,6 +179,7 @@ export function AuthCard({
                 email={pendingCode.email}
                 purpose={pendingCode.purpose}
                 next={next}
+                recentWait={pendingCode.recentWait}
                 resend={resendFor(pendingCode)}
                 onChangeEmail={() => {
                   setPendingCode(null);
@@ -208,7 +215,7 @@ export function AuthCard({
                     entryFocus={entryFocus}
                     next={next}
                     signupSource={signupSource}
-                    onCodeSent={(e) => setPendingCode({ email: e, purpose: "signin" })}
+                    onCodeSent={(e, recentWait) => setPendingCode({ email: e, purpose: "signin", recentWait })}
                   />
                 ) : (
                   <SignUpPanel
@@ -220,7 +227,9 @@ export function AuthCard({
                     entryFocus={entryFocus}
                     next={next}
                     signupSource={signupSource}
-                    onCodeSent={(e, existingAccount) => setPendingCode({ email: e, purpose: "signup", existingAccount })}
+                    onCodeSent={(e, existingAccount, recentWait) =>
+                      setPendingCode({ email: e, purpose: "signup", existingAccount, recentWait })
+                    }
                     onSignIn={() => {
                       // The pressed link goes away with the form: focus the
                       // sign-in email (already filled in) instead of <body>.
@@ -389,7 +398,7 @@ function SignInPanel({
   email: string;
   setEmail: (v: string) => void;
   entryFocus: EntryFocus;
-  onCodeSent: (email: string) => void;
+  onCodeSent: (email: string, recentWait?: number) => void;
   next: string;
   signupSource: SignupSource | null;
 }) {
@@ -421,7 +430,7 @@ function SignInPanel({
       setSubmit("idle");
       if (isUnreachable(error)) errors.failForm(UNREACHABLE, "password");
       else if (error.code === "email_not_confirmed")
-        errors.failForm("Confirm your email first — use the code or link we sent you.", "email");
+        errors.failForm("Confirm your email first — use the code we sent you.", "email");
       else if (isRateLimited(error))
         errors.failForm("Too many attempts. Wait a minute, then try again.", "password");
       else
@@ -455,8 +464,9 @@ function SignInPanel({
     );
     setSubmit("idle");
     // A code went to this address under a minute ago: it still works.
-    if (error && recentCodeWait(error) !== null) {
-      onCodeSent(parsed.data);
+    const recent = recentCodeWait(error);
+    if (recent !== null) {
+      onCodeSent(parsed.data, recent);
       return;
     }
     if (error) {
@@ -605,7 +615,7 @@ function SignUpPanel({
   details: SignUpDetails;
   setDetails: React.Dispatch<React.SetStateAction<SignUpDetails>>;
   entryFocus: EntryFocus;
-  onCodeSent: (email: string, existingAccount?: boolean) => void;
+  onCodeSent: (email: string, existingAccount?: boolean, recentWait?: number) => void;
   onSignIn: () => void;
   next: string;
   signupSource: SignupSource | null;
@@ -673,8 +683,9 @@ function SignUpPanel({
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          // The email's link lands on /auth/callback, which sets the session
-          // cookie server-side and upserts public.profiles from this metadata.
+          // Kept for emails sent before the code-only templates: their link
+          // lands on /auth/callback. profiles is filled from this metadata
+          // when the person finishes signing in (syncProfile()).
           emailRedirectTo: callbackUrl(next),
           data: {
             full_name: parsed.data.full_name,
@@ -700,9 +711,10 @@ function SignUpPanel({
 
     // Signing up again under a minute later: the first confirmation code
     // is still valid, so go and type it.
-    if (error && recentCodeWait(error) !== null) {
+    const recentSignUp = recentCodeWait(error);
+    if (recentSignUp !== null) {
       setSubmit("idle");
-      onCodeSent(parsed.data.email, false);
+      onCodeSent(parsed.data.email, false, recentSignUp);
       return;
     }
     if (error) {
@@ -727,8 +739,9 @@ function SignUpPanel({
         })
       );
       setSubmit("idle");
-      if (otpError && recentCodeWait(otpError) !== null) {
-        onCodeSent(parsed.data.email, true);
+      const recentOtp = recentCodeWait(otpError);
+      if (recentOtp !== null) {
+        onCodeSent(parsed.data.email, true, recentOtp);
         return;
       }
       if (otpError) {

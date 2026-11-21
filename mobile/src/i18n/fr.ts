@@ -29,7 +29,7 @@ export const fr: Strings = {
     expiredCode: "Ce code a expiré ou a déjà été utilisé. Demandez-en un nouveau ci-dessous.",
     resend: "Envoyer un nouveau code",
     resent: "Nouveau code envoyé. Utilisez le dernier e-mail.",
-    recentCode: "Nous vous avons envoyé un code il y a moins d’une minute. Utilisez celui-ci.",
+    recentCode: "Nous vous avons envoyé un code il y a moins d’une minute. Utilisez le dernier e-mail.",
     changeEmail: "Utiliser une autre adresse",
     privacyNote: "En continuant, vous acceptez notre traitement de vos données.",
     privacyLink: "Politique de confidentialité",

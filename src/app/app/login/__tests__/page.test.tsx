@@ -303,6 +303,9 @@ describe("/app/login — a code already on its way", () => {
     await user.click(screen.getByRole("button", { name: /Email me a code/i }));
 
     expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
+    // Says no new email is coming, and counts down what Supabase says is left.
+    expect(screen.getByRole("status")).toHaveTextContent(/less than a minute ago/);
+    expect(screen.getByText(/Send a new code in 0:4[12]/)).toBeInTheDocument();
   });
 
   it("goes on to confirm when the sign-up is sent again within a minute", async () => {
