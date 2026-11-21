@@ -35,20 +35,24 @@ Supabase → **Authentication → Emails → Templates**:
 | Confirm signup | `{{ .Token }} is your UnReceipt code` | `confirm-signup.html` |
 | Magic Link | `{{ .Token }} is your UnReceipt sign-in code` | `magic-link.html` |
 
-`{{ .Token }}` (the 6-digit code) and `{{ .ConfirmationURL }}` (the link) are
-filled in by Supabase. The login page asks for the code first, so sign-up and
-"sign in with a code" finish in the same tab. The code works on any device.
-The link is only a fallback for the browser that asked for the email: the
-browser client signs in with PKCE, so the link's sign-in finishes only where
-the PKCE verifier was stored. Opened on another device or in another browser,
-a sign-up link still confirms the address but signs nobody in there, and a
-sign-in link fails. The emails say so. Keep **Authentication → Providers → Email
+`{{ .Token }}` (the 6-digit code) is filled in by Supabase. The emails carry
+**the code only, no link** (since 2026-11-20). Never add `{{ .ConfirmationURL }}`
+back: the link and the code are the same one-time token, and company mail
+filters (Microsoft Defender Safe Links and the like) open every link in an
+email seconds after it arrives. That spends the token, so the code the person
+then types answers "Token has expired or is invalid". The auth logs showed it
+on 2026-11-19: each code to a work address was used up by a `GET /verify`
+from Microsoft's network 20–40 s after sending, before the tester typed it.
+If a one-click link is ever wanted again, it must open a page of ours that
+signs in only when the person presses a button (`{{ .TokenHash }}` +
+`verifyOtp({ token_hash, type })` on POST), never a link that signs in on GET.
+
+The code works on any device and in the iPhone app. Keep **Authentication → Providers → Email
 → Email OTP Length** at 6; `CODE_LENGTH` in `src/app/app/login/_auth-lib.ts`
 must match it.
 
 Re-paste both templates whenever these files change — until then Supabase
-keeps sending the old link-only emails, and new sign-ups can only confirm
-with the link.
+keeps sending the old emails.
 
 ## 3. Check
 

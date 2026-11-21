@@ -26,24 +26,34 @@ import { useAuth } from "../auth/AuthProvider";
 import { Button } from "../components/Button";
 import { Text } from "../components/Text";
 import { CODE_LENGTH } from "../config";
+import { RESEND_AFTER_S } from "../lib/code-send";
 import { fill, s } from "../i18n";
 import { durations, fonts, radius, space, makeStyles, useColors } from "../theme";
-
-const RESEND_AFTER_S = 30;
 
 export default function Verify() {
   const styles = useStyles();
   const colors = useColors();
-  const { email = "" } = useLocalSearchParams<{ email: string }>();
+  const params = useLocalSearchParams<{ email: string; wait?: string; recent?: string }>();
+  const email = params.email ?? "";
+  // Seconds until Supabase sends another code (the sign-in screen passes
+  // what is left when a code went out under a minute ago).
+  const firstWait = Math.min(Math.max(Number(params.wait) || RESEND_AFTER_S, 0), RESEND_AFTER_S);
   const { verifyCode, requestCode } = useAuth();
   const [code, setCode] = useState("");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [wait, setWait] = useState(RESEND_AFTER_S);
+  const [note, setNote] = useState<string | null>(params.recent === "1" ? s.signIn.recentCode : null);
+  const [wait, setWait] = useState(firstWait);
   const input = useRef<TextInputInstance>(null);
   const shake = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
+
+  // Arriving on a code sent under a minute ago: say no new email is coming.
+  useEffect(() => {
+    if (params.recent === "1") AccessibilityInfo.announceForAccessibility(s.signIn.recentCode);
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -88,12 +98,18 @@ export default function Verify() {
   const resend = async () => {
     setNote(null);
     setError(null);
-    const result = await requestCode(email);
+    const { result, waitS } = await requestCode(email);
     if (result === "sent") {
       setNote(s.signIn.resent);
       AccessibilityInfo.announceForAccessibility(s.signIn.resent);
-      setWait(RESEND_AFTER_S);
+      setWait(waitS);
       setCode("");
+      input.current?.focus();
+    } else if (result === "alreadySent") {
+      // The last code still works; count down what Supabase says is left.
+      setNote(s.signIn.recentCode);
+      AccessibilityInfo.announceForAccessibility(s.signIn.recentCode);
+      setWait(waitS);
       input.current?.focus();
     } else {
       const message = result === "rateLimited" ? s.signIn.rateLimited : s.signIn.sendFailed;

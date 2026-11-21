@@ -6,21 +6,19 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 import { cn } from "@/lib/utils";
 import {
   CODE_LENGTH,
+  RECENT_CODE_NOTE,
   RESEND_COOLDOWN_S,
   callAuth,
   finishSignIn,
   inboxFor,
   isRateLimited,
   isUnreachable,
+  recentCodeWait,
   shake,
   UNREACHABLE,
   type AuthResult,
 } from "./_auth-lib";
 import { ENTER, Notice, SecondaryButton, TextLink, useCountdown } from "./_auth-ui";
-
-// How often to look for a session created by the email's link in another
-// tab (the callback route sets the same cookies this tab reads).
-const LINK_POLL_MS = 3_000;
 
 type CodeStepProps = {
   email: string;
@@ -29,10 +27,13 @@ type CodeStepProps = {
   resend: () => Promise<AuthResult>;
   onChangeEmail: () => void;
   onSignInInstead?: () => void;
-  /** Inside the store apps: the email's button would sign in the browser, not the app. */
-  inStoreApp?: boolean;
   /** Where to go once signed in (already checked by safeNext()). */
   next?: string;
+  /**
+   * Seconds left before Supabase sends another code, when the code step
+   * opens on a code sent under a minute ago (recentCodeWait()).
+   */
+  recentWait?: number;
 };
 
 export function CodeStep({
@@ -41,17 +42,19 @@ export function CodeStep({
   resend,
   onChangeEmail,
   onSignInInstead,
-  inStoreApp = false,
   next = "/app",
+  recentWait,
 }: CodeStepProps) {
   const [code, setCode] = useState("");
   const [focused, setFocused] = useState(true);
   const [status, setStatus] = useState<"idle" | "checking" | "done">("idle");
   const [error, setError] = useState("");
-  const [resendNote, setResendNote] = useState("");
+  const [resendNote, setResendNote] = useState(recentWait ? RECENT_CODE_NOTE : "");
   const [sendCount, setSendCount] = useState(0);
+  // Supabase's per-address interval, or what is left of it.
+  const [cooldown, setCooldown] = useState(recentWait ?? RESEND_COOLDOWN_S);
   const [refocus, setRefocus] = useState(0);
-  const secondsLeft = useCountdown(RESEND_COOLDOWN_S, sendCount);
+  const secondsLeft = useCountdown(cooldown, sendCount);
   const inputRef = useRef<HTMLInputElement>(null);
   const cellsRef = useRef<HTMLDivElement>(null);
   const doneRef = useRef(false);
@@ -94,29 +97,19 @@ export function CodeStep({
     if (refocus > 0) inputRef.current?.focus();
   }, [refocus]);
 
-  // The person may tap the link in the email instead — often in another tab.
-  // When that tab finishes signing in, follow it here too.
-  useEffect(() => {
-    const check = async () => {
-      if (doneRef.current || document.visibilityState !== "visible") return;
-      const { data } = await getSupabaseClient().auth.getSession();
-      if (data.session?.user?.email?.toLowerCase() === email.toLowerCase()) complete();
-    };
-    const t = setInterval(check, LINK_POLL_MS);
-    document.addEventListener("visibilitychange", check);
-    return () => {
-      clearInterval(t);
-      document.removeEventListener("visibilitychange", check);
-    };
-    // complete() only reads refs, stable setters and `next` (fixed per page),
-    // so re-subscribing on each render would only restart the poll.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email]);
-
   const handleResend = async () => {
     setResendNote("");
     setError("");
     const { error: resendError } = await resend();
+    const recent = recentCodeWait(resendError);
+    if (recent !== null) {
+      // Another tab or device asked for one: count down what is left.
+      setCooldown(recent);
+      setSendCount((n) => n + 1);
+      setResendNote(RECENT_CODE_NOTE);
+      inputRef.current?.focus();
+      return;
+    }
     if (resendError) {
       setResendNote(
         isRateLimited(resendError)
@@ -128,6 +121,7 @@ export function CodeStep({
       return;
     }
     setCode("");
+    setCooldown(RESEND_COOLDOWN_S);
     setSendCount((n) => n + 1);
     setResendNote("New code sent. Use the latest email.");
     inputRef.current?.focus();
@@ -178,7 +172,14 @@ export function CodeStep({
           aria-busy={status === "checking"}
           autoFocus
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "auth-code-hint auth-code-error" : "auth-code-hint"}
+          aria-describedby={[
+            "auth-code-hint",
+            error ? "auth-code-error" : "",
+            // The note is read with the field: focus moves here right after it appears.
+            resendNote ? "auth-code-note" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           // Covers the cells so a tap anywhere focuses it; visually hidden.
           className="absolute inset-0 w-full h-full opacity-0 text-[16px] cursor-text"
         />
@@ -243,9 +244,6 @@ export function CodeStep({
       ) : null}
 
       <p className="text-[13px] leading-[1.5] text-[var(--ink-muted)] mt-5">
-        {inStoreApp
-          ? "Type the code here: the button in the email signs you in to your browser, not to the app. "
-          : "The email also has a button: it works in this browser. On another device, type the code. "}
         Not there after a minute? Check your spam folder.
       </p>
 
@@ -255,11 +253,10 @@ export function CodeStep({
         </TextLink>
         <TextLink onClick={onChangeEmail}>Change email</TextLink>
       </div>
-      {resendNote ? (
-        <p className="text-[13px] text-[var(--ink-muted)]" role="status">
-          {resendNote}
-        </p>
-      ) : null}
+      {/* Always mounted so screen readers hear the change. */}
+      <p id="auth-code-note" className="text-[13px] text-[var(--ink-muted)]" role="status">
+        {resendNote}
+      </p>
 
       {purpose === "signup" && onSignInInstead ? (
         <div className="flex items-center gap-1 text-[13px] text-[var(--ink-muted)] mt-4 pt-2 border-t border-[var(--hairline)]">

@@ -29,6 +29,7 @@ export const sv: Strings = {
     expiredCode: "Koden har gått ut eller redan använts. Be om en ny här nedanför.",
     resend: "Skicka en ny kod",
     resent: "Ny kod skickad. Använd det senaste mejlet.",
+    recentCode: "Vi skickade en kod för mindre än en minut sedan. Använd det senaste mejlet.",
     changeEmail: "Använd en annan mejladress",
     privacyNote: "Genom att fortsätta godkänner du hur vi hanterar dina uppgifter.",
     privacyLink: "Integritetspolicy",

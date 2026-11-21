@@ -81,6 +81,24 @@ export function isRateLimited(error: AuthError): boolean {
   );
 }
 
+/**
+ * When Supabase refuses a code because one went to this same address less
+ * than a minute ago, the seconds until another may be sent; otherwise null.
+ * That code is valid, so the person goes on to type it instead of being
+ * stopped on the email form. The project-wide hourly limit ("email rate
+ * limit exceeded") sent nothing and returns null. The iPhone app has the
+ * same rule in mobile/src/lib/code-send.ts.
+ */
+/** Shown on the code step when the last code is still on its way (iPhone app: signIn.recentCode). */
+export const RECENT_CODE_NOTE = "We sent you a code less than a minute ago. Use the latest email.";
+
+export function recentCodeWait(error: { message?: string } | null | undefined): number | null {
+  const match = /only request this after (\d+) seconds?/i.exec(error?.message ?? "");
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, RESEND_COOLDOWN_S) : null;
+}
+
 // `next` was already checked by safeNext() (src/app/auth/callback/safe-next.ts)
 // on the server; /auth/callback checks it again. Slashes stay readable.
 export function callbackUrl(next: string = "/app"): string {

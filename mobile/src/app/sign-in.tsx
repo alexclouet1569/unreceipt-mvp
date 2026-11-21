@@ -1,7 +1,7 @@
 // Step 1 of 2: the email address. One field, one button, the keyboard up at
 // once. The code arrives by email (step 2: verify.tsx).
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AccessibilityInfo, KeyboardAvoidingView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -30,8 +30,12 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
+  // The keyboard's Go and the button can both fire before `busy` renders:
+  // one request at a time, or the second answers "please wait".
+  const sending = useRef(false);
 
   const submit = async () => {
+    if (sending.current) return;
     const value = email.trim().toLowerCase();
     if (!EMAIL.test(value)) {
       setError(s.signIn.invalidEmail);
@@ -55,12 +59,19 @@ export default function SignIn() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
+    sending.current = true;
     setBusy(true);
     setError(null);
-    const result = await requestCode(value);
+    const { result, waitS } = await requestCode(value);
     setBusy(false);
-    if (result === "sent") {
-      router.push({ pathname: "/verify", params: { email: value } });
+    sending.current = false;
+    // alreadySent: a code went to this address under a minute ago (the
+    // person came back to this screen); go and type it.
+    if (result === "sent" || result === "alreadySent") {
+      router.push({
+        pathname: "/verify",
+        params: { email: value, wait: String(waitS), ...(result === "alreadySent" ? { recent: "1" } : {}) },
+      });
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

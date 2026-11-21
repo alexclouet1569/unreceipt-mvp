@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
@@ -272,7 +272,7 @@ describe("/app/login — email code", () => {
     expect(mocks.verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("follows a link confirmed in another tab", async () => {
+  it("never mentions a link: the email carries the code only", async () => {
     mocks.signInWithOtp.mockResolvedValue({ error: null });
     const user = userEvent.setup();
     renderCard();
@@ -281,13 +281,55 @@ describe("/app/login — email code", () => {
     await user.click(screen.getByRole("button", { name: /Email me a code/i }));
     await screen.findByLabelText(/6-digit code/i);
 
-    mocks.getSession.mockResolvedValue({
-      data: { session: { user: { email: "alex@example.se" } } },
+    // Mail filters open links in emails and spend the code (supabase/templates/README.md).
+    expect(screen.queryByText(/button|link/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("/app/login — a code already on its way", () => {
+  // Supabase's refusal when a code went to the same address under a minute ago.
+  const recent = {
+    status: 429,
+    code: "over_email_send_rate_limit",
+    message: "For security purposes, you can only request this after 42 seconds.",
+  };
+
+  it("goes on to the code step instead of stopping on the email form", async () => {
+    mocks.signInWithOtp.mockResolvedValue({ error: recent });
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@example.se");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
+    // Says no new email is coming, and counts down what Supabase says is left.
+    expect(screen.getByRole("status")).toHaveTextContent(/less than a minute ago/);
+    expect(screen.getByText(/Send a new code in 0:4[12]/)).toBeInTheDocument();
+  });
+
+  it("goes on to confirm when the sign-up is sent again within a minute", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: null, user: null }, error: recent });
+    const user = userEvent.setup();
+    renderCard({ initialMode: "signup" });
+    await fillSignUp(user);
+    await user.click(screen.getByRole("button", { name: /Create account/i }));
+
+    expect(await screen.findByRole("heading", { name: /Confirm your email/i })).toBeInTheDocument();
+  });
+
+  it("still stops on the project-wide limit, when nothing was sent", async () => {
+    mocks.signInWithOtp.mockResolvedValue({
+      error: { status: 429, code: "over_email_send_rate_limit", message: "email rate limit exceeded" },
     });
-    await act(async () => {
-      document.dispatchEvent(new Event("visibilitychange"));
-    });
-    await vi.waitFor(() => expect(window.location.assign).toHaveBeenCalledWith("/app"));
+    const user = userEvent.setup();
+    renderCard();
+    await user.click(screen.getByText(/Forgot password\?/i));
+    await user.type(screen.getByLabelText(/Email address/i), "alex@example.se");
+    await user.click(screen.getByRole("button", { name: /Email me a code/i }));
+
+    expect(await screen.findByText(/Wait a minute before asking for another/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/6-digit code/i)).not.toBeInTheDocument();
   });
 });
 
@@ -443,7 +485,7 @@ describe("/app/login — inside the store apps", () => {
     expect(screen.queryByText(/No card needed/)).not.toBeInTheDocument();
   });
 
-  it("asks for the code, because the email's button opens the browser", async () => {
+  it("asks for the code without mentioning an email button", async () => {
     mocks.signInWithOtp.mockResolvedValue({ error: null });
     const user = userEvent.setup();
     renderCard({ inStoreApp: true });
@@ -452,8 +494,8 @@ describe("/app/login — inside the store apps", () => {
     await user.type(screen.getByLabelText(/Email address/i), "alex@gmail.com");
     await user.click(screen.getByRole("button", { name: /Email me a code/i }));
 
-    expect(await screen.findByText(/signs you in to your browser, not to the app/)).toBeInTheDocument();
-    expect(screen.queryByText(/even on another device/)).not.toBeInTheDocument();
+    expect(await screen.findByLabelText(/6-digit code/i)).toBeInTheDocument();
+    expect(screen.queryByText(/button in the email|signs you in to your browser/)).not.toBeInTheDocument();
   });
 });
 
